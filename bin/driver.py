@@ -31,7 +31,8 @@ from optparse import OptionParser
 from constants import IAn2AName, ATOMCHARGE, FROZENS
 
 # INTERNAL
-import sharc.sharc as sharc
+#import sharc.sharc as sharc
+import sharc
 from factory import factory
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout

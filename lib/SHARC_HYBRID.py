@@ -57,9 +57,10 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
         def run_a_child(label,children,n_used_cpu,QMins,QMouts):
             children[label]._step_logic()
+            children[label].QMout.mol = None
             children[label].run()
             children[label].getQMout()
-            children[label].QMout.mol = Mole.pack(children[label].QMout.mol) 
+            if children[label].QMout.mol is not None: children[label].QMout.mol = Mole.pack(children[label].QMout.mol) 
             children[label].clean_savedir( children[label].QMin.save['savedir'], children[label].QMin.requests['retain'], children[label].QMin.save['step'])
             children[label].write_step_file()
             QMins[label] = children[label].QMin
@@ -72,7 +73,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             while True:
                 #  print(ncpu - n_used_cpu.value, n_used_cpu.value)
                 if ncpu - n_used_cpu.value >= children[label].QMin.resources['ncpu']:
-                    logger.print(' Running child '+str(label))
+                    logger.info(' Running child '+str(label))
                     processes.append( Process( target=run_a_child, args=(label,children,n_used_cpu, QMins, QMouts) ) )
                     n_used_cpu.value += children[label].QMin.resources['ncpu'] 
                     processes[-1].start()
@@ -83,7 +84,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         for label, child in children_dict.items():
             children_dict[label].QMin = QMins[label]
             children_dict[label].QMout = QMouts[label]
-            children_dict[label].QMout.mol = Mole.unpack(children_dict[label].QMout.mol)
+            if children_dict[label].QMout.mol is not None: children_dict[label].QMout.mol = Mole.unpack(children_dict[label].QMout.mol)
             children_dict[label].QMout.mol.build()
         return
             

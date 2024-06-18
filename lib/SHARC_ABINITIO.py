@@ -15,12 +15,12 @@ import sympy
 import wf2rho
 from asa_grid import GRIDS
 from constants import ATOMIC_RADII, MK_RADII, IToMult
-from logger import DEBUG, TRACE
+from logger import log, DEBUG, TRACE, ERROR, WARNING 
 from qmin import QMin
 from resp import Resp, multipoles_from_dens_parallel
 from SHARC_INTERFACE import SHARC_INTERFACE
 from sympy.physics.wigner import wigner_3j
-from utils import InDir, convert_list, electronic_state, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile
+from utils import InDir, containsstring, convert_list, electronic_state, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile, density_representation 
 
 all_features = {
     "h",
@@ -480,13 +480,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 os.remove(os.path.join(path, file))
 
     # Start TOMI
-
-    @staticmethod
-    def density_representation(d):
-        s1, s2, spin = d
-        middle = f"---{spin}{'-'*(6 - len(spin))}>"
-        return f"[ {s1.symbol()} {middle} {s2.symbol()} ]"
-
     def get_density_recipes(self):
         requested_densities = self.QMin.requests["density_matrices"]
         readable_densities = self.get_readable_densities()
@@ -503,7 +496,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 break
 
         for d, v in doable_densities.items():
-            v["repr"] = self.density_representation(d)
+            v["repr"] = density_representation(d)
 
         if self.log.level <= TRACE:
             self.log.trace("DOABLE DENSITIES:")
@@ -803,8 +796,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         file = f"{directory}/dets.{s + 1}.{step}"
         nst = np.loadtxt(file, usecols=(0,), max_rows=1, dtype=int)
         nst = int(nst)
-        dets = np.loadtxt(file, usecols=(0,), skiprows=1, dtype=str).tolist()
-        ci = np.loadtxt(file, skiprows=1, usecols=list(range(1, nst + 1)), ndmin=2, dtype=float)
+        dets = np.loadtxt(file, usecols=(0,), skiprows=1, dtype=str, ndmin=1).tolist()
+        CI = np.loadtxt(file, skiprows=1, usecols=[i for i in range(1, nst + 1)], ndmin=2, dtype=float)
         file = f"{directory}/mos.{s + 1}.{step}"
         nao = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(0,), dtype=int)
         nmo = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(1,), dtype=int)
@@ -820,6 +813,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 )
             )
         mos = np.ascontiguousarray(mos)
+        print(dets)
         dets = np.char.replace(dets, old="d", new="7,")
         dets = np.char.replace(dets, old="a", new="5,")
         dets = np.char.replace(dets, old="b", new="1,")
@@ -902,9 +896,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                                 phi_work[is1, :, mo - start] = np.array(
                                     [float(x) for j, x in enumerate(lines[mo].split()) if j >= 2]
                                 )
-                        self.log.info(f" Dyson norm in MO basis = {np.einsum('ijk,ijk->ij', phi_work, phi_work)}")
                         phi_work = np.einsum("am,ijm->ija", MOs1, phi_work)
-                        self.log.info(f" Dyson norm in AO basis = {np.einsum('ijk,kl,ijl->ij', phi_work, sao, phi_work)}")
 
             for s1, s2, spin in dos:
                 phi[(s1, s2, spin)] = phi_work[s1.N - 1, s2.N - 1, :]
@@ -930,7 +922,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                             denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, 1.0 / 2.0, -s2.M / 2.0)
                         if denominator != 0:
                             to_append[(thes1, thes2, thespin)] = (
-                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0) * numerator.evalf() / denominator.evalf() * phi_work
+                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0) * float(numerator.evalf()) / float(denominator.evalf()) * phi_work
                             )
                         break
                 for do, phi_work in to_append.items():

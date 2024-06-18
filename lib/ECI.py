@@ -14,6 +14,7 @@ from logger import logging, CustomFormatter
 from pyscf import gto
 from pyscf import df as density_fitting
 from pyscf import lib as pyscflib
+from utils import density_representation
 
 merge_moles = gto.mole.conc_mol
 
@@ -104,13 +105,17 @@ class excitonic_slater_determinant:
             if dZf == 0 and dZg == 0:
                 comparison = { 'relationship' : (0,2), 'excitons' : diffs }
             elif dZf == 1 and dZg == -1:
+                #  skip = all( [ state in site.aufbau_states and state.Z == site.Z for site, state in self.site_states.items() ] ) 
+                #  if skip: return None # This excludes the SCT couplings with the ref.-charge aufbau ESD 
                 comparison = { 'relationship' : (1,0), 'donor' : f, 'acceptor' : g }
             elif dZf == -1 and dZg == 1:
+                #  skip = all( [ state in site.aufbau_states and state.Z == site.Z for site, state in self.site_states.items() ] ) 
+                #  if skip: return None # This excludes the SCT couplings with the ref.-charge aufbau ESD 
                 comparison = { 'relationship' : (1,0), 'donor' : g, 'acceptor' : f }
             elif dZf == -2 and dZg == 2:
-                pass # this requires double-DO, would go to relationship (2,0)
+                return None # this requires double-DO, would go to relationship (2,0)
             elif dZf == 2 and dZg == -2:
-                pass # this requires double-DO, would go to relationship (2,0) 
+                return None # this requires double-DO, would go to relationship (2,0) 
             else: return None
         elif ndiffs == 3:
             f, g, h = diffs
@@ -132,17 +137,17 @@ class excitonic_slater_determinant:
             elif dZf == 0 and dZg == -1 and dZh == 1:
                 comparison = { 'relationship' : (1,1), 'donor' : h, 'acceptor' : g, 'exciton' : f }
             elif dZf == 2 and dZg == -1 and dZh == -1:
-                pass # This is (2,0) but with one double-donor and two single-acceptors, e.g. < S0^{0}, S1^{0} S0^{0} | H | S0^{2+} D0^{1-} D3^{1-} > = J - K between double-DO on fragment 1 and a product of DOs on fragments 2 and 3.
+                return None # This is (2,0) but with one double-donor and two single-acceptors, e.g. < S0^{0}, S1^{0} S0^{0} | H | S0^{2+} D0^{1-} D3^{1-} > = J - K between double-DO on fragment 1 and a product of DOs on fragments 2 and 3.
             elif dZf == -2 and dZg == 1 and dZh == 1:
-                pass # Similar to upper 
+                return None # Similar to upper 
             elif dZf == -1 and dZg == 2 and dZh == -1:
-                pass # Similar to upper 
+                return None # Similar to upper 
             elif dZf == 1 and dZg == -2 and dZh == 1:
-                pass # Similar to upper 
+                return None # Similar to upper 
             elif dZf == -1 and dZg == -1 and dZh == 2:
-                pass # Similar to upper 
+                return None # Similar to upper 
             elif dZf == 1 and dZg == 1 and dZh == -2:
-                pass # Similar to upper 
+                return None # Similar to upper 
             else: return None
         #elif ndiffs == 4:
         #    f, g, h, m = diffs
@@ -259,7 +264,9 @@ class ECI:
         self.J = d.copy() 
         self.K = d.copy()
         self.S = d.copy()
-        self.h2 = d.copy()
+        self.V1 = d.copy()
+        self.J1 = d.copy()
+        self.K1 = d.copy()
         self.P = {}
 
         # Output
@@ -298,14 +305,18 @@ class ECI:
         t2 = time.time()
         self.log.print(' Time elapsed in constructing the ECI-CT basis (sec) = '+str(round(t2-t1,3)))
         self.allocate()
-        #  t1 = time.time()
-        #  self.calculate_Smat()
-        #  t2 = time.time()
-        #  self.log.print(' Time elapsed in calculating S-mat (sec) = '+str(round(t2-t1,3)))
+        t1 = time.time()
+        self.calculate_Pmats()
+        self.calculate_V1mat()
+        self.calculate_J1mat()
+        self.calculate_K1mat()
+        self.calculate_Smat()
+        t2 = time.time()
+        self.log.print(' Time elapsed in calculating P- and V1-matrices (sec) = '+str(round(t2-t1,3)))
         t1 = time.time()
         self.calculate_Hmat()                           # Construct entire ECI-CT Hamiltonian for all multiplicities
         t2 = time.time()
-        self.log.print(' Time elapsed in calculating H-mat, including h2-mat (sec) = '+str(round(t2-t1,3)))
+        self.log.print(' Time elapsed in calculating H-mat (sec) = '+str(round(t2-t1,3)))
         self.calculate_eigenstates()                     # Diagonalize Hamiltonian matrix for each multiplicity
         self.calculate_properties()                     # Calculate all properties requested by master
         self.print_states()
@@ -324,6 +335,15 @@ class ECI:
         # Sets num of CPUs for all libraries used by numpy
         for variable in ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "BLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"]: 
             os.environ[variable] = str(job.ncpu)
+
+        for site in sites:
+            aufbau_states = []
+            for c, states in site.states.items():
+                for s in states:
+                    if s in site.aufbau_states:
+                        aufbau_states.append(s)
+            site.aufbau_states = aufbau_states.copy()
+
 
 
         # Transforms the entries in eci_level and ...
@@ -396,7 +416,7 @@ class ECI:
                 self.log.print('       Charge: '+str(Z))
                 for (s1,s2,spin), rho in densities.items():
                     N = np.einsum("ij,ij->", S, rho)
-                    self.log.print('            '+s1.symbol(Z=False) + " ---" + spin + "---> " + s2.symbol(Z=False) + " :" f"{N: 12.8f}", extra={"simple": True})
+                    self.log.print('            '+density_representation((s1,s2,spin))+f" : {N: 12.8f}")
             if len(f.phi) > 0:
                 self.log.print('    Dyson squared norms:')
                 for (Z1,Z2), DOs in f.phi.items():
@@ -419,13 +439,14 @@ class ECI:
                                     for s22 in states2:
                                         for sigma in ['a', 'b']:
                                             for tau in ['a', 'b']:
-                                                if (s1,s21,sigma) in f.phi[(Z1,Z2)] and (s1,s22,tau) in f.phi[(Z1,Z2)] and (s22,s21,sigma+tau) in f.rho[Z2]:
+                                                if (s1,s21,sigma) in f.phi[(Z1,Z2)] and (s1,s22,tau) in f.phi[(Z1,Z2)] and (s22,s21,tau+sigma) in f.rho[Z2]:
                                                     phi1 = f.phi[(Z1,Z2)][(s1,s21,sigma)]
                                                     phi2 = f.phi[(Z1,Z2)][(s1,s22,tau)]
-                                                    rho = f.rho[Z2][(s22,s21,sigma+tau)]
-                                                    N -= np.einsum("i,ij,jk,kl,l->", phi1, S, rho, S, phi2, optimize=True )
+                                                    rho = f.rho[Z2][(s22,s21,tau+sigma)]
+                                                    N += np.einsum("i,ij,jk,kl,l->", phi1, S, rho, S, phi2, optimize=True )
                         self.log.print('      State: '+s1.symbol()+', Squared subnorm = '+str(N), extra={"simple": True})
                         s1.C['subnorm'] = math.sqrt(N)
+        
         self.log.print('--------------------------------------------------------------------------------------')
 
         return
@@ -437,7 +458,7 @@ class ECI:
         self.log.print('--------------------------CONSTRUCTION OF THE ECI BASIS-------------------------------')
         allESDs = self.get_aufbaus()
         allESDs = self.make_excitations( allESDs )
-        allESDs = self.overlap_criterion( allESDs )
+        #  allESDs = self.overlap_criterion( allESDs )
         for m in self.job.multiplicities:
             ESDs, ECSFs, U = self.spin_adapt( m, allESDs )
             self.ECIbasis[m] = excitonic_basis( ESDs, ECSFs, U )
@@ -453,6 +474,7 @@ class ECI:
         nf = len(sites)
         aufbaus = []
         aufbaustates = [ site.aufbau_states for site in sites ]
+        #  aufbaustates = [ [ s for s in site.states.values() if s in site.aufbau_states ] for site in sites ]
         aufbaus = list(itertools.product(*aufbaustates)) 
         ESDs = [ excitonic_slater_determinant(sites=sites, site_states=list(aufbau)) for aufbau in aufbaus ]
     
@@ -676,7 +698,9 @@ class ECI:
             self.J[m] = np.zeros((nESD,nESD))
             self.K[m] = np.zeros((nESD,nESD))
             self.S[m] = np.zeros((nESD,nESD))
-            self.h2[m] = np.zeros((nESD,nESD))
+            self.V1[m] = np.zeros((nESD,nESD))
+            self.J1[m] = np.zeros((nESD,nESD))
+            self.K1[m] = np.zeros((nESD,nESD))
         return
     #----END of ECI.allocate------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
@@ -686,6 +710,17 @@ class ECI:
         for g in nucs:
             for a in range(g.mol.natm):
                 Z, R = g.mol.atom_charge(a) - g.Q[a], g.mol.atom_coord(a)
+                mol.set_rinv_orig(R)
+                F += Z*mol.intor('int1e_rinv')
+        return F
+    #----END of ECI.calculate_Fmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
+
+    #----START of ECI.calculate_Fmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
+    def calculate_Fmat_noAPCs( self, nucs, mol ):
+        F = np.zeros((mol.nao, mol.nao))
+        for g in nucs:
+            for a in range(g.mol.natm):
+                Z, R = g.mol.atom_charge(a), g.mol.atom_coord(a)
                 mol.set_rinv_orig(R)
                 F += Z*mol.intor('int1e_rinv')
         return F
@@ -716,6 +751,8 @@ class ECI:
 
     #----START of ECI.calculate_Hmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
     def calculate_Hmat(self):
+        self.log.print('')
+        self.log.print('--------------------------CONSTRUCTION OF THE ECI HAMILTONIAN-------------------------------')
         job = self.job
         ECIbasis = self.ECIbasis
         sites = self.sites
@@ -731,35 +768,58 @@ class ECI:
         integrals  = integrals.get( 'ECI_V', None )
         if integrals != None:
             self.log.print(' Calculating ECI V-integrals...')
-            for (f,nucs), densities__locs in integrals.items():
-                self.log.print('    Site: '+f.label+', Nuclei: '+', '.join([nuc.label for nuc in nucs])+' (# = '+str(len(densities__locs))+')')
-                Fmat = self.calculate_Fmat( nucs, f.mol )
-                rhos = np.array([ f.rho[d[0].Z][d] for d in densities__locs.keys() ])
-                locs = densities__locs.values() 
-                values = np.einsum( 'ij,nij->n', Fmat, rhos, optimize=['einsum_path', (0,1)] ) 
-                for i, individual_locs in enumerate(locs):
-                    for (mult,row,column) in individual_locs:
-                        J[mult][row,column] -= values[i]
+            for f, nucs__densities__locs in integrals.items():
+                for nucs, densities__locs in nucs__densities__locs.items():
+                    self.log.print('    Site: '+f.label+', Nuclei: '+', '.join([nuc.label for nuc in nucs])+' (# = '+str(len(densities__locs))+')')
+                    t1 = time.time()
+                    Fmat = self.calculate_Fmat( nucs, f.mol )
+                    rhos = np.array([ f.rho[d[0].Z][d] for d in densities__locs.keys() ])
+                    locs = densities__locs.values() 
+                    values = np.einsum( 'ij,nij->n', Fmat, rhos, optimize=['einsum_path', (0,1)] ) 
+                    t2 = time.time()
+                    self.log.print('       Took '+str(round(t2-t1,3))+' sec.')
+                    for i, individual_locs in enumerate(locs):
+                        for (mult,row,column) in individual_locs:
+                            J[mult][row,column] -= values[i]
+            del rhos
+            del Fmat
+            del locs
+            del values
 
         integrals, prefactors  = ECI_integrals
         integrals  = integrals.get( 'ECI_J', None )
         if integrals != None:
             self.log.print(' Calculating ECI J-integrals...')
-            for (f1,f2), densities1_densities2__locs in integrals.items():
-                self.log.print('    Site 1: '+f1.label+', Site 2: '+f2.label+' (# = '+str(len(densities1_densities2__locs))+')')
-                locs = densities1_densities2__locs.values()
-                rhos1 = np.array([ f1.rho[d1[0].Z][d1] for (d1,d2) in densities1_densities2__locs.keys() ]) 
-                rhos2 = np.array([ f2.rho[d2[0].Z][d2] for (d1,d2) in densities1_densities2__locs.keys() ]) 
-                if job.ri:
+            for (f1,f2), densities1__densities2__locs in integrals.items():
+                self.log.print('    Site 1: '+f1.label+', Site 2: '+f2.label+' (# = '+str(len(densities1__densities2__locs.values()))+')')
+                if not job.ri:
+                    t1 = time.time()
+                    G = self.calculate_Gtensor( [f1.mol, f1.mol, f2.mol, f2.mol] ) 
+                    t2 = time.time()
+                    self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
+                    rhos1 = np.array([ f1.rho[d1[0].Z][d1] for d1 in densities1__densities2__locs.keys() ]) 
+                    t1 = time.time()
+                    G1 = np.einsum( 'mij,ijkl->mkl', rhos1, G, optimize=['einsum_path', (0, 1)] )
+                    t2 = time.time()
+                    self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
+                    t1 = time.time()
+                    for i1, densities2__locs in enumerate(densities1__densities2__locs.values()):
+                        rhos2 = np.array([ f2.rho[d2[0].Z][d2] for d2 in densities2__locs.keys() ]) 
+                        loc_lists = densities2__locs.values()
+                        values = np.einsum( 'kl,nkl->n', G1[i1,:,:], rhos2, optimize=['einsum_path', (0, 1)] )
+                        for i, locs in enumerate(loc_lists):
+                            for (mult,row,column) in locs:
+                                J[mult][row,column] += values[i]
+                    t2 = time.time()
+                    self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
+                elif job.ri:
                     auxmol = merge_moles( f1.mol, f2.mol )
                     auxmol.build(basis=job.auxbasis)
-
                     t1 = time.time()
                     P = auxmol.intor('int2c2e')
                     P = np.linalg.inv(P)
                     t2 = time.time()
                     self.log.print('       Calculation of P-matrix of dim. '+str(P.shape)+' took '+str(round(t2-t1,3))+' sec.')
-
                     t1 = time.time()
                     calcmol = merge_moles( f1.mol, auxmol )
                     L1 = calcmol.intor('int3c2e', shls_slice=(0, f1.mol.nbas, 0, f1.mol.nbas, f1.mol.nbas, calcmol.nbas))
@@ -767,140 +827,319 @@ class ECI:
                     L2 = calcmol.intor('int3c2e', shls_slice=(0, f2.mol.nbas, 0, f2.mol.nbas, f2.mol.nbas, calcmol.nbas))
                     t2 = time.time()
                     self.log.print('       Calculation of L-tensors of dims. '+str(L1.shape)+' and '+str(L2.shape)+' took '+str(round(t2-t1,3))+' sec.')
-
+                    rhos1 = np.array([ f1.rho[d1[0].Z][d1] for d1 in densities1__densities2__locs.keys() ]) 
                     t1 = time.time()
-                    values = np.einsum('nij,ijp,pq,klq,nkl->n', rhos1, L1, P, L2, rhos2, optimize=True )
+                    LP1 = np.einsum('mij,ijp,pq->mq', rhos1, L1, P, optimize=['einsum_path', (0,1), (0,1)] )
                     t2 = time.time()
-                    self.log.print('       Contraction took '+str(round(t2-t1,3))+' sec.')
-                else:
-                    G = self.calculate_Gtensor( [f1.mol, f1.mol, f2.mol, f2.mol] ) 
-                    values = np.einsum( 'nij,ijkl,nkl->n', rhos1, G, rhos2, optimize=['einsum_path', (0, 1), (0, 1)] )
-                for i, individual_locs in enumerate(locs):
-                    for (mult,row,column) in individual_locs:
-                        J[mult][row,column] += values[i]
+                    self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
+                    t1 = time.time()
+                    for i1, densities2__locs in enumerate(densities1__densities2__locs.values()):
+                        rhos2 = np.array([ f2.rho[d2[0].Z][d2] for d2 in densities2__locs.keys() ]) 
+                        loc_lists = densities2__locs.values()
+                        values = np.einsum( 'q,klq,nkl->n', LP1[i1,:], L2, rhos2, optimize=['einsum_path', (0,1), (0,1)] )
+                        for i, locs in enumerate(loc_lists):
+                            for (mult,row,column) in locs:
+                                J[mult][row,column] += values[i]
+                    t2 = time.time()
+                    self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
+            del G
+            del G1
+            del rhos2
+            del loc_lists
+            del values
+
+
+                #  locs = densities1_densities2__locs.values()
+                #  rhos1 = np.array([ f1.rho[d1[0].Z][d1] for (d1,d2) in densities1_densities2__locs.keys() ]) 
+                #  rhos2 = np.array([ f2.rho[d2[0].Z][d2] for (d1,d2) in densities1_densities2__locs.keys() ]) 
+                #  if job.ri:
+                    #  auxmol = merge_moles( f1.mol, f2.mol )
+                    #  auxmol.build(basis=job.auxbasis)
+
+                    #  t1 = time.time()
+                    #  P = auxmol.intor('int2c2e')
+                    #  P = np.linalg.inv(P)
+                    #  t2 = time.time()
+                    #  self.log.print('       Calculation of P-matrix of dim. '+str(P.shape)+' took '+str(round(t2-t1,3))+' sec.')
+
+                    #  t1 = time.time()
+                    #  calcmol = merge_moles( f1.mol, auxmol )
+                    #  L1 = calcmol.intor('int3c2e', shls_slice=(0, f1.mol.nbas, 0, f1.mol.nbas, f1.mol.nbas, calcmol.nbas))
+                    #  calcmol = merge_moles( f2.mol, auxmol )
+                    #  L2 = calcmol.intor('int3c2e', shls_slice=(0, f2.mol.nbas, 0, f2.mol.nbas, f2.mol.nbas, calcmol.nbas))
+                    #  t2 = time.time()
+                    #  self.log.print('       Calculation of L-tensors of dims. '+str(L1.shape)+' and '+str(L2.shape)+' took '+str(round(t2-t1,3))+' sec.')
+
+                    #  t1 = time.time()
+                    #  values = np.einsum('nij,ijp,pq,klq,nkl->n', rhos1, L1, P, L2, rhos2, optimize=True )
+                    #  t2 = time.time()
+                    #  self.log.print('       Contraction took '+str(round(t2-t1,3))+' sec.')
+                #  for i, individual_locs in enumerate(locs):
+                    #  for (mult,row,column) in individual_locs:
+                        #  J[mult][row,column] += values[i]
             
         integrals, prefactors  = ECI_integrals
         integrals  = integrals.get( 'ECI_K', None )
         if integrals != None:
             self.log.print(' Calculating ECI K-integrals...')
-            for (f1,f2), densities1_densities2__locs in integrals.items():
-                self.log.print('    Site 1: '+f1.label+', Site 2: '+f2.label+' (# = '+str(len(densities1_densities2__locs))+')')
-                locs = densities1_densities2__locs.values()
-                rhos1 = np.array([ f1.rho[d1[0].Z][d1] for (d1,d2) in densities1_densities2__locs.keys() ]) 
-                rhos2 = np.array([ f2.rho[d2[0].Z][d2] for (d1,d2) in densities1_densities2__locs.keys() ]) 
-                if job.Kscreen:
-                    auxmol = merge_moles( f1.mol, f2.mol )
-                    S = np.abs(auxmol.intor('int1e_ovlp')[:f1.mol.nao,f1.mol.nao:])
-
-                    slices_1 = f1.mol.aoslice_by_atom()
-                    aos_to_atoms_1 = {}
-                    for i in range(f1.mol.natm):
-                        for j in range(slices_1[i][2],slices_1[i][3]):
-                            aos_to_atoms_1[j] = i
-                    slices_2 = f2.mol.aoslice_by_atom()
-                    aos_to_atoms_2 = {}
-                    for i in range(f2.mol.natm):
-                        for j in range(slices_2[i][2],slices_2[i][3]):
-                            aos_to_atoms_2[j] = i
-
-                    atom_pairs = set()
-                    rows, cols = np.nonzero(S >= 1e-4)
-                    for r, c in zip(rows, cols):
-                        atom_pairs.add((aos_to_atoms_1[r],aos_to_atoms_2[c]))
-                    atom_pairs = list(atom_pairs)
-                    self.log.print('       Found '+str(len(atom_pairs))+' overlapping atom pairs.')
-
-                    if len(atom_pairs) > 0:
-                        #  auxmol.build(basis=job.auxbasis)
-                        t1 = time.time()
-                        values = np.zeros(rhos1.shape[0])
-                        maxGs = []
-                        for p in atom_pairs:
-                            sh_istart, sh_iend, ao_istart, ao_iend = slices_1[p[0]]
-                            sh_lstart, sh_lend, ao_lstart, ao_lend = slices_2[p[1]]
-                            G = auxmol.intor('int2e',shls_slice=(sh_istart,sh_iend,sh_lstart+f1.mol.nbas,sh_lend+f1.mol.nbas,sh_istart,sh_iend,sh_lstart+f1.mol.nbas,sh_lend+f1.mol.nbas)) 
-                            maxGs.append(np.amax(np.abs(G)))
-                            values += np.einsum('nij,iljk,nkl->n',rhos1[:,ao_istart:ao_iend,ao_istart:ao_iend], G, rhos2[:,ao_lstart:ao_lend,ao_lstart:ao_lend], optimize=['einsum_path', (0,1), (0,1)])
-                        t2 = time.time()
-                        self.log.print('       Diagonal contractions took '+str(round(t2-t1,3))+' sec.')
-                        t1 = time.time()
-                        max_prods = np.sqrt(np.abs(np.outer(maxGs, maxGs)))
-                        np.fill_diagonal(max_prods,-1.)
-                        pairs1, pairs2 = np.nonzero(max_prods >= 1e-4)
-                        self.log.print('       Will do '+str(len(pairs1))+' off-diagonal contractions.')
-                        for p1, p2 in zip(pairs1,pairs2):
-                            ai, al = atom_pairs[p1]
-                            aj, ak = atom_pairs[p2]
-                            sh_istart, sh_iend, ao_istart, ao_iend = slices_1[ai]
-                            sh_jstart, sh_jend, ao_jstart, ao_jend = slices_1[aj]
-                            sh_kstart, sh_kend, ao_kstart, ao_kend = slices_2[ak]
-                            sh_lstart, sh_lend, ao_lstart, ao_lend = slices_2[al]
-                            slices = (sh_istart,sh_iend,
-                                      sh_lstart + f1.mol.nbas,sh_lend + f1.mol.nbas,
-                                      sh_jstart, sh_jend,
-                                      sh_kstart + f1.mol.nbas, sh_kend + f1.mol.nbas)
-                            G = auxmol.intor('int2e',shls_slice=slices) 
-                            values += np.einsum('nij,iljk,nkl->n',rhos1[:,ao_istart:ao_iend,ao_jstart:ao_jend], G, rhos2[:,ao_kstart:ao_kend,ao_lstart:ao_lend], optimize=['einsum_path', (0,1), (0,1)])
-                        t2 = time.time()
-                        self.log.print('       Off-diagonal contractions took '+str(round(t2-t1,3))+' sec.')
-                else:
+            for (f1,f2), densities1__densities2__locs in integrals.items():
+                self.log.print('    Site 1: '+f1.label+', Site 2: '+f2.label+' (# = '+str(len(densities1__densities2__locs.values()))+')')
+                if not job.Kscreen:
+                    t1 = time.time()
                     G = self.calculate_Gtensor( [f1.mol, f2.mol, f1.mol, f2.mol] ) 
-                    values = np.einsum( 'nij,iljk,nkl->n', rhos1, G, rhos2, optimize=['einsum_path', (0, 1), (0, 1)] )
-                for i, individual_locs in enumerate(locs):
-                    for (mult,row,column) in individual_locs:
-                        K[mult][row,column] += values[i]
+                    t2 = time.time()
+                    self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
+                    rhos1 = np.array([ f1.rho[d1[0].Z][d1] for d1 in densities1__densities2__locs.keys() ]) 
+                    t1 = time.time()
+                    G1 = np.einsum( 'mij,iljk->mkl', rhos1, G, optimize=['einsum_path', (0, 1)] )
+                    t2 = time.time()
+                    self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
+                    t1 = time.time()
+                    for i1, densities2__locs in enumerate(densities1__densities2__locs.values()):
+                        rhos2 = np.array([ f2.rho[d2[0].Z][d2] for d2 in densities2__locs.keys() ]) 
+                        loc_lists = densities2__locs.values()
+                        values = np.einsum( 'kl,nkl->n', G1[i1,:,:], rhos2, optimize=['einsum_path', (0, 1)] )
+                        for i, locs in enumerate(loc_lists):
+                            for (mult,row,column) in locs:
+                                K[mult][row,column] += values[i]
+                    t2 = time.time()
+                    self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
+                elif job.Kscreen:
+                    pass
+            del G
+            del G1
+            del rhos2
+            del loc_lists
+            del values
+            #  for (f1,f2), densities1_densities2__locs in integrals.items():
+                #  self.log.print('    Site 1: '+f1.label+', Site 2: '+f2.label+' (# = '+str(len(densities1_densities2__locs))+')')
+                #  locs = densities1_densities2__locs.values()
+                #  rhos1 = np.array([ f1.rho[d1[0].Z][d1] for (d1,d2) in densities1_densities2__locs.keys() ]) 
+                #  rhos2 = np.array([ f2.rho[d2[0].Z][d2] for (d1,d2) in densities1_densities2__locs.keys() ]) 
+                #  if job.Kscreen:
+                    #  auxmol = merge_moles( f1.mol, f2.mol )
+                    #  S = np.abs(auxmol.intor('int1e_ovlp')[:f1.mol.nao,f1.mol.nao:])
+
+                    #  slices_1 = f1.mol.aoslice_by_atom()
+                    #  aos_to_atoms_1 = {}
+                    #  for i in range(f1.mol.natm):
+                        #  for j in range(slices_1[i][2],slices_1[i][3]):
+                            #  aos_to_atoms_1[j] = i
+                    #  slices_2 = f2.mol.aoslice_by_atom()
+                    #  aos_to_atoms_2 = {}
+                    #  for i in range(f2.mol.natm):
+                        #  for j in range(slices_2[i][2],slices_2[i][3]):
+                            #  aos_to_atoms_2[j] = i
+
+                    #  atom_pairs = set()
+                    #  rows, cols = np.nonzero(S >= 1e-4)
+                    #  for r, c in zip(rows, cols):
+                        #  atom_pairs.add((aos_to_atoms_1[r],aos_to_atoms_2[c]))
+                    #  atom_pairs = list(atom_pairs)
+                    #  self.log.print('       Found '+str(len(atom_pairs))+' overlapping atom pairs.')
+
+                    #  if len(atom_pairs) > 0:
+                        #  #  auxmol.build(basis=job.auxbasis)
+                        #  t1 = time.time()
+                        #  values = np.zeros(rhos1.shape[0])
+                        #  maxGs = []
+                        #  for p in atom_pairs:
+                            #  sh_istart, sh_iend, ao_istart, ao_iend = slices_1[p[0]]
+                            #  sh_lstart, sh_lend, ao_lstart, ao_lend = slices_2[p[1]]
+                            #  G = auxmol.intor('int2e',shls_slice=(sh_istart,sh_iend,sh_lstart+f1.mol.nbas,sh_lend+f1.mol.nbas,sh_istart,sh_iend,sh_lstart+f1.mol.nbas,sh_lend+f1.mol.nbas)) 
+                            #  maxGs.append(np.amax(np.abs(G)))
+                            #  values += np.einsum('nij,iljk,nkl->n',rhos1[:,ao_istart:ao_iend,ao_istart:ao_iend], G, rhos2[:,ao_lstart:ao_lend,ao_lstart:ao_lend], optimize=['einsum_path', (0,1), (0,1)])
+                        #  t2 = time.time()
+                        #  self.log.print('       Diagonal contractions took '+str(round(t2-t1,3))+' sec.')
+                        #  t1 = time.time()
+                        #  max_prods = np.sqrt(np.abs(np.outer(maxGs, maxGs)))
+                        #  np.fill_diagonal(max_prods,-1.)
+                        #  pairs1, pairs2 = np.nonzero(max_prods >= 1e-4)
+                        #  self.log.print('       Will do '+str(len(pairs1))+' off-diagonal contractions.')
+                        #  for p1, p2 in zip(pairs1,pairs2):
+                            #  ai, al = atom_pairs[p1]
+                            #  aj, ak = atom_pairs[p2]
+                            #  sh_istart, sh_iend, ao_istart, ao_iend = slices_1[ai]
+                            #  sh_jstart, sh_jend, ao_jstart, ao_jend = slices_1[aj]
+                            #  sh_kstart, sh_kend, ao_kstart, ao_kend = slices_2[ak]
+                            #  sh_lstart, sh_lend, ao_lstart, ao_lend = slices_2[al]
+                            #  slices = (sh_istart,sh_iend,
+                                      #  sh_lstart + f1.mol.nbas,sh_lend + f1.mol.nbas,
+                                      #  sh_jstart, sh_jend,
+                                      #  sh_kstart + f1.mol.nbas, sh_kend + f1.mol.nbas)
+                            #  G = auxmol.intor('int2e',shls_slice=slices) 
+                            #  values += np.einsum('nij,iljk,nkl->n',rhos1[:,ao_istart:ao_iend,ao_jstart:ao_jend], G, rhos2[:,ao_kstart:ao_kend,ao_lstart:ao_lend], optimize=['einsum_path', (0,1), (0,1)])
+                        #  t2 = time.time()
+                        #  self.log.print('       Off-diagonal contractions took '+str(round(t2-t1,3))+' sec.')
+                #  else:
+                    #  t1 = time.time()
+                    #  G = self.calculate_Gtensor( [f1.mol, f2.mol, f1.mol, f2.mol] ) 
+                    #  t2 = time.time()
+                    #  self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
+                    #  t1 = time.time()
+                    #  values = np.einsum( 'nij,iljk,nkl->n', rhos1, G, rhos2, optimize=['einsum_path', (0, 1), (0, 1)] )
+                    #  t2 = time.time()
+                    #  self.log.print('       Contraction took '+str(round(t2-t1,3))+' sec.')
+                #  for i, individual_locs in enumerate(locs):
+                    #  for (mult,row,column) in individual_locs:
+                        #  K[mult][row,column] += values[i]
 
         integrals, prefactors  = ECI_integrals
         integrals  = integrals.get( 'SCT_V', None )
         if integrals != None:
             self.log.print(' Calculating SCT V-integrals...')
-            for (f1,f2,nucs), dysons1_dysons2__locs in integrals.items():
-                phis1 = np.array( [ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,do2) in dysons1_dysons2__locs.keys() ] )
-                phis2 = np.array( [ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (do1,do2) in dysons1_dysons2__locs.keys() ] )
-                locs = dysons1_dysons2__locs.values()
-                Tmat = self.merge_moles( f1.mol, f2.mol ).intor('int1e_kin')[0:f1.mol.nao,f2.mol.nao:]  
-                Fmat = calculate_Fmat( nucs, self.merge_moles( f1.mol, f2.mol ) )[0:f1.mol.nao,f2.mol.nao:] 
+            for (f1,f2,nucs), dysons1__dysons2__locs in integrals.items():
+                N = sum([ len(dysons2) for dysons2 in dysons1__dysons2__locs.values() ])
+                self.log.print('    Site 1: '+f1.label+', Site 2:'+f2.label+', Nuclei: '+', '.join([nuc.label for nuc in nucs])+' (# = '+str(N)+')')
+                t1 = time.time()
+                dimer = merge_moles( f1.mol, f2.mol )
+                Tmat = dimer.intor('int1e_kin')[:f1.mol.nao,f1.mol.nao:]  
+                Fmat = self.calculate_Fmat( nucs, dimer )[:f1.mol.nao,f1.mol.nao:] 
                 hmat = Tmat + Fmat
-                values = np.einsum( 'ni,ij,nj->n', phis1, hmat, phis2, optimize=['einsum_path', (0,1), (0,1)] )
-                for i, individual_locs in enumerate(locs):
-                    for (mult,row,column) in individual_locs_prefactors:
-                        J[mult][row,column] -= prefactor[(mult,row,column)]*values[i]
+                t2 = time.time()
+                self.log.print('       Calculation of h-mat took '+str(round(t2-t1,3))+' sec.')
+
+                t1 = time.time()
+                phis1 = np.array( [ f1.phi[(do1[0].Z,do1[1].Z)][do1] for do1 in dysons1__dysons2__locs.keys() ] )
+                h1 = np.einsum( 'mi,ij->mj', phis1, hmat, optimize=['einsum_path', (0,1)] ) 
+                t2 = time.time()
+                self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
+                t1 = time.time()
+                for i1, dysons2__locs in enumerate(dysons1__dysons2__locs.values()):
+                    phis2 = np.array( [ f2.phi[(do2[0].Z,do2[1].Z)][do2] for do2 in dysons2__locs.keys() ] )
+                    loc_lists = dysons2__locs.values()
+                    values = np.einsum('j,nj->n', h1[i1], phis2, optimize=['einsum_path', (0,1)] )
+                    for i, locs in enumerate(loc_lists):
+                        for (mult,row,column) in locs:
+                            J[mult][row,column] -= prefactors[(mult,row,column)]*values[i]
+                t2 = time.time()
+                self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
+            del Tmat
+            del Fmat
+            del hmat
+            del phis1
+            del phis2
+            del loc_lists
+            del values
                     
         integrals, prefactors  = ECI_integrals
-        integrals  = integrals.get( 'SCT_JK', None )
+        integrals  = integrals.get( 'SCT_I', None )
         if integrals != None:
-            self.log.print(' Calculating SCT JK-integrals...')
-            for (f1,f2,f), dysons1_dysons2_Jdensities_Kdensities__locs in integrals.items():
-                phis1 = np.array( [ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,do2,Jdensity,Kdensity) in dysons1_dysons2_Jdensities_Kdensities__locs.keys() ] )
-                phis2 = np.array( [ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (do1,do2,Jdensity,Kdensity) in dysons1_dysons2_Jdensities_Kdensities__locs.keys() ] )
-                Jrhos = np.array( [ f.rho[density[0].Z][Jdensity] for (do1,do2,Jdensity,Kdensity) in dysons1_dysons2_Jdensities_Kdensities__locs.keys() ] )
-                Krhos = np.array( [ f.rho[density[0].Z][Kdensity] for (do1,do2,Jdensity,Kdensity) in dysons1_dysons2_Jdensities_Kdensities__locs.keys() ] )
-                locs = dysons1_dysons2_Jdensities_Kdensities__locs.values()
-                G = calculate_Gtensor( [ f1.mol, f2.mol, f.mol, f.mol ] )
-                GJ = np.einsum('ijkl,nkl->nij', G, Jrhos, optimize=['einsum_path', (0, 1)] )
-                GK = np.einsum('iljk,nkl->nij', G, Krhos, optimize=['einsum_path', (0, 1)] )
-                values = np.einsum('ni,nj,nij->n', phis1, phis2, GJ - GK, optimize=['einsum_path', (0, 2), (0, 1)] ) 
-                for i, individual_locs in enumerate(locs):
-                    for (mult,row,column) in individual_locs:
-                        J[mult][row,column] += prefactor[(mult,row,column)]*values[i]
+            self.log.print(' Calculating internal SCT J- and K-integrals...')
+            for (f1,f2,f), dysons1_dysons2__Jdensities_Kdensities__locs in integrals.items():
+                self.log.print('    Site 1: '+f1.label+', Site 2:'+f2.label+', Site 3: '+f.label)
+                #  for (d1,d2), JK__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items():
+                    #  self.log.print('     phi1 = '+d1[0].symbol()+ " ---" + d1[2] + "---> " + d1[1].symbol())
+                    #  self.log.print('     phi2 = '+d2[0].symbol()+ " ---" + d2[2] + "---> " + d2[1].symbol())
+                    #  for (Jdens,Kdens), locs in JK__locs.items():
+                        #  if Jdens != None:
+                            #  self.log.print('            Jdens = '+density_representation(Jdens))
+                        #  else:
+                            #  self.log.print('            Jdens = None' )
+                        #  if Kdens != None:
+                            #  self.log.print("            Kdens = "+density_representation(Kdens) )
+                        #  else:
+                            #  self.log.print('            Kdens = None' )
+                        #  for loc in locs:
+                            #  self.log.print('                locs = '+str(locs))
 
+                t1 = time.time()
+                G = self.calculate_Gtensor( [ f1.mol, f2.mol, f.mol, f.mol ] )
+                t2 = time.time()
+                self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
+
+                self.log.print('       Calculating J-integrals...')
+                #  phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() 
+                                   #  if any([ Jdensity != None for (Jdensity,_) in Jdensities_Kdensities__locs.keys() ]) ])
+                #  phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() 
+                                   #  if any([ Jdensity != None for (Jdensity,_) in Jdensities_Kdensities__locs.keys() ]) ])
+                phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() ]) 
+                phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() ])
+                self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
+                t1 = time.time()
+                G12 = np.einsum('mi,mj,ijkl->mkl', phis1, phis2, G, optimize=True )
+                t2 = time.time()
+                self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
+                t1 = time.time()
+                for i12, Jdensities_Kdensities__locs in enumerate(dysons1_dysons2__Jdensities_Kdensities__locs.values()):
+                    rhos = np.array( [ f.rho[Jdensity[0].Z][Jdensity] for (Jdensity,_) in Jdensities_Kdensities__locs.keys() if Jdensity != None ] )
+                    if len(rhos) == 0: continue
+                    loc_lists = [ locs for (Jdensity,_), locs in Jdensities_Kdensities__locs.items() if Jdensity != None ]
+                    values = np.einsum('kl,nkl->n', G12[i12,:,:], rhos, optimize=['einsum_path', (0, 1)] )
+                    for i, locs in enumerate(loc_lists):
+                        for (mult,row,column) in locs:
+                            J[mult][row,column] += prefactors[(mult,row,column)]*values[i]
+                t2 = time.time()
+                self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
+                del rhos
+                del loc_lists
+                del values
+
+                self.log.print('       Calculating K-integrals...')
+                #  phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() 
+                                   #  if any([ Kdensity != None for (_,Kdensity) in Jdensities_Kdensities__locs.keys() ]) ])
+                #  phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() 
+                                   #  if any([ Kdensity != None for (_,Kdensity) in Jdensities_Kdensities__locs.keys() ]) ])
+                self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
+                t1 = time.time()
+                if f is f1: G12 = np.einsum('mi,mj,kjil->mkl', phis1, phis2, G, optimize=True )
+                if f is f2: G12 = np.einsum('mi,mj,iljk->mkl', phis1, phis2, G, optimize=True )
+                del G
+                t2 = time.time()
+                self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
+                t1 = time.time()
+                for i12, Jdensities_Kdensities__locs in enumerate(dysons1_dysons2__Jdensities_Kdensities__locs.values()):
+                    rhos = np.array( [ f.rho[Kdensity[0].Z][Kdensity] for (_,Kdensity) in Jdensities_Kdensities__locs.keys() if Kdensity != None ] )
+                    if len(rhos) == 0: continue
+                    loc_lists = [ locs for (_,Kdensity), locs in Jdensities_Kdensities__locs.items() if Kdensity != None ]
+                    values = np.einsum('kl,nkl->n', G12[i12,:,:], rhos, optimize=['einsum_path', (0, 1)] )
+                    for i, locs in enumerate(loc_lists):
+                        for (mult,row,column) in locs:
+                            K[mult][row,column] += prefactors[(mult,row,column)]*values[i]
+                t2 = time.time()
+                self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
+                del G12
+                del rhos
+                del loc_lists
+                del values
+
+        # Needs to be corrected
         integrals, prefactors  = ECI_integrals
         integrals  = integrals.get( 'SCT_J', None )
         if integrals != None:
-            self.log.print(' Calculating SCT J-integrals...')
+            self.log.print(' Calculating external SCT J-integrals...')
             for (f1,f2,f), dysons1_dysons2_Jdensities__locs in integrals.items():
-                phis1 = np.array( [ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,do2,Jdensity) in dysons1_dysons2_Jdensities__locs.keys() ] )
-                phis2 = np.array( [ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (do1,do2,Jdensity) in dysons1_dysons2_Jdensities__locs.keys() ] )
-                Jrhos = np.array( [ f.rho[density[0].Z][Jdensity] for (do1,do2,Jdensity) in dysons1_dysons2_Jdensities__locs.keys() ] )
+                phis1 = np.array( [ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_,_) in dysons1_dysons2_Jdensities__locs.keys() ] )
+                phis2 = np.array( [ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2,_) in dysons1_dysons2_Jdensities__locs.keys() ] )
+                Jrhos = np.array( [ f.rho[density[0].Z][Jdensity] for (_,_,Jdensity) in dysons1_dysons2_Jdensities__locs.keys() ] )
                 locs = dysons1_dysons2_Jdensities__locs.values()
-                G = calculate_Gtensor( [ f1.mol, f2.mol, f.mol, f.mol ] )
+                G = self.calculate_Gtensor( [ f1.mol, f2.mol, f.mol, f.mol ] )
                 values = np.einsum( phis1, phis2, G, Jrhos, 'ni,nj,ijkl,nkl->n', optimize=['einsum_path', (2, 3), (0, 2), (0, 1)] ) 
                 for i, individual_locs in enumerate(locs):
                     for (mult,row,column) in individual_locs:
-                        J[mult][row,column] += prefactor[(mult,row,column)]*values[i]
+                        J[mult][row,column] += prefactors[(mult,row,column)]*values[i]
+
+        integrals, prefactors  = ECI_integrals
+        integrals  = integrals.get( 'SCT_K', None )
+        if integrals != None:
+            self.log.print(' Calculating SCT K-integrals...')
+            for (f1,f2,f), dysons1_dysons2_Kdensities__locs in integrals.items():
+                phis1 = np.array( [ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_,_) in dysons1_dysons2_Kdensities__locs.keys() ] )
+                phis2 = np.array( [ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2,_) in dysons1_dysons2_Kdensities__locs.keys() ] )
+                Jrhos = np.array( [ f.rho[density[0].Z][Kdensity] for (_,_,Kdensity) in dysons1_dysons2_Kdensities__locs.keys() ] )
+                locs = dysons1_dysons2_Jdensities__locs.values()
+                G = self.calculate_Gtensor( [ f1.mol, f.mol, f2.mol, f.mol ] )
+                values = np.einsum( phis1, phis2, G, Jrhos, 'ni,nj,ilkj,nkl->n', optimize=['einsum_path', (2, 3), (0, 2), (0, 1)] ) 
+                for i, individual_locs in enumerate(locs):
+                    for (mult,row,column) in individual_locs:
+                        K[mult][row,column] += prefactors[(mult,row,column)]*values[i]
+
         #  self.log.print(' Calculating all h2-matrices')
-        #  self.calculate_h2mat()
-        #  h2 = self.h2
+        V1 = self.V1
+        J1 = self.J1
+        K1 = self.K1
+        S = self.S
+        #  S = self.S
         #self.log.print(' Summing up J-, K- and h2-matrices, adding site energies and VNN to the diagonal, and rotating J-, K-, and H-matrices to the basis of ECSFs...')
         self.log.print(' Summing up J- and K-matrices, adding site energies and VNN to the diagonal, and rotating J-, K-, and H-matrices to the basis of ECSFs...')
         VNN = sum( [ 
@@ -916,29 +1155,36 @@ class ECI:
 
         for m in job.multiplicities:
             J[m] += VNN*np.identity( np.shape(J[m])[0] )
-            #H[m] = J[m] - K[m] - h2[m] 
-            H[m] = J[m] - K[m] 
+            #  H[m] = J[m] - K[m] 
+            H[m] = J[m] - K[m] - V1[m] + J1[m] - K1[m]
+            #  H[m] = J[m] - V1[m] + J1[m]
 
             for i, ESD in enumerate( ECIbasis[m].ESDs ):
                 for site, state in ESD.site_states.items():
                     Z = state.Z
                     index = site.states[Z].index(state) 
                     H[m][i,i] += site.H[Z][index,index]
+                    #  H[m][i,i] /= S[m][i,i]
 
             H[m] = H[m] + H[m].T - np.diag( np.diag( H[m] ) )
             J[m] = J[m] + J[m].T - np.diag( np.diag( J[m] ) )
             K[m] = K[m] + K[m].T - np.diag( np.diag( K[m] ) )
-            #  h2[m] = h2[m] + h2[m].T - np.diag( np.diag( h2[m] ) )
+            V1[m] = V1[m] + V1[m].T - np.diag( np.diag( V1[m] ) )
+            J1[m] = J1[m] + J1[m].T - np.diag( np.diag( J1[m] ) )
+            K1[m] = K1[m] + K1[m].T - np.diag( np.diag( K1[m] ) )
 
             H[m] = ECIbasis[m].U.T @ H[m] @ ECIbasis[m].U 
             J[m] = ECIbasis[m].U.T @ J[m] @ ECIbasis[m].U 
             K[m] = ECIbasis[m].U.T @ K[m] @ ECIbasis[m].U 
             #  S[m] = ECIbasis[m].U.T @ S[m] @ ECIbasis[m].U 
-            #  h2[m] = ECIbasis[m].U.T @ h2[m] @ ECIbasis[m].U 
+            V1[m] = ECIbasis[m].U.T @ V1[m] @ ECIbasis[m].U 
+            J1[m] = ECIbasis[m].U.T @ J1[m] @ ECIbasis[m].U 
+            K1[m] = ECIbasis[m].U.T @ K1[m] @ ECIbasis[m].U 
 
             self.log.print(' H-, J-, K-matrices for multiplicity '+str(m)+' in the basis of ECSFs:')
-            #for label, mat in zip( ['H', 'J', 'K', 'S', 'h2'], [H,J,K,S,h2] ):
-            for label, mat in zip( ['H', 'J', 'K'], [H,J,K] ):
+            for label, mat in zip( ['H', 'J', 'K', 'V1', 'J1', 'K1', 'S'], [H,J,K,V1, J1, K1, S] ):
+            #  for label, mat in zip( ['H', 'J', 'K', 'h2', 'S'], [H,J,K,h2,S] ):
+            #  for label, mat in zip( ['H', 'J', 'K'], [H,J,K] ):
                 self.log.print('    '+label+'-matrix:')
                 for i in range(len(ECIbasis[m].ECSFs)):
                     self.log.print('        '+' '.join([ f"{mat[m][i,j]: 20.10f}" for j in range( len(ECIbasis[m].ECSFs)) ]) )
@@ -958,29 +1204,122 @@ class ECI:
     #----END of ECI.calculate_Hmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
     
     def calculate_Pmats(self):
+        job = self.job
+        sites = self.sites
         P = self.P
-        for f in self.sites:
-            for g in self.sites:
+
+        #  for (f,g) in itertools.combinations(sites, 2):
+            #  P[(f,g)] = {}
+
+        #  for m in job.multiplicities:
+            #  ECIbasis = self.ECIbasis[m]
+            #  for rel in [(0,0), (0,1), (0,2)]:
+                #  for pair in ECIbasis.relationships[rel]:
+                    #  ESD1, ESD2 = pair['ESDs']
+                    #  i1, i2 = ESD1.index, ESD2.index
+                    #  for (f,g) in itertools.combinations(sites, 2):
+                        #  sf1 = ESD1.site_states[f]
+                        #  sg1 = ESD1.site_states[g]
+                        #  sf2 = ESD2.site_states[f]
+                        #  sg2 = ESD2.site_states[g]
+                        #  for spin in ['aa','bb','ab','ba']:
+                            #  for sigma in ['a','b']:
+                                #  df = (sf1,sf2,spin[0]+sigma) 
+                                #  dg = (sg1,sg2,sigma+spin[1]) 
+                                #  if df in f.rho[sf1.Z] and dg in g.rho[sg1.Z]:
+                                    #  p = (df,dg,spin) 
+                                    #  if p in P[(f,g)]: 
+                                        #  P[(f,g)][p].append((m,i1,i2))
+                                    #  add_integral( k1='P1', k2=(f,g), k3=(df,dg,))
+        #  for relationship in self.ECIbasis[m] 
+        for i, f in enumerate(sites):
+            for j, g in enumerate(sites):
                 if not f is g:
                     P[(f,g)] = {}
-                    dimer = merge_moles( f.mol, g.mol )
-                    S = dimer.intor('int1e_ovlp')[ 0:f.mol.nao:, f.mol.nao: ]
+                    dimer = merge_moles(f.mol,g.mol)
+                    S = dimer.intor('int1e_ovlp')[:f.mol.nao,f.mol.nao:] 
                     for statesf in f.states.values():
-                        for statesg in g.states.values():
-                            for sf1 in statesf:
-                                for sf2 in statesf:
-                                    if sf1.Z == sf2.Z: 
-                                        for sg1 in statesg:
-                                            for sg2 in statesg:
-                                                if sg1.Z == sg2.Z:
-                                                    p = np.zeros((f.mol.nao,g.mol.nao))
-                                                    for sigma in ['a','b']:
-                                                        for tau in ['a','b']:
-                                                            if (sf1,sf2,sigma+tau) in f.rho[sf1.Z] and (sg1,sg2,tau+sigma) in g.rho[sg1.Z]:
-                                                                p += f.rho[sf1.Z][(sf1,sf2,sigma+tau)] @ S @ g.rho[sg1.Z][(sg1,sg2,tau+sigma)] 
-                                                    P[(f,g)][(sf1,sf2,sg1,sg2)] = p
-        return
-                                                    
+                        for sf1 in statesf:
+                            for sf2 in statesf:
+                                # Densities with other fragments
+                                for statesg in g.states.values():
+                                    for sg1 in statesg:
+                                        for sg2 in statesg:
+                                            done_spins = set()
+                                            for spin in ['aa','bb','ab','ba']:
+                                                p = np.zeros((f.mol.nao,g.mol.nao))
+                                                for sigma in ['a','b']:
+                                                    df = (sf1,sf2,spin[0]+sigma) 
+                                                    dg = (sg1,sg2,sigma+spin[1]) 
+                                                    if df in f.rho[sf1.Z] and dg in g.rho[sg1.Z]:
+                                                        rhof = f.rho[sf1.Z][df]
+                                                        rhog = g.rho[sg1.Z][dg] 
+                                                        p += rhof @ S @ rhog
+                                                        done_spins.add(spin)
+                                                if spin in done_spins:
+                                                    P[(f,g)][(sf1,sf2,sg1,sg2,spin)] = p 
+                                            if 'aa' in done_spins and 'bb' in done_spins:
+                                                P[(f,g)][(sf1,sf2,sg1,sg2,'tot')] = P[(f,g)][(sf1,sf2,sg1,sg2,'aa')] + P[(f,g)][(sf1,sf2,sg1,sg2,'bb')] 
+
+        #  for i, f in enumerate(sites):
+            #  for statesf in f.states.values():
+                #  for sf in statesf:
+                    #  p = np.zeros((f.mol.nao,f.mol.nao))
+                    #  rhof_alpha = f.rho[sf.Z][(sf,sf,'aa')]
+                    #  rhof_beta = f.rho[sf.Z][(sf,sf,'bb')]
+                    #  for j, g in enumerate(sites):
+                        #  if f is g: continue
+                        #  dimer = merge_moles(f.mol,g.mol)
+                        #  S = dimer.intor('int1e_ovlp')[:f.mol.nao,f.mol.nao:] 
+                        #  for statesg in g.states.values():
+                            #  for sg in statesg:
+                                #  rhog_alpha = g.rho[sg.Z][(sg,sg,'aa')]
+                                #  rhog_beta = g.rho[sg.Z][(sg,sg,'bb')]
+                                #  p += np.einsum('ij,ij->', S.T @ rhof_alpha @ S, rhog_alpha)*rhof_alpha -  rhof_alpha @ S @ rhog_alpha @ S.T @ rhof_alpha  
+                                #  p += np.einsum('ij,ij->', S.T @ rhof_alpha @ S, rhog_alpha)*rhof_alpha -  rhof_alpha @ S @ rhog_alpha @ S.T @ rhof_alpha  
+                    #  P[(f,f)][(sf,sf,sf,sf)] += 
+            #  else:
+
+
+
+
+
+
+    #  def calculate_P1mats(self):
+        #  job = self.job
+        #  sites = self.sites
+        #  system = None
+        #  for site in sites:
+            #  if system == None:
+                #  system = site.mol.copy()
+            #  else:
+                #  system = merge_moles( system, site.mol )
+        #  P1 = self.P1
+        #  Nel = float(sum( [ f.mol.nelectron for f in sites ] ) - job.charge) # All Mole object in children have to be build with charge=0
+        #  for m in job.multiplicities:
+            #  ECIbasis = self.ECIbasis[m]
+            #  for e, ESD in enumerate(ECIbasis.ESDs):
+                #  P = np.zeros((system.nao,system.nao))
+                #  for f in sites:
+                    #  fstart = sum([ site.mol.nao for site in sites if site.index < f.index ])
+                    #  fend = fstart + f.mol.nao
+                    #  for g in sites:
+                        #  gstart = sum([ site.mol.nao for site in sites if site.index < g.index ])
+                        #  gend = gstart + g.mol.nao
+                        #  if not f is g:
+                            #  dimer = merge_moles( f.mol, g.mol )
+                            #  S = dimer.intor('int1e_ovlp')[ 0:f.mol.nao:, f.mol.nao: ]
+                            #  sf = ESD.site_states[f]
+                            #  sg = ESD.site_states[g]
+                            #  for spin in ['aa','bb']:
+                                #  rhof = f.rho[sf.Z][(sf,sf,spin)] 
+                                #  rhog = g.rho[sg.Z][(sg,sg,spin)] 
+                                #  P[fstart:fstop,fstart:fstop] += np.einsum('ij,ij->', S.T @ rhof @ S, rhog )*rhof -  rhof @ S @ rhog @ S.T @ rhof 
+                                #  P[fstart:fstop,gstart:gstop] += rhof @ S @ rhog 
+                                #  self.S[m][e,e] += np.einsum('ij,ij->', S, rhof @ S @ rhog )
+                #  P1[m][(ESD,ESD)] = P
+                #  self.S[m][e,e] = 1. - self.S[m][e,e]
+
 
 
 
@@ -990,56 +1329,167 @@ class ECI:
         job = self.job
         sites = self.sites
         S = self.S
-        self.calculate_Pmats()
         P = self.P
         Nel = float(sum( [ f.mol.nelectron for f in sites ] ) - job.charge) # All Mole object in children have to be build with charge=0
         for m in job.multiplicities:
             ECIbasis = self.ECIbasis[m]
-            for i1, ESD1 in enumerate(ECIbasis.ESDs):
-                for i2, ESD2 in enumerate(ECIbasis.ESDs[i1:]):
-                    O = 0.
-                    if ESD1 is ESD2:
-                        O  = 1.
-                    for f in sites:
-                        for g in sites:
-                            if not f is g:
-                                dimer = merge_moles( f.mol, g.mol )
-                                SAO = dimer.intor('int1e_ovlp')[ 0:f.mol.nao:, f.mol.nao: ]
-                                sf1 = ESD1.site_states[f]
-                                sf2 = ESD2.site_states[f]
-                                sg1 = ESD1.site_states[g]
-                                sg2 = ESD2.site_states[g]
-                                if (sf1,sf2,sg1,sg2) in P[(f,g)]:
-                                    O -= np.einsum( 'ij,ij', SAO, P[(f,g)][(sf1,sf2,sg1,sg2)], optimize=['einsum_path', (0, 1)] )/Nel
-                    S[m][i1,i1+i2] = O
-            S[m] = S[m] + S[m].T - np.diag(np.diag(S[m]))
-        return
+            for i, ESD in enumerate(ECIbasis.ESDs):
+                O = 1.
+                for f in sites:
+                    for g in sites:
+                        if not f is g:
+                            dimer = merge_moles( f.mol, g.mol )
+                            SAO = dimer.intor('int1e_ovlp')[ 0:f.mol.nao:, f.mol.nao: ]
+                            sf = ESD.site_states[f]
+                            sg = ESD.site_states[g]
+                            if (sf,sf,sg,sg,'aa') in P[(f,g)]:
+                                O -= np.einsum( 'ij,ij->', SAO, P[(f,g)][(sf,sf,sg,sg,'aa')], optimize=['einsum_path', (0, 1)] )/Nel
+                            if (sf,sf,sg,sg,'bb') in P[(f,g)]:
+                                O -= np.einsum( 'ij,ij->', SAO, P[(f,g)][(sf,sf,sg,sg,'bb')], optimize=['einsum_path', (0, 1)] )/Nel
+                S[m][i,i] = O
+            #  for i1, ESD1 in enumerate(ECIbasis.ESDs):
+                #  for i2, ESD2 in enumerate(ECIbasis.ESDs[i1:]):
+                    #  O = 0.
+                    #  if ESD1 is ESD2:
+                        #  O  = 1.
+                    #  for f in sites:
+                        #  for g in sites:
+                            #  if not f is g:
+                                #  dimer = merge_moles( f.mol, g.mol )
+                                #  SAO = dimer.intor('int1e_ovlp')[ 0:f.mol.nao:, f.mol.nao: ]
+                                #  sf1 = ESD1.site_states[f]
+                                #  sf2 = ESD2.site_states[f]
+                                #  sg1 = ESD1.site_states[g]
+                                #  sg2 = ESD2.site_states[g]
+                                #  if (sf1,sf2,sg1,sg2) in P[(f,g)]:
+                                    #  O -= np.einsum( 'ij,ij', SAO, P[(f,g)][(sf1,sf2,sg1,sg2)], optimize=['einsum_path', (0, 1)] )/Nel
+                    #  S[m][i1,i1+i2] = O
+            #  S[m] = S[m] + S[m].T - np.diag(np.diag(S[m]))
+        #  return
 
 
-    def calculate_h2mat(self):
+    def calculate_V1mat(self):
+        V1 = self.V1
         job = self.job
         sites = self.sites
-        h2 = self.h2
-        P = self.P
+        for (f,g), Ps in self.P.items():
+            #  if f.index > g.index: continue
+            dimer = merge_moles( f.mol, g.mol )
+            T = dimer.intor('int1e_kin')[:f.mol.nao:,f.mol.nao:] 
+            VNE = -self.calculate_Fmat( sites, dimer )[:f.mol.nao:, f.mol.nao:]  
+            hFG = T + VNE
+            for m in job.multiplicities:
+                ECIbasis = self.ECIbasis[m]
+                for rel in [(0,0), (0,1), (0,2)]:
+                #  for rel in [(0,0)]:
+                    for pair in ECIbasis.relationships[rel]:
+                        ESD1, ESD2 = pair['ESDs']
+                        i1, i2 = ESD1.index, ESD2.index
+                        sf1 = ESD1.site_states[f]
+                        sg1 = ESD1.site_states[g]
+                        sf2 = ESD2.site_states[f]
+                        sg2 = ESD2.site_states[g]
+                        P = (sf1,sf2,sg1,sg2,'tot') 
+                        if P in Ps: V1[m][i1,i2] += np.einsum( 'ij,ij->', hFG , Ps[P] )/2. # Divided by 2 beacuse of using tot pi (McWeeny)
+
+
+    def calculate_J1mat(self):
+        J1 = self.J1
+        job = self.job
+        for (f,g), Ps in self.P.items():
+            #  if f.index > g.index: continue
+            GABAB = self.calculate_Gtensor( [f.mol, g.mol, f.mol, g.mol] )
+            GAAAB = self.calculate_Gtensor( [f.mol, f.mol, f.mol, g.mol] )
+            GABBB = self.calculate_Gtensor( [f.mol, g.mol, g.mol, g.mol] )
+            for m in job.multiplicities:
+                ECIbasis = self.ECIbasis[m]
+                for rel in [(0,0), (0,1), (0,2)]:
+                    for pair in ECIbasis.relationships[rel]:
+                        ESD1, ESD2 = pair['ESDs']
+                        i1, i2 = ESD1.index, ESD2.index
+                        sf1 = ESD1.site_states[f]
+                        sg1 = ESD1.site_states[g]
+                        sf2 = ESD2.site_states[f]
+                        sg2 = ESD2.site_states[g]
+                        P1 = (sf1,sf2,sg1,sg2,'tot') 
+                        if P1 in Ps:
+                            pi1 = Ps[P1] 
+                            J1[m][i1,i2] += np.einsum('ij,ijkl,kl->', pi1, GABAB, pi1, optimize=True)
+                            P2 = (sg1,sg2,sf1,sf2,'tot')  
+                            if P2 in self.P[(g,f)]:
+                                pi2 = self.P[(g,f)][P2] 
+                                J1[m][i1,i2] += np.einsum('ij,ijlk,kl->', pi1, GABAB, pi2, optimize=True) 
+
+                            d = (sf1,sf2,'tot') 
+                            if d in f.rho[sf1.Z]:
+                                rho = f.rho[sf1.Z][d]
+                                J1[m][i1,i2] += - 2.*np.einsum('ij,ijkl,kl->', rho, GAAAB, pi1, optimize=True ) 
+                            d = (sg1,sg2,'tot') 
+                            if d in g.rho[sg1.Z]:
+                                rho = g.rho[sg1.Z][d]
+                                J1[m][i1,i2] += - 2.*np.einsum('ij,ijkl,kl->', pi1, GABBB, rho, optimize=True ) 
+
         for m in job.multiplicities:
-            ECIbasis = self.ECIbasis[m]
-            for f in sites:
-                for g in sites:
-                    if not f is g:
-                        dimer = merge_moles( f.mol, g.mol )
-                        T = dimer.intor('int1e_kin')[ 0:f.mol.nao:, f.mol.nao: ] 
-                        VNE = -self.calculate_Fmat( sites, dimer )[ 0:f.mol.nao:, f.mol.nao: ]  
-                        hFG = T + VNE
-                        for i1, ESD1 in enumerate(ECIbasis.ESDs):
-                            for i2, ESD2 in enumerate(ECIbasis.ESDs[i1:]):
-                                integral = 0.
-                                sf1 = ESD1.site_states[f]
-                                sf2 = ESD2.site_states[f]
-                                sg1 = ESD1.site_states[g]
-                                sg2 = ESD2.site_states[g]
-                                if (sf1,sf2,sg1,sg2) in P[(f,g)]:
-                                    h2[m][i1,i1+i2] += np.einsum( 'ij,ij', hFG, P[(f,g)][(sf1,sf2,sg1,sg2)], optimize=['einsum_path', (0, 1)] )
-        return
+            J1[m] /= 4. # By 2 becuase of using tot pis and rhos, and by 2 becuase of el-el coupling formula
+
+    def calculate_K1mat(self):
+        K1 = self.K1
+        job = self.job
+        for (f,g), Ps in self.P.items():
+            #  if f.index > g.index: continue
+            GAABB = self.calculate_Gtensor( [f.mol, f.mol, g.mol, g.mol] )
+            GABAB = self.calculate_Gtensor( [f.mol, g.mol, f.mol, g.mol] )
+            GAAAB = self.calculate_Gtensor( [f.mol, f.mol, f.mol, g.mol] ) 
+            GBBAB = self.calculate_Gtensor( [g.mol, g.mol, f.mol, g.mol] ) 
+            for m in job.multiplicities:
+                ECIbasis = self.ECIbasis[m]
+                for rel in [(0,0), (0,1), (0,2)]:
+                    for pair in ECIbasis.relationships[rel]:
+                        ESD1, ESD2 = pair['ESDs']
+                        i1, i2 = ESD1.index, ESD2.index
+                        sf1 = ESD1.site_states[f]
+                        sg1 = ESD1.site_states[g]
+                        sf2 = ESD2.site_states[f]
+                        sg2 = ESD2.site_states[g]
+                        for (spin1, spin2) in [('aa','aa'), ('bb','bb'), ('ab','ba'), ('ba','ab')]:
+                            P1 = (sf1,sf2,sg1,sg2,spin1) 
+                            if P1 in Ps:
+                                pi1 = Ps[P1]
+                                K1[m][i1,i2] += np.einsum('ij,ilkj,kl->', pi1, GABAB, pi1, optimize=True) 
+                                P2 = (sg1,sg2,sf1,sf2,spin2) 
+                                if P2 in self.P[(g,f)]:
+                                    pi2 = self.P[(g,f)][P2] 
+                                    K1[m][i1,i2] += np.einsum('ij,iljk,kl->', pi1, GAABB, pi2, optimize=True) 
+
+                                d = (sf1,sf2,spin2) 
+                                if d in f.rho[sf1.Z]:
+                                    rho = f.rho[sf1.Z][d]
+                                    K1[m][i1,i2] += - 2.*np.einsum('ij,jkil,kl->', rho, GAAAB, pi1, optimize=True ) 
+                                d = (sg1,sg2,spin2) 
+                                if d in g.rho[sg1.Z]:
+                                    rho = g.rho[sg1.Z][d]
+                                    K1[m][i1,i2] += - 2.*np.einsum('ij,jkil,kl->', pi1, GBBAB, rho, optimize=True ) 
+        for m in job.multiplicities:
+            K1[m] /= 2. # Divided by 2 becuase of el-el interaction formula
+                #  K1[m] /= 2.
+    #  def calculate_h2mat(self):
+        #  job = self.job
+        #  sites = self.sites
+        #  system = None
+        #  for site in sites:
+            #  if system == None:
+                #  system = site.mol.copy()
+            #  else:
+                #  system = merge_moles( system, site.mol )
+        #  P1 = self.P1
+        #  h2 = self.h2
+        #  T = system.intor('int1e_kin')
+        #  VNE = -self.calculate_Fmat( sites, system )
+        #  h = T + VNE
+        #  for m in job.multiplicities:
+            #  for i, ESD in enumerate(ECIbasis.ESDs):
+                #  h2[m][i,i] = np.einsum( 'ij,ij', h, P1[m][i,i] )
+        #  return
 
 
 
@@ -1049,17 +1499,20 @@ class ECI:
         ECIbasis = self.ECIbasis
 
         ECI_integrals = {}
-        def add_integral( k1, k2, k3, loc):
+        def add_integral( k1, k2, k3, k4, loc):
             if k1 in ECI_integrals:
                 if k2 in ECI_integrals[k1]:
                     if k3 in ECI_integrals[k1][k2]:
-                        ECI_integrals[k1][k2][k3].append(loc)
+                        if k4 in ECI_integrals[k1][k2][k3]:
+                            ECI_integrals[k1][k2][k3][k4].append(loc)
+                        else:
+                            ECI_integrals[k1][k2][k3][k4] = [loc]
                     else:
-                        ECI_integrals[k1][k2][k3] = [loc]
+                        ECI_integrals[k1][k2][k3] = {k4:[loc] }
                 else:
-                    ECI_integrals[k1][k2] = {k3:[loc]}
+                    ECI_integrals[k1][k2] = {k3: {k4: [loc]}}
             else:
-                ECI_integrals[k1] = {k2:{k3:[loc]}}
+                ECI_integrals[k1] = {k2:{k3: {k4:[loc]}}}
             return
 
         prefactors = {}
@@ -1072,26 +1525,26 @@ class ECI:
             for pair in relationship[(0,0)]:
                 ESD = pair['ESDs'][0]
                 index = ESD.index
-                # V-integrals
+                # V0-integrals
                 actives = job.active_integrals['J'][(0,0)]
                 for f in sites:
                     nucs = tuple([ g for g in sites if (f,g) in actives or (g,f) in actives ])
                     d = (ESD.site_states[f], ESD.site_states[f], 'tot')
-                    add_integral( k1='ECI_V', k2=(f,nucs), k3=d, loc=(m,index,index))
-                # J-integrals
+                    add_integral( k1='ECI_V', k2=f, k3=nucs, k4=d, loc=(m,index,index))
+                # J0-integrals
                 for (f1,f2) in actives:
                     d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'tot' ) 
                     d2 = ( ESD.site_states[f2], ESD.site_states[f2], 'tot' ) 
-                    add_integral( k1='ECI_J', k2=(f1,f2), k3=(d1,d2), loc=(m,index,index))
-                # K-integrals
+                    add_integral( k1='ECI_J', k2=(f1,f2), k3=d1, k4=d2, loc=(m,index,index))
+                # K0-integrals
                 actives = job.active_integrals['K'][(0,0)]
                 for (f1,f2) in actives:
                     d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'aa' ) 
                     d2 = ( ESD.site_states[f2], ESD.site_states[f2], 'aa' ) 
-                    add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,index,index))
+                    add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,index,index))
                     d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'bb' ) 
                     d2 = ( ESD.site_states[f2], ESD.site_states[f2], 'bb' ) 
-                    add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,index,index))
+                    add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,index,index))
             #-----End of relationship[(0,0)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -1105,14 +1558,14 @@ class ECI:
                 nucs = tuple([ g for g in sites if (f,g) in actives or (g,f) in actives])
                 d = ( ESD1.site_states[f], ESD2.site_states[f], 'tot' ) 
                 if any([ d in rho for rho in f.rho.values()]): 
-                    add_integral( k1='ECI_V', k2=(f,nucs), k3=d, loc=(m,i1,i2) )
+                    add_integral( k1='ECI_V', k2=f, k3=nucs, k4=d, loc=(m,i1,i2) )
                 # J-integrals
                 for (f1,f2) in actives:
                     if f1 is f or f2 is f:
                         d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'tot' ) 
                         d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'tot' )
                         if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_J', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                            add_integral( k1='ECI_J', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
                 # K-integrals
                 actives = job.active_integrals['K'][(0,1)] 
                 for (f1,f2) in actives:
@@ -1120,19 +1573,19 @@ class ECI:
                         d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'aa' ) 
                         d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'aa' )
                         if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                            add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
                         d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'bb' ) 
                         d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'bb' )
                         if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                            add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
                         d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ab' ) 
                         d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ba' )
                         if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                            add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
                         d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ba' ) 
                         d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ab' )
                         if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                            add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
             #-----End of relationship[(0,1)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
             #-----Start of relationship[(0,2)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1146,26 +1599,26 @@ class ECI:
                     d1 = (ESD1.site_states[f1], ESD2.site_states[f1], 'tot')
                     d2 = (ESD1.site_states[f2], ESD2.site_states[f2], 'tot')
                     if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_J', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                        add_integral( k1='ECI_J', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
                 # K-integrals
                 actives = job.active_integrals['K'][(0,2)] 
                 if (f1,f2) in actives:
                     d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'aa' ) 
                     d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'aa' )
                     if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                        add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
                     d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'bb' ) 
                     d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'bb' )
                     if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                        add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
                     d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ab' ) 
                     d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ba' )
                     if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                        add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
                     d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ba' ) 
                     d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ab' )
                     if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_K', k2=(f1,f2), k3=(d1,d2), loc=(m,i1,i2) )
+                        add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
         #-----End of relationship[(0,2)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
         #-----Start of relationship[(1,0)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1183,6 +1636,8 @@ class ECI:
                     Jspectators.append(f)
                 if (d,a,f) in Kactives:
                     Kspectators.append(f)
+            Jspectators = tuple(Jspectators)
+            Kspectators = tuple(Kspectators)
             if len(Jspectators) == 0 and len(Kspectators) == 0: continue
 
             if d.index < a.index:
@@ -1207,27 +1662,26 @@ class ECI:
                     main_do2 = (main_more2, main_less2, spin) 
                     main_spin2 = spin
 
+            if main_more1.C['subnorm'] < 0.9 or main_more2.C['subnorm'] < 0.9: continue
             if not loc in prefactors: 
                 phase = sum([ f.mol.nelectron - ESD2.site_states[f].Z for f in sites if f.index > f1.index and f.index <= f2.index ])
-                self.log.print('ESD1 = '+repr(ESD1))
-                self.log.print('ESD2 = '+repr(ESD2))
-                self.log.print('main_more1 = '+main_more1.symbol())
-                self.log.print('main_more2 = '+main_more2.symbol())
                 prefactors[loc] = (-1.)**phase/main_more1.C['subnorm']/main_more2.C['subnorm']
+                #  prefactors[loc] = (-1.)**phase
 
-            # V-integral and J and K integrals with other state densities of other spectators
+            # V-integral and external J and K integrals
             if main_spin1 == main_spin2 and main_do1 != None and main_do2 != None:
-                if len(Jspectators) > 0: add_integral( k1='SCT_V', k2=(f1,f2,Jspectators), k3=(main_do1,main_do2), loc=loc )
+                if len(Jspectators) > 0: 
+                    add_integral( k1='SCT_V', k2=(f1,f2,Jspectators), k3=main_do1, k4=main_do2, loc=loc )
                 for f in Jspectators:
                     if f is f1 or f is f2: continue # This is gonna be added later
                     s = ESD1.site_states[f]
                     Jrho = (s,s,'tot') 
-                    add_integral( k1='SCT_J', k2=(f1,f2,f), k3=(main_do1, main_do2, Jrho), loc=loc )
+                    add_integral( k1='SCT_J', k2=(f1,f2,f), k3=(main_do1, main_do2), k4=Jrho, loc=loc )
                 for f in Kspectators:
                     if f is f1 or f is f2: continue # This is gonna be added later
                     s = ESD1.site_states[f]
                     Krho = (s,s,main_spin2 + main_spin1)
-                    add_integral( k1='SCT_K', k2=(f1,f2,f), k3=(main_do1, main_do2, Krho), loc=loc )
+                    add_integral( k1='SCT_K', k2=(f1,f2,f), k3=(main_do1, main_do2), k4=Krho, loc=loc )
 
             # J and K integrals with donor and acceptor being spectators
             if main_do2 != None: 
@@ -1237,18 +1691,16 @@ class ECI:
                         if do1 in f1.phi[(main_more1.Z,main_less1.Z)]: break
                         do1 = None
                     if do1 != None:
+                        Jrho = None
                         if spin1 == main_spin2:
                             Jrho = (less1,main_less1,'tot') 
                             if not Jrho in f1.rho[main_less1.Z]: Jrho = None
                         Krho = (less1, main_less1, main_spin2 + spin1)
                         if not Krho in f1.rho[main_less1.Z]: Krho = None 
 
-                        if Jrho != None and Krho != None and (d,a,f1) in Jspectators and (d,a,f1) in Kspectators:
-                            add_integral( k1='SCT_JK', k2=(f1,f2,f1), k3=(do1,main_do2,Jrho,Krho), loc=loc )
-                        elif Jrho != None and (d,a,f1) in Jspectators:
-                            add_integral( k1='SCT_J', k2=(f1,f2,f1), k3=(do1,main_do2,Jrho), loc=loc )
-                        elif Krho != None and (d,a,f1) in Kspectators:
-                            add_integral( k1='SCT_K', k2=(f1,f2,f1), k3=(do1,main_do2,Krho), loc=loc )
+                        if not f1 in Jspectators: Jrho = None
+                        if not f1 in Kspectators: Krho = None
+                        add_integral( k1='SCT_I', k2=(f1,f2,f1), k3=(do1,main_do2), k4=(Jrho,Krho), loc=loc )
 
             if main_do1 != None: 
                 for less2 in f2.states[main_less2.Z]:
@@ -1257,18 +1709,16 @@ class ECI:
                         if do2 in f2.phi[(main_more2.Z,main_less2.Z)]: break
                         do2 = None
                     if do2 != None:
+                        Jrho = None
                         if spin2 == main_spin1:
                             Jrho = (main_less2, less2, 'tot') 
                             if not Jrho in f2.rho[main_less2.Z]: Jrho = None
                         Krho = (main_less2, less2, spin2 + main_spin1)
                         if not Krho in f2.rho[main_less2.Z]: Krho = None 
 
-                        if Jrho != None and Krho != None and (d,a,f2) in Jspectators and (d,a,f2) in Kspectators:
-                            add_integral( k1='SCT_JK', k2=(f1,f2,f2), k3=(main_do1,do2,Jrho,Krho), loc=loc )
-                        elif Jrho != None and (d,a,f2) in Jspectators:
-                            add_integral( k1='SCT_J', k2=(f1,f2,f2), k3=(main_do1,do2,Jrho), loc=loc )
-                        elif Krho != None and (d,a,f2) in Kspectators:
-                            add_integral( k1='SCT_K', k2=(f1,f2,f2), k3=(main_do1,do2,Krho), loc=loc )
+                        if not f2 in Jspectators: Jrho = None
+                        if not f2 in Kspectators: Krho = None
+                        add_integral( k1='SCT_I', k2=(f1,f2,f2), k3=(main_do1,do2), k4=(Jrho,Krho), loc=loc )
         #  #-----End of relationship[(1,0)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
         #-----Start of relationship[(1,1)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1401,6 +1851,37 @@ class ECI:
                 if (ESD1.site_states[f], ESD2.site_states[f]) in f.mu[Z]: 
                     self.mu[m][:,i1, i2] = f.mu[Z][(ESD1.site_states[f], ESD2.site_states[f])]
             # TODO: Add relationships[(1,0)]. This is the only remaining non-zero within SOA 
+            for pair in ECIbasis.relationships[(1,0)]:
+                ESD1, ESD2 = pair['ESDs']
+                i1, i2 = pair['indices']
+                d, a = pair['donor'], pair['acceptor'] 
+                if d.index < a.index:
+                    f1, f2 = d, a
+                    main_less1 = ESD2.site_states[d]
+                    main_more1 = ESD1.site_states[d]
+                    main_less2 = ESD1.site_states[a]
+                    main_more2 = ESD2.site_states[a]
+                else:
+                    f1, f2 = a, d
+                    main_less1 = ESD1.site_states[a]
+                    main_more1 = ESD2.site_states[a]
+                    main_less2 = ESD2.site_states[d]
+                    main_more2 = ESD1.site_states[d]
+                main_do1, main_do2 = None, None
+                for spin in ['a', 'b']:
+                    if (main_more1, main_less1, spin) in f1.phi[(main_more1.Z,main_less1.Z)]:
+                        main_do1 = (main_more1, main_less1, spin) 
+                        main_spin1 = spin
+                    if (main_more2, main_less2, spin) in f2.phi[(main_more2.Z,main_less2.Z)]:
+                        main_do2 = (main_more2, main_less2, spin) 
+                        main_spin2 = spin
+                if main_do1 != None and main_do2 != None and main_spin1 == main_spin2: 
+                    phi1 = f1.phi[(main_more1.Z,main_less1.Z)][main_do1] 
+                    phi2 = f2.phi[(main_more2.Z,main_less2.Z)][main_do2] 
+                    phase = sum([ f.mol.nelectron - ESD2.site_states[f].Z for f in sites if f.index > f1.index and f.index <= f2.index ])
+                    prefactor = (-1.)**phase/main_more1.C['subnorm']/main_more2.C['subnorm']
+                    mu = merge_moles(f1.mol,f2.mol).intor("int1e_r")[:,:f1.mol.nao,f1.mol.nao:]
+                    self.mu[m][:,i1,i2] = prefactor*np.einsum('i,xij,j->x',phi1, mu, phi2)
             for x in range(3):
                 self.mu[m][x,:,:] = self.mu[m][x,:,:] + self.mu[m][x,:,:].T - np.diag( np.diag( self.mu[m][x,:,:] ) )
             self.mu[m] = np.einsum('ik,xkl,lj->xij', self.Psi['ESD'][m].T, self.mu[m], self.Psi['ESD'][m], optimize=['einsum_path', (0, 1),(0, 1)])

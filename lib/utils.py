@@ -803,3 +803,12 @@ class electronic_state:
                 string += '('+str(abs(self.Z))+'-)'
         return string
 
+    def __repr__(self):
+        return self.symbol()
+
+
+def density_representation(d): # To pring the density tuple. Can also be used for Dyson-orbital printing
+    s1, s2, spin = d
+    return f"[ {s1.symbol():<12s} {spin:-^6}> {s2.symbol():<12s} ]"
+    #  return "[ " + s1.symbol() + " " + middle + " " + s2.symbol() + " ]"
+

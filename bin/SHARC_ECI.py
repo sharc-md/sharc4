@@ -158,10 +158,10 @@ class SHARC_ECI(SHARC_HYBRID):
             tmpl_dict = yaml.safe_load(tmpl_file)
             self.log.debug(f"Parsing yaml file:\n{tmpl_dict}")
 
+        self.QMin.template['charge'] = tmpl_dict['charge']
         self.QMin.template['fragments'].update(tmpl_dict['fragments'])
         self.QMin.template['calculation'].update(tmpl_dict['calculation'])
-        self.QMin.template.update(tmpl_dict)
-        print(self.QMin.template)
+        #self.QMin.template.update(tmpl_dict)
 
         # Validate charge
         if self.QMin.template["charge"] is None:
@@ -304,6 +304,7 @@ class SHARC_ECI(SHARC_HYBRID):
         self.charges_to_do = set()
         for M, N in enumerate(self.QMin.molecule['states']):
             if N > 0:
+                print(M)
                 if not self.QMin.template['charge'][M] in self.charges:
                     self.log.error(
                             f"Requested full-system charge {C} cannot be calculated because refcharge and embedding_site_state of any fragmnet are not define for it!"
@@ -396,8 +397,12 @@ class SHARC_ECI(SHARC_HYBRID):
         for C in self.charges: # Full-system charge
             for label, fragment in QMin.template['fragments'].items():
                 for c in fragment['site_states'].keys(): # Fragment's charge
-                    child_dict[(label,c,C)] = (fragment['interface'], [], {"logfile": os.path.join(label+"_c"+str(c)+"_C"+str(C), "QM.log"), "logname": label+"_c"+str(c)+"_C"+str(C)}) 
-                child_dict[(label,'embedding',C)] = (fragment['embedding_interface'], [], {"logfile": os.path.join(label+"_embedding_C"+str(C), "QM.log"),"logname": label+"_embedding_C"+str(C) })
+                    interface = fragment['interface'] 
+                    #  if 'r' in QMin.template['calculation']['manage_children']: interface = 'QMOUT'
+                    child_dict[(label,c,C)] = (interface, [], {"logfile": os.path.join(label+"_c"+str(c)+"_C"+str(C), "QM.log"), "logname": label+"_c"+str(c)+"_C"+str(C)}) 
+                interface = fragment['embedding_interface'] 
+                #  if 'r' in QMin.template['calculation']['manage_children']: interface = 'QMOUT'
+                child_dict[(label,'embedding',C)] = (interface, [], {"logfile": os.path.join(label+"_embedding_C"+str(C), "QM.log"),"logname": label+"_embedding_C"+str(C) })
         self.instantiate_children(child_dict)
 
         # Exctract embedding_kindergarden and make electronic_state instances for embedding_site_state and aufbau_site_states
@@ -683,28 +688,6 @@ class SHARC_ECI(SHARC_HYBRID):
                     child1.set_coords( QMin.coords['pccoords'], pc=True )
                     child1.coords['pccharge'] = QMin.coords['pccharge']
         return
-
-    #  @staticmethod
-    #  def _build_mole_for_a_child(child):
-        #  atoms = [
-            #  [f"{s.upper()}{j+1}", c.tolist()]
-            #  for j, s, c in zip(range(child.QMin.molecule["natom"]), child.QMin.molecule["elements"], child.QMin.coords["coords"])
-        #  ]
-        #  mole = gto.Mole(
-            #  atom=atoms,
-            #  basis=basis,
-            #  unit="AU",
-            #  charge=0,
-            #  spin=0,
-            #  symmetry=False,
-            #  cart=cartesian_d
-        #  )
-        #  try:
-            #  mole.build()
-        #  except:
-            #  mole.spin = 1
-            #  mole.build()
-        #  return mole
 
     def run(self):
         QMin = self.QMin
