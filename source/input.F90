@@ -378,6 +378,13 @@ module input
         write(u_log, '(A)') 'Error: Cannot write NetCDF format. Rebuild pysharc with NetCDF support.'
         stop 1
 #endif
+      case ('netcdf_separate_nuc') 
+#ifdef __PYSHARC__
+        ctrl%output_format=2
+#else
+        write(u_log, '(A)') 'Error: Cannot write NetCDF format. Rebuild pysharc with NetCDF support.'
+        stop 1
+#endif
       case default
         write(0,*) 'Unknown keyword ',trim(line),' to "output_format"!'
         stop 1
@@ -390,6 +397,10 @@ module input
         write(u_log, '(A)') 'Use data_extractor.x'
       case (1)
         write(u_log, '(A)') 'Saving output data in NetCDF format (output.dat [header] + output.dat.nc)'
+        write(u_log, '(A)') 'Use data_extractor_NetCDF.x'
+      case (2)
+        write(u_log, '(A)') 'Saving electronic output data every step in NetCDF format (output.dat [header] + output.dat.nc) for one dummy atom'
+        write(u_log, '(A)') 'Saving coordinates in NetCDF format (sharc_traj_xyz.nc) for all atoms'
         write(u_log, '(A)') 'Use data_extractor_NetCDF.x'
     endselect
     write(u_log, *) 
@@ -1140,9 +1151,10 @@ module input
     endif
 
     ! request phase corrections from interface
-    if (ctrl%coupling.ne.3) then 
-      ctrl%calc_phases=1
-    elseif (ctrl%coupling==3) then
+    ctrl%calc_phases = 1
+    if (ctrl%coupling==3) then 
+      ctrl%calc_phases=0
+    elseif (ctrl%coupling==2) then
       ctrl%calc_phases=0
     endif
     line=get_value_from_key('nophases_from_interface',io)
