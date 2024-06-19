@@ -155,7 +155,7 @@ module definitions
     integer :: steps_in_gs                                 !< counter for the number of timesteps in the lowest state
     integer :: ncids(10)                                   !< NetCDF indices
     integer :: nc_index                                    !< number of steps written to NetCDF
-    integer :: nc_index_nuc                                !< number of steps written to NetCDF (nuclear)
+    integer :: nc_nuc_index                                !< number of steps written to NetCDF (nuclear)
   
     logical :: phases_found                                !< whether wavefunction phases were found in QM.out
   

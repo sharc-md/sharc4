@@ -54,6 +54,7 @@ module memory_module
     type(ctrl_type) :: ctrl
 !> netcdf stuff
     type(Tsharc_ncoutput) :: ncdat
+    type(Tsharc_ncxyz) :: ncxyz
 
 end module memory_module
 
@@ -1161,7 +1162,7 @@ end subroutine write_data_netcdf_seperate_nuc
 ! ------------------------------------------------------
 
 subroutine close_files()
-    use memory_module, only: ncdat, ctrl
+    use memory_module, only: ncdat, ncxyz, ctrl
     implicit none
   select case (ctrl%output_format)
     case (0)
