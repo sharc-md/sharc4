@@ -32,7 +32,7 @@ from optparse import OptionParser
 from constants import IAn2AName, ATOMCHARGE, FROZENS
 
 # INTERNAL
-#import sharc.sharc as sharc
+# import sharc.sharc as sharc
 import sharc
 from factory import factory
 from SHARC_INTERFACE import SHARC_INTERFACE
@@ -202,6 +202,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         isecond = set_qmout(qmout._QMout, icall)
     return icall
 
+
 def main():
     start = time.time_ns()
     parser = OptionParser()
@@ -251,8 +252,6 @@ def main():
     derived_int.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], derived_int.QMin.molecule["elements"]))
     derived_int.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], derived_int.QMin.molecule["elements"]))
     derived_int.QMin.maps["statemap"] = basic_info["statemap"]
-    if "SHARC_RETAIN" in os.environ:
-        derived_int.QMin.requests["retain"] = int(os.environ["SHARC_RETAIN"])
 
     derived_int._setup_mol = True
     with InDir("QM"):
