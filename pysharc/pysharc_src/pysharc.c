@@ -193,11 +193,11 @@ static PyObject * get_basic_info(PyObject * self)
     void (*get_info_str []) (char *) =
     { get_states_, get_dt_, get_savedir_  };
 
-    int N_func_int = 4;
+    int N_func_int = 3;
     char * info_names_int [] =
-    { "NAtoms", "NSteps", "istep","StateDiag" } ;
+    { "NAtoms", "NSteps", "istep" } ;
     void (*get_info_int []) (int *) =
-    { get_natoms_, get_nsteps_, get_trajstep_, get_state_diag_ };
+    { get_natoms_, get_nsteps_, get_trajstep_ };
 
 
     int N_func_pyobj = 1;
