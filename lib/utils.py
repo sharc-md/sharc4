@@ -813,13 +813,18 @@ class electronic_state:
         # only Z, S and N (not M). Comparison of 'full' electronic states
         # is not implemetented and it is supposed to be done by reference comparison
         # e.g. 'if state1 is state2:'
-        return self.Z == other.Z and self.S == other.S and self.N == other.N
+        return self.Z == other.Z and self.S == other.S and self.N == other.N and self.M == other.M
 
     def __gt__(self, other):
-        return self.S > other.S or self.N > other.N or self.M > other.M
+        ord1 = self.S * 100_000 + self.N * 100 + self.M
+        ord2 = other.S * 100_000 + other.N * 100 + other.M
+
+        return ord1 > ord2
 
     def __lt__(self, other):
-        return self.S < other.S or self.N < other.N or self.M < other.M
+        ord1 = self.S * 100_000 + self.N * 100 + self.M
+        ord2 = other.S * 100_000 + other.N * 100 + other.M
+        return ord1 < ord2
 
     def __hash__(self):
         return f"{self.Z} {self.S} {self.N} {self.M}".__hash__()
