@@ -110,7 +110,7 @@ class SHARC_LVC(SHARC_FAST):
 
         if (len(states) > len(self.template_states)) or any(a > b for (a, b) in zip(states, self.template_states)):
             self.log.error(
-                f'states from QM.in and nstates from LVC.template are inconsistent! {self.QMin.molecule["states"]} != {states}'
+                f'states from QM.in and nstates from LVC.template are inconsistent! {self.QMin.molecule["states"]} != {self.template_states}'
             )
             raise ValueError(
                 f'impossible to calculate {self.QMin.molecule["states"]} with template holding {self.template_states}'
@@ -193,7 +193,7 @@ class SHARC_LVC(SHARC_FAST):
                 return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]) - 1, int(v[4]) - 1, float(v[5]))
 
             for im, si, sj, n, m, v in map(d, range(z)):
-                self._G[im][si, sj, n, m] = v
+                self._G[im][sj, si, n, m] = v
                 self._G[im][si, sj, n, m] = v
             line = f.readline()
 
@@ -230,6 +230,8 @@ class SHARC_LVC(SHARC_FAST):
                     return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, int(v[3]), v[4:])
 
                 for im, si, sj, i, v in map(d, range(n_fits)):
+                    if i >= natom:
+                        continue
                     n = len(v)
                     dens = np.array([float(x) for x in v[:n]])
                     self._fits[im][si, sj, i, :n] = dens
@@ -299,76 +301,76 @@ class SHARC_LVC(SHARC_FAST):
 
     @staticmethod
     @njit(cache=True, fastmath=True)
-    def get_mult_prefactors(pc_coord_diff):
+    def get_mult_prefactors(pc_coord_diff, pc_inv_dist_A_B, r_inv3, r_inv5):
         # precalculated dist matrix
-        pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff) ** 2, axis=2))  # distance matrix n_coord (A), n_pc (B)
+        # pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff) ** 2, axis=0))  # distance matrix n_coord (A), n_pc (B)
         R = pc_coord_diff
-        r_inv3 = pc_inv_dist_A_B**3
-        r_inv5 = pc_inv_dist_A_B**5
+        # r_inv3 = pc_inv_dist_A_B**3
+        # r_inv5 = pc_inv_dist_A_B**5
         # full stack of factors for the multipole expansion
         # .,   x, y, z,   xx, yy, zz, xy, xz, yz
         return np.stack(
             (
                 pc_inv_dist_A_B,  # .
-                R[..., 0] * r_inv3,  # x
-                R[..., 1] * r_inv3,  # y
-                R[..., 2] * r_inv3,  # z
-                R[..., 0] * R[..., 0] * r_inv5 * 0.5,  # xx
-                R[..., 1] * R[..., 1] * r_inv5 * 0.5,  # yy
-                R[..., 2] * R[..., 2] * r_inv5 * 0.5,  # zz
-                R[..., 0] * R[..., 1] * r_inv5,  # xy
-                R[..., 0] * R[..., 2] * r_inv5,  # xz
-                R[..., 1] * R[..., 2] * r_inv5,  # yz
+                R[0, ...] * r_inv3,  # x
+                R[1, ...] * r_inv3,  # y
+                R[2, ...] * r_inv3,  # z
+                R[0, ...] * R[0, ...] * r_inv5 * 0.5,  # xx
+                R[1, ...] * R[1, ...] * r_inv5 * 0.5,  # yy
+                R[2, ...] * R[2, ...] * r_inv5 * 0.5,  # zz
+                R[0, ...] * R[1, ...] * r_inv5,  # xy
+                R[0, ...] * R[2, ...] * r_inv5,  # xz
+                R[1, ...] * R[2, ...] * r_inv5,  # yz
             )
         )
 
     @staticmethod
     @njit(cache=True, fastmath=True)
-    def get_mult_prefactors_deriv(pc_coord_diff):
-        pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff) ** 2, axis=2))  # distance matrix n_coord (A), n_pc (B)
+    def get_mult_prefactors_deriv(pc_coord_diff, pc_inv_dist_A_B, r_inv3, r_inv5):
+        # pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff) ** 2, axis=0))  # distance matrix n_coord (A), n_pc (B)
         R = pc_coord_diff
-        r_inv3 = pc_inv_dist_A_B**3
-        r_inv5 = pc_inv_dist_A_B**5
+        # r_inv3 = pc_inv_dist_A_B**3
+        # r_inv5 = pc_inv_dist_A_B**5
         r_inv7 = pc_inv_dist_A_B**7
         R_sq = R**2
         # full stack of factors for the multipole expansion
         # order 0,   x, y, z,   xx, yy, zz, xy, xz, yz
         return np.stack(
             (  # derivatives in x direction
-                -R[..., 0] * r_inv3,  # -Rx/R^3
-                (-2 * R_sq[..., 0] + R_sq[..., 1] + R_sq[..., 2]) * r_inv5,  # (-2Rx2+Ry2+Rz2)/R5
-                -3 * R[..., 1] * R[..., 0] * r_inv5,  # -3RyRx/R5
-                -3 * R[..., 2] * R[..., 0] * r_inv5,  # -3RzRx/R5
-                -R[..., 0] * (1.5 * R_sq[..., 0] - (R_sq[..., 1] + R_sq[..., 2])) * r_inv7,  # -Rx(5Rx2-2R2)/2R7
-                -2.5 * R_sq[..., 1] * R[..., 0] * r_inv7,  # -5Ry2Rx/2R7
-                -2.5 * R_sq[..., 2] * R[..., 0] * r_inv7,  # -5Rz2Rx/2R7
-                R[..., 1] * (-4 * R_sq[..., 0] + R_sq[..., 1] + R_sq[..., 2]) * r_inv7,  # Ry(-4Rx2+R2)/R7
-                R[..., 2] * (-4 * R_sq[..., 0] + R_sq[..., 1] + R_sq[..., 2]) * r_inv7,  # Rz(-4Rx2+R2)/R7
-                -5 * R[..., 0] * R[..., 1] * R[..., 2] * r_inv7,  # -5RxRyRz/R7
+                -R[0, ...] * r_inv3,  # -Rx/R^3
+                (-2 * R_sq[0, ...] + R_sq[1, ...] + R_sq[2, ...]) * r_inv5,  # (-2Rx2+Ry2+Rz2)/R5
+                -3 * R[1, ...] * R[0, ...] * r_inv5,  # -3RyRx/R5
+                -3 * R[2, ...] * R[0, ...] * r_inv5,  # -3RzRx/R5
+                -R[0, ...] * (1.5 * R_sq[0, ...] - (R_sq[1, ...] + R_sq[2, ...])) * r_inv7,  # -Rx(5Rx2-2R2)/2R7
+                -2.5 * R_sq[1, ...] * R[0, ...] * r_inv7,  # -5Ry2Rx/2R7
+                -2.5 * R_sq[2, ...] * R[0, ...] * r_inv7,  # -5Rz2Rx/2R7
+                R[1, ...] * (-4 * R_sq[0, ...] + R_sq[1, ...] + R_sq[2, ...]) * r_inv7,  # Ry(-4Rx2+R2)/R7
+                R[2, ...] * (-4 * R_sq[0, ...] + R_sq[1, ...] + R_sq[2, ...]) * r_inv7,  # Rz(-4Rx2+R2)/R7
+                -5 * R[0, ...] * R[1, ...] * R[2, ...] * r_inv7,  # -5RxRyRz/R7
                 # derivatives in y direction
-                -R[..., 1] * r_inv3,  # -Ry/R^3
-                -3 * R[..., 0] * R[..., 1] * r_inv5,  # -3RxRy/R5
-                (-2 * R_sq[..., 1] + R_sq[..., 0] + R_sq[..., 2]) * r_inv5,  # (-2Ry2+Rx2+Rz2)/R5
-                -3 * R[..., 2] * R[..., 1] * r_inv5,  # -3RzRy/R5
-                -2.5 * R_sq[..., 0] * R[..., 1] * r_inv7,  # -5Rx2Ry/2R7
-                -R[..., 1] * (1.5 * R_sq[..., 1] - (R_sq[..., 0] + R_sq[..., 2])) * r_inv7,  # -Ry(5Ry2-2R2)/2R7
-                -2.5 * R_sq[..., 2] * R[..., 1] * r_inv7,  # -5Rz2Ry/2R7
-                R[..., 0] * (-4 * R_sq[..., 1] + R_sq[..., 0] + R_sq[..., 2]) * r_inv7,  # Rx(-4Ry2+R2)/R7
-                -5 * R[..., 0] * R[..., 1] * R[..., 2] * r_inv7,  # -5RxRyRz/R7
-                R[..., 2] * (-4 * R_sq[..., 1] + R_sq[..., 0] + R_sq[..., 2]) * r_inv7,  # Rz(-4Ry2+R2)/R7
+                -R[1, ...] * r_inv3,  # -Ry/R^3
+                -3 * R[0, ...] * R[1, ...] * r_inv5,  # -3RxRy/R5
+                (-2 * R_sq[1, ...] + R_sq[0, ...] + R_sq[2, ...]) * r_inv5,  # (-2Ry2+Rx2+Rz2)/R5
+                -3 * R[2, ...] * R[1, ...] * r_inv5,  # -3RzRy/R5
+                -2.5 * R_sq[0, ...] * R[1, ...] * r_inv7,  # -5Rx2Ry/2R7
+                -R[1, ...] * (1.5 * R_sq[1, ...] - (R_sq[0, ...] + R_sq[2, ...])) * r_inv7,  # -Ry(5Ry2-2R2)/2R7
+                -2.5 * R_sq[2, ...] * R[1, ...] * r_inv7,  # -5Rz2Ry/2R7
+                R[0, ...] * (-4 * R_sq[1, ...] + R_sq[0, ...] + R_sq[2, ...]) * r_inv7,  # Rx(-4Ry2+R2)/R7
+                -5 * R[0, ...] * R[1, ...] * R[2, ...] * r_inv7,  # -5RxRyRz/R7
+                R[2, ...] * (-4 * R_sq[1, ...] + R_sq[0, ...] + R_sq[2, ...]) * r_inv7,  # Rz(-4Ry2+R2)/R7
                 # derivatives in z direction
-                -R[..., 2] * r_inv3,  # -Rz/R^3
-                -3 * R[..., 0] * R[..., 2] * r_inv5,  # -3RxRz/R5
-                -3 * R[..., 1] * R[..., 2] * r_inv5,  # -3RyRz/R5
-                (-2 * R_sq[..., 2] + R_sq[..., 1] + R_sq[..., 0]) * r_inv5,  # (-2Rz2+Rx2+Rz2)/R5
-                -2.5 * R_sq[..., 0] * R[..., 2] * r_inv7,  # -5Rx2Rz/2R7
-                -2.5 * R_sq[..., 1] * R[..., 2] * r_inv7,  # -5Ry2Rz/2R7
-                -R[..., 2] * (1.5 * R_sq[..., 2] - (R_sq[..., 1] + R_sq[..., 0])) * r_inv7,  # -Rz(5Rz2-2R2)/2R7
-                -5 * R[..., 0] * R[..., 1] * R[..., 2] * r_inv7,  # -5RxRyRz/R7
-                R[..., 0] * (-4 * R_sq[..., 2] + R_sq[..., 1] + R_sq[..., 0]) * r_inv7,  # Rx(-5Rz2+R2)/R7
-                R[..., 1] * (-4 * R_sq[..., 2] + R_sq[..., 1] + R_sq[..., 0]) * r_inv7,  # Ry(-5Rz2+R2)/R7
+                -R[2, ...] * r_inv3,  # -Rz/R^3
+                -3 * R[0, ...] * R[2, ...] * r_inv5,  # -3RxRz/R5
+                -3 * R[1, ...] * R[2, ...] * r_inv5,  # -3RyRz/R5
+                (-2 * R_sq[2, ...] + R_sq[1, ...] + R_sq[0, ...]) * r_inv5,  # (-2Rz2+Rx2+Rz2)/R5
+                -2.5 * R_sq[0, ...] * R[2, ...] * r_inv7,  # -5Rx2Rz/2R7
+                -2.5 * R_sq[1, ...] * R[2, ...] * r_inv7,  # -5Ry2Rz/2R7
+                -R[2, ...] * (1.5 * R_sq[2, ...] - (R_sq[1, ...] + R_sq[0, ...])) * r_inv7,  # -Rz(5Rz2-2R2)/2R7
+                -5 * R[0, ...] * R[1, ...] * R[2, ...] * r_inv7,  # -5RxRyRz/R7
+                R[0, ...] * (-4 * R_sq[2, ...] + R_sq[1, ...] + R_sq[0, ...]) * r_inv7,  # Rx(-5Rz2+R2)/R7
+                R[1, ...] * (-4 * R_sq[2, ...] + R_sq[1, ...] + R_sq[0, ...]) * r_inv7,  # Ry(-5Rz2+R2)/R7
             )
-        ).reshape((3, 10, pc_coord_diff.shape[0], pc_coord_diff.shape[1]))
+        ).reshape((3, 10, pc_coord_diff.shape[1], pc_coord_diff.shape[2]))
 
     @staticmethod
     def rotate_multipoles(q, Trot):
@@ -389,18 +391,17 @@ class SHARC_LVC(SHARC_FAST):
     def rotate_multipoles_deriv(q, Trot, dTrot):
         dip = q[..., 1:4].copy()
         # res = np.zeros_like(q)
-        dip = np.einsum("ijax,kxy->kijay", dip, dTrot)
+        dip = np.einsum("ijax,kxy->kijay", dip, dTrot, casting="no", optimize=True)
         quad = np.zeros((*q.shape[:-1], 3, 3))
         # [0,1,2,0,0,1],[0,1,2,1,2,2]
         quad[..., [0, 1, 2], [0, 1, 2]] = q[..., 4:7]
         quad[..., [0, 0, 1], [1, 2, 2]] = 0.5 * q[..., 7:]
         quad[..., [1, 2, 2], [0, 0, 1]] = quad[..., [0, 0, 1], [1, 2, 2]]
-        quad = np.einsum("kxm,ijaxy,yn->kijamn", dTrot, quad, Trot, optimize=["einsum_path", (0, 1), (0, 1)]) + np.einsum(
-            "xm,ijaxy,kyn->kijamn", Trot, quad, dTrot, optimize=["einsum_path", (0, 1), (0, 1)]
+        quad = np.einsum("kxm,ijaxy,yn->kijamn", dTrot, quad, Trot, casting="no", optimize=["einsum_path", (1, 2), (0, 1)]) + np.einsum(
+            "xm,ijaxy,kyn->kijamn", Trot, quad, dTrot, casting="no", optimize=["einsum_path", (0, 1), (0, 1)]
         )
         return np.concatenate((dip, quad[..., [0, 1, 2], [0, 1, 2]], 2 * quad[..., [0, 0, 1], [1, 2, 2]]), axis=-1)
 
-    # @profile
     def run(self):
         do_pc = self.QMin.molecule["point_charges"]
         do_derivs = self.QMin.requests["grad"] or self.QMin.requests["nacdr"]
@@ -453,10 +454,13 @@ class SHARC_LVC(SHARC_FAST):
             pc_coord = np.array(self.QMin.coords["pccoords"])  # n_pc, 1
 
             n_pc = pc_coord.shape[0]
-            # matrix of position differences (for gradient calc) n_coord (A), n_pc (B), 3
-            pc_coord_diff = np.full((coords.shape[0], n_pc, 3), coords[:, None, :]) - pc_coord
-            mult_prefactors = self.get_mult_prefactors(pc_coord_diff)
-            mult_prefactors_pc = np.einsum("b,yab->aby", self.pc_chrg, mult_prefactors)
+            # matrix of position differences (for gradient calc) 3, n_coord (A), n_pc (B)
+            pc_coord_diff = np.full((3, coords.shape[0], n_pc), coords.T[:, :, None]) - pc_coord.T[:, None, :]
+            pc_inv_dist_A_B = 1 / np.sqrt(np.sum((pc_coord_diff) ** 2, axis=0))  # distance matrix n_coord (A), n_pc (B)
+            r_inv3 = pc_inv_dist_A_B**3
+            r_inv5 = pc_inv_dist_A_B**5
+            mult_prefactors = self.get_mult_prefactors(pc_coord_diff, pc_inv_dist_A_B, r_inv3, r_inv5)
+            mult_prefactors_pc = np.einsum("b,yab->ay", self.pc_chrg, mult_prefactors)
             del mult_prefactors
 
         # Build full H and diagonalize
@@ -476,10 +480,7 @@ class SHARC_LVC(SHARC_FAST):
             if self._gammas:
                 H += np.einsum("n,ijnm,m->ij", self._Q, self._G[im], self._Q, casting="no", optimize=True)
             if do_pc:
-                if "_H_ee_coupling" not in self.__dict__:
-                    self._H_ee_coupling = np.einsum_path("ijay,aby->ij", fits_rot[im], mult_prefactors_pc, optimize="optimal")[0]
-                # print(np.einsum("iiay,yab->i", fits_rot[im], mult_prefactors_pc, casting="no", optimize=True))
-                H += np.einsum("ijay,aby->ij", fits_rot[im], mult_prefactors_pc, casting="no", optimize=self._H_ee_coupling)
+                H += np.einsum("ijay,ay->ij", fits_rot[im], mult_prefactors_pc, casting="no", optimize=True)
             if self._diagonalize:
                 eigen_values, eigen_vec = np.linalg.eigh(H, UPLO="U")
                 np.einsum("ii->i", Hd)[start_req:stop_req] = eigen_values[:n_req]
@@ -506,7 +507,7 @@ class SHARC_LVC(SHARC_FAST):
             if do_pc and do_derivs:
                 pc_grad = np.zeros((self.pc_chrg.shape[0] * 3, req_nmstates))
 
-                mult_prefactors_deriv = self.get_mult_prefactors_deriv(pc_coord_diff)
+                mult_prefactors_deriv = self.get_mult_prefactors_deriv(pc_coord_diff, pc_inv_dist_A_B, r_inv3, r_inv5)
 
                 fits_deriv = {}
                 for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
@@ -616,13 +617,7 @@ class SHARC_LVC(SHARC_FAST):
                     # add derivative to lvc derivative summed ofe all point charges
                     dlvc += np.einsum("abxij->axij", dcoulomb).reshape((r3N, n_req, n_req))
                     # add the derivative of the multipoles
-                    if "_dlvc_path" not in self.__dict__:
-                        self._dlvc_path = np.einsum_path(
-                            "aby,kijay->kij", mult_prefactors_pc[..., 1:], dfits_deriv[im], optimize="optimal"
-                        )[0]
-                    dlvc += np.einsum(
-                        "aby,kijay->kij", mult_prefactors_pc[..., 1:], dfits_deriv[im], casting="no", optimize=self._dlvc_path
-                    )
+                    dlvc += np.einsum("ay,kijay->kij", mult_prefactors_pc[..., 1:], dfits_deriv[im], casting="no", optimize=True)
                     # calculate the pc derivatives
                     pc_derivative = -np.einsum("abxij->bxij", dcoulomb).reshape((-1, n_req, n_req))
                     del dcoulomb
@@ -694,13 +689,7 @@ class SHARC_LVC(SHARC_FAST):
                     # add derivative to lvc derivative summed ofe all point charges
                     grad_lvc += np.einsum("abxi->axi", dcoulomb).reshape((r3N, n_req))
                     # add the derivative of the multipoles
-                    if "_grad_lvc_path" not in self.__dict__:
-                        self._grad_lvc_path = np.einsum_path(
-                            "aby,kiay->ki", mult_prefactors_pc[..., 1:], idfits_deriv, optimize="optimal"
-                        )[0]
-                    grad_lvc += np.einsum(
-                        "aby,kiay->ki", mult_prefactors_pc[..., 1:], idfits_deriv, casting="no", optimize=self._grad_lvc_path
-                    )
+                    grad_lvc += np.einsum("ay,kiay->ki", mult_prefactors_pc[..., 1:], idfits_deriv, casting="no", optimize=True)
                     # calculate the pc derivatives
                     pc_grad[..., start_req:stop_req] = -np.einsum("abxi->bxi", dcoulomb).reshape((-1, n_req))
                     del dcoulomb
