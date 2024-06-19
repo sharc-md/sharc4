@@ -187,7 +187,6 @@ def test_energies():
     for outfile, template, qmin, energies in tests:
         get_energy(outfile, template, qmin, energies)
 
-@pytest.mark.skip()
 def test_tdms():
     tests = [
         (
@@ -200,7 +199,6 @@ def test_tdms():
     for outfile, template, qmin, tdms in tests:
         get_tdm(outfile, template, qmin, tdms)
 
-@pytest.mark.skip()
 def test_grads():
     tests = [
         (
@@ -214,7 +212,6 @@ def test_grads():
     for outfile, template, qmin, grads, grads_pc in tests:
         get_grads(outfile, template, qmin, grads, grads_pc)
 
-@pytest.mark.skip()
 def test_grads_no_pc():
     tests = [
         (
