@@ -4,9 +4,7 @@
     ## ======== PATHS ============
 
     ## Paths to TURBOMOLE and ORCA
-#turbodir /usr/license/turbomole/7.0/TURBOMOLE/
-#turbodir /usr/license/turbomole/TmoleX2024/TURBOMOLE/
-turbodir $TURBODIR
+turbodir /usr/license/turbomole/7.0/TURBOMOLE/
 
 orcadir  /usr/license/orca/latest/
 
@@ -40,7 +38,7 @@ numfrozcore -1          # only for overlaps. If -1, use values from template's "
     ## 0: only free matrix elements (mu_00 and mu_xx if gradient of x is computed)
     ## 1: additionally, all mu_0x elements (oscillator strengths for excitation from ground state)
     ## 2: all matrix elements are calculated (mu_00, mu_xx, mu_0x, mu_xx)
-dipolelevel 2
+dipolelevel 1
 
 
 

@@ -24,7 +24,7 @@ init
     ## ===============================================
     # Settings:
 unit angstrom
-states 3 0 0
+states 3 3 3
 #savedir ./SAVE         # overrides the savedir in the resources file
 
     ## ===============================================
@@ -34,7 +34,7 @@ soc
 dm
 grad 1
 #overlap
-#ion
+ion
 theodore
     # note that the "soc" keyword does not work with the Gaussian interface
 

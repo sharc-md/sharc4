@@ -101,12 +101,12 @@ class QMout:
                     case 0: # basis info
                         iline += 1
                         while "!" not in data[iline]:
-                            log.debug(data[iline])
+                            log.trace(data[iline])
                             if not data[iline].strip():
                                 iline += 1
                                 continue
                             k, v = data[iline].split(maxsplit=1)
-                            log.debug(f"{k}: {v}")
+                            log.trace(f"{k}: {v}")
                             if k not in basic_info:
                                 log.warning(f"did not parse {k} from section 0!")
                                 iline += 1
