@@ -20,6 +20,8 @@ from qmin import QMin
 from resp import Resp, multipoles_from_dens_parallel
 from SHARC_INTERFACE import SHARC_INTERFACE
 from sympy.physics.wigner import wigner_3j
+from pyscf.gto import mole
+from scipy.linalg import fractional_matrix_power
 from utils import InDir, containsstring, convert_list, electronic_state, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile, density_representation 
 
 all_features = {
@@ -81,6 +83,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_fit_order": 2,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
+                "resp_target": "zero",
             }
         )
 
@@ -102,6 +105,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_fit_order": int,
                 "resp_mk_radii": bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": str,
+                "resp_target": str,
             }
         )
 
@@ -125,6 +129,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         if self.QMin.resources["theodore_fragment"]:
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
+        if self.QMin.resources["resp_vdw_radii"]:
+            self.QMin.resources["resp_vdw_radii"] = convert_list(self.QMin.resources["resp_vdw_radii"], float)
+        if self.QMin.resources["resp_vdw_radii_symbol"]:
+            self.QMin.resources["resp_vdw_radii_symbol"] = convert_dict(self.QMin.resources["resp_vdw_radii_symbol"], float)
+        if self.QMin.resources["resp_target"] and self.QMin.resources["resp_target"] not in {"zero", "mulliken", "loewdin"}:
+            self.log.error(f'"resp_target": {self.QMin.resources["resp_target"]} is not known! valid options are "zero", "mulliken" or "loewdin"')
+            raise ValueError()
 
     def printQMout(self) -> None:
         super().writeQMout()
@@ -1112,9 +1123,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             logger=self.log,
         )
         mol = self.QMout["mol"]
-        gsmult = self.QMin.maps["statemap"][1][0]
-        charge = self.QMin.maps["chargemap"][gsmult]  # the charge is irrelevant for the integrals calculated!!
-        fits.prepare(mol)  # the charge of the atom does not affect integrals
+        if self.QMin.resources["resp_target"] == "loewdin":
+            Sao_root = fractional_matrix_power(self.QMin.molecule["SAO"], 0.5)
+        fits.prepare(mol, self.QMin.resources['ncpu'])  # the charge of the atom does not affect integrals
         fits.prepare_parallel(self.QMout.density_matrices, self.QMin.resources["resp_fit_order"])
 
         fits_map = {}
@@ -1125,10 +1136,29 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         with Pool(processes=self.QMin.resources["ncpu"]) as pool:
             for dens in self.QMin.requests["multipolar_fit"]:
                 s1, s2 = dens
+                charge = s1.Z if s1 // s2 else 0
                 if (s2, s1) in queued:
                     get_transpose.append(dens)
                     continue
-                charge = s1.Z if s1 // s2 else 0
+
+                target = None
+                if self.QMin.resources["resp_target"] == "mulliken":
+                    target = SHARC_ABINITIO.mulliken_pop(
+                        mol,
+                        dm=self.QMout.density_matrices[(s1, s2, "tot")],
+                        s=self.QMin.molecule["SAO"],
+                        include_core_charges=s1 is s2
+                    )
+                elif self.QMin.resources["resp_target"] == "loewdin":
+                    target = SHARC_ABINITIO.loewdin_pop(
+                        mol,
+                        dm=self.QMout.density_matrices[(s1, s2, "tot")],
+                        s_root=Sao_root,
+                        include_core_charges=s1 is s2
+                    )
+                if target is not None:
+                    self.log.debug(f"{dens} fitted to target ({charge}, {sum(target)}) {target}")
+
                 queued.add(dens)
                 fits_map[dens] = pool.apply_async(
                     multipoles_from_dens_parallel,
@@ -1139,6 +1169,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         self.QMin.resources["resp_fit_order"],
                         self.QMin.resources["resp_betas"],
                         self.QMin.molecule["natom"],
+                        target
                     ),
                 )
             pool.close()
@@ -1349,3 +1380,50 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         run_theodore
         save directory handling
         """
+
+    @staticmethod
+    def mulliken_pop(mol, dm: np.ndarray, s: np.ndarray, include_core_charges=True):
+        """Mulliken populations analysis
+
+        Args:
+            mol (): gto.Mole object
+            dm: density matrix in AO basis
+            s: atomic orbital overlap
+        """
+        pop = np.einsum('ij,ij->i', dm, s)
+        aorange = mole.aoslice_by_atom(mol)
+
+        chrg = np.zeros((mol.natm))
+        if include_core_charges:
+            chrg += mol.atom_charges()
+
+        for i, (_, _, ao_start, ao_stop) in enumerate(aorange):
+            chrg[i] -= sum(pop[ao_start:ao_stop])
+
+        return chrg
+
+    @staticmethod
+    def loewdin_pop(mol, dm: np.ndarray, s_root: np.ndarray, include_core_charges=True):
+        """Loewdin populations analysis
+
+        Args:
+            mol (): gto.Mole object
+            dm: density matrix in AO basis
+            s_root: S^(1/2) where S is the AO overlap matrix
+        """
+        pop = np.einsum('mi,ij,jm->m', s_root, dm, s_root)
+        # pop = s_root @ dm @ s_root
+        aorange = mole.aoslice_by_atom(mol)
+
+        chrg = np.zeros((mol.natm))
+        if include_core_charges:
+            chrg += mol.atom_charges()
+
+        for i, (_, _, ao_start, ao_stop) in enumerate(aorange):
+            # chrg[i] -= np.einsum('ii->', pop[ao_start:ao_stop, ao_start:ao_stop])
+            chrg[i] -= sum(pop[ao_start:ao_stop])
+
+        return chrg
+        
+        
+

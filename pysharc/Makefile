@@ -1,6 +1,6 @@
 #******************************************
 #
-#    SHARC Program Suite
+# SHARC Program Suite
 #
 #    Copyright (c) 2023 University of Vienna
 #

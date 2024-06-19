@@ -432,7 +432,11 @@ subroutine write_dat_initial(u, ctrl, traj)
     ! old header for SHARC v1.0
     write(u,*) ctrl%maxmult, '! maxmult'
     write(u,*) ctrl%nstates_m, '! nstates_m'
-    write(u,*) ctrl%natom, '! natom'
+    if (ctrl%output_format == 2) then
+        write(u,*) 1, '! atom'
+    else
+        write(u,*) ctrl%natom, '! natom'
+    endif
     write(u,*) ctrl%dtstep, '! dtstep'
     write(u,*) ctrl%ezero, '! ezero'
     write(u,*) ctrl%calc_overlap, '! calc_overlap'
@@ -447,8 +451,12 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'integrator',       ctrl%integrator
     write(u,*) 'maxmult',          ctrl%maxmult
     write(u,'(1X,A9,64(1X,I4))') 'nstates_m',        ctrl%nstates_m
-    write(u,*) 'natom',            ctrl%natom
-    write(u,*) 'dtstep',           ctrl%dtstep
+    if (ctrl%output_format == 2) then
+        write(u,*) 'natom',            1
+    else
+        write(u,*) 'natom',            ctrl%natom
+    endif
+    write(u,*) 'dtstep',           ctrl%dtstep 
     write(u,*) 'nsteps',           ctrl%nsteps
     write(u,*) 'nsubsteps',        ctrl%nsubsteps
     write(u,*) 'ezero',            ctrl%ezero
@@ -461,9 +469,15 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'n_property2d',     ctrl%n_property2d
     write(u,*) 'laser',            ctrl%laser
     write(u,'(a)') '************************************* End of settings *************************************'
-    call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
-    call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
-    call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E21.13e3')
+    if (ctrl%output_format == 2) then
+        call vecwrite(1,traj%atomicnumber_a(1:2),u,'! Atomic numbers','E21.13e3')
+        call vecwrite(1,traj%element_a(1:2),     u,'! Elements',      'A3'  )
+        call vecwrite(1,traj%mass_a(1:2),        u,'! Atomic masses', 'E21.13e3')
+    else
+        call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
+        call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
+        call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E21.13e3')
+    endif
     if (ctrl%laser==2) call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, '! Laser field','E21.13e3')    
     write(u,'(a)') '********************************* End of header array data ********************************'
   endif

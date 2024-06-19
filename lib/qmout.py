@@ -9,6 +9,10 @@ from utils import eformat, itnmstates, writefile
 from logger import log
 import pyscf
 from utils import electronic_state
+from functools import reduce
+from itertools import islice
+import ast
+import re
 import ast
 import json
 
@@ -51,12 +55,15 @@ class QMout:
     mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
-    def __init__(self, filepath=None, states: list[int] = None, natom: int = None, npc: int = None, charges: list[int] = None):
+    def __init__(self, filepath=None, states: list[int] = None, natom: int = None, npc: int = None, charges: list[int] = None,
+                 flags='all'):
         self.prop0d = []
         self.prop1d = []
         self.prop2d = []
         self.notes = {}
         self.runtime = 0
+        if flags == 'all':
+            flags = {k for k in range(30)}
         if states is not None:
             self.states = states
             self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
@@ -75,38 +82,70 @@ class QMout:
             log.debug(f"Reading file {filepath}")
             try:
                 f = open(filepath, "r", encoding="utf-8")
-                data = f.readlines()
-                f.close()
             except IOError:
                 raise IOError("'Could not find %s!' % (filepath)")
             log.debug(f"Done raw reading {filepath}")
             # get basic information
-            basic_info = {"states": list, "charges": list, "natom": int, "npc": int}
+            basic_info = {"states": list, "charges": list, "natom": int, "npc": int, "nmstates": int}
             # set from input
-            iline = 0
-            while iline < len(data):
+            line = "Start"
+            while line:
                 # skip to next flag
-                if not data[iline].startswith("! "):
-                    iline += 1
+                if not line[0] == "!":
+                    line = f.readline()
                     continue
                 # get flag
-                flag = int(data[iline].split()[1])
-                # skip unwanted flags
-                # if flags != "all" and flag != 0 and flag not in flags:
-                    # n1, n2 = data[iline].spit()[-2].split('x')[0:2]
-                    # iline += int(n1) * int(n2)
+                flag = int(line.split()[1])
+                if flag == 0:
+                    data = []
+                    line = f.readline()
+                    while line[0] != "!":
+                        data.append(line)
+                        line = f.readline()
+                    shape = []
+                    block_length = 0
+                elif flag in {20, 23}:
+                    data = [line]
+                    line = f.readline()
+                    while line != '\n':
+                        data.append(line)
+                        line = f.readline()
+                    shape = []
+                    block_length = len(data)
+                    if flag not in flags:
+                        continue
+                else:
+                    if flag in {8, 25}:
+                        shape = [1]
+                        block_length = 1
+                    else:
+                        shape = [int(n) for n in re.search(r"\(((\d+x)+\d+)", line).group(1).split('x')]
+                        block_length = reduce(lambda agg, x: agg*x, shape[:-1])
+                        if len(shape) > 2:
+                            block_length += shape[0]
+                    # skip unwanted flags
+                    if flags != "all" and flag not in flags:
+                        # print(f"skipping flag {flag} with {block_length} lines")
+                        next(islice(f, block_length, block_length), None)
+                        # (f.readline() for _ in range(block_length))
+                        line = f.readline()
+                        continue
+
+                    data = [line] + [f.readline() for _ in range(block_length+1)]
+                    # print(data[0])
+                iline = 0
 
                 log.debug(f"Parsing flag: {flag}")
+                # print(f"Parsing flag: {flag}, {shape} {block_length}")
                 match flag:
                     case 0: # basis info
-                        iline += 1
-                        while "!" not in data[iline]:
-                            log.trace(data[iline])
+                        while iline < len(data):
+                            # log.trace(data[iline])
                             if not data[iline].strip():
                                 iline += 1
                                 continue
                             k, v = data[iline].split(maxsplit=1)
-                            log.trace(f"{k}: {v}")
+
                             if k not in basic_info:
                                 log.warning(f"did not parse {k} from section 0!")
                                 iline += 1
@@ -122,10 +161,12 @@ class QMout:
                             iline += 1
                         for k in basic_info:
                             if k not in self:
-                                log.warning(f"{k} not read from QMin!")
+                                log.warning(f"{k} not read from QMout!")
+                                pass
                         self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
                         self.nstates = sum(self.states)
                         self.point_charges = self.npc > 0
+                        continue
                     case 1: # h
                         self.h, iline = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates))
                     case 2: # dm
@@ -161,11 +202,11 @@ class QMout:
                             (3, self.nmstates, self.nmstates, self.npc, 3),
                         )
                     case 22: # multipolar_fit
-                        self.multipolar_fit, iline = QMout.get_multipoles(data, iline, self.charges)
+                        self.multipolar_fit, iline = QMout.get_multipoles(data, iline, self.charges, shape)
                         if data[iline].find("settings") != -1:
                             self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]
                     case 24: # Densities
-                        self.density_matrices, iline = QMout.get_densities(data, iline, self.charges)
+                        self.density_matrices, iline = QMout.get_densities(data, iline, self.charges, shape)
                     case 23: # prop0d
                         self.prop0d, iline = QMout.get_property(data, iline, float, ())
                     case 25:
@@ -179,6 +220,8 @@ class QMout:
                     case _:
                         iline += 1
                         log.warning(f"Warning!: property with flag {flag} not yet implemented in QMout class")
+                line = f.readline()
+            f.close()
 
     @staticmethod
     def find_line(data, flag):
@@ -214,7 +257,8 @@ class QMout:
             for irow in range(shape[0]):
                 line = data[iline + irow].split()
                 if type == complex:
-                    result[irow, :] = np.array([complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[1])])
+                    result[irow, :] = np.fromiter((complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[1])),
+                                                  dtype=complex, count=shape[1])
                 elif type == float:
                     result[irow, :] = np.array([float(line[i]) for i in range(shape[1])])
         elif len(shape) == 3:
@@ -223,8 +267,10 @@ class QMout:
                 for irow in range(shape[1]):
                     line = data[iline + irow].split()
                     if type == complex:
-                        result[iblock, irow, :] = np.array(
-                            [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[2])]
+                        result[iblock, irow, :] = np.fromiter(
+                            (complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[2])),
+                            dtype=complex,
+                            count=shape[2]
                         )
                     elif type == float:
                         result[iblock, irow, :] = np.array([float(line[i]) for i in range(shape[2])])
@@ -287,15 +333,15 @@ class QMout:
         iline += 4 + num
         res = []
         for irow in range(num):
-            res.append(QMout.get_quantity(data, iline, type, shape))
+            res.append(QMout.get_quantity(data, iline, type, shape)[0])
             iline += 2
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
 
     @staticmethod
-    def get_multipoles(data, iline, charges):
+    def get_multipoles(data, iline, charges, shape):
         res = {}
-        shape = [int(s) for s in data[iline].split()[-1][1:-1].split("x")]
+        # shape = [int(s) for s in data[iline].split()[-1][1:-1].split("x")]
         iline += 1
         for i in range(shape[0]):
             tmp = data[iline].split()
@@ -308,9 +354,43 @@ class QMout:
             res[(s1, s2)] = np.fromiter(chain(*map(lambda x: map(float, x.split()), data[iline + 1: iline + 1 + y])), dtype=float,
                                         count=y*z).reshape((y,z))
             iline += y + 1
-        return res, iline
+        return res, iline - 1
 
     @staticmethod
+    def get_densities(data, iline, charges, shape):
+        res = {}
+        Nao, Nrho = int(shape[1]), int(shape[0])
+        for d in range(Nrho):
+            line = data[iline+d*(Nao+1)+1]
+            if line[0] == '<':
+                state1, spin, state2 = line.split('|')
+                spin = spin.strip()
+                s1, m1, n1 = (i.split()[-1] for i in state1.split(','))
+                s2, m2, n2 = (i.split()[-1] for i in state2.strip()[:-1].split(','))
+            else:
+                state1, state2, spin = line.split('|')
+                spin = spin.strip()
+                s1, m1, n1 = state1.split(',')
+                s2, m2, n2 = state2.split(',')
+
+            s1 = int(2*float(s1))
+            s2 = int(2*float(s2))
+            m1 = int(2*float(m1))
+            m2 = int(2*float(m2))
+            n1 = int(n1)
+            n2 = int(n2)
+            #  print('From qmout.get_densities: s1, ms1, n1 = ', s1, m1, n1)
+            state1 = electronic_state(Z=charges[s1], S=s1, M=m1, N=n1)
+            state2 = electronic_state(Z=charges[s2], S=s2, M=m2, N=n2)
+            rho = np.zeros((Nao,Nao))
+            for i in range(Nao):
+                row = data[iline+d*(Nao+1)+2+i].split()
+                row = np.array([ float(r) for r in row ])
+                rho[i,:] = row
+            res[(state1,state2,spin)] = rho
+        iline += Nao*Nrho
+        return res, iline
+
     def get_densities(data, iline, charges):
         res = {}
         shape = data[iline].split('(')[1].split(')')[0].split('x')
@@ -344,7 +424,6 @@ class QMout:
         mol = pyscf.gto.Mole.unpack(ast.literal_eval(data[iline+1].replace("'",'"'))) 
         mol.build()
         return mol, iline + 2
-
 
     def allocate(self, states=[], natom=0, npc=0, requests: set[str] = set()):
         self.nmstates = sum((i + 1) * n for i, n in enumerate(states))
@@ -434,6 +513,7 @@ class QMout:
         string += f"nmstates {self.nmstates}\n"
         string += f"natom {self.natom}\n"
         string += f"npc {self.npc}\n"
+        string += "charges " + " ".join(map(str, self.charges))
         string += "\n"
         # write data
         if requests["soc"] or requests["h"]:
@@ -469,10 +549,11 @@ class QMout:
         if requests["multipolar_fit"]:
             string += self.writeQMoutmultipolarfit()
         if requests["density_matrices"]:
-            string += self.writeQMoutDensityMatrices()
+            pass
+            # string += self.writeQMoutDensityMatrices()
         if requests["dyson_orbitals"]:
             string += self.writeQMoutDysonOrbitals()
-        if requests["mol"]:
+        if "mol" in requests and requests["mol"]:
             string += self.writeQMoutMole()
 
         if self.notes:
@@ -1067,7 +1148,7 @@ class QMout:
             setting_str = self.notes["density_matrices"]
         nrho = len(self.density_matrices.values())
         string = (
-            f"! 24 Total/Spin/Partial 1-particle density matrices in AO-product basis ({nao}x{nao}x{nrho}) {setting_str}\n"
+            f"! 24 Total/Spin/Partial 1-particle density matrices in AO-product basis ({nrho}x{nao}x{nao}) {setting_str}\n"
         )
         for key, rho in self.density_matrices.items():
             s1, s2, spin = key

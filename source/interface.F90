@@ -54,6 +54,7 @@ module memory_module
     type(ctrl_type) :: ctrl
 !> netcdf stuff
     type(Tsharc_ncoutput) :: ncdat
+    type(Tsharc_ncxyz) :: ncxyz
 
 end module memory_module
 
@@ -1020,6 +1021,8 @@ subroutine write_dat_new(u, traj, ctrl)
       call write_dat(u, traj, ctrl)
     case (1)
       call write_data_netcdf()
+    case (2)
+      call write_data_netcdf_seperate_nuc()
   endselect
   
 endsubroutine
@@ -1075,16 +1078,100 @@ subroutine write_data_netcdf()
 
 end subroutine write_data_netcdf
 
+
+subroutine write_data_netcdf_seperate_nuc()
+  use definitions
+  use memory_module, only: ncdat, ncxyz, traj, ctrl
+
+  implicit none
+
+  real*8 :: E(3)
+  integer :: stride, stride_nuc
+  real*8, DIMENSION(1, 3) :: dummy_geom_ad, dummy_veloc_ad
+  integer, DIMENSION(ctrl%natom) :: IAn
+  if (traj%step == 0) then
+      call get_IAn(ctrl%natom, IAn)
+  endif
+
+  E(1) = traj%Etot
+  E(2) = traj%Epot
+  E(3) = traj%Ekin
+
+  ! check if writing
+  stride=ctrl%output_steps_stride(1)
+  if (traj%step>=ctrl%output_steps_limits(2)) then
+    stride=ctrl%output_steps_stride(2)
+  endif
+  if (traj%step>=ctrl%output_steps_limits(3)) then
+    stride=ctrl%output_steps_stride(3)
+  endif
+
+  ! check if writing nuc
+  stride_nuc=ctrl%output_steps_stride_nuc(1)
+  if (traj%step>=ctrl%output_steps_limits_nuc(2)) then
+    stride_nuc=ctrl%output_steps_stride_nuc(2)
+  endif
+  if (traj%step>=ctrl%output_steps_limits_nuc(3)) then
+    stride_nuc=ctrl%output_steps_stride_nuc(3)
+  endif
+  
+
+  if (modulo(traj%step,stride)==0) then
+      ! write electronic data with dummy atom evey time step
+      dummy_geom_ad = reshape((/ 0., 0., 0. /), shape(dummy_geom_ad))
+      dummy_veloc_ad = reshape((/ 0., 0., 0. /), shape(dummy_veloc_ad))
+  call write_sharc_ncoutputdat_istep(&
+      & traj%nc_index, &
+      & 1, &
+      & ctrl%nstates, &
+      & traj%H_MCH_ss, &
+      & traj%U_ss, &
+      & traj%DM_print_ssd, &
+      & traj%overlaps_ss, &
+      & traj%coeff_diag_s, &
+      & E, &
+      & traj%hopprob_s, &
+      & dummy_geom_ad, &
+      & dummy_veloc_ad, &
+      & traj%randnum, &
+      & traj%state_diag, &
+      & traj%state_MCH, &
+      & traj%step, &
+      & ncdat)
+    if (traj%nc_index<0) traj%nc_index=-traj%nc_index
+    traj%nc_index=traj%nc_index+1
+  endif
+
+  ! write nuclear netcdf with stride
+  if (modulo(traj%step,stride_nuc)==0) then
+    call write_sharc_ncxyz_traj(&
+        & traj%nc_nuc_index, &
+        & ctrl%natom, &
+          !
+        & IAn, &
+        & traj%geom_ad, &
+        & traj%veloc_ad, &
+        & traj%step, &
+        & ncxyz)
+    if (traj%nc_nuc_index<0) traj%nc_nuc_index=-traj%nc_nuc_index
+    traj%nc_nuc_index=traj%nc_nuc_index+1
+  endif
+
+end subroutine write_data_netcdf_seperate_nuc 
+
 ! ------------------------------------------------------
 
 subroutine close_files()
-    use memory_module, only: ncdat, ctrl
+    use memory_module, only: ncdat, ncxyz, ctrl
     implicit none
   select case (ctrl%output_format)
     case (0)
       continue
     case (1)
       call close_ncfile(ncdat%id)
+    case (2)
+      call close_ncfile(ncdat%id)
+      call close_ncfile(ncxyz%id)
   endselect
 end subroutine close_files
 
