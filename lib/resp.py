@@ -379,7 +379,7 @@ class Resp:
 
 
 def multipoles_from_dens_parallel(
-    dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None
+    dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None, target=None
 ):
     # self.log.info("Start sequential multipolar fit")
     if not include_core_charges and charge != 0:
@@ -395,7 +395,9 @@ def multipoles_from_dens_parallel(
         Fesp_i += fit_data["Vnuc"]
 
     # fit monopoles
-    monopoles, Fres = _fit(fit_data["geo_tens0"], Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=fit_data["weights"])
+    monopoles, Fres = _fit(
+        fit_data["geo_tens0"], Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=fit_data["weights"], target=target
+    )
 
     if order == 0:
         return monopoles
@@ -413,7 +415,9 @@ def multipoles_from_dens_parallel(
     return np.hstack((monopoles, dipoles, quadrupoles))
 
 
-def _fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weights=None, traceless_quad=False, logger=None):
+def _fit(
+    tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weights=None, traceless_quad=False, logger=None, target=None
+):
     n_af = natom * n_fits
     dim = n_af + 1
 
@@ -460,6 +464,8 @@ def _fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weight
     max_iterations = 500
     iteration = 0
     while np.linalg.norm(Q_last - Q_new) >= 0.00001 and iteration < max_iterations:
+        if target is not None:
+            Q_last = Q_last - target
         rest = vget_rest(Q_last)
         Q_last = Q_new.copy()
         A_rest = np.copy(A)
