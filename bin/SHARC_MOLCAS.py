@@ -1254,12 +1254,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 case "cms-pdft":
                     energies = re.findall(r"CMS-PDFT Root.*Total energy:\s+(.*)\n", output_file)
             # Remove extra roots
-            s_cnt = 0
-            for m, s in enumerate(self.QMin.molecule["states"]):
-                if self.QMin.template["roots"][m] > s > 0:
-                    for _ in range(self.QMin.template["roots"][m] - s):
-                        del energies[s_cnt + s]
-                s_cnt += s
+            if self.QMin.template["method"] in ("casscf", "cms-pdft", "caspt2"):
+                s_cnt = 0
+                for m, s in enumerate(self.QMin.molecule["states"]):
+                    if self.QMin.template["roots"][m] > s > 0:
+                        for _ in range(self.QMin.template["roots"][m] - s):
+                            del energies[s_cnt + s]
+                    s_cnt += s
 
         else:
             energies = output_file["SFS_ENERGIES"][:].tolist()
