@@ -35,13 +35,13 @@ Unit Angstrom           # in which units to interpret the above geometry
     ## Quantity requests:
     ## only those properties are reported in QM.out
     ## (e.g., if no SOC or H is given, the energies are calculated, but not reported)
-#H
+H
 SOC
 DM
 GRAD
 #OVERLAP
-MOLDEN
-THEODORE               # as in ADF interface. If MOLDEN is also active, also generates the NTO files and copies them to the MOLDEN directory
+#MOLDEN
+#THEODORE               # as in ADF interface. If MOLDEN is also active, also generates the NTO files and copies them to the MOLDEN directory
 
     ## Not possible:
     ## ION

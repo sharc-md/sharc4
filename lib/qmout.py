@@ -139,14 +139,12 @@ class QMout:
                 # print(f"Parsing flag: {flag}, {shape} {block_length}")
                 match flag:
                     case 0: # basis info
-                        # iline += 1
                         while iline < len(data):
                             # log.trace(data[iline])
                             if not data[iline].strip():
                                 iline += 1
                                 continue
                             k, v = data[iline].split(maxsplit=1)
-                            # log.trace(f"{k}: {v}")
                             if k not in basic_info:
                                 log.warning(f"did not parse {k} from section 0!")
                                 iline += 1
