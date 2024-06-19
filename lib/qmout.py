@@ -363,7 +363,7 @@ class QMout:
         res = {}
         Nao, Nrho = int(shape[1]), int(shape[0])
         for d in range(Nrho):
-            line = data[iline+d*(Nao+1)+1] 
+            line = data[iline+d*(Nao+1)+1]
             if line[0] == '<':
                 state1, spin, state2 = line.split('|')
                 spin = spin.strip()
@@ -532,7 +532,8 @@ class QMout:
         if requests["multipolar_fit"]:
             string += self.writeQMoutmultipolarfit()
         if requests["density_matrices"]:
-            string += self.writeQMoutDensityMatrices()
+            pass
+            # string += self.writeQMoutDensityMatrices()
         if requests["dyson_orbitals"]:
             string += self.writeQMoutDysonOrbitals()
         if "mol" in requests and requests["mol"]:
