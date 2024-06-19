@@ -50,6 +50,9 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
         selected_states = {(im + 1, s + 1) for im, ns in enumerate(states) for s in range(ns) if ns != 0}
 
         line = f.readline()
+        while line != "epsilon\n":
+            new_template.append(line[:-1])
+            line = f.readline()
         if line == "epsilon\n":
             new_template.append("epsilon")
             selected = []
@@ -187,6 +190,10 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
                         and si != sj
                     ):
                         continue
+                    # elif si != sj and (
+                    # im == 1 or (im == 3 and (si not in {10, 11, 12, 13, 15, 16} or sj not in {10, 11, 12, 13, 15, 16}))
+                    # ):
+                    # continue
                     if (im, si) in selected_states and (im, sj) in selected_states:
                         if v[0] != "-":
                             v = " " + v
