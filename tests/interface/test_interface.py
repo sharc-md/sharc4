@@ -22,6 +22,7 @@ def set_requests(path: str, requests: dict):
     test_interface._read_template = True
     test_interface._read_resources = True
     test_interface.read_requests(path)
+    shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
     for k, v in requests.items():
         assert test_interface.QMin.requests[k] == v, ValueError(f"{k}")
 
@@ -126,6 +127,40 @@ def test_requests1():
                 "dm": True,
                 "grad": [1, 2],
                 "nacdr": None,
+                "overlap": False,
+                "phases": False,
+                "ion": True,
+                "socdr": False,
+                "dmdr": False,
+                "multipolar_fit": None,
+                "theodore": True,
+            },
+        ),
+        (
+            "inputs/QM8.in",
+            {
+                "h": True,
+                "soc": True,
+                "dm": True,
+                "grad": [10],
+                "nacdr": None,
+                "overlap": False,
+                "phases": False,
+                "ion": True,
+                "socdr": False,
+                "dmdr": False,
+                "multipolar_fit": None,
+                "theodore": True,
+            },
+        ),
+        (
+            "inputs/QM9.in",
+            {
+                "h": True,
+                "soc": True,
+                "dm": True,
+                "grad": None,
+                "nacdr": [[1, 10]],
                 "overlap": False,
                 "phases": False,
                 "ion": True,
@@ -336,7 +371,7 @@ def test_driver_requests():
         test_interface._set_driver_requests(tasks)
         for k, v in ref.items():
             assert test_interface.QMin.requests[k] == v
-    shutil.rmtree("SAVE")
+    shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
 
 
 def test_resources1():

@@ -11,6 +11,7 @@ import subprocess as sp
 from globals import DEBUG, PRINT
 from logger import log as logging
 from typing import Optional, Any, Iterable
+import sympy
 
 
 class InDir:
@@ -788,7 +789,30 @@ def get_rot(theta: float, axis: int) -> np.ndarray:
     return R
 
 
-@dataclass
+def Arabic2Roman(number):
+    num = [1, 4, 5, 9, 10, 40, 50, 90, 100, 400, 500, 900, 1000]
+    sym = ["I", "IV", "V", "IX", "X", "XL", "L", "XC", "C", "CD", "D", "CM", "M"]
+    i = 12
+    result = ""
+
+    while number:
+        div = number // num[i]
+        number %= num[i]
+
+        while div:
+            result += sym[i]
+            div -= 1
+        i -= 1
+    return result
+
+
+def mult2symbol(mult):
+    if mult < 5:
+        return "SDTQ"[mult - 1]
+    return Arabic2Roman(mult)
+
+
+@dataclass()
 class electronic_state:
     """
     class to store electronic state information
@@ -813,7 +837,10 @@ class electronic_state:
         # only Z, S and N (not M). Comparison of 'full' electronic states
         # is not implemetented and it is supposed to be done by reference comparison
         # e.g. 'if state1 is state2:'
-        return self.Z == other.Z and self.S == other.S and self.N == other.N and self.M == other.M
+        return self.Z == other.Z and self.S == other.S and self.M == other.M and self.N == other.N
+
+    def __floordiv__(self, other):
+        return self.Z == other.Z and self.S == other.S and self.N == other.N
 
     def __gt__(self, other):
         ord1 = self.S * 100_000 + self.N * 100 + self.M
@@ -829,7 +856,35 @@ class electronic_state:
     def __hash__(self):
         return f"{self.Z} {self.S} {self.N} {self.M}".__hash__()
 
-    def __repr__(self):
-        string = f"Z={self.Z} S={self.S/2} M={self.M/2} N={self.N}"
-        string = "{:<25}".format(string)
+    def symbol(self, Z=True, M=True):
+        string = mult2symbol(self.S + 1)
+        if self.S <= 1:
+            string += str(self.N - 1)
+        else:
+            string += str(self.N)
+        if M:
+            string += "_"
+            if self.M == 0:
+                string += "(0)"
+            elif self.M % 2 == 0:
+                string += f"({self.M//2:+d})"
+            else:
+                string += f"({self.M:+d}/2)"
+        if Z:
+            string += "^"
+            if self.Z == 0:
+                string += "(0)"
+            elif self.Z > 0:
+                string += "(" + str(self.Z) + "+)"
+            else:
+                string += "(" + str(abs(self.Z)) + "-)"
         return string
+
+    def __repr__(self):
+        return self.symbol()
+
+
+def density_representation(d):  # To pring the density tuple. Can also be used for Dyson-orbital printing
+    s1, s2, spin = d
+    return f"[ {s1.symbol():<12s} {spin:-^6}> {s2.symbol():<12s} ]"
+    #  return "[ " + s1.symbol() + " " + middle + " " + s2.symbol() + " ]"

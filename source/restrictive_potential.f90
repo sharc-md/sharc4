@@ -2,11 +2,11 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2019 University of Vienna
+!    Copyright (c) 2023 University of Vienna
 !
 !    This file is part of SHARC.
 !
-!    SHARC is free sftware: you can redistribute it and/or modify
+!    SHARC is free software: you can redistribute it and/or modify
 !    it under the terms of the GNU General Public License as published by
 !    the Free Software Foundation, either version 3 of the License, or
 !    (at your option) any later version.
@@ -30,7 +30,7 @@
 !> on top of the qm gradient.
 !> These include the droplet potential (s.t. solvent remains as a
 !> droplet and doesn't diffuse) and a tethering potential to keep (part
-!> of) atom in center of droplet.
+!> of) atoms in center of droplet.
 !>
 
 module restrictive_potential
@@ -74,6 +74,7 @@ subroutine tether_atom(traj,ctrl)
   
   do i=1,size(ctrl%tether_at)
     iatom = ctrl%tether_at(i)
+    ! radius: distance to tethering position
     radius = sqrt((traj%geom_ad(iatom,1) - traj%tethering_pos(1))**2 + (traj%geom_ad(iatom,2) - traj%tethering_pos(2))**2 +&
             & (traj%geom_ad(iatom,3) - traj%tethering_pos(3))**2)
     dist = radius - ctrl%tethering_radius

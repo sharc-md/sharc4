@@ -15,8 +15,7 @@ import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import (batched, expand_path, itmult, mkdir, question, readfile,
-                   writefile)
+from utils import batched, expand_path, itmult, mkdir, question, readfile, writefile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -40,8 +39,10 @@ all_features = set(
         "overlap",
         "phases",
         "molden",
+        "point_charges",
+        "grad_pc",
         # raw data request
-        "basis_set",
+        "mol",
         "wave_functions",
         "density_matrices",
     ]
@@ -389,7 +390,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             # Delete files not needed
             work_files = os.listdir(workdir)
             for file in work_files:
-                if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad$", file):
+                if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad.*$", file):
                     os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
@@ -728,7 +729,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 # Point charges
                 point_charges = None
                 if self.QMin.molecule["point_charges"] and not point_charges:
-                    point_charges = self._get_pc_grad(os.path.join(scratchdir, job_path, f"ORCA.pcgrad"))
+                    if ground_state:
+                        gradients = self._get_pc_grad(os.path.join(scratchdir, job_path, "ORCA.pcgrad"))
+                    else:
+                        gradients = self._get_pc_grad(os.path.join(scratchdir, job_path, f"ORCA.pcgrad.{grad_ext}"))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
@@ -800,6 +804,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             factor = (-ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
                         ion_mat[i, j] = dyson_mat[s1 - 1, s2 - 1] * factor
             self.QMout["prop2d"].append(("ion", ion_mat))
+        return self.QMout
 
     def _get_pc_grad(self, grad_path: str) -> np.ndarray:
         """
@@ -977,10 +982,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def _set_driver_requests(self, *args, **kwargs) -> None:
-        super()._set_driver_requests(*args, **kwargs)
-        self.QMin.requests["h"] = True
-
     def _set_request(self, *args, **kwargs) -> None:
         super()._set_request(*args, **kwargs)
         self.QMin.requests["h"] = True
@@ -1021,10 +1022,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
-
-        for req, val in self.QMin.requests.items():
-            if val and req != "retain" and req not in all_features:
-                raise ValueError(f"Found unsupported request {req}.")
+        self.QMin.requests["h"] = True
 
     def read_template(self, template_file: str = "ORCA.template", kw_whitelist: Optional[list[str]] = None) -> None:
         kw_whitelist = ["basis_per_element", "basis_per_atom", "ecp_per_element"]
@@ -1271,12 +1269,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                     dets[(occ, virt, 2)] /= 2
 
                     # Truncate determinants with contribution under threshold
-                    norm = 0.0
-                    for k in sorted(dets, key=lambda x: dets[x] ** 2, reverse=True):
-                        if norm > self.QMin.resources["wfthres"]:
-                            del dets[k]
-                            continue
-                        norm += dets[k] ** 2
+                    self.trim_civecs(dets)
 
                     dets_exp = {}
                     for occ, virt, dummy in dets:

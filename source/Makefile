@@ -173,7 +173,12 @@ SHARC  =  misc.o \
 	  electronic_laser.o \
 	  input.o \
 	  decoherence_afssh.o \
-          ziggurat.o \
+          decoherence_dom.o \
+          zpe.o \
+          tsh_tu.o \
+          army_ants.o \
+          pointer_basis.o \
+	  ziggurat.o \
           restrictive_potential.o
 
 ifeq ($(USE_PYSHARC),true)
@@ -326,14 +331,20 @@ endif
 interface.o: electronic.o definitions.o definitions_NetCDF.o output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o
 misc.o: definitions.o
 output.o: $(TOOLS) build_info misc.o
-nuclear.o: $(TOOLS) ziggurat.o misc.o
-electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o
+nuclear.o: $(TOOLS) decoherence_afssh.o decoherence_dom.o ziggurat.o misc.o
+electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o decoherence_dom.o
 electronic_laser.o: electronic.o $(TOOLS)
 input.o: $(TOOLS) output.o restart.o misc.o restrictive_potential.o
-qm.o: $(TOOLS) electronic.o qm_out.o restart.o restrictive_potential.o
+qm.o: $(TOOLS) electronic.o nuclear.o qm_out.o restart.o restrictive_potential.o
+bsh.o: $(TOOLS) electronic.o decoherence_dom.o qm.o
 qm_out.o: $(TOOLS)
 restart.o: $(TOOLS) misc.o decoherence_afssh.o ziggurat.o
 decoherence_afssh.o: $(TOOLS) definitions.o
+decoherence_dom.o: $(TOOLS) definitions.o
+zpe.o: $(TOOLS) definitions.o nuclear.o
+tsh_tu.o: $(TOOLS) definitions.o electronic.o nuclear.o army_ants.o
+army_ants.o: $(TOOLS) definitions.o electronic.o 
+pointer_basis.o: $(TOOLS) definitions.o
 restrictive_potential.o: $(TOOLS) definitions.o
 
 LASER_input.o: LASER_definitions.o 

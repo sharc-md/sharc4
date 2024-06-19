@@ -213,11 +213,6 @@ class SHARC_QMMM(SHARC_HYBRID):
 
     # TODO: update for other embeddings
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
-        self.template_file = question(
-            "Please specify the path to your QMMM.template file", str, KEYSTROKES=KEYSTROKES, default="QMMM.template"
-        )
-
-        self.read_template(self.template_file)
 
         qm_features = self.qm_interface.get_features()
         mm_features = self.mml_interface.get_features()
@@ -580,6 +575,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             if i in qmQMout:
                 self.QMout[i] = qmQMout[i]
         self.QMout.runtime = self.clock.measuretime()
+        return self.QMout
 
     def create_restart_files(self):
         self.qm_interface.create_restart_files()

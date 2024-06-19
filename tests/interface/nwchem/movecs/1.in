@@ -1,0 +1,8 @@
+1
+Comment: QM.in file for no-QM/MM example
+ H     0.000000     0.000000     0.000000
+
+States 0 5 0
+Unit Angstrom           # in which units to interpret the above geometry
+
+H

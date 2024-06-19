@@ -13,6 +13,8 @@ from functools import reduce
 from itertools import islice
 import ast
 import re
+import ast
+import json
 
 
 class QMout:
@@ -48,7 +50,7 @@ class QMout:
     socdr_pc: ndarray[float, 4]
     dmdr: ndarray[float, 5]
     dmdr_pc: ndarray[float, 5]
-    multipolar_fit: ndarray[float, 4]
+    multipolar_fit: dict
     density_matrices: dict
     mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
@@ -206,8 +208,6 @@ class QMout:
                             self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]
                     case 24: # Densities
                         self.density_matrices, iline = QMout.get_densities(data, iline, self.charges, shape)
-                        #  print('charges from qmout.__init__ = ', self.charges)
-                        #  print('states from qmout.__init__ = ', self.states)
                     case 23: # prop0d
                         self.prop0d, iline = QMout.get_property(data, iline, float, ())
                     case 25:
@@ -347,7 +347,6 @@ class QMout:
         for i in range(shape[0]):
             tmp = data[iline].split()
             y, z, m1, s1, ms1, m2, s2, ms2 = int(tmp[0]), int(tmp[1]), int(tmp[4]), int(tmp[6]), int(float(tmp[8])), int(tmp[10]), int(tmp[12]), int(float(tmp[14]))
-            # n = sum(len(x.split()) for x in data[iline + 1: iline + y +1])
             if y != shape[1] or z != shape[2]:
                 log.error(f"shapes do not match {shape} vs {shape[0]}x{y}x{z}")
                 raise ValueError()
@@ -393,20 +392,39 @@ class QMout:
         iline += Nao*Nrho
         return res, iline
 
+    def get_densities(data, iline, charges):
+        res = {}
+        shape = data[iline].split('(')[1].split(')')[0].split('x')
+        Nao, Nrho = int(shape[0]), int(shape[2])
+        for d in range(Nrho):
+            line = data[iline+d*(Nao+1)+1] 
+            state1, state2, spin = line.split('|')
+            spin = spin.split()[0]
+            s1, m1, n1 = state1.split(',')
+            s2, m2, n2 = state2.split(',')
+            s1 = int(2*float(s1))
+            s2 = int(2*float(s2))
+            m1 = int(2*float(m1))
+            m2 = int(2*float(m2))
+            n1 = int(n1)
+            n2 = int(n2)
+            state1 = electronic_state(Z=charges[s1], S=s1, M=m1, N=n1) 
+            state2 = electronic_state(Z=charges[s2], S=s2, M=m2, N=n2) 
+            density = (state1,state2,spin)
+            rho = np.zeros((Nao,Nao))
+            for i in range(Nao):
+                row = data[iline+d*(Nao+1)+2+i].split()
+                row = np.array([ float(r) for r in row ])
+                rho[i,:] = row
+            res[(state1,state2,spin)] = rho
+        iline += Nao*Nrho
+        return res, iline
+
     @staticmethod
     def get_mol(data, iline):
         mol = pyscf.gto.Mole.unpack(ast.literal_eval(data[iline+1].replace("'",'"'))) 
-        #mol.build(cart=True)
         mol.build()
         return mol, iline + 2
-        #  cart, basis, ecp = None, None, None
-        #  basis_set = {}
-        #  for i, key in enumerate(["cart","basis","ecp"]):
-            #  print(i)
-            #  #basis_set[key] = ast.literal_eval(data[iline + i + 2].split(maxsplit=1)[1]) 
-            #  basis_set[key] = json.loads(data[iline + i + 2].split(maxsplit=1)[1]) 
-        #  return basis_set, iline + 4
-
 
     def allocate(self, states=[], natom=0, npc=0, requests: set[str] = set()):
         self.nmstates = sum((i + 1) * n for i, n in enumerate(states))
@@ -446,7 +464,7 @@ class QMout:
             if self.point_charges:
                 self.dmdr_pc = np.zeros((3, self.nmstates, self.nmstates, npc, 3), dtype=float)
         if "multipolar_fit" in requests:
-            self.multipolar_fit = np.zeros((self.nmstates, self.nmstates, natom, 10), dtype=float)
+            self.multipolar_fit = {}#np.zeros((self.nmstates, self.nmstates, natom, 10), dtype=float)
         if "density_matrices" in requests:
             self.density_matrices = {}
         self.mol = None 
@@ -1146,9 +1164,6 @@ class QMout:
             "! 25 Mole PySCF object (dict, 1 line)\n"
         )
         string += str(pyscf.gto.Mole.pack(self.mol)) + '\n'
-        #  string += "cartesian_basis " +str(self.mol.cart) + '\n'
-        #  string += "basis_dict "+ str(self.mol.basis)+'\n'
-        #  string += "ecp_dict " + str(self.mol.ecp) + '\n'
         return string
 
     def writeQMoutDysonOrbitals(self) -> str:
@@ -1228,7 +1243,9 @@ class QMout:
         if QMin.requests["h"] or QMin.requests["soc"]:
             eshift = math.ceil(self["h"][0][0].real)
             string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f\n" % (eshift)
-            string += formatcomplexmatrix(self.h - eshift, states)
+            en = self.h.copy()
+            np.einsum("ii->i", en)[:] -= eshift
+            string += formatcomplexmatrix(en, states)
             string += "\n"
         # Dipole moment matrices
         if QMin.requests["dm"]:

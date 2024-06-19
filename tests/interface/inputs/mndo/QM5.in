@@ -1,0 +1,48 @@
+6
+
+C  0.000000000    0.000000000   0.000000000 
+N  0.000000000    0.000000000   1.350000000 
+H  0.943102000    0.000000000  -0.544500000 
+H  0.943102000    0.000000000   1.879500000 
+H -0.943102000    0.000000000   1.879500000 
+H -0.943102000    0.000000000  -0.544500000 
+    ## The first few lines have to comply with the xyz file format (number of atoms, comment, atoms)
+    ## Comments at the end of these lines cause errors
+
+    ## from here, comments can be put at the end of each line
+    ## blank lines can be used freely
+    ## order of keywords does not matter
+    ## only the first instance of every keyword is used
+    ## everything is case-insensitive
+
+    ## ===============================================
+    ## Control keywords:
+init
+#samestep
+#restart
+
+#cleanup        # delete complete scratchdir and savedir, only keep QM.out
+#backup         # backup content of savedir for this time step
+
+    ## ===============================================
+    # Settings:
+unit angstrom
+states 0 0 0
+#savedir ./SAVE         # overrides the savedir in the resources file
+
+#point_charges /inputs/mndo/pcfile
+    ## ===============================================
+    # Quantity requests:
+h
+dm
+grad 1 2 4
+#overlap
+nacdr 
+molden
+
+    # note that the "soc" keyword does not work with the MNDO interface
+
+
+
+
+# kate: syntax python

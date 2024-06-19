@@ -447,10 +447,10 @@ static PyMethodDef SHARC_METHODS[] = {
     {"setup_sharc", (PyCFunction)setup_sharc, METH_VARARGS, setup_sharc_docstring},
     {"initial_step", (PyCFunction)initial_step, METH_VARARGS, initial_step_docstring},
     {"verlet_xstep", (PyCFunction)verlet_xstep, METH_VARARGS, verlet_xstep_docstring},
-    {"verlet_vstep", (PyCFunction)verlet_vstep, METH_NOARGS, verlet_vstep_docstring},
+    {"verlet_vstep", (PyCFunction)verlet_vstep, METH_VARARGS, verlet_vstep_docstring},
     {"verlet_finalize", (PyCFunction)verlet_finalize, METH_VARARGS, verlet_finalize_docstring},
     {"finalize_sharc", (PyCFunction)finalize_sharc, METH_NOARGS, finalize_sharc_docstring},
-    {"error_finalize_sharc", (PyCFunction)error_finalize_sharc, METH_NOARGS, error_finalize_sharc_docstring},
+    {"error_finalize_sharc", (PyCFunction)error_finalize_sharc, METH_VARARGS, error_finalize_sharc_docstring},
     /* SENTINEL */
     {NULL, NULL, 0, NULL}
 };

@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2023 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -57,9 +57,9 @@ U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
 BOHR_TO_ANG = 0.529177211
 PI = math.pi
 
-version = '2.1'
+version = '3.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2019, 9, 1)
+versiondate = datetime.date(2024, 4, 24)
 
 
 IToMult = {
@@ -128,7 +128,6 @@ Interfaces = {
                      'dyson': ['wfoverlap'],
                      'dipolegrad': [],
                      'phases': [],
-                     'nacdr': [],
                      'soc': []},
         'pysharc': False
         },
@@ -201,7 +200,18 @@ Interfaces = {
                       'dipolegrad': [],
                       'phases': [], },
          'pysharc': False
-         }
+         },
+    11: {'script': 'SHARC_MNDO.py',
+         'name': 'mndo',
+         'description': 'MNDO (OM2, ODM2)',
+         'get_routine': 'get_MNDO',
+         'prepare_routine': 'prepare_MNDO',
+         'features': {'overlap': ['wfoverlap'],
+                      'nacdr': [],
+                      'phases': ['wfoverlap'], },
+         'pysharc': False
+         }     
+
 }
 
 
@@ -2976,6 +2986,153 @@ def prepare_BAGEL(INFOS, iconddir):
 
 
     return
+
+
+# ===============================================================================
+# ===============================================================================
+# ===============================================================================
+
+
+def checktemplate_MNDO(filename, INFOS):
+    necessary = ['ici1', 'ici2', 'kharge', 'movo']
+    try:
+        f = open(filename)
+        data = f.readlines()
+        f.close()
+    except IOError:
+        print('Could not open template file %s' % (filename))
+        return False
+    valid = []
+    for i in necessary:
+        for l in data:
+            line = l.lower().split()
+            if len(line) == 0:
+                continue
+            line = line[0]
+            if i == re.sub('#.*$', '', line):
+                valid.append(True)
+                break
+        else:
+            valid.append(False)
+    if not all(valid):
+        print('The template %s seems to be incomplete! It should contain: ' % (filename) + str(necessary))
+        return False
+    return True
+
+# ===============================================================================
+
+
+def get_MNDO(INFOS):
+    '''This routine asks for all questions specific to MNDO:
+    - path to MNDO
+    - scratch directory
+    - MNDO.template
+    '''
+
+    string = '\n  ' + '=' * 80 + '\n'
+    string += '||' + '{:^80}'.format('MNDO Interface setup') + '||\n'
+    string += '  ' + '=' * 80 + '\n\n'
+    print(string)
+
+    print('{:-^60}'.format('Path to MNDO') + '\n')
+    tries = ['mndo', 'mndo-md', 'mndo2020']
+    for i in tries:
+        path = os.getenv(i)
+        if path:
+            path = '$%s/' % i
+            break
+    print('\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
+    INFOS['mndodir'] = question('Path to MNDO:', str, path)
+    print('')
+
+
+    # scratch
+    print('{:-^60}'.format('Scratch directory') + '\n')
+    print('Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
+    INFOS['scratchdir'] = question('Path to scratch directory:', str)
+    print('')
+
+
+    # template file
+    print('{:-^60}'.format('MNDO input template file') + '\n')
+    print('''Please specify the path to the MNDO.template file. This file must contain the following keywords:
+
+# Neccessary
+ici1 <number of doubly occupied active orbitals>
+ici2 <number of unoccupied active orbitals> 
+movo <activate act_orbs definition of active orbitals>     
+kharge <charge of molecule>
+imomap <activate orbitals mapping>
+
+act_orbs <list of active orbitals>    <-- Needed if movo is set to 1         
+
+# Not Essential          
+disp <dispersion correction on or of>  <--- if set to 1 then ODM2 otherwise OM2
+nciref <number of references> 
+kitscf <number of maximum scf cycles> 
+  
+
+The MNDO interface will generate the appropriate MNDO input automatically.
+''')
+    if os.path.isfile('MNDO.template'):
+        if checktemplate_MNDO('MNDO.template', INFOS):
+            print('Valid file "MNDO.template" detected. ')
+            usethisone = question('Use this template file?', bool, True)
+            if usethisone:
+                INFOS['MNDO.template'] = 'MNDO.template'
+    if 'MNDO.template' not in INFOS:
+        while True:
+            filename = question('Template filename:', str)
+            if not os.path.isfile(filename):
+                print('File %s does not exist!' % (filename))
+                continue
+            if checktemplate_MNDO(filename, INFOS):
+                break
+        INFOS['MNDO.template'] = filename
+    print('')
+
+
+    # Resources
+    print('{:-^60}'.format('MNDO Ressource usage') + '\n')
+
+    INFOS['mndo.mem'] = question('Memory (MB):', int, [1000])[0]
+
+    if 'wfoverlap' in INFOS['needed']:
+        print('\n' + '{:-^60}'.format('Wfoverlap code setup') + '\n')
+        INFOS['mndo.wfoverlap'] = question('Path to wavefunction overlap executable:', str, '$SHARC/wfoverlap.x')
+        print('')
+
+    return INFOS
+
+# =================================================
+
+
+def prepare_MNDO(INFOS, iconddir):
+    # write MNDO.resources
+    try:
+        sh2cas = open('%s/MNDO.resources' % (iconddir), 'w')
+    except IOError:
+        print('IOError during prepare MNDO, iconddir=%s' % (iconddir))
+        quit(1)
+
+
+    string = 'mndodir %s\nscratchdir %s/%s/\nsavedir %s/%s/\n' % (INFOS['mndodir'], INFOS['scratchdir'], iconddir, INFOS['copydir'], iconddir)
+    string += 'memory %i\n' % (INFOS['mndo.mem'])
+    if 'wfoverlap' in INFOS['needed']:
+        string += 'wfoverlap %s\n' % (INFOS['mndo.wfoverlap'])
+    else:
+        string += 'nooverlap\n'
+    sh2cas.write(string)
+    sh2cas.close()
+
+    # copy template
+    cpfrom = INFOS['MNDO.template']
+    cpto = '%s/MNDO.template' % (iconddir)
+    shutil.copy(cpfrom, cpto)
+
+    return
+
+
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -3068,11 +3225,12 @@ PRIMARY_DIR=%s/
 cd $PRIMARY_DIR
 
 %s
-export PATH=$SHARC:$PATH
+export ORCADIR=%s
+export PATH=$SHARC:$ORCADIR:$PATH
 
-$ORCADIR/orca orca.inp > orca.log
+orca orca.inp > orca.log
 
-''' % (projname, os.path.abspath(iconddir), intstring)
+''' % (projname, os.path.abspath(iconddir), intstring, INFOS['orca'])
 
     runscript.write(string)
     runscript.close()
@@ -3112,7 +3270,7 @@ def writeOrcascript(INFOS, iconddir):
     if INFOS['opttype'] == 'cross' and INFOS['calc_ci'] and 'nacdr' not in Interfaces[INFOS['interface']]['features']:
         string += '#SHARC: param %f %f\n' % (INFOS['sigma'], INFOS['alpha'])
     string += '''
-! ExtOpt
+! ExtOpt Opt
 
 %%geom
   maxstep %f
@@ -3124,12 +3282,25 @@ end
 
 ''' % (INFOS['maxstep'], -INFOS['maxstep'], 'geom.xyz')
 
-
-
     runscript.write(string)
     runscript.close()
-    filename = '%s/orca.inp' % (iconddir)
 
+    filename = '%s/otool_external.inp' % (iconddir)
+    string = '''#
+SHARC: states %s
+SHARC: interface %s
+SHARC: opt %s %i''' % (' '.join([str(i) for i in INFOS['states']]),
+                        Interfaces[INFOS['interface']]['name'],
+                        INFOS['opttype'],
+                        INFOS['cas.root1'])
+    if INFOS['opttype'] == 'cross':
+        string += ' %i' % INFOS['cas.root2']
+    string += '\n'
+    if INFOS['opttype'] == 'cross' and INFOS['calc_ci'] and 'nacdr' not in Interfaces[INFOS['interface']]['features']:
+        string += 'SHARC: param %f %f\n' % (INFOS['sigma'], INFOS['alpha'])
+    runscript = open(filename, 'w')    
+    runscript.write(string)
+    runscript.close()
 
     return
 

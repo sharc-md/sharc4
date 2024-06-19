@@ -162,30 +162,24 @@ character*1024    :: sharcfacts(n_sharcfacts)   !< array containing the fun fact
 
 ! ===================================================
 
-!> Initializes the second (old) random number generator 
-!> sould maybe be replace by other "better" PRNG
-!> \param rngseed a single input seed which is used to generate the actual seed
-  subroutine init_random_seed_thermostat(rngseed)
-#ifdef __INTEL_COMPILER
-    use ifport
-#endif
-    implicit none
-    integer,intent(in) :: rngseed
-    integer :: i
-    integer :: myseed
-
-    ! calculate a seed from rngseed
-    myseed=rngseed+37+17**2
-    do i=1,3
-    ! initialize with the first seed (low quality)
-      call srand(myseed)
-    ! calculate some with the random number generator and reseed
-      myseed=int(65536*(rand()-0.5d0))
-    enddo
-    call srand(myseed)
-!     deallocate(seed)
-
-  endsubroutine
+! the following routine does not work and also not make any sense
+!> Initializes the random number generator for themostat
+!  subroutine init_random_seed_thermostat(rngseed)
+!    use ziggurat
+!    implicit none
+!    integer,intent(in) :: rngseed
+!    integer :: n,i
+!    integer :: seed
+!    real*8 :: r
+!
+!    seed=rngseed+37+17**2
+!    call zigset(seed)
+!
+!    r = shr3()
+!    seed=int(65536*(r-0.5d0))
+!    call zigset(seed)
+!
+!  endsubroutine
 
 ! ===================================================
 
@@ -216,5 +210,109 @@ character*1024    :: sharcfacts(n_sharcfacts)   !< array containing the fun fact
 
   endfunction
 
+! ===================================================
+
+!> calculates 3 vectors (as one big matrix 3*Natoms x 3) in directions of the total rotations of the system
+!> orthonormalize translat. and rot. vectors of system ->
+!> substract translat. and other-direction rot. components from angular momentum derivatives for this
+!> and normalize (total translation vectors just in x-dir (1 0 0 1 0 0 ...), y/z analogous)
+  subroutine get_rotation_tot(ctrl,traj)
+    use definitions
+    implicit none
+    type(trajectory_type) :: traj
+    type(ctrl_type) :: ctrl
+    integer :: iatom
+    real*8 :: d0, d1, d2, d3, d4, norm
+
+    ! set up angular momentum derivative vector nL_x nL_y nL_x
+    ! indices: ctrl%rotation_tot(3*(iatom-1)+idir,jdir) with atom iatom, atomic coord. direction idir, global direction jdir 
+    do iatom=1,ctrl%natom
+      ctrl%rotation_tot(3*(iatom-1)+1,1) = 0. 
+      ctrl%rotation_tot(3*(iatom-1)+2,1) = traj%mass_a(iatom)*traj%geom_ad(iatom,3)
+      ctrl%rotation_tot(3*(iatom-1)+3,1) = -traj%mass_a(iatom)*traj%geom_ad(iatom,2)
+      ctrl%rotation_tot(3*(iatom-1)+1,2) = -traj%mass_a(iatom)*traj%geom_ad(iatom,3)
+      ctrl%rotation_tot(3*(iatom-1)+2,2) = 0.
+      ctrl%rotation_tot(3*(iatom-1)+3,2) = traj%mass_a(iatom)*traj%geom_ad(iatom,1)
+      ctrl%rotation_tot(3*(iatom-1)+1,3) = traj%mass_a(iatom)*traj%geom_ad(iatom,2)
+      ctrl%rotation_tot(3*(iatom-1)+2,3) = -traj%mass_a(iatom)*traj%geom_ad(iatom,1)
+      ctrl%rotation_tot(3*(iatom-1)+3,3) = 0.
+    enddo
+
+    write(*,*) 'rot_tot nL_'
+    write(*,*) ctrl%rotation_tot
+
+    ! create corresp. dot products to subtract projected translational components
+    !1/(sum m_i) * sum m_i^2 x_i -> entries for scalar products of nL_ and translat.
+    d0 = dot_product(traj%mass_a,traj%mass_a)
+    d1 = dot_product(traj%mass_a**2 ,traj%geom_ad(:,1))/d0
+    d2 = dot_product(traj%mass_a**2 ,traj%geom_ad(:,2))/d0
+    d3 = dot_product(traj%mass_a**2 ,traj%geom_ad(:,3))/d0
+
+    !rot_x
+    ! subtract projected translational components
+    do iatom=1,ctrl%natom
+      ctrl%rotation_tot(3*(iatom-1)+2,1) = ctrl%rotation_tot(3*(iatom-1)+2,1) - d3 * traj%mass_a(iatom)
+      ctrl%rotation_tot(3*(iatom-1)+3,1) = ctrl%rotation_tot(3*(iatom-1)+3,1) + d2 * traj%mass_a(iatom)
+    enddo
+
+    !normalize (check before if norm == 0)
+    norm = sqrt(dot_product(ctrl%rotation_tot(:,1),ctrl%rotation_tot(:,1)))
+    if (norm==0) then
+      write(u_log, *) 'Warning: Rotational x-component is zero!'
+      if (ctrl%natom >= 3) then
+        stop 'Rotational x-component cannot be zero for molecules with 3 or more atoms!'
+      endif
+    else
+      ctrl%rotation_tot(:,1) = ctrl%rotation_tot(:,1) / norm
+    endif 
+
+    ! nL_y*rot_x and nL_z*rot_x
+    d4 = dot_product(ctrl%rotation_tot(:,2), ctrl%rotation_tot(:,1))
+
+    !rot_y
+    ! subtract projected translational components
+    do iatom=1,ctrl%natom
+      ctrl%rotation_tot(3*(iatom-1)+1,2) = ctrl%rotation_tot(3*(iatom-1)+1,2) + d3 * traj%mass_a(iatom)
+      ctrl%rotation_tot(3*(iatom-1)+3,2) = ctrl%rotation_tot(3*(iatom-1)+3,2) - d1* traj%mass_a(iatom)
+    enddo
+    ! subtract projected other rotational components
+    ctrl%rotation_tot(:,2) = ctrl%rotation_tot(:,2) - d4 * ctrl%rotation_tot(:,1)
+    !normalize
+    norm = sqrt(dot_product(ctrl%rotation_tot(:,2),ctrl%rotation_tot(:,2)))
+    if (norm==0) then
+      write(u_log, *) 'Warning: Rotational y-component is zero!'
+      if (ctrl%natom >= 3) then
+        stop 'Rotational y-component cannot be zero for molecules with 3 or more atoms!'
+      endif
+    else
+      ctrl%rotation_tot(:,2) = ctrl%rotation_tot(:,2) / norm
+    endif 
+    
+    ! nL_z*rot_y
+    d3 = dot_product(ctrl%rotation_tot(:,3), ctrl%rotation_tot(:,1))
+    d4 = dot_product(ctrl%rotation_tot(:,3),  ctrl%rotation_tot(:,2))
+
+    !rot_z
+    ! subtract projected translational components
+    do iatom=1,ctrl%natom
+      ctrl%rotation_tot(3*(iatom-1)+1,3) = ctrl%rotation_tot(3*(iatom-1)+1,3) - d2 * traj%mass_a(iatom)
+      ctrl%rotation_tot(3*(iatom-1)+2,3) = ctrl%rotation_tot(3*(iatom-1)+2,3) + d1 * traj%mass_a(iatom)
+    enddo
+    ! subtract projected other rotational components
+    ctrl%rotation_tot(:,3) = ctrl%rotation_tot(:,3) - d3 * ctrl%rotation_tot(:,1) - d4 * ctrl%rotation_tot(:,2)
+    !normalize
+    norm = sqrt(dot_product(ctrl%rotation_tot(:,3),ctrl%rotation_tot(:,3)))
+    if (norm==0) then
+      write(u_log, *) 'Warning: Rotational z-component is zero!'
+      if (ctrl%natom >= 3) then
+        stop 'Rotational z-component cannot be zero for molecules with 3 or more atoms!'
+      endif
+    else
+      ctrl%rotation_tot(:,3) = ctrl%rotation_tot(:,3) / norm
+    endif 
+
+  endsubroutine
+
+! =================================================================== !
 
 endmodule misc

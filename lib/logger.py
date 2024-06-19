@@ -5,8 +5,16 @@ import logging
 import os
 import re
 
+CRITICAL = 50
+FATAL = CRITICAL
+ERROR = 40
+WARNING = 30
+WARN = WARNING
+INFO = 20
 SHARCPRINT = 11
+DEBUG = 10
 TRACE = 1
+NOTSET = 0
 
 
 class CustomFormatter(logging.Formatter):

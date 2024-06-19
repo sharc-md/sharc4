@@ -62,7 +62,7 @@ all_features = {
     "theodore",
     "point_charges",
     # raw data request
-    "basis_set",
+    "mol",
     "wave_functions",
     "density_matrices",
 }
@@ -475,7 +475,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self._read_resources = True
         self.log.info("Detected GAUSSIAN version %s" % self._Gversion)
 
-    def read_template(self, template_file: str) -> None:
+    def read_template(self, template_file: str = "GAUSSIAN.template") -> None:
         super().read_template(template_file)
 
         # Convert keys to string if list
@@ -498,7 +498,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         for s in self.states:
             s.C['is_gs'] = False
             s.C['its_gs'] = None
-            if s.N == 1 and s.M == s.S: 
+            if s.N == 1: 
                 s.C['is_gs'] = True
                 if s.S == 2 and not self.QMin.template["unrestricted_triplets"]:
                     s.C['is_gs'] = False
@@ -582,7 +582,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     @staticmethod
     def getVersion(groot: str) -> str:
         tries = {"g09": "09", "g16": "16"}
-        print('groot = ', groot)
         ls = os.listdir(groot)
         for key, val in tries.items():
             if key in ls:
@@ -620,7 +619,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 and self.QMin.molecule["states"][2] > 0
                 and self.QMin.molecule["states"][0] <= 1
             ):
-                if "soc" in self.QMin:
+                if self.QMin.requests['soc']:
                     self.QMin.control["states_to_do"][0] = 2
                 else:
                     self.QMin.control["states_to_do"][0] = 1
@@ -923,7 +922,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             keep = ["GAUSSIAN.com", "GAUSSIAN.err", "GAUSSIAN.log", "GAUSSIAN.chk", "GAUSSIAN.fchk", "GAUSSIAN.rwf"]
             strip_dir(workdir, keep_files=keep)
 
-        return exit_code, endtime - starttime
+        delta = str(endtime - starttime)
+        return exit_code, delta
 
     # ======================================================================= #
 
@@ -1041,7 +1041,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         string += "\n"
 
         # Route section
-        data = ["p", "nosym", "unit=AU", QMin.template["functional"]]
+        data = ["p", "nosym", "unit=AU"]
+        if not QMin.template['functional'].lower() == 'eomccsd': data.append( QMin.template['functional'] )
         if not QMin.template["functional"].lower() == "dftba":
             data.append(QMin.template["basis"])
         if dograd:
@@ -1055,14 +1056,19 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if QMin.template["denfit"]:
             data.append("denfit")
         if ncalc > 0:
-            if not QMin.template["no_tda"]:
+            if QMin.template['functional'].lower() == 'eomccsd':
+                s = 'eomccsd'
+            elif not QMin.template["no_tda"]:
                 s = "tda"
             else:
                 s = "td"
-            if QMin.control["master"]:
+            if QMin.control["master"] or QMin.template['functional'].lower() == 'eomccsd':
                 s += f"(nstates={ncalc}{mults_td}"
             else:
-                s += "(read"
+                #  if QMin.template['functional'].lower() == 'eomccsd':
+                    #  s+= '(ReadAmplitudes'
+                #  else:
+                if not QMin.template['functional'].lower() == 'eomccsd':s += "(read"
             if dograd and root > 0:
                 s += f",root={root}"
             elif dodens and root > 0:
@@ -1087,13 +1093,19 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if QMin.control["gradonly"]:
             data.append("Guess=read")
         if QMin.control["densonly"]:
-            data.append("pop=Regular")  # otherwise CI density will not be printed
             data.append("Guess=read")
+            if QMin.template['functional'].lower() == 'eomccsd':
+                data.append('force')
+            else:
+                data.append("pop=Regular")  # otherwise CI density will not be printed
         if QMin.requests["theodore"]:
             data.append("pop=full")
             data.append("IOP(9/40=3)")
-        if QMin.requests["basis_set"] or QMin.requests["density_matrices"] or QMin.requests["multipolar_fit"]:
+        if QMin.requests["mol"] or QMin.requests["density_matrices"] or QMin.requests["multipolar_fit"]:
             data.append("GFINPUT")
+        if QMin.molecule['point_charges']:
+            data.append('charge')
+
         # data.append("GFPRINT")
         string += "#"
         for i in data:
@@ -1109,6 +1121,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         for label, coords in zip(QMin.molecule["elements"], QMin.coords["coords"]):
             string += f"{label:>4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}\n"
         string += "\n"
+        if QMin.molecule['point_charges']:
+            for a in range(len(QMin.coords['pccharge'])):
+                pccoord = QMin.coords['pccoords'][a,:]
+                pccharge = QMin.coords['pccharge'][a]
+                string += f"{pccoord[0]:16.9f} {pccoord[1]:16.9f} {pccoord[2]:16.9f} {pccharge:16.9f}\n"
+            string += "\n"
         if QMin.template["functional"].lower() == "dftba":
             string += "@GAUSS_EXEDIR:dftba.prm\n"
         if QMin.template["basis_external"]:
@@ -1181,13 +1199,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # ======================================================================= #
     @staticmethod
     def get_MO_from_chk(filename, qmin: QMin_class, U: np.ndarray) -> str:
-
-        data = SHARC_GAUSSIAN.get_rwfdump('/usr/license/gaussian16_new/rev_c01/avx2/g16', '/user/pitesa/test_sharc/gaussian/acetamide/sto3g/SCRATCH/master_1/GAUSSIAN.chk', '524R')
-        f = open('modump.txt','w')
-        for line in data:
-            f.write(line)
-        f.close()
-
         job = qmin.control["jobid"]
         restr = qmin.control["jobs"][job]["restr"]
         MO_A = SHARC_GAUSSIAN.parse_fchk(filename, ['Alpha MO coefficients'])['Alpha MO coefficients']
@@ -1200,11 +1211,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             MO_B = SHARC_GAUSSIAN.parse_fchk(filename, ['Beta MO coefficients'])['Beta MO coefficients']
             MO_B = np.reshape( MO_B, [nao,nao] ).T 
             MO_B = U @ MO_B 
-        print('frozcore = ', qmin.molecule['frozcore'])
         MO_A = MO_A[:,qmin.molecule["frozcore"]:]
         if not restr:
             MO_B = MO_B[:,qmin.molecule["frozcore"]:]
 
+        if restr: 
+            NMO = MO_A.shape[1]
+        else:
+            NMO = MO_A.shape[1] + MO_B.shape[1]
         # make string
         string = """2mocoef
     header
@@ -1217,7 +1231,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     (*)
     """ % (
             MO_A.shape[0],
-            MO_A.shape[1],
+            NMO,
         )
         x = 0
         for imo in range(MO_A.shape[1]):
@@ -1577,7 +1591,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         SAO = mol_conc.intor("int1e_ovlp")[:mol_old.nao,mol_old.nao:]
         string = "%i %i\n" % (mol_old.nao, mol_old.nao)
         string += "\n".join(map(lambda row: " ".join(map(lambda f: f"{f: .15e}", row)), SAO))
-        filename = os.path.join(self.QMin.save["savedir"], "AO_overl.mixed")
+        filename = os.path.join(self.QMin.save["savedir"], "aoovl")
         writefile(filename, string)
 
         # get geometries
@@ -1687,7 +1701,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMout.allocate(
             states, natom, self.QMin.molecule["npc"], {r for r in self.QMin.requests.keys() if self.QMin.requests[r]}
         )
-        self.QMout['mol'] = self.QMin.molecule['mol'] # PySCF object
+        self.QMout['mol'] = self.QMin.molecule['mol'].copy() # PySCF object
 
         # TODO:
         # excited state energies and transition moments could be read from rwfdump "770R"
@@ -1700,6 +1714,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             log_content = readfile(logfile)
 
             if self.QMin.requests["h"]:  # or 'soc' in self.QMin:
+                if self.QMin.molecule['point_charges']:
+                    pccoords = self.QMin.coords['pccoords']
+                    pccharge = self.QMin.coords['pccharge']
+                    npc = len(pccharge) 
+                    Eexternal = sum( [ pccharge[a]*pccharge[b]/np.linalg.norm( pccoords[a,:] - pccoords[b,:] ) for a in range(npc) for b in range(a+1,npc) ] )
+                else:
+                    Eexternal = 0.
                 logfile = os.path.join(self.QMin.resources["scratchdir"], "master_%i/GAUSSIAN.log" % (job))
                 self.log.print("Energies:  " + shorten_DIR(logfile))
                 energies = self.getenergy(log_content, job)
@@ -1710,7 +1731,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                     if m1 not in mults:
                         continue
-                    self.QMout["h"][i][i] = energies[(m1, s1)]
+                    self.QMout["h"][i][i] = energies[(m1, s1)] - Eexternal
 
             # Dipole Moments
             if self.QMin.requests["dm"]:
@@ -1914,6 +1935,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     outfile = os.path.join(self.QMin.resources["scratchdir"], "Dyson_%i_%i_%i_%i/wfovl.out" % ion)
                     shutil.copy(outfile, os.path.join(copydir, "Dyson_%i_%i_%i_%i.out" % ion))
 
+        del self.QMin.molecule['mol']
         return
 
     # ======================================================================= #
@@ -2005,8 +2027,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # ======================================================================= #
     @staticmethod
     def get_fchk(workdir, groot=""):
-        if os.path.isfile(os.path.join(workdir, 'GAUSSIAN.fchk')):
-            return
+        #  if os.path.isfile(os.path.join(workdir, 'GAUSSIAN.fchk')):
+            #  return
         prevdir = os.getcwd()
         os.chdir(workdir)
         string = os.path.join(groot, "formchk") + " GAUSSIAN.chk"
@@ -2284,7 +2306,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         # collect properties to read
         keywords_from_master = set()
         get_basis = (
-            self.QMin.requests["basis_set"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
+            self.QMin.requests["mol"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
         )
         get_ecp = self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
 
@@ -2374,7 +2396,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     densities[(s1, s2, 'tot')] = {'how':'read'}
                     # Spin density
                     if s1.S % 2 == 1 and s1.S == s1.M:
-                        densities.append[(s1, s2,'q')] = {'how':'read'}
+                        densities[(s1, s2,'q')] = {'how':'read'}
                 elif s1.C['is_gs'] and not s2.C['is_gs'] and s1.M == s2.M and s1 is s2.C['its_gs']:
                     densities[(s1,s2,'aa')] = {'how':'read'} 
                     densities[(s1,s2,'bb')] = {'how':'read'} 
@@ -2390,15 +2412,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         """
         # retrieving densities
         constructed_matrices = {}
-        print(self.QMin.control["densjob"])
-        print(self.QMin.requests["density_matrices"])
         for job, keys in self.QMin.control["densjob"].items():
             # ===================== PARSING BLOCK ===============================
             # create all necessary FCHKs
             workdir = os.path.join(self.QMin.resources["scratchdir"], job)
             fchkfile = os.path.join(workdir, "GAUSSIAN.fchk")
-            if not os.path.isfile(fchkfile):
-                self.get_fchk(workdir, self.QMin.resources["groot"])
+            #  if not os.path.isfile(fchkfile):
+                #  self.get_fchk(workdir, self.QMin.resources["groot"])
+            self.get_fchk(workdir, self.QMin.resources["groot"])
 
             keywords = set()
             for key in keys:
@@ -2448,6 +2469,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 # also means mat == 'aa' |'bb'
                 if any( [ k in dens_type for k in [ "Total CI Density", "Total SCF Density", "Spin CI Density", "Spin SCF Density" ] ] ):
                     self.QMout['density_matrices'][key] = parsed_matrices[dens_type[0]]
+                    #  print(' parsed rho = ', self.QMout['density_matrices'][key][0,0], id(self))
                 elif "G to E trans densities" in dens_type: 
                     ab = {"aa": 0, "bb": 1}
                     if s2.S == 2 and not self.QMin.template['unrestricted_triplets']: 
@@ -2519,8 +2541,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
 
-    def dyson_orbitals_with_other(self, other):
-        pass
+    #  def dyson_orbitals_with_other(self, other):
+        #  pass
 
 
 if __name__ == "__main__":

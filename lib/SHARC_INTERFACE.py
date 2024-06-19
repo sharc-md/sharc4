@@ -38,13 +38,13 @@ from textwrap import wrap
 from typing import Any
 
 import numpy as np
+
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
-from utils import (batched, clock, convert_list, electronic_state, expand_path,
-                   itnmstates, parse_xyz, readfile, writefile)
+from utils import batched, clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -62,7 +62,7 @@ all_features = {
     "theodore",
     "point_charges",
     # raw data request
-    "basis_set",
+    "mol",
     "wave_functions",
     "density_matrices",
 }
@@ -353,8 +353,8 @@ class SHARC_INTERFACE(ABC):
 
         for s, nstates in enumerate(self.QMin.molecule["states"]):
             c = self.QMin.template["charge"][s]
-            for n in range(nstates):
-                for m in range(-s, s + 1, 2):
+            for m in range(-s, s + 1, 2):
+                for n in range(nstates):
                     self.states.append(
                         electronic_state(Z=c, S=s, M=m, N=n + 1, C={})
                     )  # This is the moment in which states get their pointers
@@ -600,7 +600,7 @@ class SHARC_INTERFACE(ABC):
 
         raw_dict = self._parse_raw(
             resources_file,
-            {**self.QMin.resources.types, "savedir": str, "always_guess": bool, "always_orb_init": bool},
+            {**self.QMin.resources.types, "savedir": str, "always_guess": bool, "always_orb_init": bool, "retain": int},
             kw_whitelist,
         )
 
@@ -619,6 +619,12 @@ class SHARC_INTERFACE(ABC):
         if "always_orb_init" in raw_dict:
             self.QMin.save["always_orb_init"] = True
             del raw_dict["always_orb_init"]
+        if "scratchdir" in raw_dict:
+            raw_dict["scratchdir"] = expand_path(raw_dict["scratchdir"])
+            self.log.info(f"Scratchdir set to {raw_dict['scratchdir']}")
+        if "retain" in raw_dict:
+            self.QMin.requests["retain"] = raw_dict["retain"]
+            del raw_dict["retain"]
         self.QMin.resources.update(raw_dict)
 
         self._read_resources = True
@@ -727,18 +733,23 @@ class SHARC_INTERFACE(ABC):
 
         return out_dict
 
-    def read_requests(self, requests_file: str = "QM.in") -> None:
+    def read_requests(self, requests_file: str | dict = "QM.in") -> None:
         """
         Reads QM.in file and parses requests
         """
-        # TODO: pc file? densmap only for multipolar fit?
         assert self._read_template, "Interface is not set up correctly. Call read_template with the .template file first!"
         assert self._read_resources, "Interface is not set up correctly. Call read_resources with the .resources file first!"
+
+        if isinstance(requests_file, dict):
+            self.log.debug("PySHARC detected, using driver_requests")
+            return self._set_driver_requests(requests_file)
 
         self.log.debug(f"Reading requests from {requests_file}")
 
         # Reset requests
+        retain = self.QMin.requests["retain"]
         self.QMin.requests = QMin().requests
+        self.QMin.requests["retain"] = retain  # keep retain
         self.QMin.save["init"] = False
         self.QMin.save["samestep"] = False
         self.QMin.save["newstep"] = False
@@ -798,6 +809,10 @@ class SHARC_INTERFACE(ABC):
         Performs step logic
         """
         self.log.debug("Starting step logic")
+        self.QMin.save["init"] = False
+        self.QMin.save["samestep"] = False
+        self.QMin.save["newstep"] = False
+        self.QMin.save["restart"] = False
 
         # TODO: implement previous_step from driver
         self.QMin.save.update({"newstep": False, "init": False, "samestep": False})
@@ -894,7 +909,7 @@ class SHARC_INTERFACE(ABC):
                 case ["nacdr" | "multipolar_fit" | "density_matrices", "all"]:
                     self.QMin.requests[req] = ["all"]
                 case ["grad", value]:
-                    self.QMin.requests[req] = sorted(list(map(int, request[1])))
+                    self.QMin.requests[req] = sorted(list(map(int, request[1]))) if isinstance(request[1], list) else [int(value)]
                     if max(self.QMin.requests[req]) > self.QMin.molecule["nmstates"]:
                         self.log.error(f"Requested {req} higher than total number of states!")
                         raise ValueError()
@@ -945,6 +960,11 @@ class SHARC_INTERFACE(ABC):
         assert not (
             (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+                raise ValueError()
 
     def write_step_file(self) -> None:
         """
