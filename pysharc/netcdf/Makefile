@@ -38,7 +38,7 @@ INC= -I.  -I$(ANACONDA)/include
 OPT= -O3 -Wall
 SHARED= -fPIC
 
-CC=gcc
+#CC=$(ANACONDA)/bin/gcc
 
 
 OBJ_LIB=nc_basic.o nc_sharc.o

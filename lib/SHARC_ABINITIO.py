@@ -15,12 +15,14 @@ import sympy
 import wf2rho
 from asa_grid import GRIDS
 from constants import ATOMIC_RADII, MK_RADII, IToMult
-from logger import DEBUG, TRACE
+from logger import log, DEBUG, TRACE, ERROR, WARNING 
 from qmin import QMin
 from resp import Resp, multipoles_from_dens_parallel
 from SHARC_INTERFACE import SHARC_INTERFACE
 from sympy.physics.wigner import wigner_3j
-from utils import InDir, convert_list, electronic_state, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile
+from pyscf.gto import mole
+from scipy.linalg import fractional_matrix_power
+from utils import InDir, containsstring, convert_list, electronic_state, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile, density_representation 
 
 all_features = {
     "h",
@@ -81,6 +83,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_fit_order": 2,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
+                "resp_target": "zero",
             }
         )
 
@@ -102,6 +105,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_fit_order": int,
                 "resp_mk_radii": bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": str,
+                "resp_target": str,
             }
         )
 
@@ -125,6 +129,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         if self.QMin.resources["theodore_fragment"]:
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
+        if self.QMin.resources["resp_vdw_radii"]:
+            self.QMin.resources["resp_vdw_radii"] = convert_list(self.QMin.resources["resp_vdw_radii"], float)
+        if self.QMin.resources["resp_vdw_radii_symbol"]:
+            self.QMin.resources["resp_vdw_radii_symbol"] = convert_dict(self.QMin.resources["resp_vdw_radii_symbol"], float)
+        if self.QMin.resources["resp_target"] and self.QMin.resources["resp_target"] not in {"zero", "mulliken", "loewdin"}:
+            self.log.error(f'"resp_target": {self.QMin.resources["resp_target"]} is not known! valid options are "zero", "mulliken" or "loewdin"')
+            raise ValueError()
 
     def printQMout(self) -> None:
         super().writeQMout()
@@ -480,13 +491,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 os.remove(os.path.join(path, file))
 
     # Start TOMI
-
-    @staticmethod
-    def density_representation(d):
-        s1, s2, spin = d
-        middle = f"---{spin}{'-'*(6 - len(spin))}>"
-        return f"[ {s1.symbol()} {middle} {s2.symbol()} ]"
-
     def get_density_recipes(self):
         requested_densities = self.QMin.requests["density_matrices"]
         readable_densities = self.get_readable_densities()
@@ -503,7 +507,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 break
 
         for d, v in doable_densities.items():
-            v["repr"] = self.density_representation(d)
+            v["repr"] = density_representation(d)
 
         if self.log.level <= TRACE:
             self.log.trace("DOABLE DENSITIES:")
@@ -803,8 +807,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         file = f"{directory}/dets.{s + 1}.{step}"
         nst = np.loadtxt(file, usecols=(0,), max_rows=1, dtype=int)
         nst = int(nst)
-        dets = np.loadtxt(file, usecols=(0,), skiprows=1, dtype=str).tolist()
-        ci = np.loadtxt(file, skiprows=1, usecols=list(range(1, nst + 1)), ndmin=2, dtype=float)
+        dets = np.loadtxt(file, usecols=(0,), skiprows=1, dtype=str, ndmin=1).tolist()
+        CI = np.loadtxt(file, skiprows=1, usecols=[i for i in range(1, nst + 1)], ndmin=2, dtype=float)
         file = f"{directory}/mos.{s + 1}.{step}"
         nao = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(0,), dtype=int)
         nmo = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(1,), dtype=int)
@@ -820,6 +824,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 )
             )
         mos = np.ascontiguousarray(mos)
+        print(dets)
         dets = np.char.replace(dets, old="d", new="7,")
         dets = np.char.replace(dets, old="a", new="5,")
         dets = np.char.replace(dets, old="b", new="1,")
@@ -902,9 +907,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                                 phi_work[is1, :, mo - start] = np.array(
                                     [float(x) for j, x in enumerate(lines[mo].split()) if j >= 2]
                                 )
-                        self.log.info(f" Dyson norm in MO basis = {np.einsum('ijk,ijk->ij', phi_work, phi_work)}")
                         phi_work = np.einsum("am,ijm->ija", MOs1, phi_work)
-                        self.log.info(f" Dyson norm in AO basis = {np.einsum('ijk,kl,ijl->ij', phi_work, sao, phi_work)}")
 
             for s1, s2, spin in dos:
                 phi[(s1, s2, spin)] = phi_work[s1.N - 1, s2.N - 1, :]
@@ -930,7 +933,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                             denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, 1.0 / 2.0, -s2.M / 2.0)
                         if denominator != 0:
                             to_append[(thes1, thes2, thespin)] = (
-                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0) * numerator.evalf() / denominator.evalf() * phi_work
+                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0) * float(numerator.evalf()) / float(denominator.evalf()) * phi_work
                             )
                         break
                 for do, phi_work in to_append.items():
@@ -1120,9 +1123,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             logger=self.log,
         )
         mol = self.QMout["mol"]
-        gsmult = self.QMin.maps["statemap"][1][0]
-        charge = self.QMin.maps["chargemap"][gsmult]  # the charge is irrelevant for the integrals calculated!!
-        fits.prepare(mol)  # the charge of the atom does not affect integrals
+        if self.QMin.resources["resp_target"] == "loewdin":
+            Sao_root = fractional_matrix_power(self.QMin.molecule["SAO"], 0.5)
+        fits.prepare(mol, self.QMin.resources['ncpu'])  # the charge of the atom does not affect integrals
         fits.prepare_parallel(self.QMout.density_matrices, self.QMin.resources["resp_fit_order"])
 
         fits_map = {}
@@ -1133,10 +1136,29 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         with Pool(processes=self.QMin.resources["ncpu"]) as pool:
             for dens in self.QMin.requests["multipolar_fit"]:
                 s1, s2 = dens
+                charge = s1.Z if s1 // s2 else 0
                 if (s2, s1) in queued:
                     get_transpose.append(dens)
                     continue
-                charge = s1.Z if s1 // s2 else 0
+
+                target = None
+                if self.QMin.resources["resp_target"] == "mulliken":
+                    target = SHARC_ABINITIO.mulliken_pop(
+                        mol,
+                        dm=self.QMout.density_matrices[(s1, s2, "tot")],
+                        s=self.QMin.molecule["SAO"],
+                        include_core_charges=s1 is s2
+                    )
+                elif self.QMin.resources["resp_target"] == "loewdin":
+                    target = SHARC_ABINITIO.loewdin_pop(
+                        mol,
+                        dm=self.QMout.density_matrices[(s1, s2, "tot")],
+                        s_root=Sao_root,
+                        include_core_charges=s1 is s2
+                    )
+                if target is not None:
+                    self.log.debug(f"{dens} fitted to target ({charge}, {sum(target)}) {target}")
+
                 queued.add(dens)
                 fits_map[dens] = pool.apply_async(
                     multipoles_from_dens_parallel,
@@ -1147,6 +1169,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         self.QMin.resources["resp_fit_order"],
                         self.QMin.resources["resp_betas"],
                         self.QMin.molecule["natom"],
+                        target
                     ),
                 )
             pool.close()
@@ -1357,3 +1380,50 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         run_theodore
         save directory handling
         """
+
+    @staticmethod
+    def mulliken_pop(mol, dm: np.ndarray, s: np.ndarray, include_core_charges=True):
+        """Mulliken populations analysis
+
+        Args:
+            mol (): gto.Mole object
+            dm: density matrix in AO basis
+            s: atomic orbital overlap
+        """
+        pop = np.einsum('ij,ij->i', dm, s)
+        aorange = mole.aoslice_by_atom(mol)
+
+        chrg = np.zeros((mol.natm))
+        if include_core_charges:
+            chrg += mol.atom_charges()
+
+        for i, (_, _, ao_start, ao_stop) in enumerate(aorange):
+            chrg[i] -= sum(pop[ao_start:ao_stop])
+
+        return chrg
+
+    @staticmethod
+    def loewdin_pop(mol, dm: np.ndarray, s_root: np.ndarray, include_core_charges=True):
+        """Loewdin populations analysis
+
+        Args:
+            mol (): gto.Mole object
+            dm: density matrix in AO basis
+            s_root: S^(1/2) where S is the AO overlap matrix
+        """
+        pop = np.einsum('mi,ij,jm->m', s_root, dm, s_root)
+        # pop = s_root @ dm @ s_root
+        aorange = mole.aoslice_by_atom(mol)
+
+        chrg = np.zeros((mol.natm))
+        if include_core_charges:
+            chrg += mol.atom_charges()
+
+        for i, (_, _, ao_start, ao_stop) in enumerate(aorange):
+            # chrg[i] -= np.einsum('ii->', pop[ao_start:ao_stop, ao_start:ao_stop])
+            chrg[i] -= sum(pop[ao_start:ao_stop])
+
+        return chrg
+        
+        
+

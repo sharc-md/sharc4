@@ -45,6 +45,15 @@ type Tsharc_ncoutput
     integer :: time_step_id
 end type
 
+type Tsharc_ncxyz
+    sequence
+    integer :: id
+    integer :: crd_id
+    integer :: IAn_id
+    integer :: time_step_id
+end type
+
 contains
 
 end module definitions_NetCDF
+

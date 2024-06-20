@@ -714,10 +714,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         self.log.debug("Copy run files from master")
         re_runfiles = ("ChVec", "QVec", "ChRed", "ChDiag", "ChRst", "ChMap", "RunFile", "GRIDFILE", "NqGrid", "Rotate.txt")
-        for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
-            if any(i in file for i in re_runfiles):
-                shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master", file), os.path.join(workdir, file))
-        shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master/MOLCAS.OneInt"), os.path.join(workdir, "ONEINT"))
+        try:
+            for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
+                if any(i in file for i in re_runfiles):
+                    shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master", file), os.path.join(workdir, file))
+                shutil.copy(
+                    os.path.join(self.QMin.resources["scratchdir"], "master/MOLCAS.OneInt"), os.path.join(workdir, "ONEINT")
+                )
+        except FileNotFoundError:
+            self.log.error("Copy file(s) failed! This is most likely due to an error in master job!")
 
     def get_readable_densities(self) -> dict[str, str]:
         densities = {}
@@ -743,7 +748,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         tasks = [["gateway"], ["seward"]]
 
         # Mult loop
-        list_to_do = list((i, j) for i, j in enumerate(qmin.molecule["states"]))
+        list_to_do = list(enumerate(qmin.molecule["states"]))
         for mult, states in list_to_do:
             if states == 0:
                 continue
@@ -778,8 +783,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
             # RASSCF block
             tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], is_jobiph, is_rasorb])
-            if qmin.template["method"] == "cms-pdft":
-                tasks[-1].append(["CMSI"])
 
             # MOLDEN request
             if qmin.requests["molden"]:
@@ -792,7 +795,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 case "cms-pdft":
                     keys = [f"KSDFT={qmin.template['functional']}"]
                     keys.append("noGrad")
-                    keys += ["MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]
+                    keys += ["MSPDFT", "WJOB", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]
                     tasks.append(["mcpdft", keys])
                     tasks.append(["copy", "MOLCAS.JobIph", f"MOLCAS.{mult+1}.JobIph"])
                 case _:  # PT2 methods
@@ -843,6 +846,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             tasks.append(["theodore"])
             if self._hdf5:
                 tasks.append(["link", "MOLCAS.rassi.h5.bak", "MOLCAS.rassi.h5"])
+        self.log.debug("\n".join(str(i) for i in tasks))
         return tasks
 
     def _gen_ovlp_task(self, qmin: QMin, mult: int, states: int) -> list[list[Any]]:
@@ -906,10 +910,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                 qmin.template["roots"][mult],
                                 True,
                                 False,
-                                [f"RLXROOT={grad[1]}", "CMSI"],
+                                [f"RLXROOT={grad[1]}"],
                             ]
                         )
-                        tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB"]])
+                        tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT"]])
                         tasks.append(["alaska", grad[1]])
                     case "casscf":
                         tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
@@ -933,9 +937,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["mclr", qmin["template"]["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                     tasks.append(["alaska"])
                 case "cms-pdft":
-                    tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False, ["CMSI"]])
+                    tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
                     tasks.append(
-                        ["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", "WJOB", f"nac={nac[1]} {nac[3]}"]]
+                        ["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", f"nac={nac[1]} {nac[3]}"]]
                     )
                     tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                     tasks.append(["alaska"])
@@ -945,6 +949,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["alaska", nac[1], nac[3]])
 
             tasks += self._gen_ovlp_task(qmin, mult, states)
+
+        self.log.debug("\n".join(str(i) for i in tasks))
         return tasks
 
     def _write_input(self, tasks: list[list[str]], qmin: QMin) -> str:
@@ -1080,7 +1086,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         else:
             input_str += "THRS=" + " ".join(f"{i:14.12f}" for i in qmin.template["rasscf_thrs"]) + "\n"
         if task[3]:
-            input_str += "JOBIPH\nCIRESTART\n"
+            input_str += "JOBIPH\n"
+            if qmin.save["samestep"]:
+                input_str += "CIRESTART\n"
         if task[4]:
             input_str += "LUMORB\n"
         if len(task) > 5:
@@ -1099,7 +1107,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         input_str = "&SEWARD\n"
         if qmin.template["method"] == "cms-pdft":
-            input_str += "GRID INPUT\nNORO\nNOSC\nEND OF GRID INPUT\n"
+            input_str += "GRID INPUT\nNOSC\nEND OF GRID INPUT\n"
         input_str += "\n"
         if qmin.template["origin"]:
             center = [f"{el:.2f}" for el in qmin.template["origin"]]
@@ -1131,7 +1139,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += f"ANGMOM\n{center}\n"
         if qmin.template["baslib"]:
             input_str += f"BASLIB\n{qmin.template['baslib']}\n\n"
-        input_str += f"RICD\nCDTHreshold={qmin.template['cholesky_accu']}\n"
+        input_str += "RICD\n"
+        if qmin.template["method"] != "cms-pdft":
+            input_str += f"CDTHreshold={qmin.template['cholesky_accu']}\n"
         if qmin.template["pcmset"]:
             input_str += f"TF-INPUT\nPCM-MODEL\nSOLVENT = {qmin.template['pcmset']['solvent']}\n"
             input_str += f"AARE = {qmin.template['pcmset']['aare']}\nR-MIN = {qmin.template['pcmset']['r-min']}"
@@ -1529,20 +1539,21 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if isinstance(output_file, str):
             match self.QMin.template["method"]:
                 case "casscf":
-                    energies = re.findall(r"RASSCF root number\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    energies = re.findall(r"RASSCF root number.*Total energy:\s+(.*)\n", output_file)
                 case "xms-caspt2" | "caspt2":
-                    energies = re.findall(r"CASPT2 Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    energies = re.findall(r"CASPT2 Root.*Total energy:\s+(.*)\n", output_file)
                 case "ms-caspt2":
-                    energies = re.findall(r"MS-CASPT2 Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    energies = re.findall(r"MS-CASPT2 Root.*Total energy:\s+(.*)\n", output_file)
                 case "cms-pdft":
-                    energies = re.findall(r"CMS-PDFT Root\s+\d+\s+Total energy:\s+(.*)\n", output_file)
+                    energies = re.findall(r"CMS-PDFT Root.*Total energy:\s+(.*)\n", output_file)
             # Remove extra roots
-            s_cnt = 0
-            for m, s in enumerate(self.QMin.molecule["states"]):
-                if self.QMin.template["roots"][m] > s > 0:
-                    for _ in range(self.QMin.template["roots"][m] - s):
-                        del energies[s_cnt + s]
-                s_cnt += s
+            if self.QMin.template["method"] in ("casscf", "cms-pdft", "caspt2"):
+                s_cnt = 0
+                for m, s in enumerate(self.QMin.molecule["states"]):
+                    if self.QMin.template["roots"][m] > s > 0:
+                        for _ in range(self.QMin.template["roots"][m] - s):
+                            del energies[s_cnt + s]
+                    s_cnt += s
 
         else:
             energies = output_file["SFS_ENERGIES"][:].tolist()
@@ -1826,6 +1837,91 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 y = sum(self.QMin.molecule["states"][: m2 - 1]) + s2 - 1
                 dyson_nmat[i, j] = dyson_nmat[j, i] = dyson_mat[x, y] * factor
         return dyson_nmat
+
+    def dyson_orbitals_with_other(self, other, workdir, ncpu, mem):
+        os.environ["MOLCASMEM"] = str(mem)
+        os.environ["MOLCAS_MEM"] = str(mem)
+
+        qmin1 = self.QMin
+        qmin2 = other.QMin
+        save1 = qmin1.save["savedir"]
+        save2 = qmin2.save["savedir"]
+        step1 = qmin1.save["step"]
+        step2 = qmin2.save["step"]
+        nstates1 = qmin1.molecule["states"]
+        nstates2 = qmin2.molecule["states"]
+
+        # Getting all non-zero DOs
+        dyson_orbitals_from_rassi = {}
+        dyson_orbitals_from_wigner_eckart = []
+        for s1 in self.states:
+            for s2 in other.states:
+                for spin in ["a", "b"]:
+                    if self.dyson_logic(s1, s2, spin):
+                        if s1.M == s1.S and s2.M == s2.S:
+                            if (s1.S, s2.S) in dyson_orbitals_from_rassi:
+                                dyson_orbitals_from_rassi[(s1.S, s2.S)].append((s1, s2, spin))
+                            else:
+                                dyson_orbitals_from_rassi[(s1.S, s2.S)] = [(s1, s2, spin)]
+                        else:
+                            dyson_orbitals_from_wigner_eckart.append((s1, s2, spin))
+
+        phi = {}
+        # Calling RASSI for each pair of multiplicities
+        for (dyson_s1, dyson_s2), dos in dyson_orbitals_from_rassi.items():
+            phi_work = np.zeros((nstates1[dyson_s1], nstates2[dyson_s2], self.QMout['mol'].nao))
+            with InDir(workdir):
+
+                # Fetch JOBIPH files
+                os.copy(os.path.join( self.QMin.save['savedir'], 'MOLCAS.'+str(dyson_s1)+'.JobIph.'+str(step1) ), 'JOBIPH001')
+                os.copy(os.path.join( other.QMin.save['savedir'], 'MOLCAS.'+str(dyson_s2)+'.JobIph.'+str(step2) ), 'JOBIPH002' )
+
+                # Make RASSI.input
+                input_str = "&RASSI\n"
+                input_str += "MEIN\n"
+                input_str += "CIPR\nTHRS=0.000005d0\n"
+                input_str += "DYSON\n"
+                input_str += "DYSEXPORT "+str(self.QMin.molecule['states'][dyson_s1] + other.QMin.molecule['states'][dyson_s2])+"\n"
+                input_str += "\n"
+                f = open('RASSI.input','w')
+                f.write(input_str)
+                f.close()
+
+                # Call pymolcas
+                self.run_program(workdir, self.QMin.resources['driver']+' RASSI.input', 'RASSI.out', 'RASSI.err')
+
+                # Parse
+
+            for s1, s2, spin in dos:
+                phi[(s1, s2, spin)] = phi_work[s1.N - 1, s2.N - 1, :]
+
+        all_done = False
+        while not all_done:
+            for thes1, thes2, thespin in dyson_orbitals_from_wigner_eckart:
+                for (s1, s2, spin), phi_work in phi.items():
+                    to_append = {}
+                    if s1 // thes1 and s2 // thes2:
+                        if thespin == "a":
+                            numerator = wigner_3j(
+                                thes1.S / 2.0, 1.0 / 2.0, thes2.S / 2.0, thes1.M / 2.0, -1.0 / 2.0, -thes2.M / 2.0
+                            )
+                        elif thespin == "b":
+                            numerator = wigner_3j(
+                                thes1.S / 2.0, 1.0 / 2.0, thes2.S / 2.0, thes1.M / 2.0, 1.0 / 2.0, -thes2.M / 2.0
+                            )
+                        if spin == "a":
+                            denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, -1.0 / 2.0, -s2.M / 2.0)
+                        elif spin == "b":
+                            denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, 1.0 / 2.0, -s2.M / 2.0)
+                        if denominator != 0:
+                            to_append[(thes1, thes2, thespin)] = (
+                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0) * float(numerator.evalf()) / float(denominator.evalf()) * phi_work
+                            )
+                        break
+                for do, phi_work in to_append.items():
+                    phi[do] = phi_work
+            all_done = all(do in phi for do in dyson_orbitals_from_wigner_eckart)
+        return phi
 
 
 if __name__ == "__main__":

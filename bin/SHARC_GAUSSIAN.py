@@ -1041,7 +1041,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         string += "\n"
 
         # Route section
-        data = ["p", "nosym", "unit=AU", QMin.template["functional"]]
+        data = ["p", "nosym", "unit=AU"]
+        if not QMin.template['functional'].lower() == 'eomccsd': data.append( QMin.template['functional'] )
         if not QMin.template["functional"].lower() == "dftba":
             data.append(QMin.template["basis"])
         if dograd:
@@ -1055,14 +1056,19 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if QMin.template["denfit"]:
             data.append("denfit")
         if ncalc > 0:
-            if not QMin.template["no_tda"]:
+            if QMin.template['functional'].lower() == 'eomccsd':
+                s = 'eomccsd'
+            elif not QMin.template["no_tda"]:
                 s = "tda"
             else:
                 s = "td"
-            if QMin.control["master"]:
+            if QMin.control["master"] or QMin.template['functional'].lower() == 'eomccsd':
                 s += f"(nstates={ncalc}{mults_td}"
             else:
-                s += "(read"
+                #  if QMin.template['functional'].lower() == 'eomccsd':
+                    #  s+= '(ReadAmplitudes'
+                #  else:
+                if not QMin.template['functional'].lower() == 'eomccsd':s += "(read"
             if dograd and root > 0:
                 s += f",root={root}"
             elif dodens and root > 0:
@@ -1087,8 +1093,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if QMin.control["gradonly"]:
             data.append("Guess=read")
         if QMin.control["densonly"]:
-            data.append("pop=Regular")  # otherwise CI density will not be printed
             data.append("Guess=read")
+            if QMin.template['functional'].lower() == 'eomccsd':
+                data.append('force')
+            else:
+                data.append("pop=Regular")  # otherwise CI density will not be printed
         if QMin.requests["theodore"]:
             data.append("pop=full")
             data.append("IOP(9/40=3)")

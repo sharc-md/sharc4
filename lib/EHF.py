@@ -64,7 +64,7 @@ class EHF:
                     PCs = np.concatenate( PCs )
                     child1.QMin.coords['pccharge'] = PCs
 
-                SHARC_HYBRID.run_children(self.log, relaxed, 12)
+                SHARC_HYBRID.run_children(self.log, relaxed, 48)
                 for label, child in relaxed.items(): 
                     child.writeQMout( filename=os.path.join( child.QMin.resources['pwd'],'QM_cycle'+str(cycle)+'.out' ) )
                     newAPCs = child.QMout['multipolar_fit'][(estates[label],estates[label])][:,0]
