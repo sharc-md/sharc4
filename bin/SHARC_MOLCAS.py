@@ -10,19 +10,21 @@ from io import TextIOWrapper
 from itertools import product
 from math import ceil
 from typing import Any
-
+from sympy.physics.wigner import wigner_3j
 import h5py
 import numpy as np
 from constants import au2a, IToMult, lande_g_factor, alpha
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
+
 from utils import (convert_list,
                    expand_path,
                    link,
                    mkdir,
                    question,
-                   writefile)
+                   writefile,
+                   InDir)
 
 __all__ = ["SHARC_MOLCAS"]
 
@@ -1883,7 +1885,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 input_str += "DYSON\n"
                 input_str += "DYSEXPORT "+str(self.QMin.molecule['states'][dyson_s1] + other.QMin.molecule['states'][dyson_s2])+"\n"
                 input_str += "\n"
-                f = open('RASSI.input','w')
+                f = open('RASSI.input', 'w')
                 f.write(input_str)
                 f.close()
 
