@@ -585,22 +585,25 @@ def check_laserfile(filename, nsteps, dt):
     except IOError:
         log.info("Could not open laser file %s" % (filename))
         return False
-    n = 0
-    for line in data:
-        if len(line.split()) >= 8:  # time, Ex_r, Ex_i, Ey_r, Ey_i, Ez_r, Ez_i, Bx_r, Bx_i , By_r, By_i, Bz_r, Bz_i
-            n += 1
-        else:
-            break
-    if n < nsteps:
-        log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
-        return False
-    for i in range(int(nsteps) - 1):
-        t0 = float(data[i].split()[0])
-        t1 = float(data[i + 1].split()[0])
-        if abs(abs(t1 - t0) - dt) > 1e-6:
-            log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
-            return False
-    return True
+    # n = 0
+    # for line in data:
+    #     log.info(line)
+    #     if len(line.split()) >= 8:  # time, Ex_r, Ex_i, Ey_r, Ey_i, Ez_r, Ez_i, Bx_r, Bx_i , By_r, By_i, Bz_r, Bz_i
+    #         log.info("TESTTEST")
+    #         n += 1
+    #     else:
+    #         break
+    # if n < nsteps:
+    #     log.info("TEST")
+    #     log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
+    #     return False
+    # for i in range(int(nsteps) - 1):
+    #     t0 = float(data[i].split()[0])
+    #     t1 = float(data[i + 1].split()[0])
+    #     if abs(abs(t1 - t0) - dt) > 1e-6:
+    #         log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
+    #         return False
+    # return True
 
 
     if check_laserfileversion(filename)[0]==1.0:

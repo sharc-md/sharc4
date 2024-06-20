@@ -532,11 +532,12 @@ There are two representations:
             DM = qmout.dm
             if H is not None:
                 if INFOS["diag"]:
-                    P = qmout.ion
                     eig, U = np.linalg.eigh(H)
                     Ucon = np.conjugate(U)
                     DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
-                    P = np.einsum("kij,in,jm->knm", P, Ucon, U)
+                    if 'ion' in qmout:  # TODO: use Dysnorm instead of fosc
+                        P = qmout.ion
+                        P = np.einsum("kij,in,jm->knm", P, Ucon, U)
                 INFOS["eref"] = H[0][0].real
                 print("Reference energy read from file \n%s" % (qmfilename))
                 print("E_ref= %16.12f" % (INFOS["eref"]))
@@ -754,11 +755,13 @@ def get_QMout(INFOS, initlist):
         H = qmout.h
         DM = qmout.dm
         if INFOS["diag"]:
-            P = qmout.ion
             eig, U = np.linalg.eigh(H)
             Ucon = np.conjugate(U)
+            H = np.diag(eig)
             DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
-            P = np.einsum("kij,in,jm->knm", P, Ucon, U)
+            if 'ion' in qmout:
+                P = qmout.ion
+                P = np.einsum("kij,in,jm->knm", P, Ucon, U)
         if INFOS["diabatize"]:
             Smat = qmout.overlap
             thres = 0.5

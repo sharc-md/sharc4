@@ -241,7 +241,7 @@ class QMout:
                 for jblock in range(shape[1]):
                     for irow in range(shape[2]):
                         line = data[iline + irow].split()
-                        log.info("iblock=%s, jblock=%s, irow=%s, line=%s", iblock, jblock, irow, line)
+                        log.debug("iblock=%s, jblock=%s, irow=%s, line=%s", iblock, jblock, irow, line)
                         if type == complex:
                             result[iblock, jblock, irow, :] = np.array(
                                 [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[3])]
@@ -1108,7 +1108,7 @@ class QMout:
         1 string: multiline string with the SOC matrix"""
 
         notes = self.notes
-        string = "! %i Notes\n" % (24)
+        string = "! %i Notes\n" % (999)
         string += "%i    ! number of notes\n" % (len(notes))
 
         string += "! Notes Labels (%i strings)\n" % (len(notes))
@@ -1262,7 +1262,7 @@ class QMout:
                 string += "Derivative %s:\n" % (IToPol[dxdydz])
                 for xyz in range(3):
                     string += "Polarisation %s:\n" % (IToPol[xyz])
-                    matrix = self["mdm"][xyz]# self["eqm"][dxdydz][xyz]
+                    matrix = self["eqm"][dxdydz][xyz]
                     string += formatcomplexmatrix(matrix, states)
                 string += "\n" 
         # Gradients
@@ -1393,4 +1393,4 @@ class QMout:
 if __name__ == "__main__":
     test = QMout()
     test.allocate([1], 1, 1, set(["h"]))
-    print(test.formatQMout())
+    #print(test.formatQMout())

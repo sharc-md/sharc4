@@ -153,22 +153,34 @@ program create_laser
     if (realvalued) then
       if (export_field_settings==0) then
         write(10,'(15(ES16.8,x))') t*au2fs, &
-                               max(dble(laser_efield(it,1)),1E-99), 0.d0, &
-                               max(dble(laser_efield(it,2)),1E-99), 0.d0, &
-                               max(dble(laser_efield(it,3)),1E-99), 0.d0, &
-                               max(dble(laser_bfield(it,1)),1E-99), 0.d0, &
-                               max(dble(laser_bfield(it,2)),1E-99), 0.d0, &
-                               max(dble(laser_bfield(it,3)),1E-99), 0.d0
+                                dble(laser_efield(it,1)), 0.d0, &
+                                dble(laser_efield(it,2)), 0.d0, &
+                                dble(laser_efield(it,3)), 0.d0, &
+                                dble(laser_bfield(it,1)), 0.d0, &
+                                dble(laser_bfield(it,2)), 0.d0, &
+                                dble(laser_bfield(it,3)), 0.d0   
+                               !max(dble(laser_efield(it,1)),1E-99), 0.d0, &
+                               !max(dble(laser_efield(it,2)),1E-99), 0.d0, &
+                               !max(dble(laser_efield(it,3)),1E-99), 0.d0, &
+                               !max(dble(laser_bfield(it,1)),1E-99), 0.d0, &
+                               !max(dble(laser_bfield(it,2)),1E-99), 0.d0, &
+                               !max(dble(laser_bfield(it,3)),1E-99), 0.d0
       else if (export_field_settings==1) then
         write(10,'(7(ES16.8,x))') t*au2fs, &
-                               max(dble(laser_efield(it,1)),1E-99), 0.d0, &
-                               max(dble(laser_efield(it,2)),1E-99), 0.d0, &
-                               max(dble(laser_efield(it,3)),1E-99), 0.d0
+                               dble(laser_efield(it,1)), 0.d0, &
+                               dble(laser_efield(it,2)), 0.d0, &
+                               dble(laser_efield(it,3)), 0.d0
+                               !max(dble(laser_efield(it,1)),1E-99), 0.d0, &
+                               !max(dble(laser_efield(it,2)),1E-99), 0.d0, &
+                               !max(dble(laser_efield(it,3)),1E-99), 0.d0
       else if (export_field_settings==2) then
         write(10,'(7(ES16.8,x))') t*au2fs, &
-                               max(dble(laser_bfield(it,1)),1E-99), 0.d0, &
-                               max(dble(laser_bfield(it,2)),1E-99), 0.d0, &
-                               max(dble(laser_bfield(it,3)),1E-99), 0.d0
+                               dble(laser_bfield(it,1)), 0.d0, &
+                               dble(laser_bfield(it,2)), 0.d0, &
+                               dble(laser_bfield(it,3)), 0.d0
+                               !max(dble(laser_bfield(it,1)),1E-99), 0.d0, &
+                               !max(dble(laser_bfield(it,2)),1E-99), 0.d0, &
+                               !max(dble(laser_bfield(it,3)),1E-99), 0.d0
       endif
     else
       if (export_field_settings==0) then
