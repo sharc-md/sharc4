@@ -42,7 +42,7 @@ all_features = set(
         "point_charges",
         "grad_pc",
         # raw data request
-        "basis_set",
+        "mol",
         "wave_functions",
         "density_matrices",
     ]
@@ -390,7 +390,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             # Delete files not needed
             work_files = os.listdir(workdir)
             for file in work_files:
-                if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad$", file):
+                if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad.*$", file):
                     os.remove(os.path.join(workdir, file))
 
         return exit_code, endtime - starttime
@@ -729,7 +729,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 # Point charges
                 point_charges = None
                 if self.QMin.molecule["point_charges"] and not point_charges:
-                    point_charges = self._get_pc_grad(os.path.join(scratchdir, job_path, "ORCA.pcgrad"))
+                    if ground_state:
+                        gradients = self._get_pc_grad(os.path.join(scratchdir, job_path, "ORCA.pcgrad"))
+                    else:
+                        gradients = self._get_pc_grad(os.path.join(scratchdir, job_path, f"ORCA.pcgrad.{grad_ext}"))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
@@ -979,10 +982,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def print_qmin(self) -> None:
         pass
 
-    def _set_driver_requests(self, *args, **kwargs) -> None:
-        super()._set_driver_requests(*args, **kwargs)
-        self.QMin.requests["h"] = True
-
     def _set_request(self, *args, **kwargs) -> None:
         super()._set_request(*args, **kwargs)
         self.QMin.requests["h"] = True
@@ -1023,10 +1022,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
-
-        for req, val in self.QMin.requests.items():
-            if val and req != "retain" and req not in all_features:
-                raise ValueError(f"Found unsupported request {req}.")
+        self.QMin.requests["h"] = True
 
     def read_template(self, template_file: str = "ORCA.template", kw_whitelist: Optional[list[str]] = None) -> None:
         kw_whitelist = ["basis_per_element", "basis_per_atom", "ecp_per_element"]

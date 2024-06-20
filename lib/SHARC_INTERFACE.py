@@ -62,7 +62,7 @@ all_features = {
     "theodore",
     "point_charges",
     # raw data request
-    "basis_set",
+    "mol",
     "wave_functions",
     "density_matrices",
 }
@@ -349,11 +349,12 @@ class SHARC_INTERFACE(ABC):
             self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
         if self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
+        self.QMout.charges = self.QMin.template["charge"]
 
         for s, nstates in enumerate(self.QMin.molecule["states"]):
             c = self.QMin.template["charge"][s]
-            for n in range(nstates):
-                for m in range(-s, s + 1, 2):
+            for m in range(-s, s + 1, 2):
+                for n in range(nstates):
                     self.states.append(
                         electronic_state(Z=c, S=s, M=m, N=n + 1, C={})
                     )  # This is the moment in which states get their pointers
@@ -710,6 +711,14 @@ class SHARC_INTERFACE(ABC):
                                 out_dict[key] = True
                             else:
                                 raise ValueError(f"Boolian value for '{key}': {val} cannot be interpreted as a Boolian!")
+                    elif key_type is dict:
+                        if val[0] == '[':
+                            lst = [x.split() for x in ast.literal_eval(val)]
+                            res = {x[0]: x[1] for x in lst}
+                        else:
+                            lst = val.split()
+                            res = {lst[i]: lst[i + 1] for i in range(0, len(lst), 2)}
+                        out_dict[key] = res
                     else:
                         out_dict[key] = key_type(val)
 
@@ -724,13 +733,16 @@ class SHARC_INTERFACE(ABC):
 
         return out_dict
 
-    def read_requests(self, requests_file: str = "QM.in") -> None:
+    def read_requests(self, requests_file: str | dict = "QM.in") -> None:
         """
         Reads QM.in file and parses requests
         """
-        # TODO: pc file? densmap only for multipolar fit?
         assert self._read_template, "Interface is not set up correctly. Call read_template with the .template file first!"
         assert self._read_resources, "Interface is not set up correctly. Call read_resources with the .resources file first!"
+
+        if isinstance(requests_file, dict):
+            self.log.debug("PySHARC detected, using driver_requests")
+            return self._set_driver_requests(requests_file)
 
         self.log.debug(f"Reading requests from {requests_file}")
 
@@ -778,6 +790,7 @@ class SHARC_INTERFACE(ABC):
                             raw_value = [entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)]
                     else:
                         raw_value = val.split() if len(val.split()) > 1 else val
+                    self.log.debug(f"Parsed raw request {key} {raw_value}")
                     self._set_request((key, raw_value))
                 case ["backup"]:
                     self.log.warning("'backup' request is deprecated, use 'retain <number of steps>' instead!")
@@ -796,6 +809,10 @@ class SHARC_INTERFACE(ABC):
         Performs step logic
         """
         self.log.debug("Starting step logic")
+        self.QMin.save["init"] = False
+        self.QMin.save["samestep"] = False
+        self.QMin.save["newstep"] = False
+        self.QMin.save["restart"] = False
 
         # TODO: implement previous_step from driver
         self.QMin.save.update({"newstep": False, "init": False, "samestep": False})
@@ -881,6 +898,7 @@ class SHARC_INTERFACE(ABC):
         """
         req = request[0]
         if req in self.QMin.requests.keys():
+            self.log.debug(f"{request}")
             match request:
                 case ["grad", None]:
                     self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
@@ -942,6 +960,11 @@ class SHARC_INTERFACE(ABC):
         assert not (
             (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+                raise ValueError()
 
     def write_step_file(self) -> None:
         """

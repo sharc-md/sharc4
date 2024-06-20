@@ -1,4 +1,3 @@
-!******************************************
 !
 !    SHARC Program Suite
 !
@@ -62,6 +61,9 @@
 !>
 !>                   modified 2023 by Brigitta Bachmair
 !>                         added keywords for thermostat, additional restrictive potentials, frozen atoms
+!>
+!>                   modified 2024 by Severin Polonius
+!>                         added keywords for no_write_restart and split netCDF files
 !>
 !> This module defines the trajectory and control types.
 !>
@@ -153,6 +155,7 @@ module definitions
     integer :: steps_in_gs                                 !< counter for the number of timesteps in the lowest state
     integer :: ncids(10)                                   !< NetCDF indices
     integer :: nc_index                                    !< number of steps written to NetCDF
+    integer :: nc_nuc_index                                !< number of steps written to NetCDF (nuclear)
   
     logical :: phases_found                                !< whether wavefunction phases were found in QM.out
   
@@ -394,13 +397,15 @@ module definitions
     logical,allocatable :: actstates_s(:)     !< mask of the active states
     integer :: output_steps_stride(3)         !< how often output.dat is written
     integer :: output_steps_limits(3)         !< switches stride for output.dat writing
+    integer :: output_steps_stride_nuc(3)     !< how often sharc_traj_xyz.nc is written
+    integer :: output_steps_limits_nuc(3)     !< switches stride for sharc_traj_xyz.nc writing
   
   ! methods and switches
     logical :: restart                        !< restart yes or no
     logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
+    logical :: write_restart_files            !< if false skips the generation of all restart files and logic
     integer :: method                         !< 0=trajectory surface hopping(tsh), 1=self-consistent potential(scp)
     integer :: integrator                     !< integrator used, 0=Bulirsch-Stoer, 1=adaptive Velocity Verlet, 2=fixed stepzie Velocity Verlet
-  logical :: write_restart_files            !< if false skips the generation of all restart files and logic
     integer :: staterep                       !< 0=initial state is given in diag representation, 1=in MCH representation
     integer :: initcoeff                      !< 0=initial coefficients are diag, 1=initial coefficients are MCH, 2=auto diag, 3=auto MCH
     integer :: laser                          !< 0=none, 1=internal, 2=external

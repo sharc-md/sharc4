@@ -27,8 +27,10 @@ import asyncio
 import inspect
 from collections.abc import Callable
 from importlib import import_module
-from multiprocessing import Process
-
+from multiprocessing import Process, Semaphore, Manager, Pool, get_context, current_process
+from threading import Thread
+from qmout import QMout
+from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
 
 
@@ -43,39 +45,49 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         # Dict of child interfaces
         self._kindergarden = {}
 
-    def run_childs(self, child_list: list[Callable]) -> None:
-        """
-        Runs all children in child_list at once, either async or
-        in a sub process.
+    @staticmethod
+    def run_children(logger, children_dict, ncpu):
+        global children
 
-        child_list: List with child objects
-        """
+        children = children_dict
+        manager = Manager()
+        n_used_cpu = manager.Value('i',0)
+        QMins = manager.dict()
+        QMouts = manager.dict()
 
-        # Check if child_list is valid
-        if not isinstance(child_list, list):
-            self.log.error("child_list must be a list!")
-            raise ValueError()
+        def run_a_child(label,children,n_used_cpu,QMins,QMouts):
+            children[label]._step_logic()
+            children[label].QMout.mol = None
+            children[label].run()
+            children[label].getQMout()
+            if children[label].QMout.mol is not None: children[label].QMout.mol = Mole.pack(children[label].QMout.mol) 
+            children[label].clean_savedir( children[label].QMin.save['savedir'], children[label].QMin.requests['retain'], children[label].QMin.save['step'])
+            children[label].write_step_file()
+            QMins[label] = children[label].QMin
+            QMouts[label] = children[label].QMout
+            n_used_cpu.value -= children[label].QMin.resources['ncpu']
+            return
 
-        for i in child_list:
-            if not isinstance(i, SHARC_INTERFACE):
-                self.log.error("child_list list must contain instances of SHARC_INTERFACE")
-                raise ValueError()
+        processes = []
+        for label in children.keys():
+            while True:
+                #  print(ncpu - n_used_cpu.value, n_used_cpu.value)
+                if ncpu - n_used_cpu.value >= children[label].QMin.resources['ncpu']:
+                    logger.info(' Running child '+str(label))
+                    processes.append( Process( target=run_a_child, args=(label,children,n_used_cpu, QMins, QMouts) ) )
+                    n_used_cpu.value += children[label].QMin.resources['ncpu'] 
+                    processes[-1].start()
+                    break
+        for process in processes:
+            process.join()
 
-        # Run directly or in a sub process based on threadsafe attribute
-        async def _run_async(child):
-            if child._threadsafe:
-                p = Process(target=child.run)
-                p.start()
-            else:
-                child.run()
-
-        # Run all childs and wait until all are finished
-        async def _gather():
-            tasks = [_run_async(i) for i in child_list]
-            await asyncio.gather(*tasks)
-
-        asyncio.run(_gather())
-
+        for label, child in children_dict.items():
+            children_dict[label].QMin = QMins[label]
+            children_dict[label].QMout = QMouts[label]
+            if children_dict[label].QMout.mol is not None: children_dict[label].QMout.mol = Mole.unpack(children_dict[label].QMout.mol)
+            children_dict[label].QMout.mol.build()
+        return
+            
     def instantiate_children(self, child_dict: dict[str, tuple[str, list, dict] | str]) -> None:
         """
         Populate kindergarden with instantiated child interfaces
@@ -101,7 +113,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                 self._kindergarden[name] = self._load_interface(interface)()
                 self.log.debug(f"Assign instance of {interface} to {name}")
 
-    def _load_interface(self, interface_name: str) -> Callable:
+    def _load_interface(self, interface_name: str) -> SHARC_INTERFACE:
         """
         Dynamically loads interface from Python include path
 

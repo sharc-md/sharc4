@@ -561,7 +561,7 @@ subroutine get_dipolegrad(nstates, natom, DMDR_ssdad)
         if ( (iatom==natom).and.(idir==3) ) then
           continue
         else
-          write(0,*) 'Dipole grad has wrong format! natom=',iatom,'ndir=',idir
+          write(0,*) 'NAC has wrong format! natom=',iatom,'ndir=',idir
           stop 1
         endif
       enddo

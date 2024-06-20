@@ -129,7 +129,7 @@ reopen_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
 //     printf("REOPENED!\n");
 
     // init nsteps
-    int nsteps = 0;
+    size_t nsteps = 0;
 
     int unlim_id = 0;
 
@@ -138,7 +138,7 @@ reopen_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
     );
 
     check_nccall(iret,
-            nc_inq_dimlen(ncdat->id, unlim_id, nsteps)
+            nc_inq_dimlen(ncdat->id, unlim_id, &nsteps)
     );
 
 //     printf("found %d steps\n", nsteps);
@@ -285,6 +285,7 @@ read_sharc_ncoutputdat_istep_(
 )
 {
    int iret = 0;
+   int pointer = 0;
 
    if (*istep == 0) {
         ncdat->id = open_ncfile("output.dat.nc", NC_NOWRITE);
@@ -321,7 +322,6 @@ read_sharc_ncoutputdat_istep_(
         check_nccall(iret, nc_inq_varid(ncdat->id, "time_step", &ncdat->time_step_id));
     }
 
-   printf("processing step = %d\n", *istep);
    size_t start[4] = {*istep, 0, 0, 0};
    size_t count[4] = {1, *nstates*2, *nstates, 3};
 
@@ -499,69 +499,77 @@ write_sharc_ncdat_traj_(const int* istep, const double* E, struct sharc_ncdat* n
 
 // --------------------------------------------------------------------------
 
-void
-write_sharc_ncxyz_init_(const int* NAtoms, int* IAn, double* Crd, struct sharc_ncxyz* ncxyz)
+void 
+setup_ncxyz(int natoms, struct sharc_ncxyz* ncxyz)
 {
     // error handler
     int iret = 0;
     // open sharc file
-    ncxyz->id      = create_ncfile("sharc_traj.nc", NC_CLOBBER);
+    ncxyz->id      = create_ncfile("sharc_traj_xyz.nc", NC_CLOBBER);
     // define dimensions
     int xyz_id    = define_dimension(ncxyz->id, "spatial", 3);
-    int natoms_id = define_dimension(ncxyz->id, "atom", *NAtoms);
+    int natoms_id = define_dimension(ncxyz->id, "natoms", natoms);
     int frames_id = define_dimension(ncxyz->id, "frame", NC_UNLIMITED);
     // define dimensions
     int dimids[3];
     dimids[0] = frames_id;
-    dimids[INATOMS] = natoms_id;
-    dimids[ISPATIAL] = xyz_id;
+    dimids[1] = natoms_id;
+    dimids[2] = xyz_id;
     // define variable IAN
     check_nccall(iret, 
          nc_def_var(ncxyz->id, "IAn", NC_INT, 1, &natoms_id, &ncxyz->ian_id)
     );
     // define variable Crd 
     check_nccall(iret, 
-         nc_def_var(ncxyz->id, "Crd", NC_DOUBLE, 3, dimids, &ncxyz->crd_id)
+         nc_def_var(ncxyz->id, "geom", NC_DOUBLE, 3, dimids, &ncxyz->crd_id)
+    );
+    check_nccall(iret, 
+         nc_def_var(ncxyz->id, "veloc", NC_DOUBLE, 3, dimids, &ncxyz->veloc_id)
+    );
+    check_nccall(iret, 
+         nc_def_var(ncxyz->id, "time_step", NC_INT, 1, &frames_id, &ncxyz->time_step_id)
     );
     // end definition section
     check_nccall(iret, nc_enddef(ncxyz->id));
-    // counter per unit
-    size_t count[3];
-    count[0] = 1;      // Frame
-    count[INATOMS] = *NAtoms; // NAtoms
-    count[ISPATIAL] = 3;      // Spatial
-    // everything starts at 0
-    size_t start[3] = {0, 0, 0};
-    // write data to file
-    // IAn
-    check_nccall(iret, 
-            nc_put_var_int(ncxyz->id, ncxyz->ian_id, IAn)
-    );
-    // Crd
-    check_nccall(iret, 
-            nc_put_vara_double(ncxyz->id, ncxyz->crd_id, start, count, Crd)
-    );
-    //
-};
+}
 
 // --------------------------------------------------------------------------
 
 void
-write_sharc_ncxyz_traj_(const int* istep, const int* NAtoms, double* Crd, struct sharc_ncxyz* ncxyz)
+write_sharc_ncxyz_traj_(const int* istep, const int* natoms, const int* IAn, double* Crd, double* Veloc, int* time_step, struct sharc_ncxyz* ncxyz)
 {
+    printf("processing step = %d\n", *istep);
+    if (*istep == 0) {
+        setup_ncxyz(*natoms, ncxyz);
+    }
     // error handler
     int iret = 0;
+
     // counter per unit
     size_t count[3];
     count[0] = 1;      // Frame
-    count[INATOMS] = *NAtoms; // NAtoms
-    count[ISPATIAL] = 3;      // Spatial
+    count[1] = *natoms; // natoms
+    count[2] = 3;      // Spatial
     // everything starts at 0
-    size_t start[3] = {*istep-1, 0, 0};     // istep > 2!
+    size_t start[3] = {*istep, 0, 0};     // istep > 2!
     // write data to file
+    if (*istep == 0) {
+        // IAn
+        check_nccall(iret, 
+                nc_put_var_int(ncxyz->id, ncxyz->ian_id, IAn)
+        );
+    }
     // Crd
     check_nccall(iret, 
             nc_put_vara_double(ncxyz->id, ncxyz->crd_id, start, count, Crd)
+    );
+    // Veloc
+    check_nccall(iret, 
+            nc_put_vara_double(ncxyz->id, ncxyz->veloc_id, start, count, Veloc)
+    );
+    count[1] = 1;
+    check_nccall(iret, 
+            nc_put_vara_int(ncxyz->id, ncxyz->time_step_id, &start[0], &count[0], time_step)
     );
     //
 //    close_ncfile_(ncxyz->id);

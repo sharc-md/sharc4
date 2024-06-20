@@ -5,7 +5,7 @@ import numpy as np
 import time
 
 
-@jit(nopython=True,cache=True,fastmath=True) 
+@jit(nopython=True,cache=True) 
 def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal number of alpha and equal number of beta electrons
     ndets = len(dets[:,0])
     nmos = len(dets[0,:])
@@ -77,19 +77,15 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
     with objmode():
         t2 = time.perf_counter()
         print('Time in diagonal generation = ', t2-t1,flush=True)
-    print(pairs_a)
 
     with objmode(t1='f8'):
         t1 = time.perf_counter()
     rho = np.zeros((2,nst,nst,nmos,nmos))
     for p in pairs_a:
         outer =np.outer(CI[p[0],:], CI[p[1],:]) 
-        print(outer)
         rho[0,:,:,p[2],p[3]] += (-1.)**p[4]*np.ascontiguousarray(outer)
         if p[0] != p[1]:
             rho[0,:,:,p[3],p[2]] += (-1.)**p[4]*np.ascontiguousarray(outer.T)
-        if p[0] == 56:
-            print(p, rho[0,0,0,0,0])
     for p in pairs_b:
         outer =np.outer(CI[p[0],:], CI[p[1],:]) 
         rho[1,:,:,p[2],p[3]] += (-1.)**p[4]*np.ascontiguousarray(outer)#outer 
@@ -105,16 +101,14 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
         rho = np.einsum('ia,smnab,bj->smnij',mos,rho,mos.T,optimize=['einsum_path',(0,1),(0,1)],casting='no')
         t2 = time.perf_counter()
         print('Time in rho rotation = ', t2-t1,flush=True)
-        print(rho[0,0,0,:,:])
     return rho 
 
-@jit(nopython=True,cache=True,fastmath=True) 
+@jit(nopython=True,cache=True) 
 def deltaS1( tCI, nst1, nst2, dets1, dets2, CI1, CI2, mos1, mos2 ): # all dets in dets1 have two alpha electrons less then those in dets2
     ndets1 = len(dets1[:,0])
     ndets2 = len(dets2[:,0])
     nmos1 = len(dets1[0,:])
     nmos2 = len(dets2[0,:])
-    print(nmos1,nmos2)
     keep1 = np.array([ i for i in range(ndets1) if np.any( np.abs(CI1[i,:]) >= tCI ) ])
     keep2 = np.array([ i for i in range(ndets2) if np.any( np.abs(CI2[i,:]) >= tCI ) ])
     with objmode(CInew1='f8[:,:]',detsnew1='i8[:,:]',CInew2='f8[:,:]',detsnew2='i8[:,:]'):
@@ -165,7 +159,6 @@ def deltaS1( tCI, nst1, nst2, dets1, dets2, CI1, CI2, mos1, mos2 ): # all dets i
 
     with objmode(rho='f8[:,:,:,:]'):
         t1 = time.perf_counter()
-        print(np.shape(mos1),np.shape(rho), np.shape(mos2))
         rho = np.einsum('ia,mnab,bj->mnij',mos1,rho,mos2.T,optimize=['einsum_path',(0,1),(0,1)],casting='no')
         t2 = time.perf_counter()
         print('Time in rho rotation = ', t2-t1,flush=True)

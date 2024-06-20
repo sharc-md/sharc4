@@ -1,0 +1,8 @@
+basis cc-pVTZ
+ras2 5
+nactel 6
+inactive 17
+roots 5 2 4 2
+method ms-caspt2
+ipea 0.25
+imaginary 0.1

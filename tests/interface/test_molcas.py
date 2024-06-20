@@ -4,8 +4,9 @@ import shutil
 import h5py
 import numpy as np
 import pytest
+from pyscf import tools
 from SHARC_MOLCAS import SHARC_MOLCAS
-from utils import expand_path
+from utils import electronic_state, expand_path
 
 PATH = expand_path("$SHARC/../tests/interface")
 
@@ -108,6 +109,7 @@ def test_generate_schedule():
         test_interface._read_template = True
         test_interface._read_resources = True
         test_interface.setup_interface()
+        test_interface._hdf5 = True
         test_interface.read_requests(qmin)
         schedule = test_interface._generate_schedule()
         assert len(schedule) == len(ref)
@@ -136,8 +138,10 @@ def test_gettasks_init():
                         ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["rassi", "dm", [4]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.1.h5"],
                         ["link", "MOLCAS.2.JobIph", "JOB001"],
                         ["rassi", "dm", [2]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.2.h5"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.2.JobIph", "JOB002"],
                         ["rassi", "soc", [4, 2]],
@@ -218,8 +222,10 @@ def test_gettasks_init():
                         ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["rassi", "dm", [4]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.1.h5"],
                         ["link", "MOLCAS.2.JobIph", "JOB001"],
                         ["rassi", "dm", [2]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.2.h5"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.2.JobIph", "JOB002"],
                         ["rassi", "soc", [4, 2]],
@@ -245,6 +251,7 @@ def test_gettasks_init():
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.JobIph", "JOB002"],
                         ["rassi", "overlap", [4, 4]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.ovlp.1.h5"],
                     ],
                 ),
                 "nacdr_1_1_1_3": (
@@ -258,6 +265,7 @@ def test_gettasks_init():
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.JobIph", "JOB002"],
                         ["rassi", "overlap", [4, 4]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.ovlp.1.h5"],
                     ],
                 ),
             },
@@ -279,8 +287,10 @@ def test_gettasks_init():
                         ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["rassi", "dm", [4]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.1.h5"],
                         ["link", "MOLCAS.2.JobIph", "JOB001"],
                         ["rassi", "dm", [2]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.2.h5"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.2.JobIph", "JOB002"],
                         ["rassi", "soc", [4, 2]],
@@ -305,8 +315,10 @@ def test_gettasks_init():
                         ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["rassi", "dm", [4]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.1.h5"],
                         ["link", "MOLCAS.2.JobIph", "JOB001"],
                         ["rassi", "dm", [2]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.2.h5"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.2.JobIph", "JOB002"],
                         ["rassi", "soc", [4, 2]],
@@ -333,6 +345,7 @@ def test_gettasks_init():
                         ["link", "MOLCAS.2.JobIph", "JOB001"],
                         ["link", "MOLCAS.JobIph", "JOB002"],
                         ["rassi", "overlap", [2, 2]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.ovlp.2.h5"],
                     ],
                 ),
             },
@@ -346,18 +359,20 @@ def test_gettasks_init():
                     [
                         ["gateway"],
                         ["seward"],
-                        ["rasscf", 1, 4, False, False, ["CMSI"]],
+                        ["rasscf", 1, 4, False, False],
                         ["copy", "MOLCAS.rasscf.molden", "MOLCAS.1.molden"],
-                        ["mcpdft", ["KSDFT=t:pbe", "noGrad", "MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
+                        ["mcpdft", ["KSDFT=t:pbe", "noGrad", "MSPDFT", "WJOB", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
                         ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
-                        ["rasscf", 2, 2, False, False, ["CMSI"]],
+                        ["rasscf", 2, 2, False, False],
                         ["copy", "MOLCAS.rasscf.molden", "MOLCAS.2.molden"],
-                        ["mcpdft", ["KSDFT=t:pbe", "noGrad", "MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
+                        ["mcpdft", ["KSDFT=t:pbe", "noGrad", "MSPDFT", "WJOB", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
                         ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["rassi", "dm", [4]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.1.h5"],
                         ["link", "MOLCAS.2.JobIph", "JOB001"],
                         ["rassi", "dm", [2]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.2.h5"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.2.JobIph", "JOB002"],
                         ["rassi", "soc", [4, 2]],
@@ -367,8 +382,8 @@ def test_gettasks_init():
                     1,
                     [
                         ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
-                        ["rasscf", 1, 4, True, False, ["RLXROOT=1", "CMSI"]],
-                        ["mcpdft", ["KSDFT=t:pbe", "GRAD", "MSPDFT", "WJOB"]],
+                        ["rasscf", 1, 4, True, False, ["RLXROOT=1"]],
+                        ["mcpdft", ["KSDFT=t:pbe", "GRAD", "MSPDFT"]],
                         ["alaska", 1],
                     ],
                 ),
@@ -393,8 +408,10 @@ def test_gettasks_init():
                         ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["rassi", "dm", [4]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.1.h5"],
                         ["link", "MOLCAS.2.JobIph", "JOB001"],
                         ["rassi", "dm", [2]],
+                        ["copy", "MOLCAS.rassi.h5", "MOLCAS.rassi.2.h5"],
                         ["link", "MOLCAS.1.JobIph", "JOB001"],
                         ["link", "MOLCAS.2.JobIph", "JOB002"],
                         ["rassi", "soc", [4, 2]],
@@ -423,6 +440,7 @@ def test_gettasks_init():
         test_interface.read_template(templ)
         test_interface.QMin.template["ipea"] = 0.0
         test_interface._read_resources = True
+        test_interface._hdf5 = True
         test_interface.read_requests(qmin)
         test_interface.setup_interface()
         test_interface.QMin.scheduling["schedule"] = test_interface._generate_schedule()
@@ -3061,7 +3079,7 @@ def test_dyson():
                         0.0000e0,
                     ],
                 ]
-            )
+            ),
         ),
     ]
 
@@ -3073,3 +3091,116 @@ def test_dyson():
             a = f.read()
             a = test_interface._get_dyson(a)
             assert np.allclose(a, ref, rtol=1e-1)
+
+
+def test_densities():
+    tests = [
+        (
+            os.path.join(PATH, "inputs/molcas/density/thioformaldehyde/"),  # cc-pVTZ
+            {
+                (electronic_state(0, 0, 0, 1), electronic_state(0, 0, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 2), electronic_state(0, 0, 0, 2), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 3), electronic_state(0, 0, 0, 3), "tot"): 40.0,
+                (electronic_state(1, 1, -1, 1), electronic_state(1, 1, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 1, 1, 1), electronic_state(1, 1, 1, 1), "tot"): 39.0,
+                (electronic_state(0, 2, -2, 1), electronic_state(0, 2, -2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 1), electronic_state(0, 2, 2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 1), electronic_state(0, 2, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 2, -2, 2), electronic_state(0, 2, -2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 2), electronic_state(0, 2, 2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 2), electronic_state(0, 2, 0, 2), "tot"): 40.0,
+                (electronic_state(1, 3, -3, 1), electronic_state(1, 3, -3, 1), "tot"): 39.0,
+                (electronic_state(1, 3, -1, 1), electronic_state(1, 3, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 1, 1), electronic_state(1, 3, 1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 3, 1), electronic_state(1, 3, 3, 1), "tot"): 39.0,
+            },
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/density/thioformaldehyde_6-31G/"),
+            {
+                (electronic_state(0, 0, 0, 1), electronic_state(0, 0, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 2), electronic_state(0, 0, 0, 2), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 3), electronic_state(0, 0, 0, 3), "tot"): 40.0,
+                (electronic_state(1, 1, -1, 1), electronic_state(1, 1, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 1, 1, 1), electronic_state(1, 1, 1, 1), "tot"): 39.0,
+                (electronic_state(0, 2, -2, 1), electronic_state(0, 2, -2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 1), electronic_state(0, 2, 2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 1), electronic_state(0, 2, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 2, -2, 2), electronic_state(0, 2, -2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 2), electronic_state(0, 2, 2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 2), electronic_state(0, 2, 0, 2), "tot"): 40.0,
+                (electronic_state(1, 3, -3, 1), electronic_state(1, 3, -3, 1), "tot"): 39.0,
+                (electronic_state(1, 3, -1, 1), electronic_state(1, 3, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 1, 1), electronic_state(1, 3, 1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 3, 1), electronic_state(1, 3, 3, 1), "tot"): 39.0,
+            },
+        ),
+        (
+            os.path.join(PATH, "inputs/molcas/density/thioformaldehyde_cc-pvqz/"),
+            {
+                (electronic_state(0, 0, 0, 1), electronic_state(0, 0, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 2), electronic_state(0, 0, 0, 2), "tot"): 40.0,
+                (electronic_state(0, 0, 0, 3), electronic_state(0, 0, 0, 3), "tot"): 40.0,
+                (electronic_state(1, 1, -1, 1), electronic_state(1, 1, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 1, 1, 1), electronic_state(1, 1, 1, 1), "tot"): 39.0,
+                (electronic_state(0, 2, -2, 1), electronic_state(0, 2, -2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 1), electronic_state(0, 2, 2, 1), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 1), electronic_state(0, 2, 0, 1), "tot"): 40.0,
+                (electronic_state(0, 2, -2, 2), electronic_state(0, 2, -2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 2, 2), electronic_state(0, 2, 2, 2), "tot"): 40.0,
+                (electronic_state(0, 2, 0, 2), electronic_state(0, 2, 0, 2), "tot"): 40.0,
+                (electronic_state(1, 3, -3, 1), electronic_state(1, 3, -3, 1), "tot"): 39.0,
+                (electronic_state(1, 3, -1, 1), electronic_state(1, 3, -1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 1, 1), electronic_state(1, 3, 1, 1), "tot"): 39.0,
+                (electronic_state(1, 3, 3, 1), electronic_state(1, 3, 3, 1), "tot"): 39.0,
+            },
+        ),
+    ]
+
+    for path, ref in tests:
+        test_interface = SHARC_MOLCAS()
+        test_interface.setup_mol(os.path.join(path, "QM.in"))
+        test_interface.QMin.resources["scratchdir"] = path
+        test_interface.setup_interface()
+        test_interface._hdf5 = True
+        test_interface.read_template(os.path.join(path, "MOLCAS.template"))
+        test_interface._read_resources = True
+        test_interface.read_requests(os.path.join(path, "QM.in"))
+        with h5py.File(os.path.join(path, "master/MOLCAS.rassi.h5")) as f:
+            test_interface.QMout.allocate(
+                states=test_interface.QMin.molecule["states"],
+                natom=test_interface.QMin.molecule["natom"],
+                npc=test_interface.QMin.molecule["npc"],
+                requests=set(["density_matrices", "dm"]),
+            )
+            mol, _, _, _, _, _ = tools.molden.load(os.path.join(path, "master/MOLCAS.rasscf.molden"))
+            mol.basis = mol._basis
+            test_interface.QMout["mol"] = mol
+            test_interface._get_densities(f["BASIS_FUNCTION_IDS"][:])
+            test_interface.get_densities()
+
+        # Test number of electrons
+        ao_ovlp = test_interface.QMout["mol"].intor("int1e_ovlp")
+        for k, v in ref.items():
+            assert pytest.approx(np.einsum("ij,ij->", ao_ovlp, test_interface.QMout["density_matrices"][k])) == v
+
+        # Test (transition) dipole moments
+        s_cnt = 0
+        for m, s in enumerate(test_interface.QMin.molecule["states"], 1):
+            if s > 0:
+                with h5py.File(os.path.join(path, f"master/MOLCAS.rassi.{m}.h5"), "r") as dp:
+                    for _ in range(m):
+                        test_interface.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
+                        s_cnt += s
+
+        mu = test_interface.QMout["mol"].intor("int1e_r")
+        nuclear_moment = np.sum(np.array([mol.atom_charge(j) * mol.atom_coord(j) for j in range(mol.natm)]), axis=0)
+        for (s1, s2, spin), rho in test_interface.QMout["density_matrices"].items():
+            if spin != "tot" or s1.N > s2.N:
+                continue
+            x = -np.einsum("xij,ij->x", mu, rho)
+            if s1 is s2:
+                x += nuclear_moment
+            dp1 = sum(s*m for (m, s) in enumerate(test_interface.QMin.molecule["states"][:s1.S], 1)) + s1.N -1
+            dp2 = sum(s*m for (m, s) in enumerate(test_interface.QMin.molecule["states"][:s2.S], 1)) + s2.N -1
+            assert np.allclose(x, test_interface.QMout["dm"][:, dp1, dp2])

@@ -2,8 +2,8 @@
     ## for version 2.1 of the SHARC_MOLCAS.py interface.
 
     # Path to MOLCAS, TINKER, wfoverlaps
-molcas /usr/license/openmolcas/
-wfoverlap $SHARC/wfoverlap.x
+molcas $MOLCAS#/usr/license/openmolcas/
+#wfoverlap $SHARC/wfoverlap.x
 
 
 # Paths to savedir and scratchdir

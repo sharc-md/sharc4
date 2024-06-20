@@ -105,11 +105,15 @@ module restart
      write(u,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
      write(u,*) (ctrl%output_steps_stride(istate),istate=1,3)
      write(u,*) (ctrl%output_steps_limits(istate),istate=1,3)
+     if (ctrl%output_format == 2) then
+       write(u,*) (ctrl%output_steps_stride_nuc(istate),istate=1,3)
+       write(u,*) (ctrl%output_steps_limits_nuc(istate),istate=1,3)
+    endif
      write(u,*) ctrl%restart
      write(u,*) ctrl%restart_rerun_last_qm_step
      write(u,*) ctrl%method
      write(u,*) ctrl%integrator
-    write(u,*) ctrl%write_restart_files
+     write(u,*) ctrl%write_restart_files
      write(u,*) ctrl%staterep
      write(u,*) ctrl%initcoeff
      write(u,*) ctrl%laser, '! laser'
@@ -302,6 +306,9 @@ module restart
      write(u,*) traj%steps_in_gs
      write(u,*) (traj%ncids(i),i=1,10)
      write(u,*) traj%nc_index
+     if (ctrl%output_format == 2) then
+       write(u,*) traj%nc_nuc_index
+    endif
  
      ! write the arrays
      write(u,*) (traj%atomicnumber_a(iatom),iatom=1,ctrl%natom)
@@ -692,13 +699,18 @@ module restart
      read(u_ctrl,*) ctrl%force_hop_to_gs
      allocate( ctrl%actstates_s(ctrl%nstates) )
      read(u_ctrl,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
+     read(u_ctrl,*) ctrl%output_format
      read(u_ctrl,*) (ctrl%output_steps_stride(istate),istate=1,3)
      read(u_ctrl,*) (ctrl%output_steps_limits(istate),istate=1,3)
+     if (ctrl%output_format == 2) then
+       read(u_ctrl,*) (ctrl%output_steps_stride_nuc(istate),istate=1,3)
+       read(u_ctrl,*) (ctrl%output_steps_limits_nuc(istate),istate=1,3)
+    endif
      read(u_ctrl,*) ctrl%restart
      read(u_ctrl,*) ctrl%restart_rerun_last_qm_step
      read(u_ctrl,*) ctrl%method
      read(u_ctrl,*) ctrl%integrator
-    read(u_ctrl,*) ctrl%write_restart_files
+     read(u_ctrl,*) ctrl%write_restart_files
      read(u_ctrl,*) ctrl%staterep
      read(u_ctrl,*) ctrl%initcoeff
      read(u_ctrl,*) ctrl%laser
@@ -752,8 +764,6 @@ module restart
      read(u_ctrl,*) ctrl%hopping_procedure
      read(u_ctrl,*) ctrl%switching_procedure
      read(u_ctrl,*) ctrl%army_ants
-     read(u_ctrl,*) ctrl%output_format
- 
      ! thermostat
      read(u_ctrl,*) ctrl%thermostat
      if (ctrl%thermostat/=0) then
@@ -931,6 +941,10 @@ module restart
    read(u_traj,*) (traj%ncids(i),i=1,10)
    read(u_traj,*) traj%nc_index
    traj%nc_index=-traj%nc_index
+   if (ctrl%output_format == 2) then
+     read(u_traj,*) traj%nc_nuc_index
+     traj%nc_nuc_index=-traj%nc_nuc_index
+   endif
  
    ! read the arrays
    read(u_traj,*) (traj%atomicnumber_a(iatom),iatom=1,ctrl%natom)
@@ -1253,4 +1267,3 @@ module restart
    endsubroutine
  
  endmodule restart
- 
