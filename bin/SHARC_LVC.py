@@ -182,6 +182,23 @@ class SHARC_LVC(SHARC_FAST):
                 self._H_i[im][i, sj, si] = v
             line = f.readline()
 
+        if line == "lambda_soc\n":
+            z = int(f.readline()[:-1])
+            self._lambda_soc = np.zeros((nmstates, nmstates, r3N), dtype=complex)
+            lambda_soc_real = True
+
+            def c(_):
+                v = f.readline().split()
+                return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, (1j if v[3] == "I" else 1.0) * float(v[4]))
+
+            for si, sj, i, v in map(c, range(z)):
+                if lambda_soc_real and isinstance(v, complex):
+                    lambda_soc_real = False
+
+                self._lambda_soc[si, sj, i] += v
+                self._lambda_soc[sj, si, i] += v
+            line = f.readline()
+
         if line == "gamma\n":
             z = int(f.readline()[:-1])
             self._gammas = z != 0
@@ -243,6 +260,8 @@ class SHARC_LVC(SHARC_FAST):
         # assignemnt)
         if soc_real:
             self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2,))[:, :, 0]
+        if "_lambda_soc" in self.__dict__ and lambda_soc_real:
+            self._lambda_soc = self._lambda_soc.real.copy()
         if dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
 
@@ -397,9 +416,9 @@ class SHARC_LVC(SHARC_FAST):
         quad[..., [0, 1, 2], [0, 1, 2]] = q[..., 4:7]
         quad[..., [0, 0, 1], [1, 2, 2]] = 0.5 * q[..., 7:]
         quad[..., [1, 2, 2], [0, 0, 1]] = quad[..., [0, 0, 1], [1, 2, 2]]
-        quad = np.einsum("kxm,ijaxy,yn->kijamn", dTrot, quad, Trot, casting="no", optimize=["einsum_path", (1, 2), (0, 1)]) + np.einsum(
-            "xm,ijaxy,kyn->kijamn", Trot, quad, dTrot, casting="no", optimize=["einsum_path", (0, 1), (0, 1)]
-        )
+        quad = np.einsum(
+            "kxm,ijaxy,yn->kijamn", dTrot, quad, Trot, casting="no", optimize=["einsum_path", (1, 2), (0, 1)]
+        ) + np.einsum("xm,ijaxy,kyn->kijamn", Trot, quad, dTrot, casting="no", optimize=["einsum_path", (0, 1), (0, 1)])
         return np.concatenate((dip, quad[..., [0, 1, 2], [0, 1, 2]], 2 * quad[..., [0, 0, 1], [1, 2, 2]]), axis=-1)
 
     def run(self):
@@ -732,6 +751,12 @@ class SHARC_LVC(SHARC_FAST):
             adia_soc = self._U.T @ self._soc @ self._U
             self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
             Hd += adia_soc
+            if "_lambda_soc" in self.__dict__:
+                self.log.debug("adding linear derivatives of soc")
+                Hd = Hd.astype(self._lambda_soc.dtype)
+                adia_lambda_soc = np.einsum('in,ijk,jm->nmk', self._U, self._lambda_soc, self._U)
+                self.log.debug(f"soc sanity check: {adia_lambda_soc.dtype} {self._lambda_soc.dtype}")
+                Hd += np.einsum("ijk,k->ij", adia_lambda_soc, self._Q)
 
         dipole = (
             np.einsum("in,kij,jm->knm", self._U, self._dipole, self._U, casting="no", optimize=True)
