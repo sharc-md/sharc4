@@ -12,4 +12,6 @@ build_info.inc
 bin/pysharc_*.py
 wfoverlap/
 *.swp
+bin/__pycache__/*
+lib/__pycache__/*
 
