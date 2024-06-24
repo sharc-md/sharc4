@@ -10,6 +10,7 @@ import sys
 import numpy as np
 from asa_grid import mk_layers
 from pyscf import gto, df
+from pyscf.lib import misc
 from constants import au2a
 from logger import log
 
@@ -71,7 +72,7 @@ class Resp:
         self.R_alpha: np.ndarray = np.full((self.natom, self.ngp, 3), self.mk_grid) - self.coords[:, None, :]  # rA-ri
         self.r_inv: np.ndarray = 1 / np.sqrt(np.sum((self.R_alpha) ** 2, axis=2))  # 1 / |ri-rA|
 
-    def prepare(self, mol: gto.Mole):
+    def prepare(self, mol: gto.Mole, ncpu=1):
         """
         Prepares the gto.Mole object and 3c2e integrals
 
@@ -80,6 +81,7 @@ class Resp:
         Parameters
         ----------
         mol: gto.Mole
+        ncpu: int
         """
         Z = mol.atom_charges()
         self.log.trace(f"{self.natom} {Z} {self.r_inv.shape}")
@@ -89,7 +91,9 @@ class Resp:
         # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         # NOTE the value of these integrals is not affected by the atom charge
         self.log.info("starting to evaluate integrals")
-        self.ints = df.incore.aux_e2(mol, fakemol, intor="int3c2e")
+
+        with misc.with_omp_threads(ncpu) as _:
+            self.ints = df.incore.aux_e2(mol, fakemol, intor="int3c2e")
         self.log.info("done")
 
     def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
@@ -375,7 +379,7 @@ class Resp:
 
 
 def multipoles_from_dens_parallel(
-    dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None
+    dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None, target=None
 ):
     # self.log.info("Start sequential multipolar fit")
     if not include_core_charges and charge != 0:
@@ -391,7 +395,9 @@ def multipoles_from_dens_parallel(
         Fesp_i += fit_data["Vnuc"]
 
     # fit monopoles
-    monopoles, Fres = _fit(fit_data["geo_tens0"], Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=fit_data["weights"])
+    monopoles, Fres = _fit(
+        fit_data["geo_tens0"], Fesp_i, 1, natom, beta=betas[0], charge=charge, weights=fit_data["weights"], target=target
+    )
 
     if order == 0:
         return monopoles
@@ -409,7 +415,9 @@ def multipoles_from_dens_parallel(
     return np.hstack((monopoles, dipoles, quadrupoles))
 
 
-def _fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weights=None, traceless_quad=False, logger=None):
+def _fit(
+    tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weights=None, traceless_quad=False, logger=None, target=None
+):
     n_af = natom * n_fits
     dim = n_af + 1
 
@@ -456,6 +464,8 @@ def _fit(tmp, Fesp_i, n_fits, natom, charge=None, beta=0.0005, b_par=0.1, weight
     max_iterations = 500
     iteration = 0
     while np.linalg.norm(Q_last - Q_new) >= 0.00001 and iteration < max_iterations:
+        if target is not None:
+            Q_last = Q_last - target
         rest = vget_rest(Q_last)
         Q_last = Q_new.copy()
         A_rest = np.copy(A)

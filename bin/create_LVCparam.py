@@ -27,9 +27,10 @@ import datetime
 import os
 import sys
 import json
+import math
 import numpy as np
-from scipy import linalg
-from optparse import OptionParser
+from scipy.linalg import fractional_matrix_power
+from itertools import starmap, chain
 
 from constants import IToMult
 from utils import itnmstates, readfile
@@ -59,13 +60,9 @@ def _byteify(data, ignore_dicts=False):
     return data
 
 
-if sys.version_info[0] != 3:
-    print("This is a script for Python 3!")
-    sys.exit(0)
-
-version = "2.1"
+version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2019, 9, 1)
+versiondate = datetime.date(2024, 4, 1)
 
 
 # ======================================================================= #
@@ -79,7 +76,7 @@ def displaywelcome():
     lines = [
         f"Compute LVC parameters",
         "",
-        f"Authors: Simon Kropf, Sebastian Mai, Severin Polonius",
+        f"Authors: Severin Polonius, Sebastian Mai, Simon Kropf",
         "",
         f"Version: {version}",
         "Date: {:%d.%m.%Y}".format(versiondate),
@@ -218,12 +215,12 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
 
 
 def loewdin_orthonormalization(A):
-    S = A.T @ A
-    e, v = np.linalg.eigh(S)
-    idx = e > 1e-15
-    S_lo = np.dot(v[:, idx] / np.sqrt(e[idx]), v[:, idx].conj().T)
-    return A @ S_lo
-    # return np.matmul(A, linalg.fractional_matrix_power(np.matmul(A.T, A), -0.5))
+    # S = A.T @ A
+    # e, v = np.linalg.eigh(S)
+    # idx = e > 1e-15
+    # S_lo = np.dot(v[:, idx] / np.sqrt(e[idx]), v[:, idx].conj().T)
+    # return A @ S_lo
+    return A @ fractional_matrix_power(A.T @ A, -0.5)
 
 
 def loewdin_orthonormalization_old(A):
@@ -385,12 +382,13 @@ def calculate_W_dQi(H, S, e_ref):
 
     # <old|new><new|new><new|old> -> <old|old>
     return np.dot(np.dot(U, H), U.T) - np.eye(H.shape[0]) * e_ref
+    # return U @ H @ U.T
 
 
 # ======================================================================= #
 
 
-def write_LVC_template(INFOS):
+def write_LVC_template(INFOS, template_name):
     lvc_template_content = "%s\n" % (INFOS["v0f"])
     lvc_template_content += str(INFOS["states"])[1:-1].replace(",", "") + "\n"
 
@@ -419,7 +417,15 @@ def write_LVC_template(INFOS):
     path = os.path.join(INFOS["paths"]["000_eq"], "QM.out")
     print("reading QMout_eq at:", path)
     # QMout_eq = read_QMout(path, INFOS["nstates"], len(INFOS["atoms"]), requests)
-    QMout_eq = QMout(path, INFOS["states"], len(INFOS["atoms"]), npc=0)
+    flags = {1, 2}
+    if INFOS["ana_grad"]:
+        flags.add(3)
+    if INFOS["ana_nac"]:
+        flags.add(5)
+    if INFOS["multipolar_fit"]:
+        flags.add(22)
+    QMout_eq = QMout(path, INFOS["states"], len(INFOS["atoms"]), npc=0, flags=flags)
+    lvc_template_content += "charge " + " ".join(map(str, QMout_eq.charges)) + "\n"
     print(", ".join(requests))
     for normal_mode in INFOS["fmw_normal_modes"].keys():
         INFOS["fmw_normal_modes"][normal_mode] = np.array(INFOS["fmw_normal_modes"][normal_mode])
@@ -447,6 +453,7 @@ def write_LVC_template(INFOS):
     # ------------------- kappa -----------------------
     nkappa = 0
     kappa_str_list = []
+    kappas_dict = {}
 
     # run through all possible states
     if INFOS["ana_grad"]:
@@ -462,8 +469,10 @@ def write_LVC_template(INFOS):
                 # calculates kappa from normal modes and grad
                 kappas = np.dot(INFOS["fmw_normal_modes"][normal_mode], gradient.T)
 
+                kappas_dict[(imult, int(normal_mode))] = {}
                 # writes kappa to result string
                 for i, k in enumerate(kappas):
+                    kappas_dict[(imult, int(normal_mode))][i] = k
                     if k**2 > pthresh:
                         kappa_str_list.append("%3i %3i %5i % .5e\n" % (imult + 1, i + 1, int(normal_mode), k))
                         nkappa += 1
@@ -513,7 +522,7 @@ def write_LVC_template(INFOS):
 
     # ------------------------ numerical kappas and lambdas --------------------------
 
-    if not INFOS["ana_nac"] and not INFOS["ana_grad"]:
+    if not INFOS["ana_nac"] or not INFOS["ana_grad"]:
         if "displacements" not in INFOS:
             print('No displacement info found in "displacements.json"!')
             sys.exit(1)
@@ -538,7 +547,7 @@ def write_LVC_template(INFOS):
             # pos_W_dQi = calculate_W_dQi(pos_H, pos_S, e_ref)
 
             # Check for two-sided differentiation
-            if f"{normal_mode:>03s}_{'n'}" in INFOS["displacements"]:
+            if f"{normal_mode:>03s}_{'n'}" in INFOS["paths"]:
                 twosided = True
                 # get neg displacement
                 neg_displ_mag = INFOS["displacement_magnitudes"][normal_mode]
@@ -553,7 +562,22 @@ def write_LVC_template(INFOS):
                 # calculate displacement matrix
 
             # Loop over multiplicities to get kappas and lambdas
-            for imult in filter(lambda x: INFOS["states"][x] != 0, range(len(INFOS["states"]))):
+            # Loop over multiplicities
+            start = 0
+            for imult, nsi in enumerate(INFOS["states"]):
+                if nsi == 0:
+                    continue
+                part_h_pos = QMout_pos.h[start : start + nsi, start : start + nsi].real
+                part_ovl_pos = QMout_pos.overlap[start : start + nsi, start : start + nsi].real
+                part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
+                part_ovl_pos = phase_correction(part_ovl_pos)
+                pos_partition = part_ovl_pos @ part_h_pos @ part_ovl_pos.T
+
+                part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
+                part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
+                part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
+                part_ovl_neg = phase_correction(part_ovl_neg)
+                neg_partition = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
                 # checking problematic states
                 if INFOS["ignore_problematic_states"]:
                     if str(normal_mode) + "p" in INFOS["problematic_mults"]:
@@ -569,16 +593,18 @@ def write_LVC_template(INFOS):
                             continue
 
                 # partition matrices
-                pos_H = partition_matrix(QMout_pos.h, imult + 1, INFOS["states"])
-                pos_S = partition_matrix(QMout_pos.overlap, imult + 1, INFOS["states"])
-                pos_partition = calculate_W_dQi(pos_H, pos_S, e_ref)
+                # pos_H = partition_matrix(QMout_pos.h, imult + 1, INFOS["states"])
+                # pos_S = partition_matrix(QMout_pos.overlap, imult + 1, INFOS["states"])
+                # pos_partition = calculate_W_dQi(pos_H, pos_S, e_ref)
                 # pos_partition = partition_matrix(pos_W_dQi, imult + 1, INFOS["states"])
-                if twosided:
-                    neg_H = partition_matrix(QMout_neg.h, imult + 1, INFOS["states"])
-                    neg_S = partition_matrix(QMout_neg.overlap, imult + 1, INFOS["states"])
-                    neg_partition = calculate_W_dQi(neg_H, neg_S, e_ref)
-                    # neg_partition = partition_matrix(neg_W_dQi, imult + 1, INFOS["states"])
+                # if twosided:
+                #     neg_H = partition_matrix(QMout_neg.h, imult + 1, INFOS["states"])
+                #     neg_S = partition_matrix(QMout_neg.overlap, imult + 1, INFOS["states"])
+                #     neg_partition = calculate_W_dQi(neg_H, neg_S, e_ref)
+                #     # neg_partition = partition_matrix(neg_W_dQi, imult + 1, INFOS["states"])
                 partition_length = len(pos_partition)
+                if not INFOS["ana_grad"]:
+                    kappas_dict[(imult, int(normal_mode))] = {}
 
                 # get lambdas and kappas
                 for i in range(partition_length):
@@ -588,6 +614,7 @@ def write_LVC_template(INFOS):
                         else:
                             kappa = (pos_partition[i][i] - neg_partition[i][i]).real / (pos_displ_mag + neg_displ_mag)
                         if kappa**2 > pthresh:
+                            kappas_dict[(imult, int(normal_mode))][i] = kappa
                             kappa_str_list.append("%3i %3i %5i % .5e\n" % (imult + 1, i + 1, int(normal_mode), kappa))
                             nkappa += 1
 
@@ -598,12 +625,89 @@ def write_LVC_template(INFOS):
                             if not twosided:
                                 lam = pos_partition[i][j].real / pos_displ_mag
                             else:
-                                lam = (pos_partition[i][j] - neg_partition[i][j]).real / (pos_displ_mag + neg_displ_mag)
+                                lam = pos_partition[i][j].real / (pos_displ_mag + neg_displ_mag) - neg_partition[i][j].real / (
+                                    pos_displ_mag + neg_displ_mag
+                                )
                             if lam**2 > pthresh:
                                 lambda_str_list.append(
                                     "%3i %3i %3i %3i % .5e\n" % (imult + 1, i + 1, j + 1, int(normal_mode), lam)
                                 )
                                 nlambda += 1
+                start += nsi
+
+    # ------------------------ lambda_soc --------------------------
+
+    if INFOS["lambda_soc"]:
+        print("calculating derviatives of SOCs in linear approx")
+        if "displacements" not in INFOS:
+            print('No displacement info found in "displacements.json"!')
+            sys.exit(1)
+        lambda_soc_str_list = []
+        # running through all normal modes
+        for normal_mode, v in INFOS["normal_modes"].items():
+            twosided = False
+
+            # get pos displacement
+            pos_displ_mag = INFOS["displacement_magnitudes"][normal_mode]
+
+            # get hamiltonian & overlap matrix from QM.out
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
+            QMout_pos = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0, flags={1, 6})
+
+            # check diagonal of S & print warning
+            INFOS["problematic_mults"] = check_overlap_diagonal(QMout_pos.overlap, INFOS["states"], normal_mode, "p")
+
+            # Check for two-sided differentiation
+            if f"{normal_mode:>03s}_{'n'}" in INFOS["paths"]:
+                twosided = True
+                # get neg displacement
+                neg_displ_mag = INFOS["displacement_magnitudes"][normal_mode]
+
+                # get hamiltonian & overlap matrix from QM.out
+                path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+                QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0, flags={1, 6})
+
+                # check diagonal of S & print warning if wanted
+                INFOS["problematic_mults"].update(check_overlap_diagonal(QMout_neg.overlap, INFOS["states"], normal_mode, "n"))
+
+                # calculate displacement matrix
+
+            # Loop over multiplicities to get kappas and lambdas
+            # Loop over multiplicities
+            start = 0
+            for imult, nsi in enumerate(INFOS["states"]):
+                if nsi != 0:
+                    for _ in range(imult + 1):
+                        QMout_pos.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
+                        if twosided:
+                            QMout_neg.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
+                        start += nsi
+
+            part_ovl_pos = loewdin_orthonormalization(QMout_pos.overlap)
+            part_ovl_pos = phase_correction(part_ovl_pos)
+            pos_partition = part_ovl_pos @ QMout_pos.h @ part_ovl_pos.T
+
+            if twosided:
+                part_ovl_neg = loewdin_orthonormalization(QMout_neg.overlap)
+                part_ovl_neg = phase_correction(part_ovl_neg)
+                neg_partition = part_ovl_neg @ QMout_neg.h @ part_ovl_neg.T
+
+            if twosided:
+                fac = pos_displ_mag + neg_displ_mag
+                lambda_soc = pos_partition / fac - neg_partition / fac
+            else:
+                lambda_soc = pos_partition / pos_displ_mag
+
+            lambda_soc = np.stack((lambda_soc.real, lambda_soc.imag), axis=-1)
+
+            lambda_soc_str_list.extend(
+                list(
+                    starmap(
+                        lambda i, j, c: f"{i+1:3d} {j+1:3d} {int(normal_mode):3d} {'RI'[c]} {lambda_soc[i,j,c]: .7e}\n",
+                        filter(lambda x: x[0] < x[1], zip(*np.where(abs(lambda_soc) > 1e-7))),
+                    )
+                )
+            )
 
     # --------------- GAMMA --------------
     gamma_str_list = []
@@ -614,26 +718,48 @@ def write_LVC_template(INFOS):
             sys.exit(1)
         # running through all normal modes
         for normal_mode in INFOS["gamma_normal_modes"]:
+            displ_mag = INFOS["displacement_magnitudes_gamma"][normal_mode]
+            m = 2.0 if f"{normal_mode:>03s}_{'p2'}" in INFOS["paths_gamma"] else 1.0
+            if normal_mode + "_2" in INFOS["displacement_magnitudes_gamma"]:
+                m = INFOS["displacement_magnitudes_gamma"][normal_mode + "_2"] / displ_mag
+            print(displ_mag, m)
             freq = INFOS["frequencies"][normal_mode]
-            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
+            necessary_displ = math.sqrt(2 * 2 * 4.55633590401805e-06 / freq)  # displ necessary for energy difference of 2cm-1
+            if (necessary_displ - displ_mag * m) / necessary_displ > 0.1:  # 10% tolerance for
+                print(
+                    f"skipping normal mode {normal_mode} ({freq/4.55633590401805e-06: 0.1f}cm-1)! Insufficient maximum displacment {displ_mag * m: .2f} vs {necessary_displ: .2f}!"
+                )
+                continue
+
+            path = os.path.join(INFOS["paths_gamma"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
             QMout_pos = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
+            print(path)
 
-            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p2'}"], "QM.out")
+            if f"{normal_mode:>03s}_{'p2'}" not in INFOS["paths_gamma"]:
+                path = os.path.join(INFOS["paths_gamma"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
+            else:
+                path = os.path.join(INFOS["paths_gamma"][f"{normal_mode:>03s}_{'p2'}"], "QM.out")
             QMout_pos2 = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
+            print(path)
 
-            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+            path = os.path.join(INFOS["paths_gamma"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
             QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
+            print(path)
 
-            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n2'}"], "QM.out")
+            if f"{normal_mode:>03s}_{'n2'}" not in INFOS["paths_gamma"]:
+                path = os.path.join(INFOS["paths_gamma"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+            else:
+                path = os.path.join(INFOS["paths_gamma"][f"{normal_mode:>03s}_{'n2'}"], "QM.out")
             QMout_neg2 = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
+            print(path)
 
-            displ_mag = INFOS["displacement_magnitudes"][normal_mode]
             # Loop over multiplicities
             start = 0
             for imult, nsi in enumerate(INFOS["states"]):
                 if nsi == 0:
                     continue
                 states = INFOS["gamma_selected_states"][str(imult)]
+                # states = list(range(INFOS["states"][imult]))
                 part_h_pos = QMout_pos.h[start : start + nsi, start : start + nsi].real
                 part_ovl_pos = QMout_pos.overlap[start : start + nsi, start : start + nsi].real
                 part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
@@ -660,31 +786,75 @@ def write_LVC_template(INFOS):
 
                 part_eq_h = QMout_eq.h[start : start + nsi, start : start + nsi].real
 
-                # five-point stencil: (-E2p + 16*E1p - 30*E0 + 16*E1n - E2n) / 12h**2
-                neg_contr = (diab_h_pos2 + 30 * part_eq_h + diab_h_neg2) / (12 * displ_mag**2)
-                pos_contr = (16 * diab_h_pos + 16 * diab_h_neg) / (12 * displ_mag**2)
-                gammas = pos_contr - neg_contr
+                # correct for kappas already included
+                k_m_n = kappas_dict[(imult, int(normal_mode))]
+                for s, k in k_m_n.items():
+                    diab_h_neg2[s, s] += 2 * k * displ_mag
+                    diab_h_pos2[s, s] -= 2 * k * displ_mag
+                    diab_h_neg[s, s] += k * displ_mag
+                    diab_h_pos[s, s] -= k * displ_mag
 
-                gammas = 0.5 * (np.diag(gammas) - INFOS["frequencies"][normal_mode])
+                # five-point stencil (m=2): (-E2p + 16*E1p - 30*E0 + 16*E1n - E2n) / 12h**2
+                # five-point stencil for variable n f(x+mh) and f(x+mh):
+                #    (-Emp + m^4 Ep - (2m^4-2)E0 + m^4 En - Emn) / ((m^4 - m^2)h^2)
+                # m4 = m**4
+                # neg_contr = (diab_h_pos2 + (2*m4-2) * part_eq_h + diab_h_neg2) / ((m4-m**2) * displ_mag**2)
+                # pos_contr = ((m4) * diab_h_pos + (m4) * diab_h_neg) / ((m4-m**2) * displ_mag**2)
+                # gammas = pos_contr - neg_contr
+                # gammas = gammas * 1e-4
+
+                # Test mean of all four points
+                gammas = (m**2 * (diab_h_pos + diab_h_neg - 2 * part_eq_h) + diab_h_pos2 + diab_h_neg2 - 2 * part_eq_h) / (
+                    2 * m**2 * displ_mag**2
+                )
+                # test only outer points
+                # gammas = (diab_h_pos2 + diab_h_neg2 - 2 * part_eq_h) / (m**2 * displ_mag**2)
+                # test with more weight on outer points
+                # gammas = (m**2*(diab_h_pos + diab_h_neg - 2* part_eq_h) + 3*diab_h_pos2 + 3*diab_h_neg2 - 6*part_eq_h)/(4*m**2*displ_mag**2)
+
+                # gammas = 0.5 * (np.diag(gammas) - INFOS["frequencies"][normal_mode])
+                gammas = 0.5 * gammas
+                np.einsum("ii->i", gammas)[...] -= 0.5 * INFOS["frequencies"][normal_mode]
                 # gammas = 0.5 * (np.diag(gammas))
-                gammas = gammas[states]
 
                 if start == 0:
+                    freq = INFOS["frequencies"][normal_mode]
+                    gfreq_dev = (gammas[0, 0] * 2) / 4.55633590401805e-06
+                    dev_per = gfreq_dev / (freq / 4.55633590401805e-06)
                     print(
                         "sanity check: difference in S0 frequency of mode:",
                         normal_mode,
-                        f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
+                        f"{gfreq_dev: .1f}cm-1",
+                        f"{dev_per:.1%}",
                     )
                     gammas[0] = 0
+                gammas = gammas[states, ...][..., states]
+                print(
+                    "Problematic gammas:",
+                    [
+                        (normal_mode, imult, n, f"{(g * 2 + INFOS['frequencies'][normal_mode])/4.55633590401805e-06: .1f}cm-1")
+                        for n, g in enumerate(np.diag(gammas))
+                        if (g * 2 + INFOS["frequencies"][normal_mode]) / 4.55633590401805e-06 < 0
+                    ],
+                )
 
                 gamma_str_list.extend(
                     list(
-                        map(
-                            lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
-                            np.where(abs(gammas) > 4.55633590401805e-06)[0],
+                        starmap(
+                            lambda i, j: f"{imult + 1:3d} {states[i]+1:3d} {states[j]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i,j]: .7e}\n",
+                            zip(*np.where(abs(gammas) > 4.55633590401805e-06)),
                         )
                     )
                 )
+                # gammas = np.diag(gammas)
+                # gamma_str_list.extend(
+                # list(
+                # map(
+                # lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
+                # np.where(abs(gammas) > 4.55633590401805e-06)[0],
+                # )
+                # )
+                # )
                 start += nsi
 
     # approximation from second order central
@@ -762,7 +932,7 @@ def write_LVC_template(INFOS):
                         for i in np.where((np.abs(gammas) > 4.55633590401805e-06) & (np.abs(gammas * 2) / freq < 0.5))[0]
                     ],
                 )
-                gammas = np.where(np.abs(gammas * 2) / freq > 0.5, 0, gammas)
+                # gammas = np.where(np.abs(gammas * 2) / freq > 0.5, 0, gammas)
 
                 gamma_str_list.extend(
                     list(
@@ -928,6 +1098,12 @@ def write_LVC_template(INFOS):
     lvc_template_content += "%i\n" % (nlambda)
     lvc_template_content += "".join(sorted(lambda_str_list))
 
+    if INFOS["lambda_soc"]:
+        # add results to template string
+        lvc_template_content += "lambda_soc\n"
+        lvc_template_content += "%i\n" % (len(lambda_soc_str_list))
+        lvc_template_content += "".join(sorted(lambda_soc_str_list))
+
     if len(gamma_str_list) != 0:
         lvc_template_content += "gamma\n"
         lvc_template_content += "%i\n" % (len(gamma_str_list))
@@ -935,7 +1111,7 @@ def write_LVC_template(INFOS):
 
     # ----------------------- matrices ------------------------------
     if INFOS["soc"]:
-        if INFOS["soc_file"]:
+        if "soc_file" in INFOS and INFOS["soc_file"]:
             print("Reading SOCs from file:", INFOS["soc_file"])
             print("Beware that it will be not checked for complete compatability!")
             QMout_soc = QMout(filepath=INFOS["soc_file"], states=INFOS["states"], natom=len(INFOS["atoms"]), npc=0)
@@ -956,6 +1132,8 @@ def write_LVC_template(INFOS):
         mat_string = ""
         n_entries = 0
         for (s_i, s_j), fit in QMout_eq["multipolar_fit"].items():
+            if INFOS["no_transition_multipoles"] and s_i != s_j:
+                continue
             if s_i > s_j:
                 continue
             for atom in range(len(INFOS["atoms"])):  # get mults
@@ -966,8 +1144,8 @@ def write_LVC_template(INFOS):
         lvc_template_content += f"Multipolar Density Fit {settings}\n{n_entries}\n{mat_string}"
 
     # -------------------- write to file ----------------------------
-    print("\nFinished!\nLVC parameters written to file: LVC.template\n")
-    lvc_template = open("LVC.template", "w")
+    print("\nFinished!\nLVC parameters written to file:  " + template_name + "\n")
+    lvc_template = open(template_name, "w")
     lvc_template.write(lvc_template_content)
     lvc_template.close()
 
@@ -998,11 +1176,15 @@ def main():
 
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
+    template_name = "LVC.template"
+    print(len(sys.argv))
+    if len(sys.argv) == 3:
+        template_name = sys.argv[2]
     if is_other_dir:
         for k, v in INFOS["paths"].items():
             INFOS["paths"][k] = os.path.join(sys.argv[1], v)
 
-    write_LVC_template(INFOS)
+    write_LVC_template(INFOS, template_name)
 
 
 # ======================================================================= #

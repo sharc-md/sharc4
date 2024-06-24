@@ -213,11 +213,6 @@ class SHARC_QMMM(SHARC_HYBRID):
 
     # TODO: update for other embeddings
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
-        self.template_file = question(
-            "Please specify the path to your QMMM.template file", str, KEYSTROKES=KEYSTROKES, default="QMMM.template"
-        )
-
-        self.read_template(self.template_file)
 
         qm_features = self.qm_interface.get_features()
         mm_features = self.mml_interface.get_features()
@@ -504,6 +499,8 @@ class SHARC_QMMM(SHARC_HYBRID):
         # calc qm
         # pc: list[list[float]] = each pc is x, y, z, qpc[p[mmid][1]][3] = 0.  # set the charge of the mm atom to zero
         self.qm_interface.QMin.coords["pccoords"] = self.QMin.coords["coords"][self.non_link_mm, :]
+        if "SCALE_POINT_CHARGES" in os.environ:
+            raw_pc = raw_pc * float(os.environ["SCALE_POINT_CHARGES"])
         self.qm_interface.QMin.coords["pccharge"] = raw_pc[self.non_link_mm]
 
         with InDir(self.QMin.template["qm-dir"]) as _:

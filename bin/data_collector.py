@@ -346,7 +346,7 @@ class histogram:
 
 def replace_middle_column_name(name, replace_str):
     v, desc, num = name.split()
-    return f"{v} {desc:<6s} {num:>3s}"
+    return f"{v} {replace_str:<6s} {num:>3s}"
 
 
 def prepend_middle_column_name(name, addition):
@@ -782,7 +782,9 @@ def do_calc(INFOS):
         all_data2 = synchronize(all_data)
 
         n_names = len(INFOS["colnames"]) // 2
-        INFOS["colnames"] = INFOS["colnames"][:n_names] * all_data2["arr"].shape[1] + INFOS["colnames"][n_names:] * all_data2["arr"].shape[1]
+        INFOS["colnames"] = (
+            INFOS["colnames"][:n_names] * all_data2["arr"].shape[1] + INFOS["colnames"][n_names:] * all_data2["arr"].shape[1]
+        )
 
         outindex = 2
         outstring += "_sy"
@@ -901,9 +903,7 @@ def collect_data(INFOS):
     width_bar = 50
     columns = [i - 1 for i in INFOS["colX"]] + [i - 1 for i in INFOS["colY"]]
 
-    colnames = [f"X Column {i:3d}" for i in INFOS["colX"]] + [
-        f"Y Column {iy:3d}" for iy in INFOS["colY"]
-    ]
+    colnames = [f"X Column {i:3d}" for i in INFOS["colX"]] + [f"Y Column {iy:3d}" for iy in INFOS["colY"]]
     # print(columns, colnames)
     read_cols = sorted(set(filter(lambda x: x >= 0, [INFOS["colT"] - 1] + columns)))
     indices_data = list(map(read_cols.index, filter(lambda c: c in read_cols, columns)))
@@ -925,7 +925,7 @@ def collect_data(INFOS):
             time = np.linspace(0, data.shape[0] - 1, data.shape[0], dtype=float)
         else:
             time = data[:, read_cols.index(INFOS["colT"] - 1)]
-        
+
         arr[:, indices_arr] = data[:, indices_data]
         # arr is aranged over time, XorY, columns -> this makes it easy to access pairs of columns and data points
         all_data[file] = {"arr": arr.reshape(data.shape[0], 2, -1), "time": time}
@@ -979,11 +979,15 @@ def synchronize(all_data):
     """
     all_times = set()
     for filekey in sorted(all_data.keys()):
-        if (len(all_data[filekey]["time"]) != len(all_times) and all_data[filekey]["time"][0] not in all_times and all_data[filekey]["time"][1] not in all_times):
+        if (
+            len(all_data[filekey]["time"]) != len(all_times)
+            and all_data[filekey]["time"][0] not in all_times
+            and all_data[filekey]["time"][1] not in all_times
+        ):
             all_times = all_times.union(set((all_data[filekey]["time"] * 10000).astype(int)))
     all_times = np.array(sorted(all_times))
     all_times_idx = {k: i for i, k in enumerate(all_times)}
-    
+
     file_keys = sorted(all_data.keys())
     arr = np.full((len(file_keys), len(all_times), 2, all_data[filekey]["arr"].shape[2]), np.nan)
     width_bar = 50
@@ -991,16 +995,17 @@ def synchronize(all_data):
         done = width_bar * (i + 1) // len(file_keys)
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
         if (
-                len(all_data[fk]["time"]) == len(all_times) and
-                np.isclose(all_data[fk]["time"][0], all_times[0]) and
-                np.isclose(all_data[fk]["time"][1], all_times[1], rtol=1e-8)):
+            len(all_data[fk]["time"]) == len(all_times)
+            and np.isclose(all_data[fk]["time"][0], all_times[0])
+            and np.isclose(all_data[fk]["time"][1], all_times[1], rtol=1e-8)
+        ):
             arr[i, ...] = all_data[fk]["arr"]
         else:
             idx = [all_times_idx[t] for t in (all_data[filekey]["time"] * 10000).astype(int)]
             arr[i, idx, ...] = all_data[fk]["arr"]
 
     # arr has shape time, files, XorY, cols
-    return {"arr": np.einsum('ftxc->tfxc', arr), "time": all_times}
+    return {"arr": np.einsum("ftxc->tfxc", arr), "time": all_times / 10000}
 
 
 # ===========================================
@@ -1009,26 +1014,26 @@ def synchronize(all_data):
 def calc_average(INFOS, all_data):
     "calculates averages and stdevs over trajectory axis"
     nt, nf, _, nc = all_data["arr"].shape
-    arr = all_data["arr"]
-    # times, XorY, MeanorStdev, cols
-    calc_data = np.zeros((nt, 2, 2, nc), dtype=float)
-    cols = []
-    for ic, col_id in enumerate(INFOS["colnames"]):
-        if col_id.split()[2] == "0":
-            continue
-        cols.append(ic)
-        ic = ic % nc  # wrap around XorY
+    arr = np.einsum("tfxc->cxtf", all_data["arr"])  # reorder data for faster calculation
+    # cols, MeanorStdev, XorY, time
+    calc_data = np.zeros((nc, 2, 2, nt), dtype=float)
+    width_bar = 50
+    for ic in range(nc):
+        done = width_bar * (ic + 1) // nc
+        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+        calc_data[ic, 0, ...] = INFOS["averaging"]["mean"](arr[ic, ...], axis=2)
+        calc_data[ic, 1, ...] = INFOS["averaging"]["stdev"](arr[ic, ...], axis=2)
 
+    sys.stdout.write("  Done\nCalculating count\n")
+    count = np.sum(~np.isnan(arr[0, 0, :, :]), axis=1)  # check for data at time steps
 
-        calc_data[:, :, 0, ic] = INFOS["averaging"]["mean"](arr[..., ic], axis=1)
-        calc_data[:, :, 1, ic] = INFOS["averaging"]["stdev"](arr[..., ic], axis=1)
-
-    count = np.sum(~np.isnan(arr), axis=1)
-
-    INFOS["colnames"] = [replace_middle_column_name(INFOS["colnames"][c], "Mean") for c in cols]
-    INFOS["colnames"].extend([replace_middle_column_name(INFOS["colnames"][c], "Stdev") for c in cols])
+    INFOS["colnames"] = [replace_middle_column_name(INFOS["colnames"][c], "Mean") for c in range(nc)]
+    INFOS["colnames"].extend([replace_middle_column_name(INFOS["colnames"][c], "Stdev") for c in range(nc)])
+    # get Y columns
+    INFOS["colnames"].extend([replace_middle_column_name(INFOS["colnames"][c], "Mean") for c in range(nc, nc * 2)])
+    INFOS["colnames"].extend([replace_middle_column_name(INFOS["colnames"][c], "Stdev") for c in range(nc, nc * 2)])
     INFOS["colnames"].append("Count")
-    return {"arr": calc_data, "time": all_data["time"], "count": count}
+    return {"arr": np.einsum("csxt->tsxc", calc_data), "time": all_data["time"], "count": count}
 
 
 # ===========================================
@@ -1041,9 +1046,8 @@ def calc_statistics(INFOS, all_data):
     # times, XorY, MeanorStdev, cols
     calc_data = np.zeros((nf, 2, 2, nc), dtype=float)
     for it in range(nt):
-
-        calc_data[it, :, 0, :] = INFOS["statistics"]["mean"](arr[:it + 1, ...], axis=0)
-        calc_data[it, :, 1, :] = INFOS["statistics"]["stdev"](arr[:it + 1, ...], axis=0)
+        calc_data[it, :, 0, :] = INFOS["statistics"]["mean"](arr[: it + 1, ...], axis=0)
+        calc_data[it, :, 1, :] = INFOS["statistics"]["stdev"](arr[: it + 1, ...], axis=0)
 
     INFOS["colnames"] = [prepend_middle_column_name(c, "Mean") for c in INFOS["colnames"]]
     INFOS["colnames"].extend([prepend_middle_column_name(c, "Stdev") for c in INFOS["colnames"]])
@@ -1076,18 +1080,15 @@ def do_x_convolution(INFOS, all_data):
     nps = INFOS["convolute_X"]["npoints"]
     ene_grid = np.linspace(xmin, xmax, nps)
     conv_func = INFOS["convolute_X"]["function"].ev
-    max_A = np.max(all_data["arr"][:, :, 1, :])
-    max_gauss = conv_func(max_A, ene_grid[nps // 2], ene_grid)
-    idx = np.nonzero(max_gauss > 1e-10)[0]
-    idx_w_g = max(idx) - min(idx)
-    upper = nps - idx_w_g//2
-    lower = idx_w_g//2
-
-
+    # max_A = np.max(all_data["arr"][:, :, 1, :])
+    # max_gauss = conv_func(max_A, ene_grid[nps // 2], ene_grid)
+    # idx = np.nonzero(max_gauss > 1e-10)[0]
+    # idx_w_g = max(idx) - min(idx)
+    # upper = nps - idx_w_g // 2
+    # lower = idx_w_g // 2
 
     conv_data = np.zeros((nt, nc, nps), dtype=float)
     for it in range(nt):
-
         done = width_bar * (it + 1) // nt
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
 
@@ -1099,24 +1100,23 @@ def do_x_convolution(INFOS, all_data):
                 if np.isnan(A) or np.isnan(x0):
                     continue
 
-                xidx = np.searchsorted(ene_grid, x0)
-                if xidx < lower:
-                    id1 = 0
-                    id2 = xidx + idx_w_g
-                elif xidx > upper:
-                    id1 = xidx - idx_w_g
-                    id2 = nps
-                else:
-                    id1, id2 = xidx - idx_w_g, xidx + idx_w_g
-                conv_it_col[id1:id2] += conv_func(A, x0, ene_grid[id1:id2])
-
+                # xidx = np.searchsorted(ene_grid, x0)
+                # if xidx < lower:
+                    # id1 = 0
+                    # id2 = xidx + idx_w_g
+                # elif xidx > upper:
+                    # id1 = xidx - idx_w_g
+                    # id2 = nps
+                # else:
+                    # id1, id2 = xidx - idx_w_g, xidx + idx_w_g
+                # conv_it_col[id1:id2] += conv_func(A, x0, ene_grid[id1:id2])
+                conv_it_col += conv_func(A, x0, ene_grid)
 
     sys.stdout.write("\n")
 
     INFOS["colnames"] = [
-        f"Conv({x},{y})" for x, y in map(
-            lambda c: (INFOS["colnames"][c].split()[2], INFOS["colnames"][c + nc].split()[2]), range(nc)
-        )
+        f"Conv({x},{y})"
+        for x, y in map(lambda c: (INFOS["colnames"][c].split()[2], INFOS["colnames"][c + nc].split()[2]), range(nc))
     ]
 
     return {"arr": conv_data, "time": all_data["time"], "x_axis": ene_grid}
@@ -1157,7 +1157,9 @@ def do_t_convolution(INFOS, all_data):
             it, ic, ix = iter.multi_index
             if old_it != it:
                 done = width_bar * (it + 1) // nt
-                sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+                sys.stdout.write(
+                    "\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar)
+                )
                 old_it = it
 
             conv_t[ic, ix, :] += conv_func(v, time[it], t_grid)
@@ -1165,7 +1167,6 @@ def do_t_convolution(INFOS, all_data):
     all_data["arr"] = np.einsum("cxt->tcx", conv_t)
     all_data["time"] = t_grid
     return all_data
-
 
 
 # ===========================================
@@ -1219,7 +1220,7 @@ def do_y_summation(INFOS, all_data):
 def type3_to_type2(INFOS, all_data):
     arr = all_data["arr"]
     nt, nc, nx = arr.shape
-    return {f'X={x:8f}': {"arr": arr[..., ix], "time": all_data["time"]} for ix, x in enumerate(all_data["X_axis"])}
+    return {f"X={x:8f}": {"arr": arr[..., ix], "time": all_data["time"]} for ix, x in enumerate(all_data["X_axis"])}
 
 
 # ======================================================================================================================
@@ -1274,7 +1275,6 @@ def write_type1(filename, all_data, INFOS):
 
     with open(filename, "w") as f:
         for i, filekey in enumerate(sorted(all_data)):
-
             time = all_data[filekey]["time"]
             out = all_data[filekey]["arr"].reshape((time.shape[0], -1))
 
@@ -1292,18 +1292,18 @@ def write_type1(filename, all_data, INFOS):
 
 
 def write_type2(filename, all_data, INFOS, write_count=False):
-    n_cols = len(INFOS["colnames"]) + 1 + (1 if write_count else 0)
     arr = all_data["arr"][:, :, 0, :].reshape(all_data["arr"].shape[0], -1)
+    n_cols = arr.shape[1] + 1 + (1 if write_count else 0)
     with open(filename, "w") as f:
         f.write("#" + " ".join(map(lambda i: f"{i + 1:14d} ", range(n_cols))) + "\n")
         # sort multiindex to level!
         # get columns
-        column_names = INFOS["colnames"]
-        f.write("#" + "  ".join(map(lambda i: f"{i:>14s}", ["Time"] + column_names)) + "\n")
+        column_names = INFOS["colnames"][: arr.shape[1]] + INFOS["colnames"][-1:]
+        f.write(f"{'#Time':<14s} " + "  ".join(map(lambda i: f"{i:>14s}", column_names)) + "\n")
         if write_count:
             count = all_data["count"]
             for idx, (t, c) in enumerate(zip(all_data["time"], arr)):
-                f.write(f"{t: 14.8E} " + "  ".join(map(lambda x: f"{x: 14.8E}", c)) + f"  {count[idx]: 14.8E}" + "\n")
+                f.write(f"{t: 14.8E} " + " ".join(map(lambda x: f"{x: 14.8E}", c)) + f"  {count[idx]: 14.8E}" + "\n")
         else:
             for idx, (t, c) in enumerate(zip(all_data["time"], arr)):
                 f.write(f"{t: 14.8E} " + " ".join(map(lambda x: f"{x: 14.8E}", c)) + "\n")
@@ -1326,8 +1326,6 @@ def write_type3(filename, all_data, INFOS):
                 c = arr[it, :, ix]
                 f.write(f"{t: 14.8E} {x: 14.8E} " + " ".join(map(lambda x: f"{x: 14.8E}", c)) + "\n")
             f.write("\n")
-
- 
 
 
 # ======================================================================================================================

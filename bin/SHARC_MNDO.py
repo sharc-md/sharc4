@@ -1046,16 +1046,6 @@ mocoef
         self.QMin.resources["mndodir"] = expand_path(self.QMin.resources["mndodir"])
         self.log.debug(f'mndodir set to {self.QMin.resources["mndodir"]}')
 
-
-    def read_requests(self, requests_file: str = "QM.in") -> None:
-        super().read_requests(requests_file)
-
-        for req, val in self.QMin.requests.items():
-            if val and req != "retain" and req not in all_features:
-                raise ValueError(f"Found unsupported request {req}.")
-           
-
-
     def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
 
