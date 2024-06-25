@@ -53,6 +53,10 @@ def writeQMout(QMin, QMout, QMoutfile='QM.out'):
         string += writeQMoutsoc(QMin, QMout)
     if 'dm' in QMout:
         string += writeQMoutdm(QMin, QMout)
+    if 'mdm' in QMout:
+        string += writeQMoutmdm(QMin, QMout)
+    if 'eqm' in QMout:
+        string += writeQMouteqm(QMin, QMout)
     if 'grad' in QMout:
         string += writeQMoutgrad(QMin, QMout)
     if 'overlap' in QMout:
@@ -208,8 +212,67 @@ def writeQMoutnacsmat(QMin, QMout):
     string += '\n'
     return string
 
-# ======================================================================= #
+    # ======================================================================= #
 
+def writeQMoutmdm(QMin, QMout):
+    '''Generates a string with the Magnetic Dipole moment matrices in SHARC format.
+
+    The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line. The string contains three such matrices.
+
+    Arguments:
+    1 dictionary: QMin
+    2 dictionary: QMout
+
+    Returns:
+    1 string: multiline string with the MDM matrices'''
+
+    states = QMin['states']
+    nstates = QMin['nstates']
+    nmstates = QMin['nmstates']
+    natom = QMin['natom']
+    string = ''
+    string += '! %i Magnetic Dipole Moment Matrices (3x%ix%i, complex)\n' % (7, nmstates, nmstates)
+    for xyz in range(3):
+        string += '%i %i\n' % (nmstates, nmstates)
+        for i in range(nmstates):
+            for j in range(nmstates):
+                string += '%s %s ' % (eformat(QMout['mdm'][xyz][i][j].real, 9, 3), eformat(QMout['mdm'][xyz][i][j].imag, 9, 3))
+            string += '\n'
+        # string+='\n'
+    string += '\n'
+    return string
+
+    # ======================================================================= #
+
+
+def writeQMouteqm(QMin, QMout):
+    '''Generates a string with the Electric Quadrupole moment matrices in SHARC format.
+
+    The string starts with a ! followed by a flag specifying the type of data. In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements. Blocks are separated by a blank line. The string contains three such matrices.
+
+    Arguments:
+    1 dictionary: QMin
+    2 dictionary: QMout
+
+    Returns:
+    1 string: multiline string with the EQM matrices'''
+
+    states = QMin['states']
+    nstates = QMin['nstates']
+    nmstates = QMin['nmstates']
+    natom = QMin['natom']
+    string = ''
+    string += '! %i Electric Quadrupole Moment Matrices (3x%ix%i, complex)\n' % (8, nmstates, nmstates)
+    for pxyz in range(3):
+        for dxyz in range(3):
+            string += '%i %i\n' % (nmstates, nmstates)
+            for i in range(nmstates):
+                for j in range(nmstates):
+                    string += '%s %s ' % (eformat(QMout['eqm'][pxyz][dxyz][i][j].real, 9, 3), eformat(QMout['eqm'][pxyz][dxyz][i][j].imag, 9, 3))
+                string += '\n'
+            # string+='\n'
+    string += '\n'
+    # ======================================================================= #
 
 def writeQMoutdmdr(QMin, QMout):
 

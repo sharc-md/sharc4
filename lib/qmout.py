@@ -81,11 +81,11 @@ class QMout:
             self.charges = charges
         if filepath is not None:
             # initialize the entire object from a QM.out file
-            log.debug(f"Reading file {filepath}")
+            log.info(f"Reading file {filepath}")
             try:
                 f = open(filepath, "r", encoding="utf-8")
             except IOError:
-                raise IOError("'Could not find %s!' % (filepath)")
+                raise IOError('Could not find %s!' % (filepath))
             log.debug(f"Done raw reading {filepath}")
             # get basic information
             basic_info = {"states": list, "charges": list, "natom": int, "npc": int, "nmstates": int}

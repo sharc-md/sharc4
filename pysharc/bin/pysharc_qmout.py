@@ -104,7 +104,16 @@ def read_QMout(path, nstates, natom, request=None):
                            'dim': (nstates, nstates),
                            'line': '! 6 Overlap matrix',
                            },
-
+               'mdm': {'flag': 7,
+                       'type': complex,
+                       'dim': (3, nstates, nstates),
+                       'line': '! 7 Magnetic Dipole Moment Matrices',
+                       },
+               'eqm': {'flag': 8,
+                       'type': complex,
+                       'dim': (3, 3, nstates, nstates),
+                       'line': '! 8 Electric Quadrupole Moment Matrices',
+                       },
                }
     # read QM.out
     lines = readfile(path)

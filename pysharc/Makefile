@@ -34,8 +34,8 @@ build_ext: lib/libsharc.so
 	python sharc_setup build_ext --build-lib .
 
 install: lib/libsharc.so lib/libsharcnc.so build_ext
-	cp lib/*.so ../lib
-	cp bin/*.py ../bin
+	\cp lib/*.so ../lib
+	\cp bin/*.py ../bin
 
 clean:
 	python sharc_setup clean --all

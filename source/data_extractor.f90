@@ -63,9 +63,8 @@ program data_extractor
   integer, parameter :: u_dat=11          !< unit for output.dat file
   integer, parameter :: u_ener=21         !< energy.out
   integer, parameter :: u_dm=22           !< electric dipole fosc.out
-  integer, parameter :: u_mdm=32          !< magnetic dipole fosc_md2.out
-  integer, parameter :: u_eqm=33          !< electric quadrupole fosc_eq2.out
-  integer, parameter :: u_mdeqm=34        !< magnetic dipole * electric quadrupole fosc_mdeq.out
+  integer, parameter :: u_mdm=71          !< magnetic dipole fosc_md2.out
+  integer, parameter :: u_eqm=72          !< electric quadrupole fosc_eq2.out
   integer, parameter :: u_spin=23         !< spin.out
   integer, parameter :: u_coefd=24        !< coeff_diag.out
   integer, parameter :: u_coefm=25        !< coeff_MCH.out
@@ -74,19 +73,18 @@ program data_extractor
   integer, parameter :: u_coefdiab=28     !< coeff_diab.out
   integer, parameter :: u_expec_mch=29    !< expec_MCH.out
   integer, parameter :: u_fosc_act=30     !< fosc_act.out
-  integer, parameter :: u_fosc_act_mdm=35     !< fosc_act_md2.out
-  integer, parameter :: u_fosc_act_eqm=36     !< fosc_act_eq2.out
-  integer, parameter :: u_fosc_act_mdeqm=37     !< fosc_act_eq2.out
+  integer, parameter :: u_fosc_act_mdm=80     !< fosc_act_md2.out
+  integer, parameter :: u_fosc_act_eqm=81     !< fosc_act_eq2.out
   integer, parameter :: u_ref=31          !< Reference/QM.out
   integer, parameter :: u_info=42         !< output.dat.ext
   integer, parameter :: u_ion_diag=51     !< ion_diag.out
   integer, parameter :: u_ion_mch=52      !< ion_mch.out
   integer, parameter :: u_dm_diag=53      !< dip_mom_diag.out
+  integer, parameter :: u_mdm_diag=74      !< mag. dip_mom_diag.out
+  integer, parameter :: u_eqm_diag=75      !< el. quad_mom_diag.out
   integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out
-  integer, parameter :: u_mdm_diag=53      !< mag. dip_mom_diag.out
-  integer, parameter :: u_mdm_proj=55      !< mag. dip_mom_proj.out
-  integer, parameter :: u_eqm_diag=53      !< el. quad_mom_diag.out
-  integer, parameter :: u_eqm_proj=55      !< el. quad_mom_proj.out
+  integer, parameter :: u_mdm_proj=77      !< mag. dip_mom_proj.out
+  integer, parameter :: u_eqm_proj=78      !< el. quad_mom_proj.out
   integer, parameter :: u_proj=56         !< projections.inp
   integer, parameter :: u_classd=61        !< JCP 139, 211101 (2013), Method 1 (diag)
   integer, parameter :: u_classm=62        !< JCP 139, 211101 (2013), Method 1 (MCH)
@@ -164,14 +162,11 @@ program data_extractor
   real*8,allocatable :: expec_mdm_mch(:)           !< mag. dipole oscillator strength per state in MCH basis
   real*8,allocatable :: expec_eqm(:)               !< el. quadrupole oscillator strength per state
   real*8,allocatable :: expec_eqm_mch(:)           !< el. quadrupole oscillator strength per state in MCH basis
-  real*8,allocatable :: expec_mdeqm(:)               !< mag. dip. - el. quadrupole oscillator strength per state
-  real*8,allocatable :: expec_mdeqm_mch(:)           !< mag. dip. - el. quadrupole oscillator strength per state in MCH basis
   real*8,allocatable :: expec_ion_diag(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_ion_mch(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
   real*8,allocatable :: expec_mdm_act(:)           !< mag. dipole oscillator strength per state with active state as source state
   real*8,allocatable :: expec_eqm_act(:)           !< el. quadrupole oscillator strength per state with active state as source state
-  real*8,allocatable :: expec_mdeqm_act(:)           !< mag. dip. - el. quadrupole oscillator strength per state with active state as source state
   real*8,allocatable :: dm_proj_sp(:,:)           !< dipole moment per state projected onto vector yet to be defined
   real*8,allocatable :: mdm_proj_sp(:,:)           !< magnetic dipole moment per state projected onto vector yet to be defined
   real*8,allocatable :: eqm_proj_sp(:,:)           !< electric quaduprole moment per state projected onto vector yet to be defined
@@ -197,7 +192,6 @@ program data_extractor
   logical :: write_dip
   logical :: write_mag_dip
   logical :: write_el_quad
-  logical :: write_mag_dip_el_quad
   logical :: write_spin
   logical :: write_coeffdiag
   logical :: write_coeffmch
@@ -208,7 +202,6 @@ program data_extractor
   logical :: write_dipact
   logical :: write_mag_dipact
   logical :: write_el_quadact
-  logical :: write_mag_dip_el_quadact
   logical :: write_dm_diag
   logical :: write_dm_proj
   logical :: write_mdm_diag
@@ -249,7 +242,6 @@ program data_extractor
   write_dip       = .false.
   write_mag_dip       = .false.
   write_el_quad       = .false.
-  write_mag_dip_el_quad       = .false.
   write_spin      = .false.
   write_coeffdiag = .false.
   write_coeffmch  = .false.
@@ -260,7 +252,6 @@ program data_extractor
   write_dipact    = .false.
   write_mag_dipact    = .false.
   write_el_quadact    = .false.
-  write_mag_dip_el_quadact    = .false.
   write_dm_diag   = .false.
   write_dm_proj   = .false.
   write_iondiag   = .false.
@@ -321,8 +312,6 @@ program data_extractor
       write_el_quadact = .true.
     elseif (trim(args(i)) == "-damd") then
       write_mag_dipact = .true.
-    elseif (trim(args(i)) == "-damdeq") then
-      write_mag_dip_el_quadact = .true.
     elseif (trim(args(i)) == "-dd") then
       write_dm_diag = .true.
     elseif (trim(args(i)) == "-dp") then
@@ -339,7 +328,6 @@ program data_extractor
       write_dip = .true.
       write_mag_dip = .true.
       write_el_quad = .true.
-      write_mag_dip_el_quad = .true.
       write_spin = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
@@ -350,7 +338,6 @@ program data_extractor
       write_dipact = .true.
       write_mag_dipact = .true.
       write_el_quadact = .true.
-      write_mag_dip_el_quadact = .true.
       write_dm_diag = .true.
       write_dm_proj = .true.
       write_iondiag = .true.
@@ -361,7 +348,6 @@ program data_extractor
       write_dip = .true.
       write_mag_dip = .true.
       write_el_quad = .true.
-      write_mag_dip_el_quad = .true.
       write_spin = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
@@ -372,7 +358,6 @@ program data_extractor
       write_dipact = .true.
       write_mag_dipact = .true.
       write_el_quadact = .true.
-      write_mag_dip_el_quadact = .true.
       write_iondiag = .true.
       write_ionmch = .true.
       skip_geom_vel_grad_nac = .true.
@@ -382,7 +367,6 @@ program data_extractor
       write_dip = .true.
       write_mag_dip = .true.
       write_el_quad = .true.
-      write_mag_dip_el_quad = .true.
       write_spin = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
@@ -393,7 +377,6 @@ program data_extractor
       write_dipact = .true.
       write_mag_dipact = .true.
       write_el_quadact = .true.
-      write_mag_dip_el_quadact = .true.
       skip_geom_vel_grad_nac = .true.
     ! very small set of flags true
     elseif (trim(args(i)) == "-xs") then
@@ -401,7 +384,6 @@ program data_extractor
       write_dip = .true.
       write_mag_dip = .true.
       write_el_quad = .true.
-      write_mag_dip_el_quad = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
       write_prob = .true.
@@ -426,7 +408,6 @@ program data_extractor
     write_spin      = .true.
     write_mag_dip = .true.
     write_el_quad = .true.
-    write_mag_dip_el_quad = .true.
     write_coeffdiag = .true.
     write_coeffmch  = .true.
     write_prob      = .true.
@@ -436,7 +417,6 @@ program data_extractor
     write_dipact    = .true.
     write_mag_dipact = .true.
     write_el_quadact = .true.
-    write_mag_dip_el_quadact = .true.
     write_dm_diag   = .false.
     write_dm_proj   = .false.
     write_iondiag   = .false.
@@ -920,7 +900,6 @@ program data_extractor
   if (write_dip)       open(unit=u_dm, file='output_data/fosc.out', status='replace', action='write')               ! -d
   if (write_mag_dip)   open(unit=u_mdm, file='output_data/fosc_md2.out', status='replace', action='write')               ! -dmd
   if (write_el_quad)   open(unit=u_eqm, file='output_data/fosc_eq2.out', status='replace', action='write')               ! -deq
-  if (write_mag_dip_el_quad)   open(unit=u_mdeqm, file='output_data/fosc_mdeq.out', status='replace', action='write')    ! -dmdeq
   if (write_spin)      open(unit=u_spin, file='output_data/spin.out', status='replace', action='write')             ! -s
 
   if (write_coeffdiag) open(unit=u_coefd, file='output_data/coeff_diag.out', status='replace', action='write')      ! -cd
@@ -941,14 +920,14 @@ program data_extractor
   if (write_dipact)    open(unit=u_fosc_act, file='output_data/fosc_act.out', status='replace', action='write')     ! -da
   if (write_mag_dipact)    open(unit=u_fosc_act_mdm, file='output_data/fosc_act_md2.out', status='replace', action='write')     !-damd
   if (write_el_quadact)    open(unit=u_fosc_act_eqm, file='output_data/fosc_act_eq2.out', status='replace', action='write')     !-daeq
-  if (write_mag_dip_el_quadact)    open(unit=u_fosc_act_mdeqm, file='output_data/fosc_act_mdeq.out', status='replace',&
-                                         &action='write')     ! -damdeq
   if (write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')     ! -id
   if (write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')       ! -im
   if (write_dm_diag)   open(unit=u_dm_diag, file='output_data/dip_mom_diag.out', status='replace', action='write')   ! -dd
   if (write_dm_proj)   open(unit=u_dm_proj, file='output_data/dip_mom_proj.out', status='replace', action='write')   ! -dd
-                                                                                                                    ! -a
-
+  if (write_mdm_diag)   open(unit=u_mdm_diag, file='output_data/mag_dip_mom_diag.out', status='replace', action='write')   ! -dd
+  if (write_mdm_proj)   open(unit=u_mdm_proj, file='output_data/mag_dip_mom_proj.out', status='replace', action='write')   ! -dd                                                                                                                   ! -a
+  ! if (write_eqm_diag)   open(unit=u_dm_diag, file='output_data/dip_mom_diag.out', status='replace', action='write')   ! -dd
+  ! if (write_eqm_proj)   open(unit=u_dm_proj, file='output_data/dip_mom_proj.out', status='replace', action='write')   ! -dd                                                                                                                   ! -a 
 
 
   ! write output file headers
@@ -974,12 +953,6 @@ program data_extractor
     write(u_eqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
     write(u_eqm,'(A1,1X,3(A20,1X))') '#','Time |','el. quad. f_osc (state) |','=== el. quad. f_osc ===>'
     write(u_eqm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
-  endif 
-
-  if (write_mag_dip_el_quad) then
-    write(u_mdeqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
-    write(u_mdeqm,'(A1,1X,3(A20,1X))') '#','Time |','mag. dip. - el. quad. f_osc (state) |','=== mag. dip. - el. quad. f_osc ===>'
-    write(u_mdeqm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
   endif 
 
   if (write_dipact) then
@@ -1050,29 +1023,6 @@ program data_extractor
       string1=trim(string1)//string2
     enddo
     write(u_fosc_act_eqm,'(A)') trim(string1)
-  endif 
-  if (write_mag_dip_el_quadact) then
-    write(u_fosc_act_mdeqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
-    write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
-    do i=1,nstates
-      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
-      string1=trim(string1)//string2
-    enddo
-    do i=1,nstates
-      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
-      string1=trim(string1)//string2
-    enddo
-    write(u_fosc_act_mdeqm,'(A)') trim(string1)
-    write(string1, '(A1,1X,1(A20,1X))') '#','[fs] |'
-    do i=1,nstates
-      write(string2,'(1X,A20)') '[eV] |'
-      string1=trim(string1)//string2
-    enddo
-    do i=1,nstates
-      write(string2,'(1X,A20)') '[] |'
-      string1=trim(string1)//string2
-    enddo
-    write(u_fosc_act_mdeqm,'(A)') trim(string1)
   endif 
   if (write_iondiag) then
     write(u_ion_diag,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
@@ -1459,33 +1409,6 @@ program data_extractor
       enddo
     endif
     
-    ! calculate oscillator strengths for magnetic dipole * electric quadrupole
-    if (write_mag_dip_el_quad .or. write_mag_dip_el_quadact .or. write_expec .or. write_expecmch .or. write_dm_diag) then
-      expec_mdeqm=0.d0
-      expec_mdeqm_mch=0.d0
-      expec_mdeqm_act=0.d0 
-      do idir=1,3
-        do jdir=1,3
-          A_ss=EQM_mch_ssdd(:,:,idir,jdir)
-          expec_mdeqm_mch=expec_mdeqm_mch+real(A_ss(:,1)*A_ss(1,:))
-          call transform(nstates,A_ss,U_ss,'utau')
-          EQM_diag_ssdd(:,:,idir,jdir)=A_ss
-          expec_mdeqm=expec_mdeqm+real(A_ss(:,1)*A_ss(1,:))
-          expec_mdeqm_act=expec_mdeqm_act+real(A_ss(:,state_diag)*A_ss(state_diag,:))
-        enddo
-      enddo 
-      expec_mdeqm=expec_mdeqm*1./20.*alpha**2
-      expec_mdeqm_mch=expec_mdeqm_mch*1./20.*alpha**2
-      expec_mdeqm_act=expec_mdeqm_act*1./20.*alpha**2 
-      do i=1,nstates
-        expec_mdeqm(i)=expec_mdeqm(i)*real(H_diag_ss(i,i)-H_diag_ss(1,1))
-        expec_mdeqm_mch(i)=expec_mdeqm_mch(i)*real(H_MCH_ss(i,i)-H_MCH_ss(1,1))
-        expec_mdeqm_act(i)=expec_mdeqm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
-      enddo
-    endif 
-    
-    ! calculate length of projection of dipole moment onto vector
-    ! projection length is scalar product of dip mom with unit vector of desired direction (proj_vec/norm_proj_vec)
     if (write_dm_proj) then
       ! calculate desired vectors to project onto
       do iproj=1,nprojections
@@ -1570,12 +1493,7 @@ program data_extractor
       &microtime, expec_eqm(state_diag),&
       (expec_eqm(istate),istate=1,nstates)
     endif
-    if (write_mag_dip_el_quad) then
-      ! write to fosc_mdeq.out
-      write(u_mdeqm,'(2X,1000(ES20.12E3,1X))') &
-      &microtime, expec_mdeqm(state_diag),&
-      (expec_mdeqm(istate),istate=1,nstates)
-    endif 
+
     if (write_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
@@ -1590,15 +1508,6 @@ program data_extractor
       write(u_fosc_act_mdm,'(2X,1000(ES20.12E3,1X))') &
       &microtime,(abs(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag)))*au2eV,istate=1,nstates),&
       (expec_mdm_act(istate),istate=1,nstates)
-!       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
-!       &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
-!       (expec_dm_act(istate),istate=1,nstates)
-    endif
-    if (write_mag_dip_el_quadact)  then
-      ! write to fosc_act.out
-      write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
-      &microtime,(abs(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag)))*au2eV,istate=1,nstates),&
-      (expec_mdeqm_act(istate),istate=1,nstates)
 !       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
 !       &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
@@ -1802,7 +1711,6 @@ program data_extractor
   if (write_dip)                close(u_dm)        ! -d
   if (write_mag_dip)            close(u_mdm)       ! -dmd
   if (write_el_quad)            close(u_eqm)       ! -deq
-  if (write_mag_dip_el_quad)   close(u_mdeqm)     ! -dmdeq
   if (write_spin)               close(u_spin)      ! -s
  
   if (write_coeffdiag) close(u_coefd)     ! -cd
@@ -1823,7 +1731,6 @@ program data_extractor
   if (write_dipact)    close(u_fosc_act)  ! -da
   if (write_mag_dipact)    close(u_fosc_act_mdm)  ! -damd
   if (write_el_quadact)    close(u_fosc_act_eqm)  ! -daeq
-  if (write_mag_dip_el_quadact)    close(u_fosc_act_mdeqm)  ! -damdeq
   if (write_iondiag)   close(u_ion_diag)  ! -id
   if (write_ionmch)    close(u_ion_mch)   ! -im 
   if (write_dm_diag)   close(u_dm_diag)   ! -dd
@@ -1979,39 +1886,6 @@ program data_extractor
       deallocate(tmp_out_matrix)
     endif 
 
-    if (write_mag_dip_el_quad) then
-      ! nstates, expected_mag_dip_el_quad, time
-      total_columns=nstates+2
-      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
-      allocate(tmp_out_matrix(nsteps+1,total_columns))
-      open(unit=u_mdeqm, file='output_data/fosc_mdeq.out', status='old', action='read')
-        read(u_mdeqm,'(A)') header1
-        read(u_mdeqm,'(A)') header2
-        read(u_mdeqm,'(A)') header3
-        do i=1,nsteps_adapted+1
-          read(u_mdeqm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
-        enddo
-      close(u_mdeqm)
-      filename1='output_data/fosc_mdeq.out'
-      filename2='output_data/fosc_mdeq.original.out'
-      call system("mv "//trim(filename1)//" "//trim(filename2))
-      timeline_adapted(:)=tmp_in_matrix(:,1)
-      do istate=2,total_columns ! starts with column 2 because first column is time.
-        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
-      enddo
-      tmp_out_matrix(:,1)=timeline(:)
-      open(unit=u_mdeqm, file='output_data/fosc_mdeq.out', status='replace', action='write')
-        write(u_mdeqm,'(A)') trim(header1)
-        write(u_mdeqm,'(A)') trim(header2)
-        write(u_mdeqm,'(A)') trim(header3)
-        do i=1,nsteps+1
-          write(u_mdeqm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
-        enddo
-      close(u_mdeqm)
-      deallocate(tmp_in_matrix)
-      deallocate(tmp_out_matrix)
-    endif
-
     if (write_dipact)  then
       ! nstates, nstates, time
       total_columns=2*nstates+1
@@ -2107,38 +1981,6 @@ program data_extractor
           write(u_fosc_act_eqm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
         enddo
       close(u_fosc_act_eqm)
-      deallocate(tmp_in_matrix)
-      deallocate(tmp_out_matrix)
-    endif
-    if (write_mag_dip_el_quadact)  then
-      ! nstates, nstates, time
-      total_columns=2*nstates+1
-      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
-      allocate(tmp_out_matrix(nsteps+1,total_columns))
-      open(unit=u_fosc_act_mdeqm, file='output_data/fosc_act_mdeq.out', status='old', action='read')
-        read(u_fosc_act_mdeqm,'(A)') header1
-        read(u_fosc_act_mdeqm,'(A)') header2
-        read(u_fosc_act_mdeqm,'(A)') header3
-        do i=1,nsteps_adapted+1
-          read(u_fosc_act_mdeqm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
-        enddo
-      close(u_fosc_act)
-      filename1='output_data/fosc_act_mdeq.out'
-      filename2='output_data/fosc_act_mdeq.original.out'
-      call system("mv "//trim(filename1)//" "//trim(filename2))
-      timeline_adapted(:)=tmp_in_matrix(:,1)
-      do istate=2,total_columns ! starts with column 2 because first column is time.
-        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
-      enddo
-      tmp_out_matrix(:,1)=timeline(:)
-      open(unit=u_fosc_act_mdeqm, file='output_data/fosc_act_mdeq.out', status='replace', action='write')
-        write(u_fosc_act_mdeqm,'(A)') trim(header1)
-        write(u_fosc_act_mdeqm,'(A)') trim(header2)
-        write(u_fosc_act_mdeqm,'(A)') trim(header3)
-        do i=1,nsteps+1
-          write(u_fosc_act_mdeqm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
-        enddo
-      close(u_fosc_act_mdeqm)
       deallocate(tmp_in_matrix)
       deallocate(tmp_out_matrix)
     endif
@@ -2714,7 +2556,6 @@ program data_extractor
     write(u,*) '       -d       : write dipole file              (output_data/fosc.out)'
     write(u,*) '       -dmd     : write magnetic dipole file              (output_data/fosc_md2.out)'
     write(u,*) '       -deq     : write electric quadrupole file              (output_data/fosc_eq2.out)'
-    write(u,*) '       -dmdeq   : write mixed magnetic dipole - electric quadrupole file  (output_data/fosc_mdeq.out)'
     write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
     write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out,'
     write(u,*) '                                             output_data/coeff_class_diag.out,'

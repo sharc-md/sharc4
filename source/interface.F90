@@ -83,17 +83,19 @@ end subroutine set_qmin_pointers
 
 ! ------------------------------------------------------
 
-subroutine set_pointers(H, dm, overlap, grad, nac) bind(C, name='setPointers')
+subroutine set_pointers(H, dm, mdm, eqm, overlap, grad, nac) bind(C, name='setPointers')
     use, intrinsic :: iso_c_binding
     use memory_module, only: traj, ctrl
 
     implicit none
 
     type(c_ptr), intent(inout) :: H, dm, overlap, grad
-    type(c_ptr), intent(inout) :: nac
+    type(c_ptr), intent(inout) :: nac, mdm, eqm
 
     H = C_NULL_PTR
     dm = C_NULL_PTR
+    mdm = C_NULL_PTR
+    eqm = C_NULL_PTR
     overlap = C_NULL_PTR
     grad = C_NULL_PTR
     nac = C_NULL_PTR
@@ -835,7 +837,7 @@ subroutine set_electricquadrupolemoments(N, EQM_ssdd)
     ! apply frozen-state mask 
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
-        if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%EQM_ssd(j,i,:,:)=dcmplx(0.d0,0.d0)
+        if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%EQM_ssdd(j,i,:,:)=dcmplx(0.d0,0.d0)
       end do
     end do
 
@@ -1048,7 +1050,7 @@ subroutine post_process_data(ISecond)
     use definitions, only: printlevel, u_log
     use qm, only: print_qm
     implicit none
-    integer :: i
+    integer :: i, j
     __INT__, intent(out) :: ISecond
     ! ===============================
     ! all quantities read, post-processing

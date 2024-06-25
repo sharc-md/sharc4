@@ -95,6 +95,8 @@ class SHARC_INTERFACE(object):
         'h'     : Hamiltonian, lst[NStates][NStates] of float, complex
         'ovlap' : Overlap, lst[NStates][NStates] of float, complex
         'dm'    : Dipole Matrix, lst[3][NStates][NStates] of floats
+        'mdm'    : Magnetic Dipole Matrix, lst[3][NStates][NStates] of floats
+        'eqm'    : Electric Quadrupole Matrix, lst[3][3][NStates][NStates] of floats
         'grad'  : Dict, int IState : lst Grad_IState,
                         Grad_IStat, lst[NAtoms][3] of floats
         'nacdr' : Dict,   int IState : dct Dict_2,
@@ -251,7 +253,7 @@ class SHARC_INTERFACE(object):
 
     def sharc_set_QMout(self, QMout, icall):
         """ set QMout """
-
+        print("TEST123123")
         if self.set_qmout is True:
             # assume that QMout is set already! only for advanced users!
             return
@@ -262,6 +264,10 @@ class SHARC_INTERFACE(object):
                 self.QMout.set_hamiltonian(QMout['h'])
             if 'dm' in QMout:
                 self.QMout.set_dipolemoment(QMout['dm'])
+            if 'mdm' in QMout:
+                self.QMout.set_mag_dipolemoment(QMout['mdm'])
+            if 'eqm' in QMout:
+                self.QMout.set_el_quadrupolemoment(QMout['eqm'])
 
         if 'overlap' in QMout:
             if not isinstance(QMout['overlap'], type([])):
@@ -307,11 +313,13 @@ class SHARC_INTERFACE(object):
         # call do_qm_job
         self.sharc_set_QMout(self.sharc_qm_failure_handle(tasks, Crd), icall)
         isecond = sharc.set_qmout(self.QMout, icall)
+        print("TEST456")
         if isecond == 1:
             icall = 2
             tasks, _ = self.sharc_get_sharc_tasks(icall, False)
             self.sharc_set_QMout(self.sharc_qm_failure_handle(tasks, Crd), icall)
             sharc.set_qmout(self.QMout, icall)
+            print("TEST567")
         return Crd
 
 
@@ -320,8 +328,10 @@ class SHARC_INTERFACE(object):
 
         icall = 3
         tasks, _ = self.sharc_get_sharc_tasks(icall, False)
+        print("TEST789") 
         self.sharc_set_QMout(self.do_qm_job(tasks, Crd), icall)
         sharc.set_qmout(self.QMout, icall)
+        print("TEST678")
 
 
 

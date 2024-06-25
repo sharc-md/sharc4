@@ -233,7 +233,7 @@ class SHARC_LVC(SHARC_FAST):
                     line = f.readline()
                 self.available_requests.add("dm")
 
-            elif "MDM" in line:
+            elif "MDEQM" in line:
                 self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
                 j = xyz[line[3]]
                 if factor != 1:
@@ -244,9 +244,8 @@ class SHARC_LVC(SHARC_FAST):
                     self._mag_dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-                self.available_requests.add("mdm")
+                self.available_requests.add("mdeqm")
 
-            elif "EQM" in line:
                 self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
                 k = xyz[line[3]]  # Readout of derivative direction EQMXY -> X
                 j = xyz[line[4]]  # Readout of polarization direction  -> Y
@@ -287,9 +286,8 @@ class SHARC_LVC(SHARC_FAST):
             self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2,))[:, :, 0]
         if "dm" in self.available_requests and dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
-        if "mdm" in self.available_requests and mag_dipole_real:
+        if "mdeqm" in self.available_requests and mag_dipole_real and el_quadrupole_real:
             self._mag_dipole = np.reshape(self._mag_dipole.view(float), self._mag_dipole.shape + (2,))[:, :, :, 0]
-        if "eqm" in self.available_requests and el_quadrupole_real:
             self._el_quadrupole = np.reshape(self._el_quadrupole.view(float), self._el_quadrupole.shape + (2,))[:, :, :, :, 0]
         # if self.QMin.save["init"]:
         # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
@@ -793,20 +791,19 @@ class SHARC_LVC(SHARC_FAST):
             self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
             Hd += adia_soc
 
-        if "dm" in self.available_requests:
+        if self.QMin.requests['dm']:
             dipole = (
                 np.einsum("in,kij,jm->knm", self._U, self._dipole, self._U, casting="no", optimize=True)
                 if self._diagonalize
                 else self._dipole
             )
 
-        if "mdm" in self.available_requests:
+        if self.QMin.requests['mdeqm']:
             mag_dipole = (
                 np.einsum("in,kij,jm->knm", self._U, self._mag_dipole, self._U, casting="no", optimize=True)
                 if self._diagonalize
                 else self._mag_dipole
             ) 
-        if "eqm" in self.available_requests:
             el_quadrupole = (
                 np.einsum("in,klij,jm->klnm", self._U, self._el_quadrupole, self._U, casting="no", optimize=True)
                 if self._diagonalize
@@ -814,7 +811,11 @@ class SHARC_LVC(SHARC_FAST):
             )
 
         if do_kabsch:
-            dipole = np.einsum("inm,ij->jnm", dipole, self._Trot)
+            if self.QMin.requests['dm']:
+                dipole = np.einsum("inm,ij->jnm", dipole, self._Trot)
+            if self.QMin.requests['mdeqm']:
+                mag_dipole = np.einsum("inm,ij->jnm", mag_dipole, self._Trot)
+                el_quadrupole = np.einsum("inm,ij->jnm", el_quadrupole, self._Trot)
 
         if self.QMin.requests["grad"]:
             grad = grad.T.reshape((req_nmstates, self.QMin.molecule["natom"], 3))
@@ -838,9 +839,8 @@ class SHARC_LVC(SHARC_FAST):
         self.QMout.h = Hd
         if "dm" in self.available_requests:
             self.QMout.dm = dipole
-        if "mdm" in self.available_requests:
+        if "mdeqm" in self.available_requests:
             self.QMout.mdm = mag_dipole
-        if "eqm" in self.available_requests:
             self.QMout.eqm = el_quadrupole
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = overlap
@@ -871,8 +871,7 @@ class SHARC_LVC(SHARC_FAST):
             "h",
             "soc",
             "dm",
-            "mdm",
-            "eqm",
+            "mdeqm",
             "grad",
             "nacdr",
             "overlap",
@@ -897,18 +896,15 @@ class SHARC_LVC(SHARC_FAST):
         soc_found = False
         mfit_found = False
         dm_found = False
-        mdm_found = False
-        eqm_found = False
+        mdeqm_found = False
         with open(self.template_file, "r") as f:
             for line in f:
                 if "SOC" in line:
                     soc_found = True
                 if "DM" in line and "MDM" not in line:
                     dm_found = True
-                if "MDM" in line:
-                    mdm_found = True 
-                if "EQM" in line:
-                    eqm_found = True 
+                if "MDEQM" in line:
+                    mdeqm_found = True 
                 if "Multipolar Density Fit" in line:
                     mfit_found = True
         if "soc" in INFOS["needed_requests"] and not soc_found:
@@ -925,12 +921,8 @@ class SHARC_LVC(SHARC_FAST):
             self.log.error(f"Calculation of dipole moment requested but 'DM' keyword not found in {self.template_file}")
             raise RuntimeError()
 
-        if "mdm" in INFOS["needed_requests"] and not mdm_found:
-            self.log.error(f"Calculation of magnetic dipole moment requested but 'MDM' keyword not found in {self.template_file}")
-            raise RuntimeError()
-
-        if "eqm" in INFOS["needed_requests"] and not eqm_found:
-            self.log.error(f"Calculation of electric quadrupole moment requested but 'EQM' keyword not found in {self.template_file}")
+        if "mdeqm" in INFOS["needed_requests"] and not mdeqm_found:
+            self.log.error(f"Calculation of second-order light matter moments requested but 'MDEQM' keyword not found in {self.template_file}")
             raise RuntimeError()
 
         if question("Do you have an LVC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):

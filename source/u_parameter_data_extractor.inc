@@ -1,6 +1,8 @@
   integer, parameter :: u_dat=11          !< unit for output.dat file
   integer, parameter :: u_ener=21         !< energy.out
   integer, parameter :: u_dm=22           !< fosc.out
+  integer, parameter :: u_mdm=71           !< fosc.out
+  integer, parameter :: u_eqm=72           !< fosc.out
   integer, parameter :: u_spin=23         !< spin.out
   integer, parameter :: u_coefd=24        !< coeff_diag.out
   integer, parameter :: u_coefm=25        !< coeff_MCH.out
@@ -16,12 +18,18 @@
   integer, parameter :: u_coefdiab=35     !< coeff_diab.out
   integer, parameter :: u_expec_mch=36    !< expec_MCH.out
   integer, parameter :: u_fosc_act=37     !< fosc_act.out
+  integer, parameter :: u_fosc_act_mdm=80     !< fosc_act.out
+  integer, parameter :: u_fosc_act_eqm=81     !< fosc_act.out
   integer, parameter :: u_ref=38          !< Reference/QM.out
   integer, parameter :: u_info=42         !< output.dat.ext
   integer, parameter :: u_ion_diag=51     !< ion_diag.out
   integer, parameter :: u_ion_mch=52      !< ion_mch.out
   integer, parameter :: u_dm_diag=53      !< dip_mom_diag.out
-  integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out
+  integer, parameter :: u_mdm_diag=74      !< dip_mom_diag.out
+  integer, parameter :: u_eqm_diag=75      !< dip_mom_diag.out
+  integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out 
+  integer, parameter :: u_mdm_proj=77      !< dip_mom_proj.out
+  integer, parameter :: u_eqm_proj=78      !< dip_mom_proj.out
   integer, parameter :: u_proj=56         !< projections.inp
 
   integer, parameter :: u_classd=61        !< JCP 139, 2111101 (2013), Method 1 (diag)

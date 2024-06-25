@@ -177,6 +177,7 @@ class SHARC_QMOUT(SHARC_FAST):
 
         if self.QMin.requests["dm"]:
             self.QMout["dm"] = self.QMout2["dm"]
+            self.log.debug(f"SHAPE {self.QMout2['dm'].shape}")
 
         if self.QMin.requests["mdeqm"]:
             self.QMout["mdm"] = self.QMout2["mdm"]
@@ -198,6 +199,7 @@ class SHARC_QMOUT(SHARC_FAST):
             self.QMout["multipolar_fit"] = self.QMout2["multipolar_fit"]
 
         self.QMout["notes"]["QMout"] = "Notes were not transferred."
+        self.QMout.charges = self.QMout2.charges
 
         return self.QMout
 
@@ -213,6 +215,7 @@ class SHARC_QMOUT(SHARC_FAST):
     def setup_interface(self):
         # read the file
         self.QMout2 = QMout(filepath="QMout.out")
+        self.QMin.template['charges']=self.QMout2.charges
         # check the file
         if any([
             self.QMin.molecule["states"] != self.QMout2.states,
