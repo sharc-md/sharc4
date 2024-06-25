@@ -1,0 +1,8 @@
+##Basis set for the ORCA calculation
+basis 6-31G
+
+##Functional for the ORCA calculation
+functional PBE
+
+##Charge of the molecule
+charge +1

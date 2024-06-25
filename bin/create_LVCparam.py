@@ -30,7 +30,7 @@ import json
 import math
 import numpy as np
 from scipy.linalg import fractional_matrix_power
-from itertools import starmap
+from itertools import starmap, chain
 
 from constants import IToMult
 from utils import itnmstates, readfile
@@ -417,7 +417,7 @@ def write_LVC_template(INFOS, template_name):
     path = os.path.join(INFOS["paths"]["000_eq"], "QM.out")
     print("reading QMout_eq at:", path)
     # QMout_eq = read_QMout(path, INFOS["nstates"], len(INFOS["atoms"]), requests)
-    flags={1,2}
+    flags = {1, 2}
     if INFOS["ana_grad"]:
         flags.add(3)
     if INFOS["ana_nac"]:
@@ -558,7 +558,6 @@ def write_LVC_template(INFOS, template_name):
 
                 # check diagonal of S & print warning if wanted
                 INFOS["problematic_mults"].update(check_overlap_diagonal(QMout_neg.overlap, INFOS["states"], normal_mode, "n"))
-                print(os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out"), path, pos_displ_mag, neg_displ_mag, twosided)
 
                 # calculate displacement matrix
 
@@ -618,7 +617,6 @@ def write_LVC_template(INFOS, template_name):
                             kappas_dict[(imult, int(normal_mode))][i] = kappa
                             kappa_str_list.append("%3i %3i %5i % .5e\n" % (imult + 1, i + 1, int(normal_mode), kappa))
                             nkappa += 1
-                    
 
                     if not INFOS["ana_nac"]:
                         for j in range(partition_length):
@@ -627,13 +625,89 @@ def write_LVC_template(INFOS, template_name):
                             if not twosided:
                                 lam = pos_partition[i][j].real / pos_displ_mag
                             else:
-                                lam = pos_partition[i][j].real / (pos_displ_mag + neg_displ_mag) - neg_partition[i][j].real / (pos_displ_mag + neg_displ_mag)
+                                lam = pos_partition[i][j].real / (pos_displ_mag + neg_displ_mag) - neg_partition[i][j].real / (
+                                    pos_displ_mag + neg_displ_mag
+                                )
                             if lam**2 > pthresh:
                                 lambda_str_list.append(
                                     "%3i %3i %3i %3i % .5e\n" % (imult + 1, i + 1, j + 1, int(normal_mode), lam)
                                 )
                                 nlambda += 1
                 start += nsi
+
+    # ------------------------ lambda_soc --------------------------
+
+    if INFOS["lambda_soc"]:
+        print("calculating derviatives of SOCs in linear approx")
+        if "displacements" not in INFOS:
+            print('No displacement info found in "displacements.json"!')
+            sys.exit(1)
+        lambda_soc_str_list = []
+        # running through all normal modes
+        for normal_mode, v in INFOS["normal_modes"].items():
+            twosided = False
+
+            # get pos displacement
+            pos_displ_mag = INFOS["displacement_magnitudes"][normal_mode]
+
+            # get hamiltonian & overlap matrix from QM.out
+            path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
+            QMout_pos = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0, flags={1, 6})
+
+            # check diagonal of S & print warning
+            INFOS["problematic_mults"] = check_overlap_diagonal(QMout_pos.overlap, INFOS["states"], normal_mode, "p")
+
+            # Check for two-sided differentiation
+            if f"{normal_mode:>03s}_{'n'}" in INFOS["paths"]:
+                twosided = True
+                # get neg displacement
+                neg_displ_mag = INFOS["displacement_magnitudes"][normal_mode]
+
+                # get hamiltonian & overlap matrix from QM.out
+                path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+                QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0, flags={1, 6})
+
+                # check diagonal of S & print warning if wanted
+                INFOS["problematic_mults"].update(check_overlap_diagonal(QMout_neg.overlap, INFOS["states"], normal_mode, "n"))
+
+                # calculate displacement matrix
+
+            # Loop over multiplicities to get kappas and lambdas
+            # Loop over multiplicities
+            start = 0
+            for imult, nsi in enumerate(INFOS["states"]):
+                if nsi != 0:
+                    for _ in range(imult + 1):
+                        QMout_pos.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
+                        if twosided:
+                            QMout_neg.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
+                        start += nsi
+
+            part_ovl_pos = loewdin_orthonormalization(QMout_pos.overlap)
+            part_ovl_pos = phase_correction(part_ovl_pos)
+            pos_partition = part_ovl_pos @ QMout_pos.h @ part_ovl_pos.T
+
+            if twosided:
+                part_ovl_neg = loewdin_orthonormalization(QMout_neg.overlap)
+                part_ovl_neg = phase_correction(part_ovl_neg)
+                neg_partition = part_ovl_neg @ QMout_neg.h @ part_ovl_neg.T
+
+            if twosided:
+                fac = pos_displ_mag + neg_displ_mag
+                lambda_soc = pos_partition / fac - neg_partition / fac
+            else:
+                lambda_soc = pos_partition / pos_displ_mag
+
+            lambda_soc = np.stack((lambda_soc.real, lambda_soc.imag), axis=-1)
+
+            lambda_soc_str_list.extend(
+                list(
+                    starmap(
+                        lambda i, j, c: f"{i+1:3d} {j+1:3d} {int(normal_mode):3d} {'RI'[c]} {lambda_soc[i,j,c]: .7e}\n",
+                        filter(lambda x: x[0] < x[1], zip(*np.where(abs(lambda_soc) > 1e-7))),
+                    )
+                )
+            )
 
     # --------------- GAMMA --------------
     gamma_str_list = []
@@ -644,7 +718,6 @@ def write_LVC_template(INFOS, template_name):
             sys.exit(1)
         # running through all normal modes
         for normal_mode in INFOS["gamma_normal_modes"]:
-
             displ_mag = INFOS["displacement_magnitudes_gamma"][normal_mode]
             m = 2.0 if f"{normal_mode:>03s}_{'p2'}" in INFOS["paths_gamma"] else 1.0
             if normal_mode + "_2" in INFOS["displacement_magnitudes_gamma"]:
@@ -653,7 +726,9 @@ def write_LVC_template(INFOS, template_name):
             freq = INFOS["frequencies"][normal_mode]
             necessary_displ = math.sqrt(2 * 2 * 4.55633590401805e-06 / freq)  # displ necessary for energy difference of 2cm-1
             if (necessary_displ - displ_mag * m) / necessary_displ > 0.1:  # 10% tolerance for
-                print(f"skipping normal mode {normal_mode} ({freq/4.55633590401805e-06: 0.1f}cm-1)! Insufficient maximum displacment {displ_mag * m: .2f} vs {necessary_displ: .2f}!")
+                print(
+                    f"skipping normal mode {normal_mode} ({freq/4.55633590401805e-06: 0.1f}cm-1)! Insufficient maximum displacment {displ_mag * m: .2f} vs {necessary_displ: .2f}!"
+                )
                 continue
 
             path = os.path.join(INFOS["paths_gamma"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
@@ -677,7 +752,6 @@ def write_LVC_template(INFOS, template_name):
                 path = os.path.join(INFOS["paths_gamma"][f"{normal_mode:>03s}_{'n2'}"], "QM.out")
             QMout_neg2 = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
             print(path)
-
 
             # Loop over multiplicities
             start = 0
@@ -774,12 +848,12 @@ def write_LVC_template(INFOS, template_name):
                 )
                 # gammas = np.diag(gammas)
                 # gamma_str_list.extend(
-                    # list(
-                        # map(
-                            # lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
-                            # np.where(abs(gammas) > 4.55633590401805e-06)[0],
-                        # )
-                    # )
+                # list(
+                # map(
+                # lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
+                # np.where(abs(gammas) > 4.55633590401805e-06)[0],
+                # )
+                # )
                 # )
                 start += nsi
 
@@ -1024,6 +1098,12 @@ def write_LVC_template(INFOS, template_name):
     lvc_template_content += "%i\n" % (nlambda)
     lvc_template_content += "".join(sorted(lambda_str_list))
 
+    if INFOS["lambda_soc"]:
+        # add results to template string
+        lvc_template_content += "lambda_soc\n"
+        lvc_template_content += "%i\n" % (len(lambda_soc_str_list))
+        lvc_template_content += "".join(sorted(lambda_soc_str_list))
+
     if len(gamma_str_list) != 0:
         lvc_template_content += "gamma\n"
         lvc_template_content += "%i\n" % (len(gamma_str_list))
@@ -1053,7 +1133,7 @@ def write_LVC_template(INFOS, template_name):
         n_entries = 0
         for (s_i, s_j), fit in QMout_eq["multipolar_fit"].items():
             if INFOS["no_transition_multipoles"] and s_i != s_j:
-               continue 
+                continue
             if s_i > s_j:
                 continue
             for atom in range(len(INFOS["atoms"])):  # get mults

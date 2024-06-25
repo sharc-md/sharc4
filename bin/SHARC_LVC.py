@@ -188,7 +188,24 @@ class SHARC_LVC(SHARC_FAST):
                 self._H_i[im][i, si, sj] = v
                 self._H_i[im][i, sj, si] = v
             line = f.readline()
-            self.available_requests.add("lambda")
+	    self.available_requests.add("lambda")
+
+        if line == "lambda_soc\n":
+            z = int(f.readline()[:-1])
+            self._lambda_soc = np.zeros((nmstates, nmstates, r3N), dtype=complex)
+            lambda_soc_real = True
+
+            def c(_):
+                v = f.readline().split()
+                return (int(v[0]) - 1, int(v[1]) - 1, int(v[2]) - 1, (1j if v[3] == "I" else 1.0) * float(v[4]))
+
+            for si, sj, i, v in map(c, range(z)):
+                if lambda_soc_real and isinstance(v, complex):
+                    lambda_soc_real = False
+
+                self._lambda_soc[si, sj, i] += v
+                self._lambda_soc[sj, si, i] += v
+            line = f.readline()
 
         if line == "gamma\n":
             z = int(f.readline()[:-1])
@@ -440,9 +457,9 @@ class SHARC_LVC(SHARC_FAST):
         quad[..., [0, 1, 2], [0, 1, 2]] = q[..., 4:7]
         quad[..., [0, 0, 1], [1, 2, 2]] = 0.5 * q[..., 7:]
         quad[..., [1, 2, 2], [0, 0, 1]] = quad[..., [0, 0, 1], [1, 2, 2]]
-        quad = np.einsum("kxm,ijaxy,yn->kijamn", dTrot, quad, Trot, casting="no", optimize=["einsum_path", (1, 2), (0, 1)]) + np.einsum(
-            "xm,ijaxy,kyn->kijamn", Trot, quad, dTrot, casting="no", optimize=["einsum_path", (0, 1), (0, 1)]
-        )
+        quad = np.einsum(
+            "kxm,ijaxy,yn->kijamn", dTrot, quad, Trot, casting="no", optimize=["einsum_path", (1, 2), (0, 1)]
+        ) + np.einsum("xm,ijaxy,kyn->kijamn", Trot, quad, dTrot, casting="no", optimize=["einsum_path", (0, 1), (0, 1)])
         return np.concatenate((dip, quad[..., [0, 1, 2], [0, 1, 2]], 2 * quad[..., [0, 0, 1], [1, 2, 2]]), axis=-1)
    
     def _request_logic(self):
@@ -518,7 +535,6 @@ class SHARC_LVC(SHARC_FAST):
             mult_prefactors_pc = np.einsum("b,yab->ay", self.pc_chrg, mult_prefactors)
             del mult_prefactors
 
-
         # Build full H and diagonalize
         self._Q = np.sqrt(self._Om) * (self._Km @ (coords_ref_basis.flatten() - self._ref_coords.flatten()))
         self._V = self._Om * self._Q
@@ -559,8 +575,6 @@ class SHARC_LVC(SHARC_FAST):
             start += n * (im + 1)
             start_req += n_req * (im + 1)
 
-
-        do_derivs = self.QMin.requests["grad"] or self.QMin.requests["nacdr"]
         if do_kabsch:
             if do_pc and do_derivs:
                 pc_grad = np.zeros((self.pc_chrg.shape[0] * 3, req_nmstates))
@@ -785,11 +799,17 @@ class SHARC_LVC(SHARC_FAST):
             self.all_U.append(self._U)
 
         # ========================== Prepare results ========================================
-        if self.QMin.requests['soc']:
+        if self.QMin.requests["soc"]:
             Hd = Hd.astype(self._soc.dtype)
             adia_soc = self._U.T @ self._soc @ self._U
             self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
             Hd += adia_soc
+            if "_lambda_soc" in self.__dict__:
+                self.log.debug("adding linear derivatives of soc")
+                Hd = Hd.astype(self._lambda_soc.dtype)
+                adia_lambda_soc = np.einsum('in,ijk,jm->nmk', self._U, self._lambda_soc, self._U)
+                self.log.debug(f"soc sanity check: {adia_lambda_soc.dtype} {self._lambda_soc.dtype}")
+                Hd += np.einsum("ijk,k->ij", adia_lambda_soc, self._Q)
 
         if self.QMin.requests['dm']:
             dipole = (

@@ -12,7 +12,8 @@ build_info.inc
 bin/pysharc_*.py
 wfoverlap/
 *.swp
+bin/__pycache__/*
+lib/__pycache__/*
 bin/KEYSTROKES.extract_laser_fields
 bin/laser
 bin/laser_freq
-

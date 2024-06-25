@@ -479,11 +479,13 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     ## -------------------- Setup SOCs -------------------- ##
     print("{:-^60}".format("Spin-orbit couplings (SOCs)") + "\n")
     if len(states) > 1:
+        lambda_soc = False
         if "soc" in features:
             print("Do you want to compute spin-orbit couplings?\n")
             soc = question("Spin-Orbit calculation?", bool, True)
             if soc:
                 print("Will calculate spin-orbit matrix.")
+                lambda_soc = question("Calculate gradients of SOCs in linear approx.?", bool, False)
         else:
             print("Interface cannot provide SOCs: not calculating spin-orbit matrix.")
             soc = False
@@ -494,6 +496,7 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
 
     # save input
     INFOS["soc"] = soc
+    INFOS["lambda_soc"] = lambda_soc
     if INFOS["soc"]:
         INFOS["needed_requests"].append("soc")
 
@@ -930,7 +933,7 @@ def write_QM_in(INFOS, displacement_key, displacement_value, displacement_dir):
     string += "savedir ./SAVE/\n"
 
     # spin orbit coupling
-    if INFOS["soc"]:
+    if (displacement_key == "000_eq" and INFOS["soc"]) or INFOS["lambda_soc"]:
         string += "\nSOC\n"
     else:
         string += "\nH\n"

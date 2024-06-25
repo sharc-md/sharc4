@@ -42,11 +42,9 @@ all_features = set(
         # Rest of the possible requests:
         # "phases",
         # "ion",
-        # "socdr",
         # "dmdr",
         # "multipolar_fit",
         # "theodore",
-        # "basis_set",
         # "density_matrices",
         # "cleanup",
         # "backup",
