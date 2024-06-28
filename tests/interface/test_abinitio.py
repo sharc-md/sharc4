@@ -16,6 +16,7 @@ def setup_interface(qmin: str, template: str, maps: dict):
     test.setup_mol(qmin)
     test.read_template(template)
     test._read_resources = True
+    test.QMin.resources["wfoverlap"] = ""
     test.read_requests(qmin)
     test.setup_interface()
 

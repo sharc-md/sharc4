@@ -14,6 +14,7 @@ def setup_interface(path: str, maps: dict):
     test_interface.setup_mol(path)
     test_interface._read_resources = True
     test_interface._read_template = True
+    test_interface.QMin.resources["wfoverlap"] = ""
     test_interface.read_requests(path)
     test_interface.setup_interface()
     for k, v in maps.items():
@@ -35,6 +36,7 @@ def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: di
     test_interface = SHARC_ORCA()
     test_interface.setup_mol(qmin)
     test_interface._read_resources = True
+    test_interface.QMin.resources["wfoverlap"] = ""
     test_interface.read_template(template)
     test_interface.setup_interface()
     test_interface.read_requests(qmin)
@@ -68,9 +70,9 @@ def test_requests2():
     for i in tests:
         test_interface = SHARC_ORCA()
         test_interface.setup_mol(os.path.join(PATH, i))
-        print(test_interface.QMin.maps["statemap"])
         test_interface._read_template = True
         test_interface._read_resources = True
+        test_interface.QMin.resources["wfoverlap"] = ""
         test_interface.read_requests(os.path.join(PATH, i))
 
 
