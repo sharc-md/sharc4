@@ -207,7 +207,7 @@ class SHARC_QMOUT(SHARC_FAST):
 
     def setup_interface(self):
         # read the file
-        self.QMout2 = QMout(filepath="QMout.out")
+        self.QMout2 = QMout(filepath="QMout.template")
         # check the file
         if any([
             self.QMin.molecule["states"] != self.QMout2.states,
