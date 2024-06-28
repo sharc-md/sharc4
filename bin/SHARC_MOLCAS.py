@@ -333,7 +333,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 raise ValueError()
 
         for idx, charge in enumerate(self.QMin.template["charge"], 1):
-            if (self.QMin.template["nactel"][0] - idx - charge) % 2 == 0:
+            if (
+                ((nactel := self.QMin.template["nactel"][0]) - idx - charge) % 2 == 0
+                or nactel - charge < 1
+                or nactel - charge >= self.QMin.template["ras2"] * 2
+            ):
                 self.log.error(f"Charge {charge} not compatible with multiplicity {idx}")
                 raise ValueError()
 
