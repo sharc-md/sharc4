@@ -207,14 +207,15 @@ class SHARC_QMOUT(SHARC_FAST):
         super().printQMout()
 
     def write_step_file(self):
-        pass
+        super().write_step_file()
+        # self.write_step_file()
 
     def run(self):
         pass
 
     def setup_interface(self):
         # read the file
-        self.QMout2 = QMout(filepath="QMout.out")
+        self.QMout2 = QMout(filepath="QMout.template")
         self.QMin.template['charges']=self.QMout2.charges
         # check the file
         if any([
