@@ -23,8 +23,8 @@ from scipy.linalg import fractional_matrix_power
 from SHARC_INTERFACE import SHARC_INTERFACE
 from sympy.physics.wigner import wigner_3j
 from utils import (InDir, convert_dict, convert_list, density_representation,
-                   electronic_state, is_exec, itmult, link, mkdir, readfile,
-                   safe_cast, shorten_DIR, writefile)
+                   electronic_state, expand_path, is_exec, itmult, link, mkdir,
+                   readfile, safe_cast, shorten_DIR, writefile)
 
 all_features = {
     "h",
@@ -73,7 +73,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "theodir": None,
                 "theodore_prop": [],
                 "theodore_fragment": [],
-                "wfoverlap": "wfoverlap.x",
+                "wfoverlap": "$SHARC/wfoverlap.x",
                 "wfthres": 0.998,
                 "resp_shells": [],  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": {},
@@ -129,6 +129,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
+        if self.QMin.resources["wfoverlap"] != "" and "$" in self.QMin.resources["wfoverlap"]:
+            self.QMin.resources["wfoverlap"] = expand_path(self.QMin.resources["wfoverlap"])
         if self.QMin.resources["theodore_fragment"]:
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
         if self.QMin.resources["resp_vdw_radii"]:
