@@ -293,7 +293,7 @@ subroutine DoM_step_MCH(traj,ctrl)
         &traj%H_MCH_ss, traj%H_MCH_old_ss,&
         &traj%NACdt_ss, traj%NACdt_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &traj%DM_ssd,traj%DM_old_ssd,&
+        &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
         &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
@@ -308,7 +308,7 @@ subroutine DoM_step_MCH(traj,ctrl)
         &traj%H_MCH_ss, traj%H_MCH_old_ss,&
         &traj%NACdt_ss, traj%NACdt_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &traj%DM_ssd,traj%DM_old_ssd,&
+        &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
         &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
@@ -323,7 +323,7 @@ subroutine DoM_step_MCH(traj,ctrl)
         &traj%H_MCH_ss, traj%H_MCH_old_ss,&
         &traj%overlaps_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
-        &traj%DM_ssd,traj%DM_old_ssd,&
+        &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
         &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&

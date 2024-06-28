@@ -188,7 +188,7 @@ class SHARC_LVC(SHARC_FAST):
                 self._H_i[im][i, si, sj] = v
                 self._H_i[im][i, sj, si] = v
             line = f.readline()
-	    self.available_requests.add("lambda")
+            self.available_requests.add("lambda")
 
         if line == "lambda_soc\n":
             z = int(f.readline()[:-1])

@@ -296,6 +296,7 @@ QMout_printAll(QMout * self)
 static PyObject *
 QMout_set_gradient(QMout * self, PyObject * args)
 {
+    printf("TESTTESTASDF");
     PyObject * gradient;
     PyObject * key;
     PyObject * value;

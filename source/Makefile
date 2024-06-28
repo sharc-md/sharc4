@@ -126,7 +126,7 @@ CINCLUDE= -I$(ANACONDA)/include
 F90FLAGS = -O3 -fPIC -g  $(EXTRAFLAGS)
 
 # debug
-DEBUGFLAGS  = #-Wall -Wextra -Winline -Wno-unused-parameter -Wimplicit-interface -fbounds-check -fimplicit-none -fbacktrace -g 
+DEBUGFLAGS  = -traceback#-Wall -Wextra -Winline -Wno-unused-parameter -Wimplicit-interface -fbounds-check -fimplicit-none -fbacktrace -g 
 
 # C flags
 CLIB= -lgfortran

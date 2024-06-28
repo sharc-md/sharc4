@@ -51,6 +51,8 @@ subroutine propagate_laser(traj,ctrl)
         &traj%NACdt_ss, traj%NACdt_old_ss,&
         &traj%U_ss,traj%U_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
+        &traj%MDM_ssd,traj%MDM_old_ssd,&
+        &traj%EQM_ssdd,traj%EQM_old_ssdd,&
         &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%dtstep, ctrl%nsubsteps, 1,&       ! 1=constant interpolation
         &traj%Rtotal_ss)
@@ -69,6 +71,8 @@ subroutine propagate_laser(traj,ctrl)
         &traj%NACdt_ss, traj%NACdt_old_ss,&
         &traj%U_ss,traj%U_old_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
+        &traj%MDM_ssd,traj%MDM_old_ssd,&
+        &traj%EQM_ssdd,traj%EQM_old_ssdd,&
         &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%dtstep, ctrl%nsubsteps, 0,&       ! 0=linear interpolation
         &traj%Rtotal_ss)
@@ -81,6 +85,8 @@ subroutine propagate_laser(traj,ctrl)
         &traj%U_ss,traj%U_old_ss,&
         &traj%overlaps_ss,&
         &traj%DM_ssd,traj%DM_old_ssd,&
+        &traj%MDM_ssd,traj%MDM_old_ssd,&
+        &traj%EQM_ssdd,traj%EQM_old_ssdd,&
         &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%dtstep, ctrl%nsubsteps,&
         &traj%Rtotal_ss)
@@ -184,7 +190,7 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
-subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DMold, laserfield, dt, nsubsteps, interp, Rtotal)
+subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DMold, MDM, MDMold, EQM, EQMold, laserfield, dt, nsubsteps, interp, Rtotal)
   use definitions, only: u_log
   use matrix
   !
@@ -197,11 +203,13 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
 
   integer, intent(in) :: n, nsubsteps, interp
   complex*16, intent(in) :: U(n,n), SO(n,n), SOold(n,n), NACM(n,n), NACMold(n,n), DM(n,n,3),DMold(n,n,3)
+  complex*16, intent(in) :: MDM(n,n,3), MDMold(n,n,3)
+  complex*16, intent(in) :: EQM(n,n,3,3), EQMold(n,n,3,3)
   complex*16, intent(in) :: laserfield(nsubsteps,3)
   complex*16, intent(inout) :: Uold(n,n), Rtotal(n,n)
   real*8, intent(in) :: dt
   ! internal variables:
-  integer :: istep, ixyz
+  integer :: istep, ixyz, jxyz
   real*8 :: dtsubstep
   complex*16 :: H(n,n), T(n,n)
   complex*16 :: Rexp(n,n), Rprod(n,n)
@@ -220,7 +228,15 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
     do ixyz=1,3
       H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield(istep,ixyz))
     enddo
-
+    ! do ixyz=1,3
+    !   H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz))
+    ! enddo
+    ! do ixyz=1,3
+    !   do jxyz=1,3
+    !     H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield(istep,ixyz))
+    !   enddo
+    ! enddo
+    
     ! second ingredient, T
     if (interp==1) then
       T=NACM

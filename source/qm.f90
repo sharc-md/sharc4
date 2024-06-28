@@ -348,14 +348,18 @@ module qm
       do i=1,3
         traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
       enddo
-      if (ctrl%laser_b==.true.) then
-        traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,i)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,i))
-      endif
-      if (ctrl%laser_egrad==.true.) then
-        do j=1,3
-          traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,i,j)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,i,j))
-        enddo
-      endif
+      ! if (ctrl%laser_b==.true.) then
+      !   do i=1,3
+      !     traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,i)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,i))
+      !   enddo
+      ! endif
+      ! if (ctrl%laser_egrad==.true.) then
+      !   do  i=1,3
+      !     do j=1,3
+      !       traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,i,j)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,i,j))
+      !     enddo
+      !   enddo
+      ! endif
     endif
 
     ! diagonalize, if SHARC dynamics
@@ -2369,18 +2373,18 @@ module qm
         do idir=1,3
           H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
         enddo
-        if (ctrl%laser_b==.true.) then
-          do idir=1,3 
-            H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
-          enddo 
-        endif
-        if (ctrl%laser_egrad==.true.) then
-          do idir=1,3
-            do jdir=1,3
-              H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
-            enddo
-          enddo 
-        endif
+        ! if (ctrl%laser_b==.true.) then
+        !   do idir=1,3 
+        !     H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+        !   enddo 
+        ! endif
+        ! if (ctrl%laser_egrad==.true.) then
+        !   do idir=1,3
+        !     do jdir=1,3
+        !       H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+        !     enddo
+        !   enddo 
+        ! endif
         call diagonalize(ctrl%nstates,H_temp,U_temp)
       endif
     elseif (ctrl%surf==1) then

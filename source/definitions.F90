@@ -732,6 +732,30 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
         allocate(traj%DM_print_ssd(nstates,nstates,3),stat=status)
         if (status/=0) stop 'Could not allocate DM_print_ssd'
         traj%DM_print_ssd=-123.d0
+        
+        allocate(traj%MDM_ssd(nstates,nstates,3),stat=status)
+        if (status/=0) stop 'Could not allocate MDM_ssd'
+        traj%MDM_ssd=-123.d0
+  
+        allocate(traj%MDM_old_ssd(nstates,nstates,3),stat=status)
+        if (status/=0) stop 'Could not allocate MDM_old_ssd'
+        traj%MDM_old_ssd=-123.d0
+  
+        allocate(traj%MDM_print_ssd(nstates,nstates,3),stat=status)
+        if (status/=0) stop 'Could not allocate MDM_print_ssd'
+        traj%MDM_print_ssd=-123.d0
+        
+        allocate(traj%EQM_ssdd(nstates,nstates,3,3),stat=status)
+        if (status/=0) stop 'Could not allocate EQM_ssdd'
+        traj%EQM_ssdd=-123.d0
+  
+        allocate(traj%EQM_old_ssdd(nstates,nstates,3,3),stat=status)
+        if (status/=0) stop 'Could not allocate EQM_old_ssdd'
+        traj%EQM_old_ssdd=-123.d0
+  
+        allocate(traj%EQM_print_ssdd(nstates,nstates,3,3),stat=status)
+        if (status/=0) stop 'Could not allocate EQM_print_ssdd'
+        traj%EQM_print_ssdd=-123.d0
   
         allocate(traj%Rtotal_ss(nstates,nstates),stat=status)
         if (status/=0) stop 'Could not allocate Rtotal_ss'
@@ -1136,6 +1160,8 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       ! Pointer routines
       if (associated(traj%H_MCH_ss))                  deallocate(traj%H_MCH_ss)
       if (associated(traj%DM_ssd))                    deallocate(traj%DM_ssd)
+      if (associated(traj%MDM_ssd))                   deallocate(traj%MDM_ssd)
+      if (associated(traj%EQM_ssdd))                  deallocate(traj%EQM_ssdd)
       if (associated(traj%overlaps_ss))               deallocate(traj%overlaps_ss)
       if (associated(traj%grad_MCH_sad))              deallocate(traj%grad_MCH_sad)
       if (associated(traj%NACdR_ssad))                deallocate(traj%NACdR_ssad)
@@ -1143,6 +1169,8 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
 #else
       if (allocated(traj%H_MCH_ss))                   deallocate(traj%H_MCH_ss)
       if (allocated(traj%DM_ssd))                     deallocate(traj%DM_ssd)
+      if (allocated(traj%MDM_ssd))                    deallocate(traj%MDM_ssd)
+      if (allocated(traj%EQM_ssdd))                   deallocate(traj%EQM_ssdd)
       if (allocated(traj%overlaps_ss))                deallocate(traj%overlaps_ss)
       if (allocated(traj%grad_MCH_sad))               deallocate(traj%grad_MCH_sad)
       if (allocated(traj%NACdR_ssad))                 deallocate(traj%NACdR_ssad)
@@ -1182,7 +1210,11 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       if (allocated(traj%pNACdR_MCH_ssad))            deallocate(traj%pNACdR_MCH_ssad)
       if (allocated(traj%pNACdR_diag_ssad))           deallocate(traj%pNACdR_diag_ssad)
       if (allocated(traj%DM_old_ssd))                 deallocate(traj%DM_old_ssd)
+      if (allocated(traj%MDM_old_ssd))                deallocate(traj%MDM_old_ssd)
+      if (allocated(traj%EQM_old_ssdd))               deallocate(traj%EQM_old_ssdd)
       if (allocated(traj%DM_print_ssd))               deallocate(traj%DM_print_ssd)
+      if (allocated(traj%MDM_print_ssd))              deallocate(traj%MDM_print_ssd)
+      if (allocated(traj%EQM_print_ssdd))             deallocate(traj%EQM_print_ssdd)
       if (allocated(traj%Rtotal_ss))                  deallocate(traj%Rtotal_ss)
       if (allocated(traj%RDtotal_ss))                 deallocate(traj%RDtotal_ss)
       if (allocated(traj%Dtotal_ss))                  deallocate(traj%Dtotal_ss)
@@ -1267,6 +1299,8 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       ! Pointer routines
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        associated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          associated(traj%DM_ssd          )
+      write(u,'(A20,1X,L1)') 'MDM_ssd',         associated(traj%MDM_ssd         )
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',        associated(traj%EQM_ssdd        )
       write(u,'(A20,1X,L1)') 'overlaps_ss',     associated(traj%overlaps_ss     )
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    associated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      associated(traj%NACdR_ssad      )
@@ -1274,6 +1308,8 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
 #else
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        allocated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
+      write(u,'(A20,1X,L1)') 'MDM_ssd',         allocated(traj%MDM_ssd         )
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',        allocated(traj%EQM_ssdd        )
       write(u,'(A20,1X,L1)') 'overlaps_ss',     allocated(traj%overlaps_ss     )
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    allocated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      allocated(traj%NACdR_ssad      )
@@ -1320,7 +1356,11 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'dendt_MCH_ss',    allocated(traj%dendt_MCH_ss    )
       write(u,'(A20,1X,L1)') 'dendt_diag_ss',   allocated(traj%dendt_diag_ss   )
       write(u,'(A20,1X,L1)') 'DM_old_ssd',      allocated(traj%DM_old_ssd      )
+      write(u,'(A20,1X,L1)') 'MDM_old_ssd',     allocated(traj%MDM_old_ssd     )
+      write(u,'(A20,1X,L1)') 'EQM_old_ssdd',    allocated(traj%EQM_old_ssdd    )
       write(u,'(A20,1X,L1)') 'DM_print_ssd',    allocated(traj%DM_print_ssd    )
+      write(u,'(A20,1X,L1)') 'MDM_print_ssd',   allocated(traj%MDM_print_ssd   )
+      write(u,'(A20,1X,L1)') 'EQM_print_ssdd',  allocated(traj%EQM_print_ssdd  )
       write(u,'(A20,1X,L1)') 'Rtotal_ss',       allocated(traj%Rtotal_ss       )
       write(u,'(A20,1X,L1)') 'RDtotal_ss',      allocated(traj%RDtotal_ss      )
       write(u,'(A20,1X,L1)') 'Dtotal_ss',       allocated(traj%Dtotal_ss       )
@@ -1452,10 +1492,16 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'NACdR_diag_ssad', any((real(traj%NACdR_diag_ssad )).ne.(real(traj%NACdR_diag_ssad )))
       write(u,'(A20,1X,L1)') 'overlaps_ss',     any((real(traj%overlaps_ss     )).ne.(real(traj%overlaps_ss     )))
       write(u,'(A20,1X,L1)') 'DM_ssd',          any((real(traj%DM_ssd          )).ne.(real(traj%DM_ssd          )))
+      write(u,'(A20,1X,L1)') 'MDM_ssd',         any((real(traj%MDM_ssd         )).ne.(real(traj%MDM_ssd         )))
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',        any((real(traj%EQM_ssdd        )).ne.(real(traj%EQM_ssdd        )))
       write(u,'(A20,1X,L1)') 'DM_old_ssd',      any((real(traj%DM_old_ssd      )).ne.(real(traj%DM_old_ssd      )))
+      write(u,'(A20,1X,L1)') 'MDM_old_ssd',     any((real(traj%MDM_old_ssd     )).ne.(real(traj%MDM_old_ssd     )))
+      write(u,'(A20,1X,L1)') 'EQM_old_ssdd',    any((real(traj%EQM_old_ssdd   )).ne.(real(traj%EQM_old_ssdd     )))
       write(u,'(A20,1X,L1)') 'Property2d_xss',  any((real(traj%Property2d_xss  )).ne.(real(traj%Property2d_xss  )))
       write(u,'(A20,1X,L1)') 'Property1d_ys',   any((real(traj%Property1d_ys   )).ne.(real(traj%Property1d_ys   )))
       write(u,'(A20,1X,L1)') 'DM_print_ssd',    any((real(traj%DM_print_ssd    )).ne.(real(traj%DM_print_ssd    )))
+      write(u,'(A20,1X,L1)') 'MDM_print_ssd',   any((real(traj%MDM_print_ssd   )).ne.(real(traj%MDM_print_ssd   )))
+      write(u,'(A20,1X,L1)') 'EQM_print_ssdd',  any((real(traj%EQM_print_ssdd  )).ne.(real(traj%EQM_print_ssdd  )))
       write(u,'(A20,1X,L1)') 'Rtotal_ss',       any((real(traj%Rtotal_ss       )).ne.(real(traj%Rtotal_ss       )))
       write(u,'(A20,1X,L1)') 'RDtotal_ss',      any((real(traj%RDtotal_ss      )).ne.(real(traj%RDtotal_ss      )))
       write(u,'(A20,1X,L1)') 'Dtotal_ss',       any((real(traj%Dtotal_ss       )).ne.(real(traj%Dtotal_ss       )))
@@ -1506,6 +1552,12 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'DM_ssd',          any((aimag(traj%DM_ssd          )).ne.(aimag(traj%DM_ssd          )))
       write(u,'(A20,1X,L1)') 'DM_old_ssd',      any((aimag(traj%DM_old_ssd      )).ne.(aimag(traj%DM_old_ssd      )))
       write(u,'(A20,1X,L1)') 'DM_print_ssd',    any((aimag(traj%DM_print_ssd    )).ne.(aimag(traj%DM_print_ssd    )))
+      write(u,'(A20,1X,L1)') 'MDM_ssd',          any((aimag(traj%MDM_ssd          )).ne.(aimag(traj%MDM_ssd          )))
+      write(u,'(A20,1X,L1)') 'MDM_old_ssd',      any((aimag(traj%MDM_old_ssd      )).ne.(aimag(traj%MDM_old_ssd      )))
+      write(u,'(A20,1X,L1)') 'MDM_print_ssd',    any((aimag(traj%MDM_print_ssd    )).ne.(aimag(traj%MDM_print_ssd    )))
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',          any((aimag(traj%EQM_ssdd          )).ne.(aimag(traj%EQM_ssdd          )))
+      write(u,'(A20,1X,L1)') 'EQM_old_ssdd',      any((aimag(traj%EQM_old_ssdd      )).ne.(aimag(traj%EQM_old_ssdd      )))
+      write(u,'(A20,1X,L1)') 'EQM_print_ssdd',    any((aimag(traj%EQM_print_ssdd    )).ne.(aimag(traj%EQM_print_ssdd    )))
       write(u,'(A20,1X,L1)') 'Property2d_xss',  any((aimag(traj%Property2d_xss  )).ne.(aimag(traj%Property2d_xss  )))
   !     write(u,'(A20,1X,L1)') 'Property1d_ys',   any((aimag(traj%Property1d_ys   )).ne.(aimag(traj%Property1d_ys   )))
       write(u,'(A20,1X,L1)') 'Rtotal_ss',       any((aimag(traj%Rtotal_ss       )).ne.(aimag(traj%Rtotal_ss       )))

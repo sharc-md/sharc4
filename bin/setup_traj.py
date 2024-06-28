@@ -1977,7 +1977,6 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     string += "||" + f"{'Setting up directories...':^80}" + "||\n"
     string += "  " + "=" * 80 + "\n\n"
     log.info(string)
-
     all_run = open("all_run_traj.sh", "w")
     string = "#!/bin/bash\n\nCWD=%s\n\n" % (INFOS["cwd"])
     all_run.write(string)
@@ -2027,6 +2026,10 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 log.info("Could not make QM or restart directory!")
                 continue
             interface.prepare(INFOS, dirname + "/QM")
+            if INFOS["pysharc"]:
+                run_qm = open(dirname + "/QM/runQM.sh", "w")
+                string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)
+                run_qm.write(string)                               
 
             writeRunscript(INFOS, dirname, interface)
             if INFOS["rattle"]:
