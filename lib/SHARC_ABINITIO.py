@@ -15,14 +15,16 @@ import sympy
 import wf2rho
 from asa_grid import GRIDS
 from constants import ATOMIC_RADII, MK_RADII, IToMult
-from logger import log, DEBUG, TRACE, ERROR, WARNING 
+from logger import DEBUG, TRACE
+from pyscf.gto import mole
 from qmin import QMin
 from resp import Resp, multipoles_from_dens_parallel
+from scipy.linalg import fractional_matrix_power
 from SHARC_INTERFACE import SHARC_INTERFACE
 from sympy.physics.wigner import wigner_3j
-from pyscf.gto import mole
-from scipy.linalg import fractional_matrix_power
-from utils import InDir, containsstring, convert_list, electronic_state, is_exec, itmult, link, mkdir, readfile, safe_cast, shorten_DIR, writefile, density_representation 
+from utils import (InDir, convert_dict, convert_list, density_representation,
+                   electronic_state, is_exec, itmult, link, mkdir, readfile,
+                   safe_cast, shorten_DIR, writefile)
 
 all_features = {
     "h",
@@ -134,7 +136,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         if self.QMin.resources["resp_vdw_radii_symbol"]:
             self.QMin.resources["resp_vdw_radii_symbol"] = convert_dict(self.QMin.resources["resp_vdw_radii_symbol"], float)
         if self.QMin.resources["resp_target"] and self.QMin.resources["resp_target"] not in {"zero", "mulliken", "loewdin"}:
-            self.log.error(f'"resp_target": {self.QMin.resources["resp_target"]} is not known! valid options are "zero", "mulliken" or "loewdin"')
+            self.log.error(
+                f'"resp_target": {self.QMin.resources["resp_target"]} is not known! valid options are "zero", "mulliken" or "loewdin"'
+            )
             raise ValueError()
 
     def printQMout(self) -> None:
@@ -717,7 +721,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         if "from_gs2es" not in self.QMin.template["density_calculation_methods"]:
             missing_to_calculate = False
         i = 0
-        max_iter = len(self.states)**2
+        max_iter = len(self.states) ** 2
         while missing_to_calculate or missing_to_construct:
             if i > max_iter:
                 self.log.error("Constructing densities failed!")
@@ -808,7 +812,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         nst = np.loadtxt(file, usecols=(0,), max_rows=1, dtype=int)
         nst = int(nst)
         dets = np.loadtxt(file, usecols=(0,), skiprows=1, dtype=str, ndmin=1).tolist()
-        CI = np.loadtxt(file, skiprows=1, usecols=[i for i in range(1, nst + 1)], ndmin=2, dtype=float)
+        ci = np.loadtxt(file, skiprows=1, usecols=list(range(1, nst + 1)), ndmin=2, dtype=float)
         file = f"{directory}/mos.{s + 1}.{step}"
         nao = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(0,), dtype=int)
         nmo = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(1,), dtype=int)
@@ -933,7 +937,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                             denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, 1.0 / 2.0, -s2.M / 2.0)
                         if denominator != 0:
                             to_append[(thes1, thes2, thespin)] = (
-                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0) * float(numerator.evalf()) / float(denominator.evalf()) * phi_work
+                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0)
+                                * float(numerator.evalf())
+                                / float(denominator.evalf())
+                                * phi_work
                             )
                         break
                 for do, phi_work in to_append.items():
@@ -1125,7 +1132,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         mol = self.QMout["mol"]
         if self.QMin.resources["resp_target"] == "loewdin":
             Sao_root = fractional_matrix_power(self.QMin.molecule["SAO"], 0.5)
-        fits.prepare(mol, self.QMin.resources['ncpu'])  # the charge of the atom does not affect integrals
+        fits.prepare(mol, self.QMin.resources["ncpu"])  # the charge of the atom does not affect integrals
         fits.prepare_parallel(self.QMout.density_matrices, self.QMin.resources["resp_fit_order"])
 
         fits_map = {}
@@ -1147,14 +1154,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         mol,
                         dm=self.QMout.density_matrices[(s1, s2, "tot")],
                         s=self.QMin.molecule["SAO"],
-                        include_core_charges=s1 is s2
+                        include_core_charges=s1 is s2,
                     )
                 elif self.QMin.resources["resp_target"] == "loewdin":
                     target = SHARC_ABINITIO.loewdin_pop(
-                        mol,
-                        dm=self.QMout.density_matrices[(s1, s2, "tot")],
-                        s_root=Sao_root,
-                        include_core_charges=s1 is s2
+                        mol, dm=self.QMout.density_matrices[(s1, s2, "tot")], s_root=Sao_root, include_core_charges=s1 is s2
                     )
                 if target is not None:
                     self.log.debug(f"{dens} fitted to target ({charge}, {sum(target)}) {target}")
@@ -1169,7 +1173,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         self.QMin.resources["resp_fit_order"],
                         self.QMin.resources["resp_betas"],
                         self.QMin.molecule["natom"],
-                        target
+                        target,
                     ),
                 )
             pool.close()
@@ -1390,7 +1394,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             dm: density matrix in AO basis
             s: atomic orbital overlap
         """
-        pop = np.einsum('ij,ij->i', dm, s)
+        pop = np.einsum("ij,ij->i", dm, s)
         aorange = mole.aoslice_by_atom(mol)
 
         chrg = np.zeros((mol.natm))
@@ -1411,7 +1415,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             dm: density matrix in AO basis
             s_root: S^(1/2) where S is the AO overlap matrix
         """
-        pop = np.einsum('mi,ij,jm->m', s_root, dm, s_root)
+        pop = np.einsum("mi,ij,jm->m", s_root, dm, s_root)
         # pop = s_root @ dm @ s_root
         aorange = mole.aoslice_by_atom(mol)
 
@@ -1424,6 +1428,3 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             chrg[i] -= sum(pop[ao_start:ao_stop])
 
         return chrg
-        
-        
-
