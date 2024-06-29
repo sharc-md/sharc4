@@ -274,7 +274,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         # Write point charges
         if self.QMin.molecule["point_charges"]:
             pc_str = ""
-            for coords, charge in zip(self.QMin.coords["pccoords"], self.QMin.coords["pccharge"]):
+            for coords, charge in zip(self.QMin.coords["pccoords"] * BOHR_TO_ANG, self.QMin.coords["pccharge"]):
                 pc_str += f"{' '.join(map(str, coords))} {charge}\n"
             writefile(os.path.join(workdir, "fort.20"), pc_str)
 
