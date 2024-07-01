@@ -56,7 +56,7 @@ class QMout:
     density_matrices: dict
     mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
-
+    log.info("QMOUTCLASS")
     def __init__(self, filepath=None, states: list[int] = None, natom: int = None, npc: int = None, charges: list[int] = None,
                  flags='all'):
         self.prop0d = []

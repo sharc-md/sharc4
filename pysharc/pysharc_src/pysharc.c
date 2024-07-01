@@ -359,7 +359,7 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
         PyErr_SetString(PyExc_TypeError, "arg #1 needs to be of type QMout! ");
         return NULL;
     }
-    printf("TEST234");;
+    printf("TEST234");
     const int iset_g = qmout->iset_g;
     const int iset_nacdr = qmout->iset_nacdr;
 
@@ -447,7 +447,6 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
 }
 
 // -----------------------------------------------------------------
-
 /* SHARC METHODS */
 static PyMethodDef SHARC_METHODS[] = {
     /* QMout */

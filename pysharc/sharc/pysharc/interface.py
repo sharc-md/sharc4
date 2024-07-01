@@ -264,10 +264,10 @@ class SHARC_INTERFACE(object):
                 self.QMout.set_hamiltonian(QMout['h'])
             if 'dm' in QMout:
                 self.QMout.set_dipolemoment(QMout['dm'])
-            if 'mdm' in QMout:
-                self.QMout.set_mag_dipolemoment(QMout['mdm'])
-            if 'eqm' in QMout:
-                self.QMout.set_el_quadrupolemoment(QMout['eqm'])
+            # if 'mdm' in QMout:
+            #     self.QMout.set_mag_dipolemoment(QMout['mdm'])
+            # if 'eqm' in QMout:
+            #     self.QMout.set_el_quadrupolemoment(QMout['eqm'])
 
         if 'overlap' in QMout:
             if not isinstance(QMout['overlap'], type([])):
@@ -311,6 +311,7 @@ class SHARC_INTERFACE(object):
         icall = 1
         tasks, Crd = self.sharc_get_sharc_tasks(icall, True)
         # call do_qm_job
+        print("TEST1456")
         self.sharc_set_QMout(self.sharc_qm_failure_handle(tasks, Crd), icall)
         isecond = sharc.set_qmout(self.QMout, icall)
         print("TEST456")
