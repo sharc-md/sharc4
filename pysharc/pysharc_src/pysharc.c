@@ -349,17 +349,14 @@ static char set_qmout_docstring[] =
 
 static PyObject * set_qmout(PyObject * self, PyObject * args)
 {
-    printf("TEST123");
     QMout * qmout;
     int icall = 0;
     if (!PyArg_ParseTuple(args, "Oi", &qmout, &icall))
         return NULL;
-    printf("TEST1234");
     if (!PyObject_TypeCheck(qmout, &QMoutType)){
         PyErr_SetString(PyExc_TypeError, "arg #1 needs to be of type QMout! ");
         return NULL;
     }
-    printf("TEST234");
     const int iset_g = qmout->iset_g;
     const int iset_nacdr = qmout->iset_nacdr;
 
@@ -367,7 +364,6 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
     // qmout are not pointers to the traj object anymore
     // but are seperate memory
     /* Hamiltonian */
-    printf("TEST345");
     if (qmout->iset_h == 1){
         printf("sharc.c: set h\n");
         set_hamiltonian_(&qmout->NStates, qmout->hamiltonian);
@@ -380,17 +376,17 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
         qmout->iset_d = 0;
     }
     ///* MAGNETIC DIPOLE MOMENT */
-    //if (qmout->iset_mdm == 1){
-    //    printf("sharc.c: set mdm\n");
-    //    set_mag_dipolemoments_(&qmout->NStates, qmout->mag_dipole_mom);
-    //    qmout->iset_mdm = 0;
-    //}
-    // /* ELECTRIC QUADRUPOLE MOMENT */
-    //if (qmout->iset_eqm == 1){
-    //    printf("sharc.c: set eqm\n");
-    //    set_el_quadrupolemoments_(&qmout->NStates, qmout->el_quadrupole_mom);
-    //    qmout->iset_eqm = 0;
-    //}
+    if (qmout->iset_mdm == 1){
+        printf("sharc.c: set mdm\n");
+        set_mag_dipolemoments_(&qmout->NStates, qmout->mag_dipole_mom);
+        qmout->iset_mdm = 0;
+    }
+     /* ELECTRIC QUADRUPOLE MOMENT */
+    if (qmout->iset_eqm == 1){
+        printf("sharc.c: set eqm\n");
+        set_el_quadrupolemoments_(&qmout->NStates, qmout->el_quadrupole_mom);
+        qmout->iset_eqm = 0;
+    }
     /* Gradient */
     if (qmout->iset_g == 1){
         printf("sharc.c: set g\n");
@@ -411,11 +407,10 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
     }
 #else
     // only properties that need to be changed, are done here
-    printf("TESTasdf");
     postprocess_qmout_data_(&qmout->iset_h,
                               &qmout->iset_d,
-                              //&qmout->iset_mdm,
-                              //&qmout->iset_eqm,
+                              &qmout->iset_mdm,
+                              &qmout->iset_eqm,
                               &qmout->iset_g,
                               &qmout->iset_o,
                               &qmout->iset_nacdr
@@ -442,7 +437,6 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
         }
     }
     // Return ISecond
-    printf("TESTTEST");
     return Py_BuildValue("i", ISecond);
 }
 

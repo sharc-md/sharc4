@@ -58,16 +58,16 @@ void get_element_name_(int * NAtoms, char * value);
 void get_ian_(int * NAtoms, int * IAn);
 // set pointer
 void setPointers(void ** H, void ** dm, 
-                 //void ** mdm,
-                 //void ** eqm,
+                 void ** mdm,
+                 void ** eqm,
                  void ** overlap, 
                  void ** grad,
                  void ** nacs 
                  );
 void setQMinPointers(void ** Crd);
 void postprocess_qmout_data_(int * IH, int * IDM,
-                             //int * IMDM, 
-                             //int * IEQM, 
+                             int * IMDM,
+                             int * IEQM,
                              int * IGrad, 
                              int * IOverlap,
                              int * INAC);
@@ -75,8 +75,8 @@ void postprocess_qmout_data_(int * IH, int * IDM,
 void set_phases_(void);
 void set_hamiltonian_(int * N, double complex * H);
 void set_dipolemoments_(int * N, double complex * DM);
-//void set_mag_dipolemoments_(int * N, double complex * MDM);
-//void set_el_quadrupolemoments_(int * N, double complex * EQM);
+void set_mag_dipolemoments_(int * N, double complex * MDM);
+void set_el_quadrupolemoments_(int * N, double complex * EQM);
 void set_overlap_(int * N, double complex * overlap);
 void set_gradients_(int * N, int * NAtoms, double * grad);
 void set_nacs_(int * NStates, int * NAtoms, double * nacs);

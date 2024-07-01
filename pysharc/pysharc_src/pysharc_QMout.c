@@ -41,14 +41,14 @@ typedef struct {
     double * nacdr;
     double complex * hamiltonian;
     double complex * dipole_mom;
-    //double complex * mag_dip_mom;
-    //double complex * el_quad_mom;
+    double complex * mag_dip_mom;
+    double complex * el_quad_mom;
     double complex * overlap;
     int iset_h;
     int iset_g;
     int iset_d;
-    //int iset_mdm;
-    //int iset_eqm;
+    int iset_mdm;
+    int iset_eqm;
     int iset_o;
     int iset_nacdr;
     int imem;
@@ -62,8 +62,8 @@ QMout_dealloc(QMout * self)
     free(self->hamiltonian);
     free(self->gradient);
     free(self->dipole_mom);
-    //free(self->mag_dip_mom);
-    //free(self->el_quad_mom);
+    free(self->mag_dip_mom);
+    free(self->el_quad_mom);
     free(self->overlap);
     free(self->nacdr);
 #endif
@@ -88,8 +88,8 @@ QMout_new(PyTypeObject * type, PyObject *args, PyObject *kwds)
         self->iset_h = 0;
         self->iset_g = 0;
         self->iset_d = 0;
-        //self->iset_mdm = 0;
-        //self->iset_eqm = 0;
+        self->iset_mdm = 0;
+        self->iset_eqm = 0;
         self->iset_o = 0;
         self->iset_nacdr = 0;
 #ifdef __OWN_SPACE_QMout__
@@ -133,33 +133,33 @@ QMout_init(QMout *self, PyObject *args, PyObject *kwds)
              * self->NStates * sizeof(double complex));
     self->dipole_mom= (double complex *) malloc(3 * self->NStates
              * self->NStates * sizeof(double complex));
-    //self->mag_dip_mom= (double complex *) malloc(3 * self->NStates
-    //         * self->NStates * sizeof(double complex));
-    //self->el_quad_mom= (double complex *) malloc(9 * self->NStates
-    //         * self->NStates * sizeof(double complex));
+    self->mag_dip_mom= (double complex *) malloc(3 * self->NStates
+             * self->NStates * sizeof(double complex));
+    self->el_quad_mom= (double complex *) malloc(9 * self->NStates
+             * self->NStates * sizeof(double complex));
     self->overlap = (double complex *) malloc(self->NStates
              * self->NStates * sizeof(double complex));
     /* if fail goto fail */
     if ( (self->hamiltonian == NULL) ||
          (self->gradient== NULL)     ||
          (self->dipole_mom == NULL)  ||
-         //(self->mag_dip_mom == NULL)  ||
-         //(self->el_quad_mom == NULL)  ||
+         (self->mag_dip_mom == NULL)  ||
+         (self->el_quad_mom == NULL)  ||
          (self->overlap == NULL) ) {
             goto fail;
     }
 #else
     double complex ** H_ptr = &self->hamiltonian;
     double complex ** DM_ptr = &self->dipole_mom;
-    //double complex ** MDM_ptr = &self->mag_dip_mom;
-    //double complex ** EQM_ptr = &self->el_quad_mom;
+    double complex ** MDM_ptr = &self->mag_dip_mom;
+    double complex ** EQM_ptr = &self->el_quad_mom;
     double complex ** Ov_ptr = &self->overlap;
     double ** G_ptr = &self->gradient;
     double ** NACDR_ptr = &self->nacdr;
     setPointers( (double complex **)H_ptr, 
                  (double complex **)DM_ptr, 
-                 //(double complex **)MDM_ptr, 
-                 //(double complex **)EQM_ptr, 
+                 (double complex **)MDM_ptr,
+                 (double complex **)EQM_ptr,
                  (double complex **)Ov_ptr, 
                  (double **)G_ptr, 
                  (double **)NACDR_ptr);
@@ -249,35 +249,35 @@ QMout_printAll(QMout * self)
         }
     }
 
-    //if (self->iset_mdm == 1) {
-    //    printf("MDM\n");
-    //    for (int k=0; k < 3; k++){
-    //        printf("MDM xyz = '%d'", k);
-    //        for (int istate=0; istate < self->NStates; istate++){
-    //            for (int jstate=0; jstate <  self->NStates; jstate++){
-    //                    double complex value = *(self->mag_dip_mom + istate*(self->NStates) + jstate);
-    //                    printf("%lf + %lf * i    ", creal(value), cimag(value));
-    //            }
-    //            printf("\n");
-    //        }
-    //    }
-    //}
+    if (self->iset_mdm == 1) {
+        printf("MDM\n");
+        for (int k=0; k < 3; k++){
+            printf("MDM xyz = '%d'", k);
+            for (int istate=0; istate < self->NStates; istate++){
+                for (int jstate=0; jstate <  self->NStates; jstate++){
+                        double complex value = *(self->mag_dip_mom + istate*(self->NStates) + jstate);
+                        printf("%lf + %lf * i    ", creal(value), cimag(value));
+                }
+                printf("\n");
+            }
+        }
+    }
 
-    //if (self->iset_eqm == 1) {
-    //    printf("EQM\n");
-    //    for (int k=0; k < 3; k++){
-    //        for (int l=0; l < 3; l++){
-    //            printf("EQM xyz,xyz = '%d,%d'", k,l);
-    //            for (int istate=0; istate < self->NStates; istate++){
-    //                for (int jstate=0; jstate <  self->NStates; jstate++){
-    //                        double complex value = *(self->el_quad_mom + istate*(self->NStates) + jstate);
-    //                        printf("%lf + %lf * i    ", creal(value), cimag(value));
-    //                }
-    //                printf("\n");
-    //            }
-    //        }
-    //    }
-    //}
+    if (self->iset_eqm == 1) {
+        printf("EQM\n");
+        for (int k=0; k < 3; k++){
+            for (int l=0; l < 3; l++){
+                printf("EQM xyz,xyz = '%d,%d'", k,l);
+                for (int istate=0; istate < self->NStates; istate++){
+                    for (int jstate=0; jstate <  self->NStates; jstate++){
+                            double complex value = *(self->el_quad_mom + istate*(self->NStates) + jstate);
+                            printf("%lf + %lf * i    ", creal(value), cimag(value));
+                    }
+                    printf("\n");
+                }
+            }
+        }
+    }
 
     if (self->iset_o == 1) {
         printf("OVERLAP\n");
@@ -296,7 +296,6 @@ QMout_printAll(QMout * self)
 static PyObject *
 QMout_set_gradient(QMout * self, PyObject * args)
 {
-    printf("TESTTESTASDF");
     PyObject * gradient;
     PyObject * key;
     PyObject * value;
@@ -306,7 +305,6 @@ QMout_set_gradient(QMout * self, PyObject * args)
 
     double scale = 0.0;
     double soc_scale = 0.0;
-    printf("ASDFASDF");
     get_scalingfactor_(&scale, &soc_scale);
 
     if (!PyArg_ParseTuple(args, "Oi", &gradient, &icall))
@@ -451,101 +449,101 @@ QMout_set_dipolemoment(QMout * self, PyObject * args)
         return NULL;
 }
 
-//static PyObject *
-//QMout_set_mag_dipolemoment(QMout * self, PyObject * args)
-//{
-//    PyObject * mag_dip;
-//    double complex complex_value;
-//
-//    if (!PyArg_ParseTuple(args, "O", &mag_dip))
-//        return NULL;
-//
-//    /* need to be python list */
-//    if ( !PyList_Check(mag_dip)) 
-//        goto fail;
-//    /* Clear the overlap matrix! */
-//    clear_complex_double(3*self->NStates*self->NStates, self->mag_dip_mom);
-//    /* no further format checks! */
-//    if (PyList_GET_SIZE(mag_dip) !=  3)
-//        goto fail;
-//    /* */
-//    for (int k = 0; k < 3; k++){
-//        PyObject * xyz_mag_dip = PyList_GetItem(mag_dip, k);
-//        if (PyList_GET_SIZE(xyz_mag_dip) != self->NStates)
-//            goto fail;
-//        for (int is=0; is < self->NStates; is++){
-//            PyObject * state_list = PyList_GetItem(xyz_mag_dip, is);
-//            for (int js =0; js < self->NStates; js++){
-//                PyObject * pyfloat = PyList_GetItem(state_list, js);
-//                if (PyFloat_Check(pyfloat)) {
-//                    complex_value = (PyFloat_AsDouble(pyfloat) );
-//                } else {
-//                    complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
-//                }
-//                // if coefficients were right
-//                // *(self->dipole_mom + (k * self->NStates * self->NStates) + (is*self->NStates) + js) = complex_value;
-//                *(self->mag_dip_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = complex_value;
-//            }
-//        }
-//    }
-//#ifdef __PYTHON_DEBUG__
-//    printf("FINISHED SETTING MDM!\n");
-//#endif
-//    self->iset_mdm = 1;
-//    Py_RETURN_NONE;
-//    fail:
-//        Py_XDECREF(mag_dip);
-//        return NULL;
-//}
-//
-//static PyObject *
-//QMout_set_el_quadrupolemoment(QMout * self, PyObject * args)
-//{
-//    PyObject * el_quad;
-//    double complex complex_value;
-//
-//    if (!PyArg_ParseTuple(args, "O", &el_quad))
-//        return NULL;
-//
-//    /* need to be python list */
-//    if ( !PyList_Check(el_quad)) 
-//        goto fail;
-//    /* Clear the overlap matrix! */
-//    clear_complex_double(9*self->NStates*self->NStates, self->el_quad_mom);
-//    /* no further format checks! */
-//    if (PyList_GET_SIZE(el_quad) !=  9)
-//        goto fail;
-//    /* */
-//    for (int k = 0; k < 3; k++){
-//        for (int l = 0; l < 3; l++){
-//            PyObject * xyz_el_quad = PyList_GetItem(el_quad, k+l);
-//            if (PyList_GET_SIZE(xyz_el_quad) != self->NStates)
-//                goto fail;
-//            for (int is=0; is < self->NStates; is++){
-//                PyObject * state_list = PyList_GetItem(xyz_el_quad, is);
-//                for (int js =0; js < self->NStates; js++){
-//                    PyObject * pyfloat = PyList_GetItem(state_list, js);
-//                    if (PyFloat_Check(pyfloat)) {
-//                        complex_value = (PyFloat_AsDouble(pyfloat) );
-//                    } else {
-//                        complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
-//                    }
-//                    // if coefficients were right
-//                    // *(self->dipole_mom + (k * self->NStates * self->NStates) + (is*self->NStates) + js) = complex_value;
-//                    *(self->el_quad_mom + (k * l * self->NStates * self->NStates) + (js*self->NStates) + is) = complex_value;
-//                }
-//            }
-//        }    
-//    }
-//#ifdef __PYTHON_DEBUG__
-//    printf("FINISHED SETTING EQM!\n");
-//#endif
-//    self->iset_eqm = 1;
-//    Py_RETURN_NONE;
-//    fail:
-//        Py_XDECREF(el_quad);
-//        return NULL;
-//}
+static PyObject *
+QMout_set_mag_dipolemoment(QMout * self, PyObject * args)
+{
+    PyObject * mag_dip;
+    double complex complex_value;
+
+    if (!PyArg_ParseTuple(args, "O", &mag_dip))
+        return NULL;
+
+    /* need to be python list */
+    if ( !PyList_Check(mag_dip))
+        goto fail;
+    /* Clear the overlap matrix! */
+    clear_complex_double(3*self->NStates*self->NStates, self->mag_dip_mom);
+    /* no further format checks! */
+    if (PyList_GET_SIZE(mag_dip) !=  3)
+        goto fail;
+    /* */
+    for (int k = 0; k < 3; k++){
+        PyObject * xyz_mag_dip = PyList_GetItem(mag_dip, k);
+        if (PyList_GET_SIZE(xyz_mag_dip) != self->NStates)
+            goto fail;
+        for (int is=0; is < self->NStates; is++){
+            PyObject * state_list = PyList_GetItem(xyz_mag_dip, is);
+            for (int js =0; js < self->NStates; js++){
+                PyObject * pyfloat = PyList_GetItem(state_list, js);
+                if (PyFloat_Check(pyfloat)) {
+                    complex_value = (PyFloat_AsDouble(pyfloat) );
+                } else {
+                    complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
+                }
+                // if coefficients were right
+                // *(self->dipole_mom + (k * self->NStates * self->NStates) + (is*self->NStates) + js) = complex_value;
+                *(self->mag_dip_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = complex_value;
+            }
+        }
+    }
+#ifdef __PYTHON_DEBUG__
+    printf("FINISHED SETTING MDM!\n");
+#endif
+    self->iset_mdm = 1;
+    Py_RETURN_NONE;
+    fail:
+        Py_XDECREF(mag_dip);
+        return NULL;
+}
+
+static PyObject *
+QMout_set_el_quadrupolemoment(QMout * self, PyObject * args)
+{
+    PyObject * el_quad;
+    double complex complex_value;
+
+    if (!PyArg_ParseTuple(args, "O", &el_quad))
+        return NULL;
+
+    /* need to be python list */
+    if ( !PyList_Check(el_quad))
+        goto fail;
+    /* Clear the overlap matrix! */
+    clear_complex_double(9*self->NStates*self->NStates, self->el_quad_mom);
+    /* no further format checks! */
+    if (PyList_GET_SIZE(el_quad) !=  9)
+        goto fail;
+    /* */
+    for (int k = 0; k < 3; k++){
+        for (int l = 0; l < 3; l++){
+            PyObject * xyz_el_quad = PyList_GetItem(el_quad, k+l);
+            if (PyList_GET_SIZE(xyz_el_quad) != self->NStates)
+                goto fail;
+            for (int is=0; is < self->NStates; is++){
+                PyObject * state_list = PyList_GetItem(xyz_el_quad, is);
+                for (int js =0; js < self->NStates; js++){
+                    PyObject * pyfloat = PyList_GetItem(state_list, js);
+                    if (PyFloat_Check(pyfloat)) {
+                        complex_value = (PyFloat_AsDouble(pyfloat) );
+                    } else {
+                        complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
+                    }
+                    // if coefficients were right
+                    // *(self->dipole_mom + (k * self->NStates * self->NStates) + (is*self->NStates) + js) = complex_value;
+                    *(self->el_quad_mom + (k * l * self->NStates * self->NStates) + (js*self->NStates) + is) = complex_value;
+                }
+            }
+        }
+    }
+#ifdef __PYTHON_DEBUG__
+    printf("FINISHED SETTING EQM!\n");
+#endif
+    self->iset_eqm = 1;
+    Py_RETURN_NONE;
+    fail:
+        Py_XDECREF(el_quad);
+        return NULL;
+}
 
 static PyObject *
 QMout_set_overlap(QMout * self, PyObject * args)
@@ -665,10 +663,10 @@ static PyMethodDef QMout_methods[] = {
      "enters a dict of lists, grad[IState] = [NAtoms][3], type: floats" },
     {"set_dipolemoment", (PyCFunction)QMout_set_dipolemoment, METH_VARARGS,
      "enters a list of list of list of [3][nstate][nstate], type: complex or float"},
-    //{"set_mag_dipolemoment", (PyCFunction)QMout_set_mag_dipolemoment, METH_VARARGS,
-    // "enters a list of list of list of [3][nstate][nstate], type: complex or float"},
-    //{"set_el_quadrupolemoment", (PyCFunction)QMout_set_el_quadrupolemoment, METH_VARARGS,
-    // "enters a list of list of list of [3][3][nstate][nstate], type: complex or float"},
+    {"set_mag_dipolemoment", (PyCFunction)QMout_set_mag_dipolemoment, METH_VARARGS,
+     "enters a list of list of list of [3][nstate][nstate], type: complex or float"},
+    {"set_el_quadrupolemoment", (PyCFunction)QMout_set_el_quadrupolemoment, METH_VARARGS,
+     "enters a list of list of list of [3][3][nstate][nstate], type: complex or float"},
     {"set_overlap", (PyCFunction)QMout_set_overlap, METH_VARARGS,
      "enters a list of list of [nstate][nstate], type: complex or float "},
     {"set_nacdr", (PyCFunction)QMout_set_nacdr, METH_VARARGS,

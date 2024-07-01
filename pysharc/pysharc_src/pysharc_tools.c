@@ -55,7 +55,6 @@ void clear_complex_double(int N, complex double * vec)
 void set_gradient(double * gradient, int NAtoms, int IState, double * state_gradient, double scale)
 {
     int ishift = IState*(3*NAtoms);
-    printf("TESTTEST_pysharc_toolsc");
     if (scale == 1.0) {
         for (int i=0; i<3*NAtoms; i++){
             *(gradient + ishift + i) = *(state_gradient + i); 

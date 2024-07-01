@@ -56,9 +56,6 @@ class QMOUT:
     # def set_gradient(self, grad: dict[list[list[float], list[float], list[float]]], icall: int):
     # def set_gradient(self, grad: dict[list[list[float, float, float]]], icall: int):
     def set_gradient(self, grad , icall: int):
-        log.info("TESTTEST")
-        log.info(f"{type(grad)}")
-        log.info(grad)
         self._QMout.set_gradient(grad, icall)
 
     def set_dipolemoment(self, dip: list[list[list[Union[complex, float]]]]):
@@ -88,8 +85,6 @@ class QMOUT:
                 self._QMout.set_hamiltonian(data["h"].tolist())
             if "dm" in data:
                 self._QMout.set_dipolemoment(data["dm"].tolist())
-                #log.info(self._QMout.set_dipolemoment(data["dm"]))
-                log.info("SUCCESS_2")
 
         if "overlap" in data:
             if not isinstance(data["overlap"], type([])):
@@ -97,31 +92,13 @@ class QMOUT:
                 data["overlap"] = data["overlap"].tolist()
             self._QMout.set_overlap(data["overlap"])
         if "grad" in data:
-            # log.info("TESTA")
-            # self._QMout.set_gradient({}, icall)
-            # log.info("TESTB")
             if isinstance(data["grad"], list):
                 self._QMout.set_gradient(list2dict(data["grad"]), icall)
-                log.info("TESTC")
             elif data["grad"] is None:
                 self._QMout.set_gradient({}, icall)
-                log.info("TESTD")
             else:
-                #self._QMout.set_gradient({}, icall)
-                log.info("TESTE")
-                log.info(data["grad"])
-                #self._QMout.set_gradient(data["grad"], icall)
-                # log.info("HERE")
-                # log.info(type(data["grad"]))
-                # log.info(list2dict(data["grad"].tolist()))
-                # log.info(type(list2dict(data["grad"].tolist()).get(0)[0]))
-                # log.info(list2dict(data["grad"].tolist()).get(0)[0])
-                # log.info("good")
-                # #self._QMout.set_gradient(list2dict(data["grad"].tolist()), icall)
                 self._QMout.set_gradient(list2dict(data["grad"].tolist()), icall)
-            log.info("HERE")
         if "nacdr" in data:
-            log.info("TESTnacdr")
             if isinstance(data["nacdr"], dict):
                 self._QMout.set_nacdr(data["nacdr"], icall)
             else:
@@ -136,12 +113,8 @@ def setup_sharc(inp_file: str) -> int:
     """parses input file and returns restart flag as int"""
     return sharc.setup_sharc(inp_file)
 
-log.info("SUCCESS")
+
 def set_qmout(qmout: QMOUT, icall: int):
-    log.info("ASDF5")
-    log.info(icall)
-    log.info(type(qmout))
-    log.info(qmout)
     return sharc.set_qmout(qmout, icall)
 
 
@@ -219,12 +192,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     log.debug(f"\tset_props")
     qmout.set_props(i.getQMout(), icall)
     i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
-    log.info("DANGER")
-    log.info(icall)
-    log.info("qmout", qmout._QMout)
     isecond = set_qmout(qmout._QMout, icall)
-    log.info("isceond", isecond)
-    log.info("DNAGE")
     if isecond == 1:
         icall = 2
         i.read_requests(get_all_tasks(icall))

@@ -30,11 +30,10 @@
  * Python Wrapper for the SHARC LIBRARY
  *
  */
-#include <stdio.h>
+
 #ifndef __TOOLS_H_
 #define __TOOLS_H_
 #ifdef __cplusplus
-
 extern "C" {
 #endif
 void clear_double(int N, double * vec);

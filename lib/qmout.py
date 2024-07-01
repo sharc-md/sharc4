@@ -121,7 +121,6 @@ class QMout:
                         shape = [1]
                         block_length = 1
                     else:
-                        log.info("TEST", line)
                         shape = [int(n) for n in re.search(r"\(((\d+x)+\d+)", line).group(1).split('x')]
                         block_length = reduce(lambda agg, x: agg*x, shape[:-1])
                         if len(shape) > 2:
