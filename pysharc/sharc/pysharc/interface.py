@@ -253,7 +253,7 @@ class SHARC_INTERFACE(object):
 
     def sharc_set_QMout(self, QMout, icall):
         """ set QMout """
-        print("TEST123123")
+        self.log.info("TEST123123")
         if self.set_qmout is True:
             # assume that QMout is set already! only for advanced users!
             return

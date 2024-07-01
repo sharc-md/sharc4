@@ -142,9 +142,7 @@ def set_qmout(qmout: QMOUT, icall: int):
     log.info(icall)
     log.info(type(qmout))
     log.info(qmout)
-    asdf = sharc.set_qmout(qmout, icall)
-    log.info("ASDF56")
-    return asdf
+    return sharc.set_qmout(qmout, icall)
 
 
 def get_constants() -> dict:
@@ -219,13 +217,10 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         safe(i.run)
         i.write_step_file()
     log.debug(f"\tset_props")
-    log.info("ASDF1")
     qmout.set_props(i.getQMout(), icall)
-    log.info("ASDF2")
     i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
-    log.info("ASDF23")
+
     isecond = set_qmout(qmout._QMout, icall)
-    log.info("ASDF3")
     if isecond == 1:
         icall = 2
         i.read_requests(get_all_tasks(icall))

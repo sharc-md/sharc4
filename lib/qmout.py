@@ -1328,7 +1328,6 @@ class QMout:
         string += "===> Results:\n\n"
         # Hamiltonian matrix, real or complex
 
-        log.info("HERE")
         if QMin.requests["h"] or QMin.requests["soc"]:
             eshift = math.ceil(self["h"][0][0].real)
             string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f\n" % (eshift)
@@ -1336,7 +1335,6 @@ class QMout:
             np.einsum("ii->i", en)[:] -= eshift
             string += formatcomplexmatrix(en, states)
             string += "\n"
-        log.info("HERE1")
         # Dipole moment matrices
         if QMin.requests["dm"]:
             string += "=> Dipole Moment Matrices:\n\n"
@@ -1345,7 +1343,6 @@ class QMout:
                 matrix = self["dm"][xyz]
                 string += formatcomplexmatrix(matrix, states)
             string += "\n"
-        log.info("HERE2")
         # Magnetic Dipole and Electric Quadrupole moment matrices
         if QMin.requests["mdeqm"]:
             string += "=> Magnetic Dipole Moment Matrices:\n\n"
@@ -1362,7 +1359,6 @@ class QMout:
                     matrix = self["eqm"][dxdydz][xyz]
                     string += formatcomplexmatrix(matrix, states)
                 string += "\n" 
-        log.info("HERE3")
         # Gradients
         if QMin.requests["grad"]:
             string += "=> Gradient Vectors:\n\n"
@@ -1378,7 +1374,6 @@ class QMout:
                 )
                 istate += 1
             string += "\n"
-        log.info("HERE4")
         # Nonadiabatic coupling vectors
         if QMin.requests["nacdr"]:
             string += "=> Nonadiabatic Coupling Vectors:\n\n"
@@ -1392,7 +1387,6 @@ class QMout:
                     jstate += 1
                 istate += 1
             string += "\n"
-        log.info("HERE5")
         # Overlaps
         if QMin.requests["overlap"]:
             string += "=> Overlap matrix:\n\n"
@@ -1409,7 +1403,6 @@ class QMout:
                     )
                 string += "\n"
             string += "\n"
-        log.info("HERE6")
         # Spin-orbit coupling derivatives
         if QMin.requests["socdr"]:
             string += "=> Spin-Orbit Gradient Vectors:\n\n"
