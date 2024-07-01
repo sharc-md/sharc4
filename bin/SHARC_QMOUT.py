@@ -33,6 +33,7 @@ from io import TextIOWrapper
 import numpy as np
 from logger import log as logging
 from qmout import QMout
+
 # internal
 from SHARC_FAST import SHARC_FAST
 from utils import Error, expand_path, question
@@ -56,14 +57,12 @@ all_features = set(
         "overlap",
         "multipolar_fit",
         "phases",
-        "ion",
+        # "ion",
         # "theodore",
         "dmdr",
         "socdr",
     ]
 )
-
-# logging.root.setLevel(logging.DEBUG)
 
 
 class SHARC_QMOUT(SHARC_FAST):
@@ -168,11 +167,11 @@ class SHARC_QMOUT(SHARC_FAST):
         if self.QMin.requests["phases"]:
             self.QMout["phases"] = [complex(1.0, 0.0) for i in range(self.QMout.nmstates)]
 
-        if self.QMin.requests["ion"]:
-            self.QMout["prop2d"] = self.QMout2["prop2d"]
+        # if self.QMin.requests["ion"]:
+        # self.QMout["prop2d"] = self.QMout2["prop2d"]
 
-        if self.QMin.requests["theodore"]:
-            self.QMout["prop1d"] = self.QMout2["prop1d"]
+        # if self.QMin.requests["theodore"]:
+        # self.QMout["prop1d"] = self.QMout2["prop1d"]
 
         if self.QMin.requests["multipolar_fit"]:
             self.QMout["multipolar_fit"] = self.QMout2["multipolar_fit"]
