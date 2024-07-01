@@ -30,9 +30,9 @@ import os
 import shutil
 from io import TextIOWrapper
 
+import numpy as np
 from logger import log as logging
 from qmout import QMout
-
 # internal
 from SHARC_FAST import SHARC_FAST
 from utils import Error, expand_path, question
@@ -81,6 +81,7 @@ class SHARC_QMOUT(SHARC_FAST):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setup_info = None
+        self.QMout2 = None
 
     @staticmethod
     def version() -> str:
@@ -143,6 +144,39 @@ class SHARC_QMOUT(SHARC_FAST):
         """
         Generate QMout for all requested requests
         """
+        # allocate
+        requests = set()
+        for k, v in self.QMin.requests.items():
+            if v in (None, False, []):
+                continue
+            requests.add(k)
+        self.QMout.allocate(
+            self.QMin.molecule["states"],
+            self.QMin.molecule["natom"],
+            self.QMin.molecule["npc"],
+            requests,
+        )
+        if self.QMin.requests["h"] or self.QMin.requests["soc"]:
+            self.QMout["h"] = self.QMout2["h"]
+
+        if self.QMin.requests["dm"]:
+            self.QMout["dm"] = self.QMout2["dm"]
+
+        if self.QMin.requests["overlap"]:
+            np.fill_diagonal(self.QMout["overlap"], 1.0)
+
+        if self.QMin.requests["phases"]:
+            self.QMout["phases"] = [complex(1.0, 0.0) for i in range(self.QMout.nmstates)]
+
+        if self.QMin.requests["ion"]:
+            self.QMout["prop2d"] = self.QMout2["prop2d"]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop1d"] = self.QMout2["prop1d"]
+
+        if self.QMin.requests["multipolar_fit"]:
+            self.QMout["multipolar_fit"] = self.QMout2["multipolar_fit"]
+
         return self.QMout
 
     def run(self) -> None:
@@ -150,14 +184,14 @@ class SHARC_QMOUT(SHARC_FAST):
 
     def setup_interface(self):
         # read the file
-        self.QMout = QMout(filepath="QMout.template")
+        self.QMout2 = QMout(filepath="QMout.template")
         self.QMout["notes"]["QMout"] = "Notes were not transferred."
         # check the file
         if any(
             [
-                self.QMin.molecule["states"] != self.QMout.states,
-                self.QMin.molecule["natom"] != self.QMout.natom,
-                self.QMin.molecule["npc"] != self.QMout.npc,
+                self.QMin.molecule["states"] != self.QMout2.states,
+                self.QMin.molecule["natom"] != self.QMout2.natom,
+                self.QMin.molecule["npc"] != self.QMout2.npc,
             ]
         ):
             self.log.error("QMin.molecule and QM.out file are inconsistent")
