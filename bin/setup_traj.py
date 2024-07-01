@@ -2028,13 +2028,8 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             interface.prepare(INFOS, dirname + "/QM")
             if INFOS["pysharc"]:
                 run_qm = open(dirname + "/QM/runQM.sh", "w")
-<<<<<<< HEAD
-                string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)
-                run_qm.write(string)                               
-=======
                 string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)                
             run_qm.write(string)                               
->>>>>>> develop
 
             writeRunscript(INFOS, dirname, interface)
             if INFOS["rattle"]:

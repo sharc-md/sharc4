@@ -121,9 +121,9 @@ class SHARC_QMOUT(SHARC_FAST):
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         "setup the folders"
         if self.setup_info["link"]:
-            os.symlink(self.setup_info["path"], os.path.join(dir, "QMout.template"))
+            os.symlink(self.setup_info["path"], os.path.join(dir_path, "QMout.template"))
         else:
-            shutil.copy(self.setup_info["path"], os.path.join(dir, "QMout.template"))
+            shutil.copy(self.setup_info["path"], os.path.join(dir_path, "QMout.template"))
 
     @staticmethod
     def name() -> str:
@@ -151,8 +151,13 @@ class SHARC_QMOUT(SHARC_FAST):
 
     def setup_interface(self):
         # read the file
+        self.log.info("NOTES FOUND", "notes" in self.QMout and self.QMout.notes is not None)
+        
+        self.log.info("ASDF", self.QMout.notes)
+        #del self.QMout["notes"]
         self.QMout = QMout(filepath="QMout.template")
-        self.QMout["notes"]["QMout"] = "Notes were not transferred."
+        self.log.info(f'GRAD READ FROM QMout.template {"grad" in self.QMout and self.QMout.grad is not None}')
+        #self.QMout["notes"]["QMout"] = "Notes were not transferred."
         # check the file
         if any(
             [

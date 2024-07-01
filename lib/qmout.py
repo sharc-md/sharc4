@@ -121,6 +121,7 @@ class QMout:
                         shape = [1]
                         block_length = 1
                     else:
+                        log.info("TEST", line)
                         shape = [int(n) for n in re.search(r"\(((\d+x)+\d+)", line).group(1).split('x')]
                         block_length = reduce(lambda agg, x: agg*x, shape[:-1])
                         if len(shape) > 2:
@@ -138,7 +139,7 @@ class QMout:
                 iline = 0
 
                 log.debug(f"Parsing flag: {flag}")
-                # print(f"Parsing flag: {flag}, {shape} {block_length}")
+                print(f"Parsing flag: {flag}, {shape} {block_length} {data[-3:]}")
                 match flag:
                     case 0: # basis info
                         while iline < len(data):
@@ -207,21 +208,21 @@ class QMout:
                             float,
                             (3, self.nmstates, self.nmstates, self.npc, 3),
                         )
-                    case 22: # multipolar_fit
+                    case 22:  # multipolar_fit
                         self.multipolar_fit, iline = QMout.get_multipoles(data, iline, self.charges, shape)
                         if data[iline].find("settings") != -1:
                             self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]
-                    case 24: # Densities
+                    case 24:  # Densities
                         self.density_matrices, iline = QMout.get_densities(data, iline, self.charges, shape)
-                    case 23: # prop0d
+                    case 23:  # prop0d
                         self.prop0d, iline = QMout.get_property(data, iline, float, ())
                     case 25:
                         self.mol, iline  = QMout.get_mol(data, iline)
-                    case 21: # prop1d
+                    case 21:  # prop1d
                         self.prop1d, iline = QMout.get_property(data, iline, float, (self.nmstates,))
-                    case 20: # prop2d
+                    case 20:  # prop2d
                         self.prop2d, iline = QMout.get_property(data, iline, float, (self.nmstates, self.nmstates))
-                    case 8: # runtime
+                    case 8:   # runtime
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
                     case _:
                         iline += 1
@@ -569,8 +570,8 @@ class QMout:
         if "mol" in requests and requests["mol"]:
             string += self.writeQMoutMole()
 
-        if self.notes:
-            string += self.writeQMoutnotes()
+        #if self.notes:
+        #    string += self.writeQMoutnotes()
         string += self.writeQMouttime()
         writefile(filename, string)
         return
@@ -1189,7 +1190,7 @@ class QMout:
         1 string: multiline string with the SOC matrix"""
 
         notes = self.notes
-        string = "! %i Notes\n" % (999)
+        string = "! %i Notes ()\n" % (999)
         string += "%i    ! number of notes\n" % (len(notes))
 
         string += "! Notes Labels (%i strings)\n" % (len(notes))
@@ -1315,6 +1316,8 @@ class QMout:
         string = ""
         string += "===> Results:\n\n"
         # Hamiltonian matrix, real or complex
+
+        log.info("HERE")
         if QMin.requests["h"] or QMin.requests["soc"]:
             eshift = math.ceil(self["h"][0][0].real)
             string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f\n" % (eshift)
@@ -1322,6 +1325,7 @@ class QMout:
             np.einsum("ii->i", en)[:] -= eshift
             string += formatcomplexmatrix(en, states)
             string += "\n"
+        log.info("HERE1")
         # Dipole moment matrices
         if QMin.requests["dm"]:
             string += "=> Dipole Moment Matrices:\n\n"
@@ -1330,6 +1334,7 @@ class QMout:
                 matrix = self["dm"][xyz]
                 string += formatcomplexmatrix(matrix, states)
             string += "\n"
+        log.info("HERE2")
         # Magnetic Dipole and Electric Quadrupole moment matrices
         if QMin.requests["mdeqm"]:
             string += "=> Magnetic Dipole Moment Matrices:\n\n"
@@ -1346,11 +1351,13 @@ class QMout:
                     matrix = self["eqm"][dxdydz][xyz]
                     string += formatcomplexmatrix(matrix, states)
                 string += "\n" 
+        log.info("HERE3")
         # Gradients
         if QMin.requests["grad"]:
             string += "=> Gradient Vectors:\n\n"
             istate = 0
             for imult, i, ms in itnmstates(states):
+                log.info("GRADTEST", imult, i, ms, self["grad"])
                 string += "%s\t%i\tMs= % .1f:\n" % (IToMult[imult], i, ms)
                 string += formatgrad(
                     self["grad"][istate],
@@ -1360,6 +1367,7 @@ class QMout:
                 )
                 istate += 1
             string += "\n"
+        log.info("HERE4")
         # Nonadiabatic coupling vectors
         if QMin.requests["nacdr"]:
             string += "=> Nonadiabatic Coupling Vectors:\n\n"
@@ -1373,11 +1381,14 @@ class QMout:
                     jstate += 1
                 istate += 1
             string += "\n"
+        log.info("HERE5")
         # Overlaps
         if QMin.requests["overlap"]:
             string += "=> Overlap matrix:\n\n"
             matrix = self["overlap"]
+            log.info("read", states, matrix)
             string += formatcomplexmatrix(matrix, states)
+            log.info(string)
             if QMin.requests["phases"]:
                 string += "=> Wavefunction Phases:\n\n"
                 for i in range(nmstates):
@@ -1387,6 +1398,7 @@ class QMout:
                     )
                 string += "\n"
             string += "\n"
+        log.info("HERE6")
         # Spin-orbit coupling derivatives
         if QMin.requests["socdr"]:
             string += "=> Spin-Orbit Gradient Vectors:\n\n"
