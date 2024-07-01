@@ -120,9 +120,9 @@ class SHARC_QMOUT(SHARC_FAST):
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         "setup the folders"
         if self.setup_info["link"]:
-            os.symlink(self.setup_info["path"], os.path.join(dir, "QMout.template"))
+            os.symlink(self.setup_info["path"], os.path.join(dir_path, "QMout.template"))
         else:
-            shutil.copy(self.setup_info["path"], os.path.join(dir, "QMout.template"))
+            shutil.copy(self.setup_info["path"], os.path.join(dir_path, "QMout.template"))
 
     @staticmethod
     def name() -> str:
