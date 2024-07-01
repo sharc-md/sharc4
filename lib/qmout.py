@@ -217,6 +217,9 @@ class QMout:
                         self.prop2d, iline = QMout.get_property(data, iline, float, (self.nmstates, self.nmstates))
                     case 8: # runtime
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
+                    case 999: # notes
+                        self.notes, iline = QMout.get_notes(data, iline)  
+                        break  # as we do not know how many lines the notes are, we are not reading the QM.out file after the notes
                     case _:
                         iline += 1
                         log.warning(f"Warning!: property with flag {flag} not yet implemented in QMout class")
@@ -323,6 +326,14 @@ class QMout:
         if len(shape) in [3, 4, 5]:
             iline -= 1
         return result, iline
+
+    @staticmethod                                   
+    def get_notes(data, iline):                     
+        num = int(data[iline+1].split()[0])         
+        # currently only skipping                   
+        toskip = 4 + 3*num                          
+        return {'Notes': 'not read'}, iline + toskip
+        # TODO: actually read in the notes as dict. Readig should stop at the first empty line
 
     @staticmethod
     def get_property(data, iline, type, shape):
