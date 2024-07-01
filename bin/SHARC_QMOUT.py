@@ -26,6 +26,7 @@
 # IMPORTS
 # external
 import datetime
+import numpy as np
 import os
 import shutil
 from io import TextIOWrapper
@@ -40,7 +41,7 @@ from utils import Error, expand_path, question
 AUTHORS = "Sebastian Mai"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
-NAME = "SHARC constant data interface"
+NAME = "QMOUT"
 DESCRIPTION = "Constant E/SOC/DM, unity overlap, zero gradients/couplings."
 
 CHANGELOGSTRING = """
@@ -82,6 +83,7 @@ class SHARC_QMOUT(SHARC_FAST):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setup_info = None
+        self.QMout2 = None
 
     @staticmethod
     def version() -> str:
@@ -144,6 +146,39 @@ class SHARC_QMOUT(SHARC_FAST):
         """
         Generate QMout for all requested requests
         """
+        # allocate
+        requests = set()
+        for k, v in self.QMin.requests.items():
+            if v in (None, False, []):
+                continue
+            requests.add(k)
+        self.QMout.allocate(
+            self.QMin.molecule["states"],
+            self.QMin.molecule["natom"],
+            self.QMin.molecule["npc"],
+            requests,
+        )
+        if self.QMin.requests["h"] or self.QMin.requests["soc"]:
+            self.QMout["h"] = self.QMout2["h"]
+
+        if self.QMin.requests["dm"]:
+            self.QMout["dm"] = self.QMout2["dm"]
+
+        if self.QMin.requests["overlap"]:
+            np.fill_diagonal(self.QMout["overlap"], 1.0)
+
+        if self.QMin.requests["phases"]:
+            self.QMout["phases"] = [complex(1.0, 0.0) for i in range(self.QMout.nmstates)]
+
+        if self.QMin.requests["ion"]:
+            self.QMout["prop2d"] = self.QMout2["prop2d"]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop1d"] = self.QMout2["prop1d"]
+
+        if self.QMin.requests["multipolar_fit"]:
+            self.QMout["multipolar_fit"] = self.QMout2["multipolar_fit"]
+
         return self.QMout
 
     def run(self) -> None:
@@ -151,19 +186,15 @@ class SHARC_QMOUT(SHARC_FAST):
 
     def setup_interface(self):
         # read the file
-        self.log.info("NOTES FOUND", "notes" in self.QMout and self.QMout.notes is not None)
-        
-        self.log.info("ASDF", self.QMout.notes)
-        #del self.QMout["notes"]
         self.QMout = QMout(filepath="QMout.template")
+        self.QMout2 = QMout(filepath="QMout.template")
         self.log.info(f'GRAD READ FROM QMout.template {"grad" in self.QMout and self.QMout.grad is not None}')
-        #self.QMout["notes"]["QMout"] = "Notes were not transferred."
         # check the file
         if any(
             [
-                self.QMin.molecule["states"] != self.QMout.states,
-                self.QMin.molecule["natom"] != self.QMout.natom,
-                self.QMin.molecule["npc"] != self.QMout.npc,
+                self.QMin.molecule["states"] != self.QMout2.states,
+                self.QMin.molecule["natom"] != self.QMout2.natom,
+                self.QMin.molecule["npc"] != self.QMout2.npc,
             ]
         ):
             self.log.error("QMin.molecule and QM.out file are inconsistent")
