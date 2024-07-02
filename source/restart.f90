@@ -228,6 +228,8 @@ module restart
     write(u,*) ctrl%write_nacdr
     write(u,*) ctrl%write_property1d
     write(u,*) ctrl%write_property2d
+    write(u,*) ctrl%write_mag_dip
+    write(u,*) ctrl%write_el_quad
     write(u,*) ctrl%n_property1d
     write(u,*) ctrl%n_property2d
     
@@ -901,6 +903,8 @@ module restart
      read(u_ctrl,*) ctrl%write_nacdr
      read(u_ctrl,*) ctrl%write_property1d
      read(u_ctrl,*) ctrl%write_property2d
+     read(u_ctrl,*) ctrl%write_mag_dip
+     read(u_ctrl,*) ctrl%write_el_quad
      read(u_ctrl,*) ctrl%n_property1d
      read(u_ctrl,*) ctrl%n_property2d
  

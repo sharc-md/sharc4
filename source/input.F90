@@ -1513,6 +1513,26 @@ module input
       ctrl%write_grad=0
     endif
 
+    ctrl%write_mag_dip=0                     !< write magnetic dipole moments:   \n        0=no magnetic dipole moments, 1=write magnetic dipole moments
+    line=get_value_from_key('write_mag_dip',io)
+    if (io==0) then
+      ctrl%write_mag_dip=1
+    endif
+    line=get_value_from_key('nowrite_mag_dip',io)
+    if (io==0) then
+      ctrl%write_mag_dip=0
+    endif
+
+    ctrl%write_el_quad=0                     !< write electric quadrupole moments:   \n        0=no electric quadrupole moments, 1=write electric quadrupole moments
+    line=get_value_from_key('write_el_quad',io)
+    if (io==0) then
+      ctrl%write_el_quad=1
+    endif
+    line=get_value_from_key('nowrite_el_quad',io)
+    if (io==0) then
+      ctrl%write_el_quad=0
+    endif
+
     ctrl%write_overlap=1                  !< write overlap matrix:   \n        0=no overlap, 1=write overlap
     line=get_value_from_key('write_overlap',io)
     if (io==0) then
@@ -1806,6 +1826,26 @@ module input
         write(u_log,'(a)') 'Writing gradients.'
         if (ctrl%output_format==1) then
           write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_grad'
+          stop 1
+        endif
+      endif
+      ! ---------------------
+      if (ctrl%write_mag_dip==0) then
+        write(u_log,'(a)') 'Not writing magnetic dipole moments.'
+      else
+        write(u_log,'(a)') 'Writing magnetic dipole moments.'
+        if (ctrl%output_format==1) then
+          write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_mag_dip'
+          stop 1
+        endif
+      endif
+      ! ---------------------
+      if (ctrl%write_el_quad==0) then
+        write(u_log,'(a)') 'Not writing electric quadrupole moments.'
+      else
+        write(u_log,'(a)') 'Writing electric quadrupole moments.'
+        if (ctrl%output_format==1) then
+          write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_el_quad'
           stop 1
         endif
       endif

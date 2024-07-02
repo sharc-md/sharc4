@@ -484,6 +484,8 @@ module definitions
     integer :: write_grad                     !< write gradients:   \n        0=no gradients, 1=write gradients
     integer :: write_overlap                  !< write overlap matrix:   \n        0=no overlap, 1=write overlap
     integer :: write_NACdr                    !< write nac vectors:   \n        0=no vectors, 1=write vectors
+    integer :: write_mag_dip                  !< write magnetic dipole moments:   \n        0=no moments, 1=write moments
+    integer :: write_el_quad                  !< write electric quadrupole moments:   \n        0=no moments, 1=write moments
   
     integer :: write_property2d               !< write property matrices:   \n        0=no property, 1=write property
     integer :: write_property1d               !< write property vectors:   \n        0=no property, 1=write property

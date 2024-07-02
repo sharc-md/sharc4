@@ -67,6 +67,8 @@ module data_extractor_NetCDFmodule
     integer :: have_NAC                     !< whether nonadiabatic couplings are in the dat file (0=no, 1=yes)
     integer :: have_property1d                !< whether property vectors are in the dat file (0=no, 1=yes)
     integer :: have_property2d                !< whether property matrices are in the dat file (0=no, 1=yes)
+    integer :: have_mag_dip               !< whether property matrices are in the dat file (0=no, 1=yes)
+    integer :: have_el_quad               !< whether property matrices are in the dat file (0=no, 1=yes)
   end type
 
   type Tshdata
@@ -494,6 +496,8 @@ contains
   ! set default switches for different properties
   prop_info%have_NAC=0
   prop_info%have_grad=0
+  prop_info%have_mag_dip=0
+  prop_info%have_el_quad=0
   prop_info%have_overlap=0
   prop_info%have_property1d=0
   prop_info%have_property2d=0
@@ -647,6 +651,18 @@ contains
     line=get_value_from_key('write_grad',io)
     if (io==0) then
       read(line,*) prop_info%have_grad
+    endif
+
+    ! look up have_mag_dip keyword
+    line=get_value_from_key('write_mag_dip',io)
+    if (io==0) then
+      read(line,*) prop_info%have_mag_dip
+    endif
+
+    ! look up have_el_quad keyword
+    line=get_value_from_key('write_el_quad',io)
+    if (io==0) then
+      read(line,*) prop_info%have_el_quad
     endif
 
     ! look up have_NAC keyword

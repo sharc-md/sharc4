@@ -186,7 +186,7 @@ class SHARC_QMOUT(SHARC_FAST):
 
     def setup_interface(self):
         # read the file
-        self.QMout = QMout(filepath="QMout.template")
+        #self.QMout = QMout(filepath="QMout.template")
         self.QMout2 = QMout(filepath="QMout.template")
         self.log.info(f'GRAD READ FROM QMout.template {"grad" in self.QMout and self.QMout.grad is not None}')
         # check the file
