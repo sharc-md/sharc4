@@ -17,6 +17,7 @@ from constants import au2a
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
+from sympy.physics.wigner import wigner_3j
 from utils import convert_list, expand_path, mkdir, writefile
 
 __all__ = ["SHARC_MOLCAS"]
@@ -745,9 +746,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["alaska"])
                 case "cms-pdft":
                     tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
-                    tasks.append(
-                        ["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", f"nac={nac[1]} {nac[3]}"]]
-                    )
+                    tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", f"nac={nac[1]} {nac[3]}"]])
                     tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                     tasks.append(["alaska"])
                 case "ms-caspt2" | "xms-caspt2" | "caspt2":
@@ -840,6 +839,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if task[1] in ("", "soc") and qmin.requests["ion"]:
             input_str += "CIPR\nTHRS=0.000005d0\n"
             input_str += "DYSON\n"
+            input_str += f"DYSEXPORT\n{sum(qmin.molecule['states'])} 0\n"
         input_str += "\n"
         return input_str
 
@@ -873,7 +873,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Write RASSCF part of MOLCAS input string
         """
         nactel = qmin.template["nactel"][:]
-        nactel[0] -= qmin.template["charge"][task[1]-1]
+        nactel[0] -= qmin.template["charge"][task[1] - 1]
         input_str = f"&RASSCF\nSPIN={task[1]}\nNACTEL={' '.join(str(n) for n in nactel)}\n"
         input_str += f"INACTIVE={qmin.template['inactive']}\nRAS2={qmin.template['ras2']}\n"
         input_str += f"ITERATIONS={qmin.template['iterations'][0]},{qmin.template['iterations'][1]}\n"
@@ -1484,8 +1484,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         return dyson_nmat
 
     def dyson_orbitals_with_other(self, other, workdir, ncpu, mem):
-        os.environ["MOLCASMEM"] = str(mem)
-        os.environ["MOLCAS_MEM"] = str(mem)
+        if self.get_molcas_version(self.QMin.resources["molcas"]) < (23, 10):
+            self.log.error("Dyson orbital calculation requires MOLCAS version 23.10 or higher!")
+            raise ValueError()
+
+        mkdir(os.path.join(workdir, "dyson"))
 
         qmin1 = self.QMin
         qmin2 = other.QMin
@@ -1514,28 +1517,37 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         phi = {}
         # Calling RASSI for each pair of multiplicities
         for (dyson_s1, dyson_s2), dos in dyson_orbitals_from_rassi.items():
-            phi_work = np.zeros((nstates1[dyson_s1], nstates2[dyson_s2], self.QMout['mol'].nao))
-            with InDir(workdir):
+            phi_work = np.zeros(((n_s1 := nstates1[dyson_s1]), (n_s2 := nstates2[dyson_s2]), self.QMout["mol"].nao))
+            # Fetch JOBIPH files
+            shutil.copy(os.path.join(save1, f"MOLCAS.{dyson_s1}.JobIph.{step1}"), "JOB001")
+            shutil.copy(os.path.join(save2, f"MOLCAS.{dyson_s2}.JobIph.{step2}"), "JOB002")
 
-                # Fetch JOBIPH files
-                os.copy(os.path.join( self.QMin.save['savedir'], 'MOLCAS.'+str(dyson_s1)+'.JobIph.'+str(step1) ), 'JOBIPH001')
-                os.copy(os.path.join( other.QMin.save['savedir'], 'MOLCAS.'+str(dyson_s2)+'.JobIph.'+str(step2) ), 'JOBIPH002' )
-
-                # Make RASSI.input
-                input_str = "&RASSI\n"
-                input_str += "MEIN\n"
-                input_str += "CIPR\nTHRS=0.000005d0\n"
-                input_str += "DYSON\n"
-                input_str += "DYSEXPORT "+str(self.QMin.molecule['states'][dyson_s1] + other.QMin.molecule['states'][dyson_s2])+"\n"
-                input_str += "\n"
-                f = open('RASSI.input','w')
+            # Make RASSI.input
+            input_str = "&RASSI\n"
+            input_str += f"NROFJOBIPHS\n2 {n_s1} {n_s2}\n"
+            input_str += f"{' '.join([str(j) for j in range(1, n_s1 + 1)])}\n{' '.join([str(j) for j in range(1, n_s2 + 1)])}\n"
+            input_str += "MEIN\n"
+            input_str += "CIPR\nTHRS=0.000005d0\n"
+            input_str += "DYSON\n"
+            input_str += f"DYSEXPORT {n_s1 + n_s2} 0\n\n"
+            with open("RASSI.input", "w", encoding="utf-8") as f:
                 f.write(input_str)
-                f.close()
 
-                # Call pymolcas
-                self.run_program(workdir, self.QMin.resources['driver']+' RASSI.input', 'RASSI.out', 'RASSI.err')
+            # Call pymolcas
+            if (
+                code := self.run_program(
+                    os.path.join(workdir, "dyson"),
+                    self.QMin.resources["driver"] + " RASSI.input",
+                    "RASSI.out",
+                    "RASSI.err",
+                    {"MOLCASMEM": str(mem), "MOLCAS_MEM": str(mem)},
+                )
+            ) != 0:
+                self.log.error(f"Dyson orbital calculation failed with exit code {code}")
+                raise ValueError()
 
-                # Parse
+            # Parse
+            # dyson_coeffs = re.findall(r"ORBITAL\s+(\d+)\s+(\d+)\n([\s+-?\d+\.\d{14}E+|\-\d{2}]*)", todo, re.DOTALL)
 
             for s1, s2, spin in dos:
                 phi[(s1, s2, spin)] = phi_work[s1.N - 1, s2.N - 1, :]
@@ -1560,7 +1572,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, 1.0 / 2.0, -s2.M / 2.0)
                         if denominator != 0:
                             to_append[(thes1, thes2, thespin)] = (
-                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0) * float(numerator.evalf()) / float(denominator.evalf()) * phi_work
+                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0)
+                                * float(numerator.evalf())
+                                / float(denominator.evalf())
+                                * phi_work
                             )
                         break
                 for do, phi_work in to_append.items():
