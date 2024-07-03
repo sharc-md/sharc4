@@ -13,7 +13,7 @@ from typing import Any
 from sympy.physics.wigner import wigner_3j
 import h5py
 import numpy as np
-from constants import au2a, IToMult, lande_g_factor, alpha
+from constants import au2a, lande_g_factor, alpha
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
