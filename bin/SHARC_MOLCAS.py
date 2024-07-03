@@ -1592,7 +1592,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 raise ValueError()
 
             # Parse
-            # dyson_coeffs = re.findall(r"ORBITAL\s+(\d+)\s+(\d+)\n([\s+-?\d+\.\d{14}E+|\-\d{2}]*)", todo, re.DOTALL)
+            for i in range(n_s1):
+                with open(os.path.join(workdir, f"driver/RASSI.DysOrb.SF.{i+1}"), "r", encoding="utf-8") as f:
+                    orbitals = re.findall(r"ORBITAL\s+\d+\s+\d+\n([\s+-?\d+\.\d{14}E+|\-\d{2}]*)", f.read(), re.DOTALL)
+                    for j, orbital in enumerate(orbitals):
+                        phi_work[i, j, :] = np.asarray(orbital, dtype=float)[np.ix_(self._h_sort)]
 
             for s1, s2, spin in dos:
                 phi[(s1, s2, spin)] = phi_work[s1.N - 1, s2.N - 1, :]
