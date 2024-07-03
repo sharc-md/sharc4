@@ -13,7 +13,7 @@ from typing import Any
 from sympy.physics.wigner import wigner_3j
 import h5py
 import numpy as np
-from constants import au2a, IToMult, lande_g_factor, alpha
+from constants import au2a, lande_g_factor, alpha
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -53,6 +53,7 @@ all_features = set(
         "theodore",
         "point_charges",
         "grad_pc",
+        "nacdr_pc",
         # raw data request
         "mol",
         "wave_functions",
@@ -75,6 +76,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+        # Setup
+        self._template_file = None
+        self._resource_file = None
 
         # Features of MOLCAS installation
         self._hdf5 = False
@@ -175,7 +180,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
     @staticmethod
     def check_template(template_file):
-        necessary = {"basis", "ras2", "nactel", "inactive", "roots"}
+        necessary = {"basis", "ras2", "nactel", "inactive"}
         with open(template_file, "r") as f:
             for line in f:
                 if len(necessary) == 0:
@@ -209,170 +214,84 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         INFOS: dictionary with all previously collected infos during setup
         KEYSTROKES: object as returned by open() to be used with question()
         """
-
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
         self.log.info(f"||{'MOLCAS interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
-        self.files = []
 
-        self.log.info(f"{'Path to MOLCAS':-^60s}\n")
-        tries = ['MOLCAS']
-        for i in tries:
-            path = os.getenv(i)
-            if path:
-                break
-        self.log.info('\nPlease specify path to MOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-        INFOS['molcas'] = question('Path to MOLCAS:', str, KEYSTROKES=KEYSTROKES, default=path)
-        self.log.info('')
+        self.log.info("\nSpecify path to MOLCAS.")
+        INFOS["molcas"] = question("Path to MOLCAS:", str, KEYSTROKES=KEYSTROKES)
 
-        # Set path for PyMOLCAS
-        self.log.info(f"{'Path to PyMOLCAS':-^60s}\n")
-        for p in os.walk(INFOS['molcas']):
-            if "pymolcas" in p[2]:
-                path =  os.path.join(p[0], "pymolcas")
-                break
-        self.log.info('\nPlease specify path to PyMOLCAS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-        INFOS['driver'] = question('Path to PyMOLCAS:', str, KEYSTROKES=KEYSTROKES, default=path)
-        self.log.info('')
+        self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
+        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
 
-        # scratch
-        self.log.info('{:-^60}'.format('Scratch directory') + '\n')
-        self.log.info('Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
-        INFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
-        self.log.info('')
-
-        # template file
-        self._template_file = None
-        self._resource_file = None
-        self.log.info('{:-^60}'.format('MOLCAS input template file') + '\n')
-        self.log.info('''Please specify the path to the MOLCAS.template file. This file must contain the following keywords:
-
-    basis <basis>
-    ras2 <Number of active orbitals>             
-    nactel <Number of active electrons>          
-    inactive <Number of doubly occupied orbitals>
-    roots <Number of roots for state-averaging>  
-
-    The MOLCAS interface will generate the appropriate MOLCAS input automatically.
-    ''')
-        if os.path.isfile('MOLCAS.template'):
-            if SHARC_MOLCAS.check_template('MOLCAS.template'):
-                self.log.info('Valid file "MOLCAS.template" detected. ')
-                usethisone = question('Use this template file?', bool, KEYSTROKES=KEYSTROKES, default=True)
-                if usethisone:
-                    self._template_file = 'MOLCAS.template'
-        if not self._template_file:
-            while True:
-                filename = question('Template filename:', str, KEYSTROKES=KEYSTROKES)
-                if not os.path.isfile(filename):
-                    self.log.info('File %s does not exist!' % (filename))
-                    continue
-                if SHARC_MOLCAS.check_template(filename):
-                    break
-            self._template_file = filename
-        self.log.info('')
-        self.files.append(self._template_file)
-        # TODO check_MOLCAS_qmmm -> setup_init_old.py -> get_MOLCAS
-
-        # initial MOs
-        self.log.info('{:-^60}'.format('Initial restart: MO Guess') + '\n')
-        self.log.info('''Please specify the path to a MOLCAS JobIph or RasOrb file containing suitable starting MOs for the MOLCAS calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
-    ''')
-        self.guess_file = None
-        string = 'Do you have initial wavefunction files for '
-        for mult, state in enumerate(INFOS["states"]):
-            if state<= 0:
-                continue
-            string += '%s, ' % (IToMult[mult + 1])
-        string = string[:-2] + '?'
-        if question(f'{string}', bool, KEYSTROKES=KEYSTROKES, default=True):
-            while True:
-                jobiph_or_rasorb = question('JobIph files (1) or RasOrb files (2)?', int, KEYSTROKES=KEYSTROKES, default=None)[0]
-                if jobiph_or_rasorb in [1, 2]:
-                    break
-            INFOS['molcas.jobiph_or_rasorb'] = jobiph_or_rasorb
-            INFOS['molcas.guess'] = {}
-            for mult, state in enumerate(INFOS["states"]): 
-                if state <=0:
-                    continue
-                while True:
-                    if jobiph_or_rasorb == 1:
-                        guess_file = 'MOLCAS.%i.JobIph.init' % (mult + 1)
-                    else:
-                        guess_file = 'MOLCAS.%i.RasOrb.init' % (mult + 1)
-                    filename = question('Initial wavefunction file for %ss:' % (IToMult[mult + 1]), str, KEYSTROKES=KEYSTROKES, default=guess_file)
-                    if os.path.isfile(filename):                                                                    
-                        INFOS['molcas.guess'][mult + 1] = filename
-                        break                                     
-                    else:
-                        self.log.info('Could not find file "%s"!' % (filename))
-
-        # Resources
-        # TODO
-        if question("Do you have a 'MOLCAS.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=False):
-            while True:
-                resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MOLCAS.resources")
-                if os.path.isfile(resources_file):
-                    break
-                else:
-                    self.log.info(f"file at {resources_file} does not exist!")
-            self.files.append(resources_file)
-            self.make_resources = False
+        if os.path.isfile("MOLCAS.template"):
+            self.log.info("Found MOLCAS.template in current directory")
+            if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+                self._template_file = "MOLCAS.template"
         else:
-            self.make_resources = True
-            self.log.info('{:-^60}'.format('MOLCAS Ressource usage') + '\n')
-            self.log.info('''Please specify the number of CPUs to be used by EACH calculation.
-        ''')
-            INFOS['ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
+            self.log.info("Specify a path to a MOLCAS template file.")
+            while not os.path.isfile(template_file := question("Template path:", str, KEYSTROKES=KEYSTROKES)):
+                self.log.info(f"File {template_file} does not exist!")
+            self._template_file = template_file
 
-        #     if INFOS['ncpu'] > 1:
-        #         self.log.info('''Please specify how well your job will parallelize.
-        # A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
-        # Typical values for MOLCAS are 0.90-0.98.''')
-        #         INFOS['scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]))
-        #     else:
-        #         INFOS['scaling'] = 0.9
+        self.log.info("Specify the number of CPUs to be used.")
+        INFOS["ncpu"] = question("Number of CPUs:", int, default=[1], KEYSTROKES=KEYSTROKES)[0]
 
-            INFOS['mem'] = question('Memory (MB):', int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+        self.log.info("Specify the amount of RAM to be used.")
+        INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
-            # Ionization
-            # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
-            # INFOS['ion']=question('Dyson norms?',bool,False)
-            # if INFOS['ion']:
-            # self.log.info('State threshold for choosing determinants to include in the overlaps')
-            # self.log.info('For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1')
-            # INFOS['ciothres'] = question('Threshold:', float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
-            # self.log.info('')
-            # TODO not asked: numfrozcore and numocc
-
-            # self.log.info('Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?')
-            # self.log.info('A value of -1 will use the defaults used by MOLCAS for a small frozen core and 0 will turn off the use of frozen cores')
-            # INFOS['frozcore_number']=question('How many orbital to freeze?',int,[-1])[0]
+        self.log.info("Initial wavefunction: MO Guess\n")
+        self.log.info(
+            "Please specify the path to a MOLCAS JobIph file containing suitable starting MOs for the CASSCF calculation."
+        )
+        self.log.info(
+            "Please note that this script cannot check whether the wavefunction file and the Input template are consistent!"
+        )
+        INFOS["molcas.guess"] = {}
+        string = "Do you have initial wavefunction files for multiplicity "
+        for mult, state in enumerate(INFOS["states"]):
+            if state <= 0:
+                continue
+            string += f"{mult+1} "
+        string += "?"
+        if question(string, bool, True):
+            while (jobiph_or_rasorb := question("JobIph files (1) or RasOrb files (2)?", int)[0]) not in (1, 2):
+                self.log.info(f"{jobiph_or_rasorb} invalid option!")
+            INFOS["molcas.jobiph_or_rasorb"] = jobiph_or_rasorb
+            for mult, state in enumerate(INFOS["states"]):
+                if state <= 0:
+                    continue
+                guess_file = f"MOLCAS.{mult + 1}.{'JobIph' if jobiph_or_rasorb == 1 else 'RasOrb'}.init"
+                while not os.path.isfile(
+                    filename := question(f"Initial wavefunction file for multiplicity {mult + 1}:", str, guess_file)
+                ):
+                    self.log.info("File not found!")
+                INFOS["molcas.guess"][mult + 1] = filename
+        else:
+            self.log.warning(
+                "Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs."
+            )
 
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str) -> None:
-        """
-        prepare the workdir according to dictionary
-
-        ---
-        Parameters:
-        INFOS: dictionary with infos
-        workdir: path to workdir
-        """
-
-        self.log.info(INFOS["link_files"])
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "MOLCAS.resources"), "w", encoding="utf-8") as file:
-                for key in ("molcas", "driver", "scratchdir", "savedir", "memory", "ncpu"):
+                for key in ("molcas", "scratchdir", "ncpu", "memory"):
                     if key in INFOS:
                         file.write(f"{key} {INFOS[key]}\n")
         else:
             create_file(expand_path(self._resource_file), os.path.join(dir_path, "MOLCAS.resources"))
-        create_file(expand_path(self._template_file), os.path.join(dir_path, "MOLCAS.template"))      
+        create_file(expand_path(self._template_file), os.path.join(dir_path, "MOLCAS.template"))
+
+        for key, val in INFOS["molcas.guess"].items():
+            dest = os.path.join(
+                dir_path, f"QM/MOLCAS.{key}.{'JobIph' if INFOS['molcas.jobiph_or_rasorb'] == 1 else 'RasOrb'}.init"
+            )
+            create_file(val, dest)
 
     def create_restart_files(self) -> None:
         pass
@@ -399,13 +318,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.resources["mpi_parallel"] = False
 
         # MOLCAS driver
-        if self.QMin.resources["driver"]:
-            self.QMin.resources["driver"] = expand_path(self.QMin.resources["driver"])
-        else:
-            for p in os.walk(self.QMin.resources["molcas"]):
-                if "pymolcas" in p[2]:
-                    self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
-                    break
+        for p in os.walk(self.QMin.resources["molcas"]):
+            if "pymolcas" in p[2]:
+                self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
+                break
 
         if not os.path.isfile(self.QMin.resources["driver"]):
             self.log.error(f"No driver found in {self.QMin.resources['molcas']}")
@@ -517,7 +433,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.template["pcmstate"] = convert_list(self.QMin.template["pcmstate"])
 
         # Check for basis and cas settings
-        for i in ["basis", "nactel", "ras2", "inactive", "roots"]:
+        for i in ["basis", "nactel", "ras2", "inactive"]:
             if not self.QMin.template[i]:
                 self.log.error(f"Key {i} is missing in template file!")
                 raise ValueError()
@@ -949,9 +865,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["alaska"])
                 case "cms-pdft":
                     tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
-                    tasks.append(
-                        ["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", f"nac={nac[1]} {nac[3]}"]]
-                    )
+                    tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", f"nac={nac[1]} {nac[3]}"]])
                     tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                     tasks.append(["alaska"])
                 case "ms-caspt2" | "xms-caspt2" | "caspt2":
@@ -1024,9 +938,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Write RASSI part of MOLCAS input string
         """
-        input_str = f"&RASSI\nNROFJOBIPHS\n{len(task[-1])} "
-        input_str += " ".join(convert_list(task[-1], str)) + "\n"
-        for i in task[-1]:
+        input_str = f"&RASSI\nNROFJOBIPHS\n{len(task[2])} "
+        input_str += " ".join(convert_list(task[2], str)) + "\n"
+        for i in task[2]:
             input_str += " ".join([str(j) for j in range(1, i + 1)]) + "\n"
         input_str += "MEIN\n"
         if qmin.template["method"] != "casscf":
@@ -1045,6 +959,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if "soc" in task and qmin.requests["ion"]:
             input_str += "CIPR\nTHRS=0.000005d0\n"
             input_str += "DYSON\n"
+            input_str += f"DYSEXPORT\n{sum(qmin.molecule['states'])} 0\n"
         input_str += "\n"
         return input_str
 
@@ -1078,7 +993,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Write RASSCF part of MOLCAS input string
         """
         nactel = qmin.template["nactel"][:]
-        nactel[0] -= qmin.template["charge"][task[1]-1]
+        nactel[0] -= qmin.template["charge"][task[1] - 1]
         input_str = f"&RASSCF\nSPIN={task[1]}\nNACTEL={' '.join(str(n) for n in nactel)}\n"
         input_str += f"INACTIVE={qmin.template['inactive']}\nRAS2={qmin.template['ras2']}\n"
         input_str += f"ITERATIONS={qmin.template['iterations'][0]},{qmin.template['iterations'][1]}\n"
@@ -1849,8 +1764,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         return dyson_nmat
 
     def dyson_orbitals_with_other(self, other, workdir, ncpu, mem):
-        os.environ["MOLCASMEM"] = str(mem)
-        os.environ["MOLCAS_MEM"] = str(mem)
+        if self.get_molcas_version(self.QMin.resources["molcas"]) < (23, 10):
+            self.log.error("Dyson orbital calculation requires MOLCAS version 23.10 or higher!")
+            raise ValueError()
+
+        mkdir(os.path.join(workdir, "dyson"))
 
         qmin1 = self.QMin
         qmin2 = other.QMin
@@ -1879,28 +1797,41 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         phi = {}
         # Calling RASSI for each pair of multiplicities
         for (dyson_s1, dyson_s2), dos in dyson_orbitals_from_rassi.items():
-            phi_work = np.zeros((nstates1[dyson_s1], nstates2[dyson_s2], self.QMout['mol'].nao))
-            with InDir(workdir):
+            phi_work = np.zeros(((n_s1 := nstates1[dyson_s1]), (n_s2 := nstates2[dyson_s2]), self.QMout["mol"].nao))
+            # Fetch JOBIPH files
+            shutil.copy(os.path.join(save1, f"MOLCAS.{dyson_s1}.JobIph.{step1}"), "JOB001")
+            shutil.copy(os.path.join(save2, f"MOLCAS.{dyson_s2}.JobIph.{step2}"), "JOB002")
 
-                # Fetch JOBIPH files
-                os.copy(os.path.join( self.QMin.save['savedir'], 'MOLCAS.'+str(dyson_s1)+'.JobIph.'+str(step1) ), 'JOBIPH001')
-                os.copy(os.path.join( other.QMin.save['savedir'], 'MOLCAS.'+str(dyson_s2)+'.JobIph.'+str(step2) ), 'JOBIPH002' )
-
-                # Make RASSI.input
-                input_str = "&RASSI\n"
-                input_str += "MEIN\n"
-                input_str += "CIPR\nTHRS=0.000005d0\n"
-                input_str += "DYSON\n"
-                input_str += "DYSEXPORT "+str(self.QMin.molecule['states'][dyson_s1] + other.QMin.molecule['states'][dyson_s2])+"\n"
-                input_str += "\n"
-                f = open('RASSI.input', 'w')
+            # Make RASSI.input
+            input_str = "&RASSI\n"
+            input_str += f"NROFJOBIPHS\n2 {n_s1} {n_s2}\n"
+            input_str += f"{' '.join([str(j) for j in range(1, n_s1 + 1)])}\n{' '.join([str(j) for j in range(1, n_s2 + 1)])}\n"
+            input_str += "MEIN\n"
+            input_str += "CIPR\nTHRS=0.000005d0\n"
+            input_str += "DYSON\n"
+            input_str += f"DYSEXPORT {n_s1 + n_s2} 0\n\n"
+            with open("RASSI.input", "w", encoding="utf-8") as f:
                 f.write(input_str)
-                f.close()
 
-                # Call pymolcas
-                self.run_program(workdir, self.QMin.resources['driver']+' RASSI.input', 'RASSI.out', 'RASSI.err')
+            # Call pymolcas
+            if (
+                code := self.run_program(
+                    os.path.join(workdir, "dyson"),
+                    self.QMin.resources["driver"] + " RASSI.input",
+                    "RASSI.out",
+                    "RASSI.err",
+                    {"MOLCASMEM": str(mem), "MOLCAS_MEM": str(mem)},
+                )
+            ) != 0:
+                self.log.error(f"Dyson orbital calculation failed with exit code {code}")
+                raise ValueError()
 
-                # Parse
+            # Parse
+            for i in range(n_s1):
+                with open(os.path.join(workdir, f"driver/RASSI.DysOrb.SF.{i+1}"), "r", encoding="utf-8") as f:
+                    orbitals = re.findall(r"ORBITAL\s+\d+\s+\d+\n([\s+-?\d+\.\d{14}E+|\-\d{2}]*)", f.read(), re.DOTALL)
+                    for j, orbital in enumerate(orbitals):
+                        phi_work[i, j, :] = np.asarray(orbital, dtype=float)[np.ix_(self._h_sort)]
 
             for s1, s2, spin in dos:
                 phi[(s1, s2, spin)] = phi_work[s1.N - 1, s2.N - 1, :]
@@ -1925,7 +1856,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, 1.0 / 2.0, -s2.M / 2.0)
                         if denominator != 0:
                             to_append[(thes1, thes2, thespin)] = (
-                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0) * float(numerator.evalf()) / float(denominator.evalf()) * phi_work
+                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0)
+                                * float(numerator.evalf())
+                                / float(denominator.evalf())
+                                * phi_work
                             )
                         break
                 for do, phi_work in to_append.items():
