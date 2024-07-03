@@ -46,6 +46,7 @@ all_features = set(
         "theodore",
         "point_charges",
         "grad_pc",
+        "nacdr_pc",
         # raw data request
         "mol",
         "wave_functions",
