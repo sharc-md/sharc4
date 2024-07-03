@@ -1596,7 +1596,7 @@ subroutine zread(n,A,runit,title)
     if (io/=0) then
       write(*,*) 'Could not read matrix'
       write(*,*) 'routine=zread(), n=',n,', unit=',runit
-      write(*,*) 'title=',trim(title),title
+      write(*,*) 'title=',trim(title)
       stop 1
     endif
     do j=1,n

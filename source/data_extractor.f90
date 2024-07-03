@@ -595,12 +595,12 @@ program data_extractor
     allocate( DM_mch_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
     allocate( dm_proj_sp(nstates,nprojections) )
-    if (laser_b==.true.) then
+    if (write_mag_dip==1) then
       allocate( MDM_mch_ssd(nstates,nstates,3) )
       allocate( MDM_diag_ssd(nstates,nstates,3) )
       allocate( mdm_proj_sp(nstates,nprojections) ) 
     endif
-    if (laser_egrad==.true.) then
+    if (write_el_quad==1) then
       allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
       allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
       allocate( eqm_proj_sp(nstates,nprojections) )  
@@ -1222,7 +1222,7 @@ program data_extractor
       ! =============================================================================================
 
       write(6,*)
-    write(*,*) have_NAC, have_grad
+      write(*,*) have_NAC, have_grad
       write(6,*) 'Running...'
       do
         ! read everything: H, U, DM, overlap, coeff_diag, hopprob, Ekin, active states
@@ -1235,34 +1235,23 @@ program data_extractor
         else if (adaptive==1) then
           read(u_dat,*) nsteps_adapted, microtime, dtstep_adapted
         endif
-        write(*,*) 'before H'
         call matread(nstates,H_MCH_ss,u_dat,string1)
-        write(*,*) 'after H'
         call matread(nstates,U_ss,u_dat,string1)
-        write(*,*) 'after U'
         do idir=1,3
           call matread(nstates,DM_mch_ssd(:,:,idir),u_dat,string1)
         enddo
-        write(*,*) "Has read H, U, DM"
-        if (laser_b==.true.) then 
+        if (laser_b==.true. .and. write_mag_dip==.true.) then 
           do idir=1,3
             call matread(nstates,MDM_mch_ssd(:,:,idir),u_dat,string1)
           enddo
-          write(*,*) 'Read MDM'
         endif
-        write(*,*) 'Read MDM finished'
-        if (laser_egrad==.true.) then 
-          write(*,*) 'EQM READ STARTED'
+        if (laser_egrad==.true. .and. write_el_quad==.true.) then 
           do idir=1,3
-            write(*,*) 'EQM READ CONTINUED'
             do jdir=1,3
-              write(*,*) "TESTJ"
               call matread(nstates,EQM_mch_ssdd(:,:,idir,jdir),u_dat,string1)
             enddo
           enddo
-          write(*,*) "Read EQM"
         endif
-        write(*,*) "OUT OF EQM/MDM READ"
     if (have_overlap==1) then
       call matread(nstates,overlaps_ss,u_dat,string1)
     endif
@@ -1326,7 +1315,6 @@ program data_extractor
 
     ! ========== Reading is done for this time step =============
 
-    write(*,*) "Ham with laser"
     ! calculate Hamiltonian including laser field
     H_diag_ss=H_MCH_ss
     if (laser==2) then
@@ -1334,12 +1322,12 @@ program data_extractor
         H_diag_ss=H_diag_ss - DM_mch_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
       enddo
     endif
-    if (laser==2 .AND. laser_b==.true.) then
+    if ((laser==2) .AND. (laser_b==.true.) .AND. (write_mag_dip==1)) then
       do idir=1,3
         H_diag_ss=H_diag_ss - MDM_mch_ssd(:,:,idir)*real(laserfield_b_tp(step*nsubsteps+1,idir))
       enddo
     endif
-    if (laser==2 .AND. laser_egrad==.true.) then
+    if ((laser==2) .AND. (laser_egrad==.true.) .AND. (write_el_quad==1)) then
       do idir=1,3
         do jdir=1,3
           H_diag_ss=H_diag_ss - EQM_mch_ssdd(:,:,idir,jdir)*real(laserfield_egrad_tpd(step*nsubsteps+1,idir,jdir))
@@ -1387,7 +1375,6 @@ program data_extractor
       enddo
     endif
     
-    write(*,*) "Spin with laser"
     ! calculate oscillator strengths for magnetic dipoles
     if (write_mag_dip .or. write_mag_dipact .or. write_mdm_diag) then
       expec_mdm=0.d0
@@ -1413,19 +1400,14 @@ program data_extractor
     
     ! calculate oscillator strengths for electric quadrupoles
     if (write_el_quad .or. write_el_quadact .or. write_eqm_diag) then
-      write(*,*) 'Entered osc. el. quad', write_el_quad, write_el_quadact, write_eqm_diag
       expec_eqm=0.d0
       expec_eqm_mch=0.d0
       expec_eqm_act=0.d0 
       do idir=1,3
         do jdir=1,3
-          write(*,*) 'ENTERED LOOP'
           A_ss=EQM_mch_ssdd(:,:,idir,jdir)
-          write(*,*) 'EXITED LOOP'
           expec_eqm_mch=expec_eqm_mch+real(A_ss(:,1)*A_ss(1,:))
-          write(*,*) 'ENTERED LOOP'
           call transform(nstates,A_ss,U_ss,'utau')
-          write(*,*) 'Exit osc. el. quad'
           EQM_diag_ssdd(:,:,idir,jdir)=A_ss
           expec_eqm=expec_eqm+real(A_ss(:,1)*A_ss(1,:))
           expec_eqm_act=expec_eqm_act+real(A_ss(:,state_diag)*A_ss(state_diag,:))
@@ -1441,7 +1423,6 @@ program data_extractor
       enddo
     endif
     
-    write(*,*) "Spin with laser"
     if (write_dm_proj) then
       ! calculate desired vectors to project onto
       do iproj=1,nprojections
@@ -1499,7 +1480,6 @@ program data_extractor
     endif
     ! ========== Calculating is done for this time step =============
 
-    write(*,*) "TESTQ"
     if (write_energy) then
       ! write to energy.out
       write(u_ener,'(2X,1000(ES20.12E3,1X))') &
@@ -1527,7 +1507,6 @@ program data_extractor
       (expec_eqm(istate),istate=1,nstates)
     endif
 
-    write(*,*) "TESTW"
 
     if (write_dipact)  then
       ! write to fosc_act.out
@@ -1569,7 +1548,6 @@ program data_extractor
       (expec_s(istate),istate=1,nstates)
     endif
 
-    write(*,*) "TESTE"
 
     if (write_coeffdiag) then
       ! calculate sumsq of diagonal coefficients
@@ -1592,7 +1570,6 @@ program data_extractor
     endif
 
 
-    write(*,*) "TESTR"
     if (write_coeffmch) then
       ! calculate sumsq of MCH coefficients
       sumc=0.d0
@@ -1735,7 +1712,6 @@ program data_extractor
     ! ========== Writing is done for this time step =============
 
 
-            write(*,*) "TESTD" 
 
 
     ! write progress to screen
@@ -1743,11 +1719,9 @@ program data_extractor
   enddo
   write(*,*)
 
-  write(*,*) "TESTC" 
   ! close output files
   if (write_energy)             close(u_ener)      ! -e
   
-  write(*,*) "TESTA" 
   if (write_dip)                close(u_dm)        ! -d
   if (write_mag_dip)            close(u_mdm)       ! -dmd
   if (write_el_quad)            close(u_eqm)       ! -deq
@@ -1778,7 +1752,6 @@ program data_extractor
   if (write_eqm_diag)   close(u_eqm_diag) ! -dde
   if (write_dm_proj)   close(u_dm_proj)   ! -dd 
 
-  write(*,*) "FINE"
 
 
     ! ============== Start linear interpolation =================
@@ -1830,7 +1803,6 @@ program data_extractor
 
 
     if (write_dip) then
-      write(*,*) "DIP"
       ! nstates, expected_dm, time
       total_columns=nstates+2
       allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
@@ -1863,9 +1835,7 @@ program data_extractor
       deallocate(tmp_out_matrix)
     endif
 
-    write(*,*) "TESTB" 
     if (write_mag_dip) then
-      write(*,*) "TESTMAG"
       ! nstates, expected_mdm, time
       total_columns=nstates+2
       allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
@@ -1896,7 +1866,6 @@ program data_extractor
       close(u_mdm)
       deallocate(tmp_in_matrix)
       deallocate(tmp_out_matrix)
-      write(*,*) "WRITE TESTMAG"
     endif
  
     if (write_el_quad) then

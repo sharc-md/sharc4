@@ -138,7 +138,6 @@ class QMout:
                 iline = 0
 
                 log.debug(f"Parsing flag: {flag}")
-                print(f"Parsing flag: {flag}, {shape} {block_length} {data[-3:]}")
                 match flag:
                     case 0: # basis info
                         while iline < len(data):

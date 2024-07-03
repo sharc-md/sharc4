@@ -265,9 +265,9 @@ subroutine write_list_header(u)
   write(u,'(a1,A11,1X,A14,1X,A15,1X,A44,1X,3(A14,1X),A29,1X,A12)') '#',&
   &'Step |','Time |','State |','Energy |','Angular |','Gradient |','Density |','Expectation Value |','Runtime |'
   write(u,'(a1,A11,1X,A14,1X,2(A7,1X),10(A14,1X),A12)') '#',&
-  &'|','|','diag |','MCH |','kin |','pot |','tot |','Momentum |','RMS |','Total |','DM |','MDM |','EQM |','S |','|'
+  &'|','|','diag |','MCH |','kin |','pot |','tot |','Momentum |','RMS |','Total |','DM |','S |','|'
   write(u,'(a1,A11,1X,A14,1X,2(A7,1X),8(A14,1X),A12)') '#',&
-  &'|','[fs] |','|','|','[eV] |','[eV] |','[eV] |','[hbar] |','[eV/Ang] |','|','[Debye] |','[Debye] |','[Debye*Ang] |','|','[sec] |'
+  &'|','[fs] |','|','|','[eV] |','[eV] |','[eV] |','[hbar] |','[eV/Ang] |','|','[Debye] |','|','[sec] |'
   write(u,'(a1,a)') '#',repeat('=',175)
 
 endsubroutine
