@@ -18,7 +18,7 @@ from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from sympy.physics.wigner import wigner_3j
-from utils import convert_list, expand_path, mkdir, writefile
+from utils import convert_list, expand_path, link, mkdir, question, writefile
 
 __all__ = ["SHARC_MOLCAS"]
 
@@ -68,6 +68,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+        # Setup
+        self._template_file = None
+        self._resource_file = None
 
         # Features of MOLCAS installation
         self._hdf5 = False
@@ -181,10 +185,50 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         INFOS: dictionary with all previously collected infos during setup
         KEYSTROKES: object as returned by open() to be used with question()
         """
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'MOLCAS interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+
+        self.log.info("\nSpecify path to MOLCAS.")
+        INFOS["molcas"] = question("Path to MOLCAS:", str, KEYSTROKES=KEYSTROKES)
+
+        self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
+        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+
+        if os.path.isfile("MOLCAS.template"):
+            self.log.info("Found MOLCAS.template in current directory")
+            if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+                self._template_file = "MOLCAS.template"
+        else:
+            self.log.info("Specify a path to a MOLCAS template file.")
+            while True:
+                template_file = question("Template path:", str, KEYSTROKES=KEYSTROKES)
+                if not os.path.isfile(template_file):
+                    self.log.info(f"File {template_file} does not exist!")
+                    continue
+                self._template_file = template_file
+                break
+
+        self.log.info("Specify the number of CPUs to be used.")
+        INFOS["ncpu"] = question("Number of CPUs:", int, default=[1], KEYSTROKES=KEYSTROKES)[0]
+
+        self.log.info("Specify the amount of RAM to be used.")
+        INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str) -> None:
-        pass
+        create_file = link if INFOS["link_files"] else shutil.copy
+        if not self._resource_file:
+            with open(os.path.join(dir_path, "MOLCAS.resources"), "w", encoding="utf-8") as file:
+                for key in ("molcas", "scratchdir", "ncpu", "memory"):
+                    if key in INFOS:
+                        file.write(f"{key} {INFOS[key]}\n")
+        else:
+            create_file(expand_path(self._resource_file), os.path.join(dir_path, "MOLCAS.resources"))
+        create_file(expand_path(self._template_file), os.path.join(dir_path, "MOLCAS.template"))
 
     def create_restart_files(self) -> None:
         pass
