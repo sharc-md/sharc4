@@ -110,7 +110,7 @@ class SHARC_QMOUT(SHARC_FAST):
         path = question(
             "Please provide path to QM.out file",
             str,
-            default="QM.out",
+            default=None,
             KEYSTROKES=KEYSTROKES,
             autocomplete=True,
         )
@@ -120,12 +120,22 @@ class SHARC_QMOUT(SHARC_FAST):
         self.setup_info["link"] = linking
         return INFOS
 
-    def prepare(self, INFOS: dict, dir_path: str) -> None:
+    def prepare(self, INFOS: dict, iconddir: int, dir_path: str) -> None:
         "setup the folders"
+        qm_out_path = os.path.join(self.setup_info["path"], f"ICOND_{iconddir:05}/QM.out")
+        try:
+            os.path.isfile(qm_out_path)
+        except FileNotFoundError:
+            print(f"The file {qm_out_path} does not exist.")
+            raise FileNotFoundError
+        except IOError as e:
+            print(f"An I/O error occurred: {e}")
+            raise IOError
+
         if self.setup_info["link"]:
-            os.symlink(self.setup_info["path"], os.path.join(dir_path, "QMout.template"))
+            os.symlink(qm_out_path, os.path.join(dir_path, "QMout.template"))
         else:
-            shutil.copy(self.setup_info["path"], os.path.join(dir_path, "QMout.template"))
+            shutil.copy(qm_out_path, os.path.join(dir_path, "QMout.template"))
 
     @staticmethod
     def name() -> str:

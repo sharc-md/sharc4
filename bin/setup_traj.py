@@ -2025,7 +2025,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             if io != 0:
                 log.info("Could not make QM or restart directory!")
                 continue
-            interface.prepare(INFOS, dirname + "/QM")
+            interface.prepare(INFOS, icond, dirname + "/QM")
             if INFOS["pysharc"]:
                 run_qm = open(dirname + "/QM/runQM.sh", "w")
                 string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)                
