@@ -108,7 +108,7 @@ class SHARC_QMOUT(SHARC_FAST):
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         "prepare INFOS obj"
         path = question(
-            "Please provide path to QM.out file",
+            "Please provide parent path to ICOND folders containing QM.out files",
             str,
             default=None,
             KEYSTROKES=KEYSTROKES,
@@ -120,22 +120,22 @@ class SHARC_QMOUT(SHARC_FAST):
         self.setup_info["link"] = linking
         return INFOS
 
-    def prepare(self, INFOS: dict, iconddir: int, dir_path: str) -> None:
+    def prepare(self, INFOS: dict, dir_path: str) -> None:
         "setup the folders"
-        qm_out_path = os.path.join(self.setup_info["path"], f"ICOND_{iconddir:05}/QM.out")
+        qmout_path = os.path.join(self.setup_info["path"], f"ICOND_{dir_path[-9:-4]}/QM.out")  # Copy QM.out from respective ICOND folder
         try:
-            os.path.isfile(qm_out_path)
+            os.path.isfile(qmout_path)
         except FileNotFoundError:
-            print(f"The file {qm_out_path} does not exist.")
+            print(f"The file {qmout_path} does not exist.")
             raise FileNotFoundError
         except IOError as e:
             print(f"An I/O error occurred: {e}")
             raise IOError
 
         if self.setup_info["link"]:
-            os.symlink(qm_out_path, os.path.join(dir_path, "QMout.template"))
+            os.symlink(qmout_path, os.path.join(dir_path, "QMout.template"))
         else:
-            shutil.copy(qm_out_path, os.path.join(dir_path, "QMout.template"))
+            shutil.copy(qmout_path, os.path.join(dir_path, "QMout.template"))
 
     @staticmethod
     def name() -> str:
