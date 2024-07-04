@@ -143,6 +143,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         "dmdr": "derivates of dipole moments",
         "multipolar_fit": "a distributed multipole expansion for all states",
         "theodore": "THEODORE analysis",
+        "ion": "Dyson norms",
     }
     int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
     available_requests = sorted(set(standard_requests.keys()).intersection(int_features))
@@ -312,7 +313,7 @@ def writeRunscript(INFOS, iconddir, interface: SHARC_INTERFACE):
     else:
         projname = "singlep"
 
-    headers = "\n".join(INFOS["headers"]) if "headers" in INFOS else ""
+    headers = "".join(INFOS["headers"]) if "headers" in INFOS else ""
 
     # ================================
 
@@ -329,9 +330,9 @@ cd $PRIMARY_DIR
 $SHARC/%s.py QM.in >> QM.log 2>> QM.err
 
 """ % (
+        headers,
         projname,
         os.path.abspath(iconddir),
-        headers,
         interface.__class__.__name__,
     )
 
