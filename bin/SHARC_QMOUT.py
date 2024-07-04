@@ -26,11 +26,11 @@
 # IMPORTS
 # external
 import datetime
-import numpy as np
 import os
 import shutil
 from io import TextIOWrapper
 
+import numpy as np
 from logger import log as logging
 from qmout import QMout
 
@@ -58,7 +58,7 @@ all_features = set(
         "overlap",
         "multipolar_fit",
         "phases",
-        "ion",
+        # "ion",
         # "theodore",
         "dmdr",
         "socdr",
@@ -180,11 +180,11 @@ class SHARC_QMOUT(SHARC_FAST):
         if self.QMin.requests["phases"]:
             self.QMout["phases"] = [complex(1.0, 0.0) for i in range(self.QMout.nmstates)]
 
-        if self.QMin.requests["ion"]:
-            self.QMout["prop2d"] = self.QMout2["prop2d"]
+        # if self.QMin.requests["ion"]:
+        # self.QMout["prop2d"] = self.QMout2["prop2d"]
 
-        if self.QMin.requests["theodore"]:
-            self.QMout["prop1d"] = self.QMout2["prop1d"]
+        # if self.QMin.requests["theodore"]:
+        # self.QMout["prop1d"] = self.QMout2["prop1d"]
 
         if self.QMin.requests["multipolar_fit"]:
             self.QMout["multipolar_fit"] = self.QMout2["multipolar_fit"]
@@ -196,9 +196,8 @@ class SHARC_QMOUT(SHARC_FAST):
 
     def setup_interface(self):
         # read the file
-        #self.QMout = QMout(filepath="QMout.template")
         self.QMout2 = QMout(filepath="QMout.template")
-        self.log.info(f'GRAD READ FROM QMout.template {"grad" in self.QMout and self.QMout.grad is not None}')
+        self.QMout["notes"]["QMout"] = "Notes were not transferred."
         # check the file
         if any(
             [

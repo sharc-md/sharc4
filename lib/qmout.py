@@ -56,7 +56,7 @@ class QMout:
     density_matrices: dict
     mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
-    log.info("QMOUTCLASS")
+
     def __init__(self, filepath=None, states: list[int] = None, natom: int = None, npc: int = None, charges: list[int] = None,
                  flags='all'):
         self.prop0d = []
@@ -81,11 +81,11 @@ class QMout:
             self.charges = charges
         if filepath is not None:
             # initialize the entire object from a QM.out file
-            log.info(f"Reading file {filepath}")
+            log.debug(f"Reading file {filepath}")
             try:
                 f = open(filepath, "r", encoding="utf-8")
             except IOError:
-                raise IOError('Could not find %s!' % (filepath))
+                raise IOError("'Could not find %s!' % (filepath)")
             log.debug(f"Done raw reading {filepath}")
             # get basic information
             basic_info = {"states": list, "charges": list, "natom": int, "npc": int, "nmstates": int}
@@ -138,6 +138,7 @@ class QMout:
                 iline = 0
 
                 log.debug(f"Parsing flag: {flag}")
+                # print(f"Parsing flag: {flag}, {shape} {block_length}")
                 match flag:
                     case 0: # basis info
                         while iline < len(data):
@@ -206,23 +207,23 @@ class QMout:
                             float,
                             (3, self.nmstates, self.nmstates, self.npc, 3),
                         )
-                    case 22:  # multipolar_fit
+                    case 22: # multipolar_fit
                         self.multipolar_fit, iline = QMout.get_multipoles(data, iline, self.charges, shape)
                         if data[iline].find("settings") != -1:
                             self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]
-                    case 24:  # Densities
+                    case 24: # Densities
                         self.density_matrices, iline = QMout.get_densities(data, iline, self.charges, shape)
-                    case 23:  # prop0d
+                    case 23: # prop0d
                         self.prop0d, iline = QMout.get_property(data, iline, float, ())
                     case 25:
                         self.mol, iline  = QMout.get_mol(data, iline)
-                    case 21:  # prop1d
+                    case 21: # prop1d
                         self.prop1d, iline = QMout.get_property(data, iline, float, (self.nmstates,))
-                    case 20:  # prop2d
+                    case 20: # prop2d
                         self.prop2d, iline = QMout.get_property(data, iline, float, (self.nmstates, self.nmstates))
-                    case 8:   # runtime
+                    case 8: # runtime
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
-                    case 999:  # notes
+                    case 999: # notes
                         self.notes, iline = QMout.get_notes(data, iline)  
                         break  # as we do not know how many lines the notes are, we are not reading the QM.out file after the notes
                     case _:
@@ -289,7 +290,6 @@ class QMout:
                 for jblock in range(shape[1]):
                     for irow in range(shape[2]):
                         line = data[iline + irow].split()
-                        log.debug("iblock=%s, jblock=%s, irow=%s, line=%s", iblock, jblock, irow, line)
                         if type == complex:
                             result[iblock, jblock, irow, :] = np.array(
                                 [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[3])]
@@ -333,6 +333,14 @@ class QMout:
             iline -= 1
         return result, iline
 
+    @staticmethod                                   
+    def get_notes(data, iline):                     
+        num = int(data[iline+1].split()[0])         
+        # currently only skipping                   
+        toskip = 4 + 3*num                          
+        return {'Notes': 'not read'}, iline + toskip
+        # TODO: actually read in the notes as dict. Readig should stop at the first empty line
+
     @staticmethod
     def get_property(data, iline, type, shape):
         num = int(data[iline + 1].split()[0])
@@ -346,14 +354,6 @@ class QMout:
             iline += 2
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
-
-    @staticmethod                                   
-    def get_notes(data, iline):                     
-        num = int(data[iline+1].split()[0])         
-        # currently only skipping                   
-        toskip = 4 + 3*num                          
-        return {'Notes': 'not read'}, iline + toskip
-        # TODO: actually read in the notes as dict. Readig should stop at the first empty line
 
     @staticmethod
     def get_multipoles(data, iline, charges, shape):
@@ -579,8 +579,8 @@ class QMout:
         if "mol" in requests and requests["mol"]:
             string += self.writeQMoutMole()
 
-        #if self.notes:
-        #    string += self.writeQMoutnotes()
+        if self.notes:
+            string += self.writeQMoutnotes()
         string += self.writeQMouttime()
         writefile(filename, string)
         return
@@ -1199,7 +1199,7 @@ class QMout:
         1 string: multiline string with the SOC matrix"""
 
         notes = self.notes
-        string = "! %i Notes ()\n" % (999)
+        string = "! %i Notes\n" % (24)
         string += "%i    ! number of notes\n" % (len(notes))
 
         string += "! Notes Labels (%i strings)\n" % (len(notes))
@@ -1325,7 +1325,6 @@ class QMout:
         string = ""
         string += "===> Results:\n\n"
         # Hamiltonian matrix, real or complex
-
         if QMin.requests["h"] or QMin.requests["soc"]:
             eshift = math.ceil(self["h"][0][0].real)
             string += "=> Hamiltonian Matrix:\nDiagonal Shift: %9.2f\n" % (eshift)
@@ -1362,7 +1361,6 @@ class QMout:
             string += "=> Gradient Vectors:\n\n"
             istate = 0
             for imult, i, ms in itnmstates(states):
-                log.info("GRADTEST", imult, i, ms, self["grad"])
                 string += "%s\t%i\tMs= % .1f:\n" % (IToMult[imult], i, ms)
                 string += formatgrad(
                     self["grad"][istate],
@@ -1389,9 +1387,7 @@ class QMout:
         if QMin.requests["overlap"]:
             string += "=> Overlap matrix:\n\n"
             matrix = self["overlap"]
-            log.info("read", states, matrix)
             string += formatcomplexmatrix(matrix, states)
-            log.info(string)
             if QMin.requests["phases"]:
                 string += "=> Wavefunction Phases:\n\n"
                 for i in range(nmstates):
@@ -1488,4 +1484,4 @@ class QMout:
 if __name__ == "__main__":
     test = QMout()
     test.allocate([1], 1, 1, set(["h"]))
-    #print(test.formatQMout())
+    print(test.formatQMout())

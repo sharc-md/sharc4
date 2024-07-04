@@ -34,6 +34,7 @@
 import numpy as np
 from openmm.app import Simulation, AmberPrmtopFile
 from openmm import System, State, NonbondedForce, Platform, CustomIntegrator
+from openmm.app.forcefield import NoCutoff
 import datetime
 from typing import Optional
 from io import TextIOWrapper
@@ -196,7 +197,7 @@ class SHARC_OpenMM(SHARC_FAST):
 
         # standard params http://docs.openmm.org/latest/api-python/generated/openmm.app.amberprmtopfile.AmberPrmtopFile.html#openmm.app.amberprmtopfile.AmberPrmtopFile.createSystem
         # nonbondedMethod=ff.NoCutoff, nonbondedCutoff=1.0*u.nanometer, constraints=None, rigidWater=True, implicitSolvent=None, implicitSolventSaltConc=0.0*(u.moles/u.liter), implicitSolventKappa=None, temperature=298.15*u.kelvin, soluteDielectric=1.0, solventDielectric=78.5, removeCMMotion=True, hydrogenMass=None, ewaldErrorTolerance=0.0005, switchDistance=0.0*u.nanometer, gbsaModel='ACE'
-        system: System = prmtop.createSystem(nonbondedCutoff="NoCutoff", rigidWater=False, removeCMMotion=False)
+        system: System = prmtop.createSystem(nonbondedMethod=NoCutoff, rigidWater=False, removeCMMotion=False)
 
         # 'Do nothing' integrator
         integrator = CustomIntegrator(0.0005)
