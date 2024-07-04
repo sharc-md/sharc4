@@ -218,7 +218,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.log.info("\n")
 
         self.log.info("\nSpecify path to MOLCAS.")
-        INFOS["molcas"] = question("Path to MOLCAS:", str, KEYSTROKES=KEYSTROKES)
+        INFOS["molcas"] = question("Path to MOLCAS:", str, default="$MOLCAS", KEYSTROKES=KEYSTROKES)
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
         INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
@@ -247,14 +247,19 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             "Please note that this script cannot check whether the wavefunction file and the Input template are consistent!"
         )
         INFOS["molcas.guess"] = {}
-        string = "Do you have initial wavefunction files for multiplicity "
+        string = "Do you have initial wavefunction files for multiplicit"
+        mults = []
         for mult, state in enumerate(INFOS["states"]):
             if state <= 0:
                 continue
-            string += f"{mult+1} "
-        string += "?"
-        if question(string, bool, True):
-            while (jobiph_or_rasorb := question("JobIph files (1) or RasOrb files (2)?", int)[0]) not in (1, 2):
+            mults.append(mult)
+        if len(mults)>1:
+            string+='ies '
+        else:
+            string+='y '
+        string += ' '.join([str(i+1) for i in mults]) + "?"
+        if question(string, bool, KEYSTROKES=KEYSTROKES, default=True):
+            while (jobiph_or_rasorb := question("JobIph files (1) or RasOrb files (2)?", int, KEYSTROKES=KEYSTROKES)[0]) not in (1, 2):
                 self.log.info(f"{jobiph_or_rasorb} invalid option!")
             INFOS["molcas.jobiph_or_rasorb"] = jobiph_or_rasorb
             for mult, state in enumerate(INFOS["states"]):
@@ -262,7 +267,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     continue
                 guess_file = f"MOLCAS.{mult + 1}.{'JobIph' if jobiph_or_rasorb == 1 else 'RasOrb'}.init"
                 while not os.path.isfile(
-                    filename := question(f"Initial wavefunction file for multiplicity {mult + 1}:", str, guess_file)
+                    filename := question(f"Initial wavefunction file for multiplicity {mult + 1}:", str, default=guess_file,KEYSTROKES=KEYSTROKES)
                 ):
                     self.log.info("File not found!")
                 INFOS["molcas.guess"][mult + 1] = filename
@@ -285,8 +290,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         create_file(expand_path(self._template_file), os.path.join(dir_path, "MOLCAS.template"))
 
         for key, val in INFOS["molcas.guess"].items():
+            val = os.path.abspath(val)
             dest = os.path.join(
-                dir_path, f"QM/MOLCAS.{key}.{'JobIph' if INFOS['molcas.jobiph_or_rasorb'] == 1 else 'RasOrb'}.init"
+                dir_path, f"MOLCAS.{key}.{'JobIph' if INFOS['molcas.jobiph_or_rasorb'] == 1 else 'RasOrb'}.init"
             )
             create_file(val, dest)
 
