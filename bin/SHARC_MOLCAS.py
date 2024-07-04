@@ -13,7 +13,7 @@ from typing import Any
 from sympy.physics.wigner import wigner_3j
 import h5py
 import numpy as np
-from constants import au2a, lande_g_factor, alpha
+from constants import au2a, IToMult, lande_g_factor, alpha
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -254,14 +254,17 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         for mult, state in enumerate(INFOS["states"]):
             if state <= 0:
                 continue
-            string += f"{mult+1} "
-        string += "?"
-        if question(string, bool, True):
-            while (jobiph_or_rasorb := question("JobIph files (1) or RasOrb files (2)?", int)[0]) not in (1, 2):
-                self.log.info(f"{jobiph_or_rasorb} invalid option!")
-            INFOS["molcas.jobiph_or_rasorb"] = jobiph_or_rasorb
-            for mult, state in enumerate(INFOS["states"]):
-                if state <= 0:
+            string += '%s, ' % (IToMult[mult + 1])
+        string = string[:-2] + '?'
+        if question(f'{string}', bool, KEYSTROKES=KEYSTROKES, default=True):
+            while True:
+                jobiph_or_rasorb = question('JobIph files (1) or RasOrb files (2)?', int, KEYSTROKES=KEYSTROKES, default=None)[0]
+                if jobiph_or_rasorb in [1, 2]:
+                    break
+            INFOS['molcas.jobiph_or_rasorb'] = jobiph_or_rasorb
+            INFOS['molcas.guess'] = {}
+            for mult, state in enumerate(INFOS["states"]): 
+                if state <=0:
                     continue
                 guess_file = f"MOLCAS.{mult + 1}.{'JobIph' if jobiph_or_rasorb == 1 else 'RasOrb'}.init"
                 while not os.path.isfile(

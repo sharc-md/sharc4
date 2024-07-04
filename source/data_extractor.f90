@@ -618,7 +618,8 @@ program data_extractor
     endif
     call allocate_lapack(nstates)
     overlaps_ss=dcmplx(0.d0,0.d0)
-
+    MDM_mch_ssd=dcmplx(0.d0,0.d0)
+    EQM_mch_ssdd=dcmplx(0.d0,0.d0)
     ! obtain the timestep, ezero and have_overlap 
     ! most of the information from dat file header is needed in order to interpret the matrices per timestep
     read(u_dat,*) dtstep

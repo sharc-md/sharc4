@@ -608,7 +608,6 @@ def check_laserfile(filename, nsteps, dt):
     #         return False
     # return True
 
-
     if check_laserfileversion(filename)[0]==1.0:
         n = 0
         for line in data:

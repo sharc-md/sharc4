@@ -1157,7 +1157,6 @@ subroutine write_data_netcdf()
 
   real*8 :: E(3)
   integer :: stride
-
   E(1) = traj%Etot
   E(2) = traj%Epot
   E(3) = traj%Ekin
@@ -1198,6 +1197,7 @@ subroutine write_data_netcdf()
         & ncdat)
     if (traj%nc_index<0) traj%nc_index=-traj%nc_index
     traj%nc_index=traj%nc_index+1
+
   endif
 
 end subroutine write_data_netcdf
@@ -1251,6 +1251,8 @@ subroutine write_data_netcdf_seperate_nuc()
       & traj%H_MCH_ss, &
       & traj%U_ss, &
       & traj%DM_print_ssd, &
+      & traj%MDM_print_ssd, &
+      & traj%EQM_print_ssdd, &
       & traj%overlaps_ss, &
       & traj%coeff_diag_s, &
       & E, &
@@ -1502,6 +1504,7 @@ subroutine Verlet_vstep(IRedo, pysharc)
     endif
     ! Decoherence, decay of mixing
     call Decoherence(traj,ctrl)
+    write(*,*) "VERLET VSTEP"
     call Calculate_cMCH(traj,ctrl)
     ! Switching of the pointer state
     if (ctrl%army_ants==0) then
@@ -1542,7 +1545,7 @@ subroutine Verlet_finalize(IExit, iskip)
     use restart, only: write_restart_traj
     use tsh_tu, only: tshtu_time_travelling, record_time_travelling_point
     implicit none
-
+    
     __INT__, intent(out) :: IExit ! if IExit = 0 end loop, else continue
     __INT__, intent(in)  :: iskip ! if IExit = 0 end loop, else continue
 

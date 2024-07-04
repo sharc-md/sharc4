@@ -523,7 +523,7 @@ subroutine Electronic_gradients_MCH(traj,ctrl)
   complex*16 :: w(ctrl%nstates,ctrl%nstates),tw(ctrl%nstates,ctrl%nstates),dw(ctrl%nstates,ctrl%nstates)
   complex*16 :: NACT(ctrl%nstates, ctrl%nstates)
   complex*16 :: Ptotal(ctrl%nstates, ctrl%nstates)
-  integer :: istate, jstate, iatom, idir
+  integer :: istate, jstate, iatom, idir, jdir
   real*8 :: pvib_ad(ctrl%natom,3)
   complex*16 :: DP(ctrl%nstates, ctrl%nstates)
   complex*16 :: gdcoeff_MCH_s(ctrl%nstates)
@@ -540,8 +540,20 @@ subroutine Electronic_gradients_MCH(traj,ctrl)
     H_ss=traj%H_MCH_ss
   else if (ctrl%laser==2) then
     do idir=1,3
-      H_ss=traj%H_MCH_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
+        H_ss=traj%H_MCH_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
     enddo
+    if (ctrl%laser_b==.true.) then
+      do idir=1,3
+        H_ss=H_ss-traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+      enddo
+    endif 
+    if (ctrl%laser_egrad==.true.) then
+      do idir=1,3
+        do jdir=1,3
+          H_ss=H_ss-traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+        enddo
+      enddo
+    endif
   endif
   if (printlevel>4) then
     call matwrite(ctrl%nstates,H_ss,u_log,' H_MCH with laser field','F14.9')

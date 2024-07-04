@@ -53,7 +53,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
-        &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,: ,:),&
         &ctrl%dtstep, ctrl%nsubsteps, 1,&       ! 1=constant interpolation
         &traj%Rtotal_ss)
     case (1)    ! ddr
@@ -73,7 +75,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
-        &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,: ,:),&
         &ctrl%dtstep, ctrl%nsubsteps, 0,&       ! 0=linear interpolation
         &traj%Rtotal_ss)
     case (2)    ! overlap
@@ -87,7 +91,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
-        &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+        &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,: ,:),&
         &ctrl%dtstep, ctrl%nsubsteps,&
         &traj%Rtotal_ss)
   endselect
@@ -99,8 +105,8 @@ subroutine propagate_laser(traj,ctrl)
     write(u_log,*) '============================================================='
     if (printlevel>3) then
       call vec3write(ctrl%nsubsteps,&
-      &ctrl%laserfield_td( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-      &u_log,'Laser Field','F12.9')
+      &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
+      &u_log,'Laser E-Field','F12.9')
     endif
     select case (ctrl%coupling)
       case (0)  ! ddt
@@ -190,7 +196,7 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
-subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DMold, MDM, MDMold, EQM, EQMold, laserfield, dt, nsubsteps, interp, Rtotal)
+subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DMold, MDM, MDMold, EQM, EQMold, laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, interp, Rtotal)
   use definitions, only: u_log
   use matrix
   !
@@ -205,7 +211,7 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
   complex*16, intent(in) :: U(n,n), SO(n,n), SOold(n,n), NACM(n,n), NACMold(n,n), DM(n,n,3),DMold(n,n,3)
   complex*16, intent(in) :: MDM(n,n,3), MDMold(n,n,3)
   complex*16, intent(in) :: EQM(n,n,3,3), EQMold(n,n,3,3)
-  complex*16, intent(in) :: laserfield(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_e(nsubsteps,3), laserfield_b(nsubsteps,3), laserfield_egrad(nsubsteps,3,3)
   complex*16, intent(inout) :: Uold(n,n), Rtotal(n,n)
   real*8, intent(in) :: dt
   ! internal variables:
@@ -226,16 +232,16 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
     ! first ingredient, H
     H=SOold + (SO-SOold)*istep/nsubsteps
     do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield(istep,ixyz))
+      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz))
     enddo
-    ! do ixyz=1,3
-    !   H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz))
-    ! enddo
-    ! do ixyz=1,3
-    !   do jxyz=1,3
-    !     H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield(istep,ixyz))
-    !   enddo
-    ! enddo
+    do ixyz=1,3
+      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz))
+    enddo
+    do ixyz=1,3
+      do jxyz=1,3
+        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsubsteps ) * real(laserfield_egrad(istep,ixyz))
+      enddo
+    enddo
     
     ! second ingredient, T
     if (interp==1) then
@@ -267,7 +273,7 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
-subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, laserfield, dt, nsubsteps, Rtotal)
+subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, Rtotal)
   use definitions, only: u_log
   use matrix
   ! calculates the propagator matrix for a timestep
@@ -282,7 +288,7 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, la
   integer, intent(in) :: n, nsubsteps
   real*8, intent(in) :: dt
   complex*16, intent(in) :: U(n,n), Uold(n,n),SOin(n,n),SOold(n,n), DMin(n,n,3),DMold(n,n,3)
-  complex*16, intent(in) :: laserfield(nsubsteps,3)
+  complex*16, intent(in) :: laserfield_e(nsubsteps,3), laserfield_b(nsubsteps,3), laserfield_egrad(nsubsteps,3,3)
   complex*16, intent(inout) :: overlap(n,n)
   complex*16, intent(inout) :: Rtotal(n,n)
 
@@ -337,6 +343,15 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, la
     do ixyz=1,3
       H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield(k,ixyz))
     enddo
+    do ixyz=1,3
+      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_b(istep,ixyz))
+    enddo
+    do ixyz=1,3
+      do jxyz=1,3
+        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*k/nsubsteps ) * real(laserfield_egrad(istep,ixyz))
+      enddo
+    enddo
+
     H=dtsubstep*H
 
     call exponentiate(n,H,-ii)

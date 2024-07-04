@@ -94,6 +94,9 @@ program data_extractor
   write(6,*) 'Running...'
   istep = 0 
   do 
+    write(*,*) "WORK"
+        
+    write(*,*) "WORK1"
     call read_sharc_ncoutputdat_istep(nsteps, istep, general_infos%natom, nstates, &
        &  shdata%H_MCH_ss, shdata%U_ss, shdata%DM_ssd, shdata%MDM_ssd, shdata%EQM_ssdd, shdata%overlaps_ss,&
        &  shdata%coeff_diag_s, Energy, shdata%hopprob_s, &
@@ -104,21 +107,30 @@ program data_extractor
    shdata%Etot = Energy(1)
    shdata%Epot = Energy(2)
    shdata%Ekin = Energy(3)
-
+   write(*,*) "WORK2"
 !    call read_properties_from_output(nstates, step, u_dat, general_infos, prop_info, shdata, io)
 !    if (io/=0) exit
     ! ========== Reading is done for this time step =============
     call process_data(nstates, istep, general_infos, write_options, shdata)
     ! ========== Calculating is done for this time step =============
+    write(*,*) "WORK3"
     call write_data_to_file(nstates, istep, general_infos, write_options, shdata)
     ! write progress to screen
-    write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',shdata%time_step*general_infos%dtstep,' fs'
-
+    write(*,*) "WORK3.1"
+    write(*,*) shdata%time_step
+    write(*,*) "WORK3.2"
+    write(*,*) general_infos%dtstep*shdata%time_step  
+    write(*,*) "WORK4"
+    !write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',shdata%time_step*general_infos%dtstep,' fs'
+    write(*,*) "WORK5"
+    call FLUSH() 
     istep = istep + 1
     if (istep == nsteps) then
         exit
     endif
+    write(*,*) "END"
   enddo
+  write(*,*) "OUT"
   call close_ncfile(ncdat%id)
   write(*,*) "closed ncfile"
 endprogram

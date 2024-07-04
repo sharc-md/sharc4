@@ -1219,7 +1219,7 @@ contains
 
 
     time_step=shdata%time_step
-
+    write(*,*) "WRITE_DATA_1"
 
     if (write_options%write_geometry) then
       write(u_xyz,'(I12)') general_infos%natom
@@ -1231,6 +1231,7 @@ contains
 
 
 
+    write(*,*) "WRITE_DATA_2"
 
     if (write_options%write_energy) then
       ! write to energy.out
@@ -1246,12 +1247,14 @@ contains
       &time_step*general_infos%dtstep, shdata%expec_dm(shdata%state_diag),&
       (shdata%expec_dm(istate),istate=1,nstates)
     endif
+    write(*,*) "WRITE_DATA_3"
     if (write_options%write_mag_dip) then
       ! write to fosc_md2.out
       write(u_mdm,'(2X,1000(ES20.12E3,1X))') &
       &time_step*general_infos%dtstep, shdata%expec_mdm(shdata%state_diag),&
       (shdata%expec_mdm(istate),istate=1,nstates)
     endif
+    write(*,*) "WRITE_DATA_4"
     if (write_options%write_el_quad) then
       ! write to fosc_eq2.out
       write(u_eqm,'(2X,1000(ES20.12E3,1X))') &
@@ -1268,6 +1271,7 @@ contains
 !       &time_step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
+    write(*,*) "WRITE_DATA_5"
     if (write_options%write_mag_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act_mdm,'(2X,1000(ES20.12E3,1X))') &
@@ -1289,6 +1293,7 @@ contains
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
 
+    write(*,*) "WRITE_DATA_6"
     if (write_options%write_iondiag) then
       ! write to ion_diag.out
       write(u_ion_diag,'(2X,ES20.12E3,1X,I20,1X,1000(ES20.12E3,1X))') &
@@ -1304,6 +1309,7 @@ contains
       & (shdata%expec_ion_mch(istate),istate=1,nstates)
     endif
 
+    write(*,*) "WRITE_DATA_7"
 
     if (write_options%write_spin) then
       ! write to spin.out
@@ -1313,6 +1319,7 @@ contains
     endif
 
 
+    write(*,*) "WRITE_DATA_7"
     if (write_options%write_coeffdiag) then
       ! calculate sumsq of diagonal coefficients
       sumc=0.d0
@@ -1334,6 +1341,7 @@ contains
     endif
 
 
+    write(*,*) "WRITE_DATA_8"
     if (write_options%write_coeffmch) then
       ! calculate sumsq of MCH coefficients
       sumc=0.d0
@@ -1370,6 +1378,7 @@ contains
     endif
 
 
+    write(*,*) "WRITE_DATA_9"
     if (write_options%write_coeffdiab) then
       ! calculate sumsq of diabatic coefficients
       sumc=0.d0
@@ -1407,6 +1416,7 @@ contains
     endif
 
 
+    write(*,*) "WRITE_DATA_10"
     if (write_options%write_prob) then
       ! calculate cumulative hopping probabilities
       do istate=2,nstates
@@ -1430,6 +1440,7 @@ contains
       &(shdata%expec_dm(istate),istate=1,nstates)
     endif
 
+    write(*,*) "WRITE_DATA_11"
 
     if (write_options%write_expecmch) then
       write(u_expec_mch,'(2X,1000(ES20.12E3,1X))') &
@@ -1440,6 +1451,7 @@ contains
     endif
     ! ========== Writing is done for this time step =============
 
+    write(*,*) "WRITE_DATA_12"
     end subroutine write_data_to_file
 
 ! -----------------------------------------------------------------------------
@@ -1487,7 +1499,7 @@ contains
       endif
       call matvecmultiply(nstates,shdata%ref_ovl_ss,shdata%coeff_MCH_s,shdata%coeff_diab_s,'n')
     endif
-
+    
     ! calculate oscillator strengths
     if (write_options%write_dip .or. write_options%write_dipact .or.&
        &write_options%write_expec .or. write_options%write_expecmch) then

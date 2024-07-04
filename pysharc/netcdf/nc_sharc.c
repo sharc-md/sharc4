@@ -73,6 +73,12 @@ setup_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
          nc_def_var(ncdat->id, "DM", NC_DOUBLE, 4, &dimids[0], &ncdat->DM_id)
     );
     check_nccall(iret, 
+         nc_def_var(ncdat->id, "MDM", NC_DOUBLE, 4, &dimids[0], &ncdat->MDM_id)
+    );
+    check_nccall(iret, 
+         nc_def_var(ncdat->id, "EQM", NC_DOUBLE, 4, &dimids[0], &ncdat->EQM_id)
+    );
+    check_nccall(iret, 
          nc_def_var(ncdat->id, "coeff_diag", NC_DOUBLE, 2, &dimids[0], &ncdat->coeff_diag_id)
     );
     // change in dimensions  as hop prob is real
@@ -149,6 +155,8 @@ reopen_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
     check_nccall(iret, nc_inq_varid(ncdat->id, "U", &ncdat->U_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "Ovlap", &ncdat->overlaps_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "DM", &ncdat->DM_id));
+    check_nccall(iret, nc_inq_varid(ncdat->id, "MDM", &ncdat->MDM_id));
+    check_nccall(iret, nc_inq_varid(ncdat->id, "EQM", &ncdat->EQM_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "coeff_diag", &ncdat->coeff_diag_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "hopprob", &ncdat->hopprop_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "Energy", &ncdat->e_id));
@@ -173,6 +181,8 @@ write_sharc_ncoutputdat_istep_(
         const double* H_MCH_ss,           // complex, (frame, 2*nstates, nstates)
         const double* U_ss,               // complex, (frame, 2*nstates, nstates)
         const double* DM_print_ssd,       // complex, (frame, 2*nstates, nstates, 3)
+        const double* MDM_print_ssd,      // complex, (frame, 2*nstates, nstates, 3)
+        const double* EQM_print_ssdd,     // complex, (frame, 2*nstates, nstates, 3, 3)
         const double* overlaps_ss,        // complex, (frame, 2*nstates, nstates)
         const double* coeff_diag_s,       // complex, (frame, 2*nstates)
         const double* E,                  // real, contains Etot, Epot and Ekin, (frame, 3)
@@ -211,6 +221,12 @@ write_sharc_ncoutputdat_istep_(
     );
     check_nccall(iret, 
             nc_put_vara_double(ncdat->id, ncdat->DM_id, start, count, DM_print_ssd)
+    );
+    check_nccall(iret, 
+            nc_put_vara_double(ncdat->id, ncdat->MDM_id, start, count, MDM_print_ssd)
+    );
+    check_nccall(iret, 
+            nc_put_vara_double(ncdat->id, ncdat->EQM_id, start, count, EQM_print_ssdd)
     );
     check_nccall(iret, 
             nc_put_vara_double(ncdat->id, ncdat->overlaps_id, start, count, overlaps_ss)
@@ -269,6 +285,8 @@ read_sharc_ncoutputdat_istep_(
         double* H_MCH_ss,           // complex, (frame, 2*nstates, nstates)
         double* U_ss,               // complex, (frame, 2*nstates, nstates)
         double* DM_print_ssd,       // complex, (frame, 2*nstates, nstates, 3)
+        double* MDM_print_ssd,      // complex, (frame, 2*nstates, nstates, 3)
+        double* EQM_print_ssdd,     // complex, (frame, 2*nstates, nstates, 3, 3)
         double* overlaps_ss,        // complex, (frame, 2*nstates, nstates)
         double* coeff_diag_s,       // complex, (frame, 2*nstates)
         double* E,                  // real, contains Etot, Epot and Ekin, (frame, 3)
@@ -286,7 +304,6 @@ read_sharc_ncoutputdat_istep_(
 {
    int iret = 0;
    int pointer = 0;
-
    if (*istep == 0) {
         ncdat->id = open_ncfile("output.dat.nc", NC_NOWRITE);
 
@@ -304,13 +321,19 @@ read_sharc_ncoutputdat_istep_(
         );
 
         printf("found %d steps\n", *nsteps);
-        
+        printf("TEST0"); 
         check_nccall(iret, 
                 nc_inq_varid(ncdat->id, "H_MCH", &ncdat->H_MCH_id)
         );
+        printf("TEST_A");
         check_nccall(iret, nc_inq_varid(ncdat->id, "U", &ncdat->U_id));
         check_nccall(iret, nc_inq_varid(ncdat->id, "Ovlap", &ncdat->overlaps_id));
         check_nccall(iret, nc_inq_varid(ncdat->id, "DM", &ncdat->DM_id));
+        printf("TEST_B");
+        check_nccall(iret, nc_inq_varid(ncdat->id, "MDM", &ncdat->MDM_id));
+        printf("TEST_C");
+        check_nccall(iret, nc_inq_varid(ncdat->id, "EQM", &ncdat->EQM_id));
+        printf("TEST_D");
         check_nccall(iret, nc_inq_varid(ncdat->id, "coeff_diag", &ncdat->coeff_diag_id));
         check_nccall(iret, nc_inq_varid(ncdat->id, "hopprob", &ncdat->hopprop_id));
         check_nccall(iret, nc_inq_varid(ncdat->id, "Energy", &ncdat->e_id));
@@ -355,6 +378,22 @@ read_sharc_ncoutputdat_istep_(
                                start, 
                                count, 
                                DM_print_ssd)
+   );
+
+    check_nccall(iret, 
+            nc_get_vara_double(ncdat->id, 
+                               ncdat->MDM_id, 
+                               start, 
+                               count, 
+                               MDM_print_ssd)
+   );
+   
+   check_nccall(iret, 
+            nc_get_vara_double(ncdat->id, 
+                               ncdat->EQM_id, 
+                               start, 
+                               count, 
+                               EQM_print_ssdd)
    );
 
    check_nccall(iret, 

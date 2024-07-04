@@ -62,6 +62,14 @@ class QMOUT:
         log.debug(f"{type(dip)}")
         self._QMout.set_dipolemoment(dip)
 
+    def set_mag_dipolemoment(self, mag_dip: list[list[list[Union[complex, float]]]]):
+        log.debug(f"{type(mag_dip)}")
+        self._QMout.set_mag_dipolemoment(mag_dip)
+
+    def set_el_quadrupolemoment(self, el_quad: list[list[list[Union[complex, float]]]]):
+        log.debug(f"{type(el_quad)}")
+        self._QMout.set_el_quadrupolemoment(el_quad)
+
     def set_overlap(self, ovl: list[list[float]]):
         log.debug(f"{type(ovl)}")
         self._QMout.set_overlap(ovl)
@@ -85,7 +93,10 @@ class QMOUT:
                 self._QMout.set_hamiltonian(data["h"].tolist())
             if "dm" in data:
                 self._QMout.set_dipolemoment(data["dm"].tolist())
-
+            if "mdm" in data:
+                self._QMout.set_mag_dipolemoment(data["mdm"].tolist())
+            if "eqm" in data:
+                self._QMout.set_el_quadrupolemoment(data["eqm"].tolist())
         if "overlap" in data:
             if not isinstance(data["overlap"], type([])):
                 # assumes type is numpy array
