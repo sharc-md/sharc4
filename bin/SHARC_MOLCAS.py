@@ -10,21 +10,15 @@ from io import TextIOWrapper
 from itertools import product
 from math import ceil
 from typing import Any
-from sympy.physics.wigner import wigner_3j
+
 import h5py
 import numpy as np
-from constants import au2a, lande_g_factor, alpha
+from constants import au2a
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-
-from utils import (convert_list,
-                   expand_path,
-                   link,
-                   mkdir,
-                   question,
-                   writefile,
-                   InDir)
+from sympy.physics.wigner import wigner_3j
+from utils import convert_list, expand_path, link, mkdir, question, writefile
 
 __all__ = ["SHARC_MOLCAS"]
 
@@ -1630,20 +1624,26 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         for (dyson_s1, dyson_s2), dos in dyson_orbitals_from_rassi.items():
             phi_work = np.zeros(((n_s1 := nstates1[dyson_s1]), (n_s2 := nstates2[dyson_s2]), self.QMout["mol"].nao))
             # Fetch JOBIPH files
-            shutil.copy(os.path.join(save1, f"MOLCAS.{dyson_s1}.JobIph.{step1}"), "JOB001")
-            shutil.copy(os.path.join(save2, f"MOLCAS.{dyson_s2}.JobIph.{step2}"), "JOB002")
+            shutil.copy(os.path.join(save1, f"MOLCAS.{dyson_s1+1}.JobIph.{step1}"), os.path.join(workdir, "dyson/JOB001"))
+            shutil.copy(os.path.join(save2, f"MOLCAS.{dyson_s2+1}.JobIph.{step2}"), os.path.join(workdir, "dyson/JOB002"))
 
             # Make RASSI.input
-            input_str = "&RASSI\n"
+            input_str = self._write_gateway(self.QMin)
+            input_str += self._write_seward(self.QMin)
+            input_str += "&RASSI\n"
             input_str += f"NROFJOBIPHS\n2 {n_s1} {n_s2}\n"
             input_str += f"{' '.join([str(j) for j in range(1, n_s1 + 1)])}\n{' '.join([str(j) for j in range(1, n_s2 + 1)])}\n"
             input_str += "MEIN\n"
             input_str += "CIPR\nTHRS=0.000005d0\n"
             input_str += "DYSON\n"
-            input_str += f"DYSEXPORT {n_s1 + n_s2} 0\n\n"
-            with open("RASSI.input", "w", encoding="utf-8") as f:
+            input_str += f"DYSEXPORT\n{n_s1 + n_s2} 0\n\n"
+            with open(os.path.join(workdir, "dyson/RASSI.input"), "w", encoding="utf-8") as f:
                 f.write(input_str)
 
+            writefile(
+                os.path.join(workdir, "dyson/MOLCAS.xyz"),
+                self._write_geom(self.QMin.molecule["elements"], self.QMin.coords["coords"]),
+            )
             # Call pymolcas
             if (
                 code := self.run_program(
@@ -1651,18 +1651,30 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     self.QMin.resources["driver"] + " RASSI.input",
                     "RASSI.out",
                     "RASSI.err",
-                    {"MOLCASMEM": str(mem), "MOLCAS_MEM": str(mem)},
+                    {"MOLCASMEM": str(mem), "MOLCAS_MEM": str(mem), "WorkDir": workdir},
                 )
             ) != 0:
                 self.log.error(f"Dyson orbital calculation failed with exit code {code}")
                 raise ValueError()
 
+            with h5py.File(os.path.join(workdir, "dyson/RASSI.rassi.h5"), "r") as f:
+                ao_order = np.asarray(f["BASIS_FUNCTION_IDS"][:])
+
+            # MOLCAS orders by ml -> e.g. 2px, 3px, 4px, 2py, ...
+            def sort_ao(key1, key2):  # reorder to 2px, 2py, 2pz, 3py, ...
+                ao1 = ao_order[key1]
+                ao2 = ao_order[key2]
+                return (ao1[0] - ao2[0]) * 1000 + (ao1[2] - ao2[2]) * 100 + (ao1[1] * ao1[2] - ao2[1] * ao2[2])
+
+            ao_sorted = sorted(list(range(ao_order.shape[0])), key=cmp_to_key(sort_ao))
             # Parse
             for i in range(n_s1):
-                with open(os.path.join(workdir, f"driver/RASSI.DysOrb.SF.{i+1}"), "r", encoding="utf-8") as f:
+                with open(os.path.join(workdir, f"dyson/RASSI.DysOrb.SF.{i+1}"), "r", encoding="utf-8") as f:
                     orbitals = re.findall(r"ORBITAL\s+\d+\s+\d+\n([\s+-?\d+\.\d{14}E+|\-\d{2}]*)", f.read(), re.DOTALL)
                     for j, orbital in enumerate(orbitals):
-                        phi_work[i, j, :] = np.asarray(orbital, dtype=float)[np.ix_(self._h_sort)]
+                        phi_work[i, j, :] = np.asarray(re.findall(r"\-?\d+\.\d{14}E[\-|+]\d+", orbital), dtype=float)[
+                            np.ix_(ao_sorted)
+                        ]
 
             for s1, s2, spin in dos:
                 phi[(s1, s2, spin)] = phi_work[s1.N - 1, s2.N - 1, :]
