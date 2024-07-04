@@ -1,9 +1,11 @@
 # /usr/bin/env python3
+import scipy.constants as const
+
 # conversion factors
 au2a = 0.529177211
 ANG_TO_BOHR = 1. / 0.529177211
 rcm_to_Eh = 4.556335e-6
-kcal_to_Eh = 0.0015936011
+kcal_to_Eh = 0.0015936010974213599
 D2au = 0.393430307
 au2eV = 27.2113987622
 CM_TO_HARTREE = 1. / 219474.6
@@ -12,7 +14,8 @@ EV_TO_EH = 0.03674930495120813
 U_TO_AMU = 1. / 5.4857990943e-4
 BOHR_TO_ANG = 0.529177211
 kJpermol_to_Eh = kj2Eh = 2625.4996394799    # kJ/mol -> Hartree
-
+lande_g_factor = const.physical_constants["electron g factor"][0]
+alpha = const.alpha
 # TODO: go higher (see old ORCA interface)
 # TODO: use some list comprehension to get the reversed half of the dictionary
 IToMult = {

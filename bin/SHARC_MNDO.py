@@ -92,6 +92,10 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "imomap": 0,
                 "disp": 0,
                 "iop": -6,
+                "fomo": 0,
+                "rohf": 0,
+                "levexc": 2,
+                "mciref": 0,
             }
         )
         self.QMin.template.types.update(
@@ -106,6 +110,11 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "imomap": int,
                 "disp": int,
                 "iop": int,
+                "fomo": int,
+                "rohf": int,
+                "levexc": int,
+                "mciref": int,
+
             }
         )
 
@@ -373,6 +382,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 line = f[jline]
                 while "Sym= " not in line:
                     s = line.split()
+                    if "[GEOCONV]" in line:
+                        break
                     AO[int(s[0])] = float(s[1])
                     jline += 1
                     if jline == len(f):
@@ -704,7 +715,8 @@ mocoef
         if self.QMin.requests["phases"]:
                 for i in range(self.QMin.molecule["nmstates"]):
                     self.QMout["phases"][i] = -1 if self.QMout["overlap"][i][i] < 0 else 1
-
+        
+        return self.QMout
 
 
     def _get_states_interstates(self, log_path: str):
@@ -831,19 +843,19 @@ mocoef
         # nac = np.fromiter(map(), count=).reshape()
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i]
-            dE = self.QMout["h"][s2,s2].real - self.QMout["h"][s1,s1].real # In MNDO cannot calculate imaginary energies
+            #dE = self.QMout["h"][s2,s2].real - self.QMout["h"][s1,s1].real # In MNDO cannot calculate imaginary energies
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
                 if self.QMin.molecule["point_charges"]: #In the fort.15 file, depending if thhe calculation includs point charges or not, there is a different amount of columns for the gradients and NACs
-                    nac[s1, s2, j, 0] =  float(s[-4])  
+                    nac[s1, s2, j, 0] =  float(s[-4])
                     nac[s1, s2, j, 1] =  float(s[-3])
                     nac[s1, s2, j, 2] =  float(s[-2])
                     nac[s2, s1, j, 0] = -float(s[-4])
                     nac[s2, s1, j, 1] = -float(s[-3])
                     nac[s2, s1, j, 2] = -float(s[-2])
-                else: 
-                    nac[s1, s2, j, 0] =  float(s[-3]) 
+                else:
+                    nac[s1, s2, j, 0] =  float(s[-3])
                     nac[s1, s2, j, 1] =  float(s[-2])
                     nac[s1, s2, j, 2] =  float(s[-1])
                     nac[s2, s1, j, 0] = -float(s[-3])
@@ -851,9 +863,11 @@ mocoef
                     nac[s2, s1, j, 2] = -float(s[-1])
 
                 iline += 1
-            if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
-                nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
+            nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
+            nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
+            # if (dE != 0.0):
+            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
+            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
         
         return nac
     
@@ -882,7 +896,7 @@ mocoef
         # make nac matrix
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i] 
-            dE = self.QMout["h"][s2, s2].real - self.QMout["h"][s1, s1].real # In MNDO cannot calculate imaginary energies
+            #dE = self.QMout["h"][s2, s2].real - self.QMout["h"][s1, s1].real # In MNDO cannot calculate imaginary energies
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
@@ -893,9 +907,12 @@ mocoef
                 nac[s2, s1, j, 1] = -float(s[-2])
                 nac[s2, s1, j, 2] = -float(s[-1])
                 iline += 1
-            if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
-                nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
+
+            nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
+            nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
+            # if (dE != 0.0):
+            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
+            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
 
         return nac
 
@@ -973,6 +990,8 @@ mocoef
         pattern = re.compile(r"eV,  E=[\s:]+([-+]\d*\.*\d+) eV")
         energies = {}
         for i, match in enumerate(pattern.finditer(output)):
+            if i == self.QMin.molecule["nmstates"]:
+                break
             energies[(1, i + 1)] = float(match.group(1)) * EV_TO_EH  # only singlets for now!!
 
         return energies
@@ -1030,6 +1049,10 @@ mocoef
     def read_template(self, template_file: str = "MNDO.template") -> None:
         super().read_template(template_file)
 
+        self.QMin["template"]["nciref"] = int(self.QMin["template"]["nciref"])
+        if self.QMin["template"]["nciref"] < 1 or self.QMin["template"]["nciref"] > 20:
+            raise ValueError(f"number of references can only be between 1 and 20.")
+
         self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"]) #cast template inputs to int
         self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
         self.QMin["template"]["disp"] = int(self.QMin["template"]["disp"])
@@ -1039,7 +1062,7 @@ mocoef
         if self.QMin["template"]["imomap"] == 1:
             self.QMin["template"]["imomap"] = 3   #Orbital tracking activated when imomap=3 in the MNDO.inp file.
         
-        if self.QMin["template"]["disp"] < 0 or self.QMin["template"]["disp"] > 1:  # Check if imomap is not out of range.
+        if self.QMin["template"]["disp"] < 0 or self.QMin["template"]["disp"] > 1:  # Check if disp is not out of range.
             raise ValueError(f"disp can either be 0 (false) or 1 (true). Negative numbers not supported!")
         if self.QMin["template"]["disp"] == 1:
             self.QMin["template"]["iop"] = -22 
@@ -1051,6 +1074,24 @@ mocoef
         
         if self.QMin["template"]["movo"] == 1 :
             self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
+        
+        self.QMin["template"]["fomo"] = int(self.QMin["template"]["fomo"])
+        if self.QMin["template"]["fomo"] > 1 or self.QMin["template"]["fomo"] < 0 :
+            raise ValueError(f"fomo can only be 0 (false) or 1 (true).")
+        
+        self.QMin["template"]["rohf"] = int(self.QMin["template"]["rohf"])
+        if self.QMin["template"]["rohf"] > 1 or self.QMin["template"]["rohf"] < 0 :
+            raise ValueError(f"rohf can only be 0 (false) or 1 (true).")
+        
+        self.QMin["template"]["levexc"] = int(self.QMin["template"]["levexc"])
+        if self.QMin["template"]["levexc"] > 6 or self.QMin["template"]["levexc"] < 1 :
+            raise ValueError(f"levexc can only be between 1 (singlets) and 6 (sextets).")
+        
+        self.QMin["template"]["mciref"] = int(self.QMin["template"]["mciref"])
+        if self.QMin["template"]["mciref"] != 3 and self.QMin["template"]["mciref"] != 0:
+            raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plus 85% of something).")
+
+
 
 
     def remove_old_restart_files(self, retain: int = 5) -> None:
@@ -1192,12 +1233,28 @@ mocoef
         kitscf = qmin["template"]["kitscf"]
         imomap = qmin["template"]["imomap"]
         iop = qmin["template"]["iop"]
+        rohf = qmin["template"]["rohf"]
+        levexc = qmin["template"]["levexc"]
+        mciref = qmin["template"]["mciref"]
 
+        nfloat = ici1 + ici2
+        icross = 1
+
+
+        if qmin.requests["nacdr"]:
+            icross = 7
+
+        if qmin["template"]["fomo"] == 1:
+            inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref={mciref} levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
+        else:
+            inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref={mciref} levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+        
+        if rohf == 1:
+            inputstring += " idiis=1"
 
         if qmin["molecule"]["point_charges"]:
-            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=3 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2 nsav15=9"
-        else:
-            inputstring = f"iop={iop} jop=-2 imult=0 iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross=7 ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} ici1={ici1} ici2={ici2} movo={movo} nciref={nciref} mciref=3 levexc=3 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9"
+            inputstring += f" numatm={ncharges} mmcoup=2 mmfile=1 mmskip=0 mminp=2"
+            
 
         inputstring = " +\n".join(wrap(inputstring, width=70))
         inputstring += "\nheader\n"
