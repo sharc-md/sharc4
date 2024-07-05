@@ -265,7 +265,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 self.log.info("")
                 self.log.info("State threshold for choosing determinants to include in the overlaps")
                 self.log.info("For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1")
-                INFOS["ciothres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                INFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
                 self.log.info("")
 
             # TheoDORE
@@ -333,7 +333,18 @@ class SHARC_ORCA(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self.resources_file:
             with open(os.path.join(dir_path, "ORCA.resources"), "w", encoding="utf-8") as file:
-                for key in ("orcadir", "scratchdir", "ncpu", "memory", "scaling", "theodir", "theodore_prop", "theodore_frag"):
+                for key in (
+                    "orcadir",
+                    "scratchdir",
+                    "ncpu",
+                    "memory",
+                    "scaling",
+                    "theodir",
+                    "theodore_prop",
+                    "theodore_frag",
+                    "wfoverlap",
+                    "wfthres",
+                ):
                     if key in INFOS:
                         file.write(f"{key} {INFOS[key]}\n")
         else:
