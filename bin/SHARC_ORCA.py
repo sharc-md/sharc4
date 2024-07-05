@@ -245,9 +245,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
         Typical values for ORCA are 0.90-0.98."""
                 )
-                INFOS["scaling"] = min(
-                    1.0, max(0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0])
-                )
+                INFOS["scaling"] = max(0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0])
             else:
                 INFOS["scaling"] = 0.9
 
