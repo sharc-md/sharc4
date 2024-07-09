@@ -75,6 +75,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "theodore_fragment": [],
                 "wfoverlap": "$SHARC/wfoverlap.x",
                 "wfthres": 0.998,
+                "wfnumocc": None,
                 "resp_shells": [],  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": {},
                 "resp_vdw_radii": [],
@@ -97,6 +98,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "theodore_fragment": list,
                 "wfoverlap": str,
                 "wfthres": float,
+                "wfnumocc": int,
                 "resp_shells": list,  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": dict,
                 "resp_vdw_radii": list,
@@ -968,7 +970,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         ao_read=0
         """
         )
-        if "numocc" in self.QMin.resources and isinstance(self.QMin.resources["numocc"], int):
+        if self.QMin.resources["numocc"]:
             wf_input += f"\nndocc={self.QMin.resources['numocc']}"
 
         if self.QMin.resources["ncpu"] >= 8:

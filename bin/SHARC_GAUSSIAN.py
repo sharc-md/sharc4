@@ -140,7 +140,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             {
                 "groot": None,
                 "numfrozcore": 0,
-                "numocc": None,
                 "schedule_scaling": 0.9,
                 "neglected_gradient": "zero",
                 "dry_run": False,
@@ -153,7 +152,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             {
                 "groot": str,
                 "numfrozcore": int,
-                "numocc": int,
                 "schedule_scaling": float,
                 "neglected_gradient": str,
                 "dry_run": bool,

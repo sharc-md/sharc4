@@ -83,10 +83,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Add resource keys
         self.QMin.resources.update(
-            {"orcadir": None, "orcaversion": None, "numfrozcore": -1, "numocc": None, "schedule_scaling": 0.9, "dry_run": False}
+            {"orcadir": None, "orcaversion": None, "numfrozcore": -1, "schedule_scaling": 0.9, "dry_run": False}
         )
         self.QMin.resources.types.update(
-            {"orcadir": str, "orcaversion": tuple, "numfrozcore": int, "numocc": int, "schedule_scaling": float, "dry_run": bool}
+            {"orcadir": str, "orcaversion": tuple, "numfrozcore": int, "schedule_scaling": float, "dry_run": bool}
         )
 
         # Add template keys
