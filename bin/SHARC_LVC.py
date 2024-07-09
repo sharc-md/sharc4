@@ -843,7 +843,7 @@ class SHARC_LVC(SHARC_FAST):
         dm_found = False
         with open(self.template_file, "r") as f:
             for line in f:
-                if "SOC" in line:
+                if "SOC" in line or "lambda_soc" in line:
                     soc_found = True
                 if "DM" in line:
                     dm_found = True
