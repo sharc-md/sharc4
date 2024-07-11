@@ -970,8 +970,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         ao_read=0
         """
         )
-        if self.QMin.resources["numocc"]:
-            wf_input += f"\nndocc={self.QMin.resources['numocc']}"
+        if self.QMin.resources["wfnumocc"]:
+            wf_input += f"\nndocc={self.QMin.resources['wfnumocc']}"
 
         if self.QMin.resources["ncpu"] >= 8:
             wf_input += "\nforce_direct_dets"
