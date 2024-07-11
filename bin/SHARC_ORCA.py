@@ -990,9 +990,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def printQMout(self) -> None:
         super().writeQMout()
 
-    def print_qmin(self) -> None:
-        pass
-
     def _set_request(self, *args, **kwargs) -> None:
         super()._set_request(*args, **kwargs)
         self.QMin.requests["h"] = True
