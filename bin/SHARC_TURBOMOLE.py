@@ -574,7 +574,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 self.log.debug(f"Determinant {mult} {state} norm {np.linalg.norm(list(tmp.values())):.5f}")
 
                 # Filter out dets with lowest contribution
-                # self.trim_civecs(tmp)
+                self.trim_civecs(tmp)
                 eigenvectors.append(tmp)
         return eigenvectors
 
