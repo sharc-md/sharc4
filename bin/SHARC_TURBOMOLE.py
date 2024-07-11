@@ -332,6 +332,24 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         if self.QMin.resources["ncpu"] > 1 and self.QMin.template["spin-scaling"] == "lt-sos":
             self.log.warning("lt-sos is not fully SMP parallelized.")
 
+        # Build job map
+        self._build_jobs()
+
+    def _build_jobs(self) -> None:
+        """
+        Build dictionary with master jobs
+        """
+        self.log.debug("Building job map")
+        jobs = {}
+        for idx, state in enumerate(self.QMin.molecule["states"]):
+            if state > 0 and idx != 2:
+                jobs[idx + 1] = {"mults": [idx + 1], "restr": idx % 2 == 0}
+            if state > 0 and idx == 2:
+                jobs[1]["mults"].append(3)
+
+        self.QMin.control["jobs"] = jobs
+        self.QMin.control["joblist"] = sorted(set(jobs))
+
     def read_requests(self, requests_file: str | dict = "QM.in") -> None:
         super().read_requests(requests_file)
 
@@ -375,12 +393,12 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         starttime = datetime.datetime.now()
         # Master job related things
         if qmin.control["master"]:
-            codes.append(self._run_define(workdir))
+            codes.append(self._run_define(workdir, (jobid := qmin.control["jobid"])))
 
             # Modify control file
             add_lines = ["$excitations\n"]
             add_section = [("$ricc2", "maxiter 45\n")]
-            if self.QMin.requests["soc"]:
+            if self.QMin.requests["soc"] and jobid == 1:
                 add_lines.append("$mkl\n")
             if self.QMin.template["douglas-kroll"]:
                 add_lines.append("$rdkh\n")
@@ -398,10 +416,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 add_section.append(("$drvopt", "point charges\n"))
 
             # Add states
-            if (nst := qmin.molecule["states"][0] - 1) > 0:
-                add_section.append(("$excitations", f"irrep=a multiplicity=1 nexc={nst} npre={nst+1}, nstart={nst+1}\n"))
-            if len(qmin.molecule["states"]) > 2 and (nst := qmin.molecule["states"][2]) > 0:
-                add_section.append(("$excitations", f"irrep=a multiplicity=3 nexc={nst} npre={nst+1}, nstart={nst+1}\n"))
+            for mult in qmin.control["jobs"][jobid]["mults"]:
+                nst = qmin.control["states_to_do"][mult - 1]
+                add_section.append(("$excitations", f"irrep=a multiplicity={mult} nexc={nst} npre={nst+1}, nstart={nst+1}\n"))
 
             self._modify_file((control := os.path.join(workdir, "control")), add_lines, ["$scfiterlimit"], add_section)
 
@@ -414,15 +431,42 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     pass
                 case {"always_orb_init": True} | {"init": True}:
                     try:
-                        shutil.copy(os.path.join(qmin.resources["pwd"], "mos.init"), os.path.join(workdir, "mos"))
+                        if jobid == 1:
+                            shutil.copy(os.path.join(qmin.resources["pwd"], "mos.init"), os.path.join(workdir, "mos"))
+                        else:
+                            shutil.copy(
+                                os.path.join(qmin.resources["pwd"], f"alpha.{jobid}.init"), os.path.join(workdir, "alpha")
+                            )
+                            shutil.copy(os.path.join(qmin.resources["pwd"], f"beta.{jobid}.init"), os.path.join(workdir, "beta"))
                     except FileNotFoundError as exc:
                         if qmin.save["always_orb_init"]:
                             self.log.error("mos.init file not found!")
                             raise exc
                 case {"samestep": True}:
-                    shutil.copy(os.path.join(qmin.save["savedir"], f"mos.{qmin.save['step']}"), os.path.join(workdir, "mos"))
+                    if jobid == 1:
+                        shutil.copy(os.path.join(qmin.save["savedir"], f"mos.{qmin.save['step']}"), os.path.join(workdir, "mos"))
+                    else:
+                        shutil.copy(
+                            os.path.join(qmin.save["savedir"], f"alpha.{jobid}.{qmin.save['step']}"),
+                            os.path.join(workdir, "alpha"),
+                        )
+                        shutil.copy(
+                            os.path.join(qmin.save["savedir"], f"beta.{jobid}.{qmin.save['step']}"), os.path.join(workdir, "beta")
+                        )
                 case _:
-                    shutil.copy(os.path.join(qmin.save["savedir"], f"mos.{qmin.save['step']-1}"), os.path.join(workdir, "mos"))
+                    if jobid == 1:
+                        shutil.copy(
+                            os.path.join(qmin.save["savedir"], f"mos.{qmin.save['step']-1}"), os.path.join(workdir, "mos")
+                        )
+                    else:
+                        shutil.copy(
+                            os.path.join(qmin.save["savedir"], f"alpha.{jobid}.{qmin.save['step']-1}"),
+                            os.path.join(workdir, "alpha"),
+                        )
+                        shutil.copy(
+                            os.path.join(qmin.save["savedir"], f"beta.{jobid}.{qmin.save['step']-1}"),
+                            os.path.join(workdir, "beta"),
+                        )
 
             if qmin.template["scf"] == "ridft":
                 codes.append(self._run_ridft(workdir, qmin))
@@ -433,28 +477,121 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             # TODO: molden (theodore)
 
             # TODO: e, socs, dm
-            if qmin.requests["soc"]:
+            if qmin.requests["soc"] and jobid == 1:
                 self._modify_file(control, None, None, [("$excitations", "tmexc istates=all fstates=all operators=soc\n")])
 
             codes.append(self._run_ricc2(workdir))
 
             # Run orca_soc if soc requested
-            if qmin.requests["soc"]:
+            if qmin.requests["soc"] and jobid == 1:
                 codes.append(self._run_orca_soc(workdir))
                 self.log.debug(f"orca_mkl/orca_soc exited with code {codes[-1]}")
 
+            # TODO
             # Save files
-            shutil.copy(os.path.join(workdir, "mos"), os.path.join(qmin.save["savedir"], f"mos.{qmin.save['step']}"))
+            if jobid == 1:
+                shutil.copy(os.path.join(workdir, "mos"), os.path.join(qmin.save["savedir"], f"mos.{qmin.save['step']}"))
+            else:
+                shutil.copy(
+                    os.path.join(workdir, "alpha"), os.path.join(qmin.save["savedir"], f"alpha.{jobid}.{qmin.save['step']}")
+                )
+                shutil.copy(
+                    os.path.join(workdir, "beta"), os.path.join(qmin.save["savedir"], f"beta.{jobid}.{qmin.save['step']}")
+                )
 
         else:
-            self._copy_from_master(workdir)
-            if (grad := list(qmin.maps["gradmap"])[0]) == (1, 1):
+            grad = list(qmin.maps["gradmap"])[0]
+            self._copy_from_master(
+                workdir, master_dir=os.path.join(qmin.resources["scratchdir"], f"master_{grad[0] if grad[0] != 3 else 1}")
+            )
+            if grad[0] != 3 and grad[1] == 1:  # (n,1) groundstate, except (3,1) -> excited state
                 self._modify_file(os.path.join(workdir, "control"), ["$response\n gradient\n"])
             else:
-                exgrad = f"xgrad states=(a{{{grad[0]}}} {grad[1] - (grad[0] == 1)})"
+                exgrad = f"xgrad states=(a{{{grad[0] if grad[0] == 3 else 1}}} {grad[1] - (grad[0] != 3)})"
                 self._modify_file(os.path.join(workdir, "control"), None, None, [("$excitations", f"{exgrad}\n")])
             codes.append(self._run_ricc2(workdir))
         return max(codes), datetime.datetime.now() - starttime
+
+    def _get_dets(self, workdir: str, mult: int) -> list[dict[tuple[int, int], float]]:
+        """
+        Parse determinants from CC* binary files
+        """
+        # Get nAO, nOCC and frozens from control
+        n_mo, n_occ, n_froz = 0, [0, 0], 0
+        restr = False
+        with open(os.path.join(workdir, "control"), "r", encoding="utf-8") as f:
+            while line := f.readline():
+                if "nbf(AO)" in line:
+                    n_mo = int(line.split("=")[-1])
+                if "$closed shells" in line:
+                    n_occ[0] = int(f.readline().split()[1].split("-")[-1])
+                    restr = True
+                if "$alpha shells" in line:
+                    n_occ[0] = int(f.readline().split()[1].split("-")[-1])
+                if "$beta shells" in line:
+                    n_occ[1] = int(f.readline().split()[1].split("-")[-1])
+                if "implicit core" in line:
+                    n_froz = int(line.split()[2])
+        n_virt = [n_mo - n_occ[0], (n_mo if not restr else 0) - n_occ[1]]
+
+        self.log.debug(f"Found nMO {n_mo} nOCC {n_occ} nFROZ {n_froz} and nVIRT {n_virt} in control file.")
+
+        occ_str = [3 if restr else 1] * n_occ[0] + [0] * n_virt[0] + [2] * n_occ[1] + [0] * n_virt[1]
+
+        # Parse CC files
+        eigenvectors = [{tuple(occ_str): 1.0}]
+        for state in range(1, self.QMin.molecule["states"][mult - 1] + (1 if mult == 3 else 0)):
+            with open(
+                fname := os.path.join(workdir, f"CCRE0-1--{mult if mult == 3 else 1}{state:4d}".replace(" ", "-")), "rb"
+            ) as f:
+                self.log.debug(f"Parsing file {fname}")
+                self._read_value(f, "u", 1)  # Skip header
+                coeffs = self._read_value(f, "f")
+                self.log.debug(f"Parsed {len(coeffs)} values")
+                tmp = {}
+                it_coeffs = iter(coeffs)
+                for occ in range(n_froz, n_occ[0]):
+                    for virt in range(n_occ[0], n_mo):
+                        key = occ_str[:]
+                        key[occ], key[virt] = (2, 1) if restr else (0, 1)
+                        val = next(it_coeffs) * (np.sqrt(0.5) if restr else 1.0)
+                        tmp[tuple(key)] = val
+                        if restr:
+                            key[occ], key[virt] = 1, 2
+                            tmp[tuple(key)] = val if mult == 3 else -val
+
+                # Unrestricted
+                if not restr:
+                    coeffs = self._read_value(f, "f")
+                    it_coeffs = iter(coeffs)
+
+                for occ in range(n_mo + n_froz, n_mo + n_occ[1]):
+                    for virt in range(n_mo + n_occ[1], n_mo * 2):
+                        key = occ_str[:]
+                        key[occ], key[virt] = 0, 2
+                        tmp[tuple(key)] = next(it_coeffs)
+
+                self.log.debug(f"Determinant {mult} {state} norm {np.linalg.norm(list(tmp.values())):.5f}")
+
+                # Filter out dets with lowest contribution
+                # self.trim_civecs(tmp)
+                eigenvectors.append(tmp)
+        return eigenvectors
+
+    def _read_value(self, f, t: str = "i", l: int = 8) -> np.ndarray:
+        """
+        Parse value(s) from Fortran file, remove padding before and after
+        Fortran padding: [len(byte) | value(s) | len(byte)]
+        Automatically detects how many values should be read
+
+        f:  File handle to binary file
+        t:  Type of value (numpy dtype)
+        l:  Length of a single value (byte)
+        """
+        n = np.fromfile(f, dtype=np.dtype("i4"), count=1)[0] // l
+        vals = np.fromfile(f, dtype=np.dtype(f"{t}{l}"), count=n)
+        f.read(4)  # Skip padding
+        return vals
 
     def _run_ricc2(self, workdir: str) -> int:
         """
@@ -534,19 +671,19 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         shutil.copy(os.path.join(workdir, "control.bak"), os.path.join(workdir, "control"))
         return code
 
-    def _copy_from_master(self, workdir: str) -> None:
+    def _copy_from_master(self, workdir: str, master_dir) -> None:
         """
         Copy run files from master job
         """
         self.log.debug("Copy run files from master job")
-        master_dir = os.path.join(self.QMin.resources["scratchdir"], "master")
-        files = ("auxbasis", "basis", "mos", "restart.cc")
+        files = ("auxbasis", "basis", "mos", "alpha", "beta", "restart.cc")
         for f in files:
             try:
                 shutil.copy(os.path.join(master_dir, f), os.path.join(workdir, f))
-            except Exception as e:
-                self.log.error(f"File {f} not found in {master_dir}")
-                raise FileNotFoundError() from e
+            except FileNotFoundError as e:
+                if f not in ("mos", "alpha", "beta"):
+                    self.log.error(f"File {f} not found in {master_dir}")
+                    raise FileNotFoundError() from e
         shutil.copy(os.path.join(master_dir, "control.bak"), os.path.join(workdir, "control"))
 
     def getQMout(self) -> dict[str, np.ndarray]:
@@ -570,27 +707,35 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         )
 
         # Open master output file
-        with open(os.path.join(scratchdir, "master/ricc2.out"), "r", encoding="utf-8") as f:
-            ricc2_out = f.read()
+        for mult in self.QMin.control["jobs"]:
+            with open(os.path.join(scratchdir, f"master_{mult}/ricc2.out"), "r", encoding="utf-8") as f:
+                ricc2_out = f.read()
 
-        # SOCs, only possible between S1-T
-        if self.QMin.requests["soc"]:
-            # TODO: cleanup
-            socs = self._get_socs(ricc2_out)[: states[0] - 1, states[0] - 1 :, :]
+            # SOCs, only possible between S1-T
+            if self.QMin.requests["soc"] and mult == 1:
+                # TODO: cleanup
+                socs = self._get_socs(ricc2_out)[: states[0] - 1, states[0] - 1 :, :]
 
-            self.QMout["h"][1 : states[0], states[0] : states[0] + states[2]] = socs[:, :, 0]
-            self.QMout["h"][1 : states[0], states[2] + states[0] : states[0] + (2 * states[2])] = socs[:, :, 1]
-            self.QMout["h"][1 : states[0], (2 * states[2]) + states[0] : states[0] + (3 * states[2])] = socs[:, :, 2]
-            self.QMout["h"] += self.QMout["h"].T
+                self.QMout["h"][1 : states[0], states[0] : states[0] + states[2]] = socs[:, :, 0]
+                self.QMout["h"][1 : states[0], states[2] + states[0] : states[0] + (2 * states[2])] = socs[:, :, 1]
+                self.QMout["h"][1 : states[0], (2 * states[2]) + states[0] : states[0] + (3 * states[2])] = socs[:, :, 2]
+                self.QMout["h"] += self.QMout["h"].T
 
-        # Energies
-        if self.QMin.requests["h"]:
-            np.einsum("ii->i", self.QMout["h"])[:] = self._get_energies(ricc2_out)
+            # Energies
+            if self.QMin.requests["h"]:
+                energies = self._get_energies(ricc2_out)
+                s_cnt = 0
+                for i in self.QMin.control["jobs"][mult]["mults"]:
+                    np.einsum("ii->i", self.QMout["h"])[
+                        sum(s * m for m, s in enumerate(states[: i - 1], 1)) : sum(s * m for m, s in enumerate(states[:i], 1))
+                    ] = np.tile(energies[s_cnt : s_cnt + states[i - 1]], i)
+                    s_cnt += states[i - 1]
 
         # Gradients
         if self.QMin.requests["grad"]:
             for grad in self.QMin.maps["gradmap"]:
                 with open(os.path.join(scratchdir, f"grad_{grad[0]}_{grad[1]}/ricc2.out"), "r", encoding="utf-8") as grad_file:
+                    self.log.debug(f"Parsing gradient {grad[0]}_{grad[1]}")
                     grads = self._get_gradients(grad_file.read())
                     for key, val in self.QMin.maps["statemap"].items():
                         if (val[0], val[1]) == grad:
@@ -655,12 +800,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
             # Extract energy values
             energies += re.findall(r"\d+\.\d{7}", raw_energies[0])
-
-        # Expand by multiplicity
-        expandend_energies = []
-        for i in range(len((states := self.QMin.molecule["states"]))):
-            expandend_energies += energies[sum(states[:i]) : sum(states[: i + 1])] * (i + 1)
-        return np.asarray(expandend_energies, dtype=np.complex128) + float(gs_energy[0])
+        return np.asarray(energies, dtype=np.complex128) + float(gs_energy[0])
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
@@ -668,16 +808,19 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Generate schedule
         self.log.debug("Generate schedule")
         self._generate_schedule()
+        self.log.info(self.QMin.scheduling)
 
         self.log.debug("Execute schedule")
         if not self.QMin.resources["dry_run"]:
             self.runjobs(self.QMin.scheduling["schedule"])
 
-            # Copy mos to save
-            shutil.copy(
-                os.path.join(self.QMin.resources["scratchdir"], "master/mos"),
-                os.path.join(self.QMin.save["savedir"], f"mos.{self.QMin.save['step']}"),
-            )
+        # Generate dets
+        for jobid, mults in self.QMin.control["jobs"].items():
+            for mult in mults["mults"]:
+                dets = self._get_dets(os.path.join(self.QMin.resources["scratchdir"], f"master_{jobid}"), mult)
+                writefile(
+                    os.path.join(self.QMin.save["savedir"], f"dets.{mult}.{self.QMin.save['step']}"), self.format_ci_vectors(dets)
+                )
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
@@ -686,9 +829,19 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         Generate schedule, one master job and n jobs for gradients
         """
         # Add master job and assign all available cores
-        schedule = [{"master": deepcopy(self.QMin)}]
-        self.QMin.control["nslots_pool"].append(1)
-        schedule[0]["master"].control["master"] = True
+        _, nslots, cpu_per_run = self.divide_slots(
+            self.QMin.resources["ncpu"], len(self.QMin.control["jobs"]), self.QMin.resources["schedule_scaling"]
+        )
+        master = {}
+        for idx, job in enumerate(self.QMin.control["jobs"]):
+            master_job = deepcopy(self.QMin)
+            master_job.resources["ncpu"] = cpu_per_run[idx]
+            master_job.control["master"] = True
+            master_job.control["jobid"] = job
+            master_job.control["states_to_do"][job - 1] -= 1
+            master[f"master_{job}"] = master_job
+        self.QMin.control["nslots_pool"].append(nslots)
+        schedule = [master]
 
         # Add gradient jobs
         gradjobs = {}
@@ -731,7 +884,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             pc_str += "$end\n"
             writefile(os.path.join(workdir, "pc"), pc_str)
 
-    def _run_define(self, workdir: str, cc2: bool = True) -> int:
+    def _run_define(self, workdir: str, mult: int, cc2: bool = True) -> int:
         """
         Run define command
         """
@@ -743,7 +896,11 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         string = "\ntitle: SHARC-TURBOMOLE run\na coord\n*\nno\n"
         if self.QMin.template["basislib"]:
             string += "lib\n3"
-        string += f"b\nall {self.QMin.template['basis']}\n*\neht\ny\n{self.QMin.template['charge'][0]}\ny\n"
+        string += f"b\nall {self.QMin.template['basis']}\n*\neht\ny\n{self.QMin.template['charge'][mult-1]}\n"
+        if mult - 1 % 2 == 0:
+            string += "y\n"
+        else:
+            string += f"n\nu {mult-1}\n*\nn\n"
 
         if cc2:
             match (frozen := self.QMin.template["frozen"]):
