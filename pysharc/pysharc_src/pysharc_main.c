@@ -87,10 +87,13 @@ static PyObject *
 initial_step(PyObject * self, PyObject * args)
 {
         int IRestart = 0;
+        printf("TEST_pysharc_main.c");
         if (!PyArg_ParseTuple(args, "i", &IRestart))
             return NULL;
         //do_initial_step_2_(&IRestart);
+        printf("TEST_pysharc_mainB.c");
         initial_step_(&IRestart);
+        printf("TEST_pysharc_mainC.c");
         Py_RETURN_NONE;
 }
 

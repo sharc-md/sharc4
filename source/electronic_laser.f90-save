@@ -121,7 +121,6 @@ subroutine propagate_laser(traj,ctrl)
     if (printlevel>3) then
       call vec3write(ctrl%nsubsteps,&
       &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
-      &u_log,'TEST2 Laser E-field','F12.9')
       call vec3write(ctrl%nsubsteps,&
       &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
       &u_log,'Laser B-field','F12.9')

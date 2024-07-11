@@ -116,6 +116,7 @@ module data_extractor_NetCDFmodule
     integer :: laser                        !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
     logical :: laser_e=.false.                       !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
     logical :: laser_b=.false.                       !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
+    logical :: laser_egrad=.false.                       !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
     integer :: nsteps                       !< number of timesteps from dat file (needed to read the laser field)
     integer :: nsubsteps                    !< number of substeps (needed to read the laser field)
 
@@ -549,6 +550,7 @@ contains
     read(u_dat,*) general_infos%laser
     read(u_dat,*) general_infos%laser_e
     read(u_dat,*) general_infos%laser_b
+    read(u_dat,*) general_infos%laser_egrad
     read(u_dat,*) general_infos%nsteps
     read(u_dat,*) general_infos%nsubsteps
   
@@ -1219,7 +1221,6 @@ contains
 
 
     time_step=shdata%time_step
-    write(*,*) "WRITE_DATA_1"
 
     if (write_options%write_geometry) then
       write(u_xyz,'(I12)') general_infos%natom
@@ -1231,7 +1232,6 @@ contains
 
 
 
-    write(*,*) "WRITE_DATA_2"
 
     if (write_options%write_energy) then
       ! write to energy.out
@@ -1247,14 +1247,12 @@ contains
       &time_step*general_infos%dtstep, shdata%expec_dm(shdata%state_diag),&
       (shdata%expec_dm(istate),istate=1,nstates)
     endif
-    write(*,*) "WRITE_DATA_3"
     if (write_options%write_mag_dip) then
       ! write to fosc_md2.out
       write(u_mdm,'(2X,1000(ES20.12E3,1X))') &
       &time_step*general_infos%dtstep, shdata%expec_mdm(shdata%state_diag),&
       (shdata%expec_mdm(istate),istate=1,nstates)
     endif
-    write(*,*) "WRITE_DATA_4"
     if (write_options%write_el_quad) then
       ! write to fosc_eq2.out
       write(u_eqm,'(2X,1000(ES20.12E3,1X))') &
@@ -1271,7 +1269,6 @@ contains
 !       &time_step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
-    write(*,*) "WRITE_DATA_5"
     if (write_options%write_mag_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act_mdm,'(2X,1000(ES20.12E3,1X))') &
@@ -1293,7 +1290,6 @@ contains
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
 
-    write(*,*) "WRITE_DATA_6"
     if (write_options%write_iondiag) then
       ! write to ion_diag.out
       write(u_ion_diag,'(2X,ES20.12E3,1X,I20,1X,1000(ES20.12E3,1X))') &
@@ -1309,7 +1305,6 @@ contains
       & (shdata%expec_ion_mch(istate),istate=1,nstates)
     endif
 
-    write(*,*) "WRITE_DATA_7"
 
     if (write_options%write_spin) then
       ! write to spin.out
@@ -1319,7 +1314,6 @@ contains
     endif
 
 
-    write(*,*) "WRITE_DATA_7"
     if (write_options%write_coeffdiag) then
       ! calculate sumsq of diagonal coefficients
       sumc=0.d0
@@ -1341,7 +1335,6 @@ contains
     endif
 
 
-    write(*,*) "WRITE_DATA_8"
     if (write_options%write_coeffmch) then
       ! calculate sumsq of MCH coefficients
       sumc=0.d0
@@ -1378,7 +1371,6 @@ contains
     endif
 
 
-    write(*,*) "WRITE_DATA_9"
     if (write_options%write_coeffdiab) then
       ! calculate sumsq of diabatic coefficients
       sumc=0.d0
@@ -1416,7 +1408,6 @@ contains
     endif
 
 
-    write(*,*) "WRITE_DATA_10"
     if (write_options%write_prob) then
       ! calculate cumulative hopping probabilities
       do istate=2,nstates
@@ -1440,7 +1431,6 @@ contains
       &(shdata%expec_dm(istate),istate=1,nstates)
     endif
 
-    write(*,*) "WRITE_DATA_11"
 
     if (write_options%write_expecmch) then
       write(u_expec_mch,'(2X,1000(ES20.12E3,1X))') &
@@ -1451,7 +1441,6 @@ contains
     endif
     ! ========== Writing is done for this time step =============
 
-    write(*,*) "WRITE_DATA_12"
     end subroutine write_data_to_file
 
 ! -----------------------------------------------------------------------------
@@ -1473,7 +1462,8 @@ contains
       do idir=1,3
         shdata%H_diag_ss=shdata%H_diag_ss - shdata%DM_ssd(:,:,idir)*real(shdata%laser_efield_tp(time_step*general_infos%nsubsteps+1,idir))
       enddo
-    elseif ((general_infos%laser==2) .and. (general_infos%laser_e==.true.) .and. (general_infos%laser_b==.true.)) then
+    elseif ((general_infos%laser==2) .and. (general_infos%laser_e==.true.) .and. ((general_infos%laser_b==.true.) .or.&
+            &(general_infos%laser_egrad==.true.))) then
         do idir=1,3
             shdata%H_diag_ss=shdata%H_diag_ss - shdata%DM_ssd(:,:,idir)*real(shdata%laser_efield_tp(time_step*general_infos%nsubsteps+1,idir))&
                                         & - shdata%MDM_ssd(:,:,idir)*real(shdata%laser_bfield_tp(time_step*general_infos%nsubsteps+1,idir)) 

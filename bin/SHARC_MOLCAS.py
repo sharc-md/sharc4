@@ -13,7 +13,7 @@ from typing import Any
 
 import h5py
 import numpy as np
-from constants import au2a
+from constants import au2a, lande_g_factor, alpha
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -320,7 +320,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # MOLCAS driver
         for p in os.walk(self.QMin.resources["molcas"]):
             if "pymolcas" in p[2]:
-                self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
+                self.QMin.resources.update({"driver": "/user/lorenz/bin/sharc/traj_euo2/init/pymolcas"})
+                # self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
                 break
 
         if not os.path.isfile(self.QMin.resources["driver"]):
@@ -938,9 +939,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Write RASSI part of MOLCAS input string
         """
-        input_str = f"&RASSI\nNROFJOBIPHS\n{len(task[2])} "
-        input_str += " ".join(convert_list(task[2], str)) + "\n"
-        for i in task[2]:
+        input_str = f"&RASSI\nNROFJOBIPHS\n{len(task[-1])} "
+        input_str += " ".join(convert_list(task[-1], str)) + "\n"
+        for i in task[-1]:
             input_str += " ".join([str(j) for j in range(1, i + 1)]) + "\n"
         input_str += "MEIN\n"
         if qmin.template["method"] != "casscf":

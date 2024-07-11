@@ -262,7 +262,7 @@ def writeQMouteqm(QMin, QMout):
     nmstates = QMin['nmstates']
     natom = QMin['natom']
     string = ''
-    string += '! %i Electric Quadrupole Moment Matrices (3x%ix%i, complex)\n' % (8, nmstates, nmstates)
+    string += '! %i Electric Quadrupole Moment Matrices (9x%ix%i, complex)\n' % (8, nmstates, nmstates)
     for pxyz in range(3):
         for dxyz in range(3):
             string += '%i %i\n' % (nmstates, nmstates)

@@ -51,7 +51,6 @@ subroutine propagate_laser(traj,ctrl)
   complex*16 :: local_laser_efield_tp(ctrl%nsubsteps, 3)
   complex*16 :: local_laser_bfield_tp(ctrl%nsubsteps, 3)
   complex*16 :: local_laser_egrad_tpd(ctrl%nsubsteps, 3, 3)
-  complex*16 :: local_laser_bgrad_tpd(ctrl%nsubsteps, 3, 3)
 
   if (ctrl%laser_e .EQV. .true.) then
     local_laser_efield_tp(:,:) = ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:)
@@ -167,9 +166,6 @@ subroutine propagate_laser(traj,ctrl)
         call vec3write(ctrl%nsubsteps,&
         &local_laser_egrad_tpd(:,:,idir),&
         &u_log,'Laser E-Field gradients','F12.9')
-        call vec3write(ctrl%nsubsteps,&
-        &local_laser_bgrad_tpd(:,:,idir),&
-        &u_log,'Laser B-Field gradients','F12.9')
       enddo
     endif
     select case (ctrl%eeom)

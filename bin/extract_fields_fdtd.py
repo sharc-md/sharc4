@@ -435,8 +435,8 @@ def main():
          dt {INFOS["electronic time_step"]:.8E}
          e-field {str(INFOS["export_e"]).lower()} 
          b-field {str(INFOS["export_b"]).lower()}  
-         e-field_grad {str(INFOS["export_egrad"]).lower()}   
-         b-field_grad {str(INFOS["export_bgrad"]).lower()}    
+         e-field_gradients {str(INFOS["export_egrad"]).lower()}   
+         b-field_gradents {str(INFOS["export_bgrad"]).lower()}    
          laser_freq_path laser_freq'''
         header_line = f''' #{"="*head_line_length}'''+"\n"
         field_columns = ["Time"]

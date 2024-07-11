@@ -527,11 +527,15 @@ There are two representations:
             qmout = QMout(filepath=qmfilename)
             H = qmout.h
             DM = qmout.dm
+            MDM = qmout.mdm
+            EQM = qmout.eqm
             if H is not None:
                 if INFOS["diag"]:
                     eig, U = np.linalg.eigh(H)
                     Ucon = np.conjugate(U)
                     DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
+                    MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
+                    EQM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
                     if 'ion' in qmout:  # TODO: use Dysnorm instead of fosc
                         P = qmout.ion
                         P = np.einsum("kij,in,jm->knm", P, Ucon, U)
@@ -751,11 +755,15 @@ def get_QMout(INFOS, initlist):
         qmout = QMout(filepath=qmfilename)
         H = qmout.h
         DM = qmout.dm
+        MDM = qmout.mdm
+        EQM = qmout.eqm
         if INFOS["diag"]:
             eig, U = np.linalg.eigh(H)
             Ucon = np.conjugate(U)
             H = np.diag(eig)
             DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
+            MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
+            EQM = np.einsum("kij,in,jm->knm", EQM, Ucon, U)
             if 'ion' in qmout:
                 P = qmout.ion
                 P = np.einsum("kij,in,jm->knm", P, Ucon, U)
@@ -780,7 +788,7 @@ def get_QMout(INFOS, initlist):
         estates = []
         for istate in range(len(H)):
             if INFOS["ion"]:
-                dip = [math.sqrt(abs(P[initstate][istate])), 0, 0]
+                dip = [math.sqrt(abs(P[initstate][istate])), 0, 0]  # ionization probabilities
             else:
                 dip = [DM[i][initstate][istate] for i in range(3)]
             estate = STATE(len(estates) + 1, H[istate][istate], H[initstate][initstate], dip)

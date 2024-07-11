@@ -426,7 +426,6 @@ module definitions
     logical :: laser_e = .false.                  !< false=none, true=exists (Laser E-field)
     logical :: laser_b = .false.                  !< false=none, true=exists/ (Laser B-field)
     logical :: laser_egrad = .false.              !< false=none, true=exists (Laser E-field gradients)
-    logical :: laser_bgrad = .false.              !< false=none, true=exists (Laser E-field gradients)
     integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
     integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation
     integer :: kmatrix_method                 !< 0=gradient based approximation, 1=energy based approximation
@@ -484,8 +483,6 @@ module definitions
     integer :: write_grad                     !< write gradients:   \n        0=no gradients, 1=write gradients
     integer :: write_overlap                  !< write overlap matrix:   \n        0=no overlap, 1=write overlap
     integer :: write_NACdr                    !< write nac vectors:   \n        0=no vectors, 1=write vectors
-    integer :: write_mag_dip                  !< write magnetic dipole moments:   \n        0=no moments, 1=write moments
-    integer :: write_el_quad                  !< write electric quadrupole moments:   \n        0=no moments, 1=write moments
   
     integer :: write_property2d               !< write property matrices:   \n        0=no property, 1=write property
     integer :: write_property1d               !< write property vectors:   \n        0=no property, 1=write property
@@ -520,7 +517,6 @@ module definitions
     complex*16, allocatable :: laserfield_e_tp(:,:)   !< complex valued laser field (E-field)
     complex*16, allocatable :: laserfield_b_tp(:,:)   !< complex valued laser field (B-field)
     complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
-    complex*16, allocatable :: laserfield_bgrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
     complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
   
     ! thermostat
@@ -1137,7 +1133,6 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
         if (allocated(ctrl%laserfield_e_tp))            deallocate(ctrl%laserfield_e_tp)
         if (allocated(ctrl%laserfield_b_tp))            deallocate(ctrl%laserfield_b_tp)
         if (allocated(ctrl%laserfield_egrad_tpd))       deallocate(ctrl%laserfield_egrad_tpd)
-        if (allocated(ctrl%laserfield_bgrad_tpd))       deallocate(ctrl%laserfield_bgrad_tpd)
         if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
         !if (allocated(ctrl%laser_freq_file_path))       deallocate(ctrl%laser_freq_file_path)
         if (allocated(ctrl%lpzpe_ah))                   deallocate(ctrl%lpzpe_ah)

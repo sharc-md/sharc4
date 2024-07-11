@@ -170,9 +170,7 @@ call write_final(traj)
       if (ctrl%method==0) then
         if (traj%kind_of_jump/=0) call Mix_gradients(traj,ctrl)
       endif
-      write(*,*) "main_before_verlet_finalize"
       call Verlet_finalize(IExit, iskip)
-      write(*,*) "main_after_verlet_finalize"
       if (IExit .eq. 1) exit
     enddo
     ! finalize, should also deallocate memory for traj, ctrl!

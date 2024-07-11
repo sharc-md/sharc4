@@ -273,7 +273,7 @@ endsubroutine
 ! ==================================================================================================
 ! ==================================================================================================
 
-subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, Rtotal)
+subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, MDMin, MDMold, EQMin, EQMold, laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, Rtotal)
   use definitions, only: u_log
   use matrix
   ! calculates the propagator matrix for a timestep
@@ -288,6 +288,7 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, la
   integer, intent(in) :: n, nsubsteps
   real*8, intent(in) :: dt
   complex*16, intent(in) :: U(n,n), Uold(n,n),SOin(n,n),SOold(n,n), DMin(n,n,3),DMold(n,n,3)
+  complex*16, intent(in) :: MDMin(n,n,3),MDMold(n,n,3),EQMin(n,n,3),EQMold(n,n,3,3)
   complex*16, intent(in) :: laserfield_e(nsubsteps,3), laserfield_b(nsubsteps,3), laserfield_egrad(nsubsteps,3,3)
   complex*16, intent(inout) :: overlap(n,n)
   complex*16, intent(inout) :: Rtotal(n,n)
@@ -335,7 +336,16 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, la
   do ixyz=1,3
     call transform(n,DM(:,:,ixyz),overlap,'uaut')
   enddo
-
+  MDM=MDMin
+  do ixyz=1,3
+    call transform(n,MDM(:,:,ixyz),overlap,'uaut')
+  enddo
+  EQM=EQMin
+  do ixyz1=1,3
+    do ixyz2=1,3
+      call transform(n,EQM(:,:,ixyz1,ixyz2),overlap,'uaut')
+    enddo
+  enddo
   ! Evolve in the diabatic basis in substeps
   dtsubstep=dt/nsubsteps
   do k=1,nsubsteps

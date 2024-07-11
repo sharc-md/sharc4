@@ -51,6 +51,7 @@ all_features = {
     "h",
     "soc",
     "dm",
+    "mdeqm",
     "grad",
     "nacdr",
     "overlap",
@@ -295,7 +296,7 @@ class SHARC_INTERFACE(ABC):
         self.write_step_file()
 
         # printing and output generation
-        self.log.info(self.formatQMout())
+        #self.log.info(self.formatQMout())
         self.QMout["runtime"] = self.clock.measuretime(log=self.log.info)
         self.writeQMout(filename=QMinfilename)
 
@@ -898,7 +899,6 @@ class SHARC_INTERFACE(ABC):
         """
         req = request[0]
         if req in self.QMin.requests.keys():
-            self.log.debug(f"{request}")
             match request:
                 case ["grad", None]:
                     self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]

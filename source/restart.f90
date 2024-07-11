@@ -120,7 +120,6 @@ module restart
     write(u,*) ctrl%laser_e, '! laser_efield'
     write(u,*) ctrl%laser_b, '! laser_bfield'
     write(u,*) ctrl%laser_egrad, '! laser_efield_grad'
-    write(u,*) ctrl%laser_bgrad, '! laser_bfield_grad'
     write(u,*) ctrl%coupling
     write(u,*) ctrl%ktdc_method
     write(u,*) ctrl%kmatrix_method
@@ -204,19 +203,12 @@ module restart
       if (ctrl%laser_e) then
         call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, 'Laser E-field','ES24.16E3')
       endif
-      if (ctrl%laser_b) then
+      if (ctrl%laser_b .or. ctrl%laser_egrad) then
         call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, 'Laser B-field','ES24.16E3')
-      endif
-      if (ctrl%laser_egrad) then
         do idir=1,3 
           call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u, 'Laser E-field gradient','ES24.16E3')
         enddo
       endif
-      if (ctrl%laser_bgrad) then
-        do idir=1,3 
-          call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,:,idir), u, 'Laser B-field gradient','ES24.16E3')
-        enddo
-      endif 
       do ilaser=1,ctrl%nlasers
         call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','ES24.16E3')
       enddo
@@ -228,8 +220,6 @@ module restart
     write(u,*) ctrl%write_nacdr
     write(u,*) ctrl%write_property1d
     write(u,*) ctrl%write_property2d
-    write(u,*) ctrl%write_mag_dip
-    write(u,*) ctrl%write_el_quad
     write(u,*) ctrl%n_property1d
     write(u,*) ctrl%n_property2d
     
@@ -373,7 +363,7 @@ module restart
      call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u, 'DM_print_ssd(x)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u, 'DM_print_ssd(y)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u, 'DM_print_ssd(z)','ES24.16E3')
-     if (ctrl%laser_b==.true.) then
+     if (ctrl%laser_b==.true. .or. ctrl%laser_egrad==.true.) then
      call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,3),  u, 'MDM_print_ssd(z)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%MDM_ssd(:,:,1),  u, 'MDM_ssd(x)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%MDM_ssd(:,:,2),  u, 'MDM_ssd(y)','ES24.16E3')
@@ -384,8 +374,6 @@ module restart
      call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,1),  u, 'MDM_print_ssd(x)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,2),  u, 'MDM_print_ssd(y)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,3),  u, 'MDM_print_ssd(z)','ES24.16E3')
-     endif
-     if (ctrl%laser_egrad==.true.) then
      call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,1,1),  u, 'EQM_ssdd(xx)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,1,2),  u, 'EQM_ssdd(xy)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,1,3),  u, 'EQM_ssdd(xz)','ES24.16E3')
@@ -770,7 +758,6 @@ module restart
      read(u_ctrl,*) ctrl%laser_e
      read(u_ctrl,*) ctrl%laser_b
      read(u_ctrl,*) ctrl%laser_egrad
-     read(u_ctrl,*) ctrl%laser_bgrad
      read(u_ctrl,*) ctrl%coupling
      read(u_ctrl,*) ctrl%ktdc_method
      read(u_ctrl,*) ctrl%kmatrix_method
@@ -875,21 +862,13 @@ module restart
           allocate( ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
           call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u_ctrl, line)
       endif
-      if (ctrl%laser_b) then
+      if (ctrl%laser_b .or. ctrl%laser_egrad) then
           allocate( ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
           call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u_ctrl, line)
-      endif
-      if (ctrl%laser_egrad) then
           allocate( ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3) )
           do idir=1,3
             call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u_ctrl, line)
           enddo
-      endif
-      if (ctrl%laser_bgrad) then
-          allocate( ctrl%laserfield_bgrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3) )
-          do idir=1,3
-            call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,:,idir), u_ctrl, line)
-          enddo 
       endif
       allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
       do ilaser=1,ctrl%nlasers
@@ -903,8 +882,6 @@ module restart
      read(u_ctrl,*) ctrl%write_nacdr
      read(u_ctrl,*) ctrl%write_property1d
      read(u_ctrl,*) ctrl%write_property2d
-     read(u_ctrl,*) ctrl%write_mag_dip
-     read(u_ctrl,*) ctrl%write_el_quad
      read(u_ctrl,*) ctrl%n_property1d
      read(u_ctrl,*) ctrl%n_property2d
  
@@ -1070,7 +1047,7 @@ module restart
    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u_traj, string)
    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u_traj, string)
    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u_traj, string)
-   if (ctrl%laser_b==.true.) then
+   if (ctrl%laser_b==.true. .or. ctrl%laser_egrad==.true.) then
    call matread(ctrl%nstates, traj%MDM_ssd(:,:,1),  u_traj, string)
    call matread(ctrl%nstates, traj%MDM_ssd(:,:,2),  u_traj, string)
    call matread(ctrl%nstates, traj%MDM_ssd(:,:,3),  u_traj, string)
@@ -1080,8 +1057,6 @@ module restart
    call matread(ctrl%nstates, traj%MDM_print_ssd(:,:,1),  u_traj, string)
    call matread(ctrl%nstates, traj%MDM_print_ssd(:,:,2),  u_traj, string)
    call matread(ctrl%nstates, traj%MDM_print_ssd(:,:,3),  u_traj, string)
-   endif
-   if (ctrl%laser_egrad==.true.) then
    call matread(ctrl%nstates, traj%EQM_ssdd(:,:,1,1),  u_traj, string)
    call matread(ctrl%nstates, traj%EQM_ssdd(:,:,1,2),  u_traj, string)
    call matread(ctrl%nstates, traj%EQM_ssdd(:,:,1,3),  u_traj, string)

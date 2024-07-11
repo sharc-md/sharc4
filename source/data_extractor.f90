@@ -113,7 +113,6 @@ program data_extractor
   logical :: laser_e = .false.            !< false=none, true=exists (Laser E-field)
   logical :: laser_b = .false.            !< false=none, true=exists (Laser B-field)
   logical :: laser_egrad = .false.        !< false=none, true=exists (Laser E-field gradients)
-  logical :: laser_bgrad = .false.        !< false=none, true=exists (Laser E-field gradients)
   integer :: nsteps                       !< number of timesteps from dat file (needed to read the laser field)
   integer :: nsubsteps                    !< number of substeps (needed to read the laser field)
   integer :: nprojections                    !< number of vectors to project dipole moment onto
@@ -152,7 +151,6 @@ program data_extractor
   complex*16, allocatable :: laserfield_e_tp(:,:)        !< laser field for all timesteps
   complex*16, allocatable :: laserfield_b_tp(:,:)   !< complex valued laser field (B-field)
   complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
-  complex*16, allocatable :: laserfield_bgrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: coeff_diab_s(:)      !< diabatic coefficient vector
   real*8,allocatable :: expec_pop(:)                !< spin expectation value per state
   real*8,allocatable :: expec_s(:)                !< spin expectation value per state
@@ -809,16 +807,7 @@ program data_extractor
       else
         laser_egrad=.false.! look up laser e-field gradient keyword
       endif
-
-      ! look up laser b-field gradient keyword
-      line=get_value_from_key('laser_bgrad',io)
-      if (io==0) then
-        read(line,*) laser_bgrad
-      else
-        laser_bgrad=.false.
-      endif
-    write(*,*) 'Reading of laser flags'
-    endif
+    endif 
 
     line=get_value_from_key('nsteps',io)
     if (io==0) then
@@ -863,24 +852,16 @@ program data_extractor
         allocate( laserfield_e_tp(nsteps*nsubsteps+1,3) )
         call vec3read(nsteps*nsubsteps+1,laserfield_e_tp,u_dat,string1)
       endif
-      if (laser_b .EQV. .true.) then
+      if (laser_b .EQV. .true. .or. laser_egrad .EQV. .true.) then
         allocate( laserfield_b_tp(nsteps*nsubsteps+1,3) )
         call vec3read(nsteps*nsubsteps+1,laserfield_b_tp,u_dat,string1) 
-      endif
-      if (laser_egrad .EQV. .true.) then
         allocate( laserfield_egrad_tpd(nsteps*nsubsteps+1,3,3) )
         do idir=1,3 
           call vec3read(nsteps*nsubsteps+1,laserfield_egrad_tpd(:,:,idir),u_dat,string1)
         enddo
       endif
-      if (laser_bgrad .EQV. .true.) then
-        allocate( laserfield_bgrad_tpd(nsteps*nsubsteps+1,3,3) )
-        do idir=1,3 
-          call vec3read(nsteps*nsubsteps+1,laserfield_bgrad_tpd(:,:,idir),u_dat,string1)
-        enddo
-      endif
       if ((laser_e .EQV. .false.) .and. (laser_b .EQV. .false.) &
-          .and. (laser_egrad .EQV. .false.) .and. (laser_bgrad .EQV. .false.)) then
+          .and. (laser_egrad .EQV. .false.)) then
         allocate( laserfield_e_tp(nsteps*nsubsteps+1,3) )
         call vec3read(nsteps*nsubsteps+1,laserfield_e_tp,u_dat,string1)
       endif           

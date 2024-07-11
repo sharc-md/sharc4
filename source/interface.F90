@@ -379,8 +379,7 @@ subroutine get_tasks(string, ICALL)
         endif
         write(string,'(A)')  trim(string)   // ' DM'
         if (ctrl%calc_dipole==2) then
-          write(string,'(A)')  trim(string)   // ' MDM'
-          write(string,'(A)')  trim(string)   // ' EQM'
+          write(string,'(A)')  trim(string)   // ' MDEQM'
         endif        
         if ((traj%step==0).and.(ctrl%track_phase_at_zero==1)) then
           write(string,'(A)') trim(string)  // ' PHASES'

@@ -57,8 +57,8 @@ pysharc_cfiles = ['pysharc.c', 'pysharc_tools.c']
 mkl_libs = []
 basic_libs = ['sharc']  # , 'hdf5', 'hdf5_hl', 'netcdf']
 #basic_libs = ['sharc', 'gfortran', 'hdf5', 'hdf5_hl', 'netcdf']
-extra_compile_args = ['-std=c99', '-Wall', ]
-#extra_compile_args += ['-D__PYTHON_DEBUG__', '-Wall']
+extra_compile_args = ['-std=c99', '-Wall', '-g']
+extra_compile_args += ['-D__PYTHON_DEBUG__', '-Wall']
 
 
 
@@ -71,6 +71,7 @@ pysharc_extension = Extension('sharc/sharc',
                               library_dirs=['lib', '$ANACONDA/lib'],
                               libraries=mkl_libs + basic_libs,
                               extra_compile_args=extra_compile_args,
+                              extra_link_args=['-g']
                               )
 
 

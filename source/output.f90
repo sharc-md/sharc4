@@ -502,8 +502,6 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'write_nacdr',      ctrl%write_NACdr
     write(u,*) 'write_property1d', ctrl%write_property1d
     write(u,*) 'write_property2d', ctrl%write_property2d
-    write(u,*) 'write_mag_dip',    ctrl%write_mag_dip
-    write(u,*) 'write_el_quad',    ctrl%write_el_quad
     write(u,*) 'n_property1d',     ctrl%n_property1d
     write(u,*) 'n_property2d',     ctrl%n_property2d
     write(u,*) 'laser',            ctrl%laser
@@ -542,15 +540,12 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'write_nacdr',                ctrl%write_NACdr
     write(u,*) 'write_property1d',           ctrl%write_property1d
     write(u,*) 'write_property2d',           ctrl%write_property2d
-    write(u,*) 'write_mag_dip',              ctrl%write_mag_dip
-    write(u,*) 'write_el_quad',              ctrl%write_el_quad
     write(u,*) 'n_property1d',               ctrl%n_property1d
     write(u,*) 'n_property2d',               ctrl%n_property2d
     write(u,*) 'laser',                      ctrl%laser
     write(u,*) 'laser_e',                    ctrl%laser_e
     write(u,*) 'laser_b',                    ctrl%laser_b
     write(u,*) 'laser_egrad',                ctrl%laser_egrad
-    write(u,*) 'laser_bgrad',                ctrl%laser_bgrad
     write(u,'(a)') '************************************* End of settings *************************************'
     call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
     call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
@@ -559,17 +554,10 @@ subroutine write_dat_initial(u, ctrl, traj)
         if (ctrl%laser_e) then  
             call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, '! Laser E-field','E21.13e3')    
         endif
-        if (ctrl%laser_b) then  
+        if (ctrl%laser_b .or. ctrl%laser_egrad) then  
             call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, '! Laser B-field','E21.13e3')    
-        endif 
-        if (ctrl%laser_egrad) then  
             do idir=1,3
               call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,idir,:), u, '! Laser E-field gradient','E21.13e3') 
-            enddo
-        endif
-        if (ctrl%laser_bgrad) then  
-            do idir=1,3
-              call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_bgrad_tpd(:,idir,:), u, '! Laser B-field gradient','E21.13e3') 
             enddo
         endif
     endif 
@@ -617,12 +605,10 @@ subroutine write_dat(u, traj, ctrl)
     call matwrite(nstates, traj%DM_print_ssd(:,:,1), u, '! 3 Dipole moments X (MCH) in a.u.', 'E21.13e3')
     call matwrite(nstates, traj%DM_print_ssd(:,:,2), u, '! 3 Dipole moments Y (MCH) in a.u.', 'E21.13e3')
     call matwrite(nstates, traj%DM_print_ssd(:,:,3), u, '! 3 Dipole moments Z (MCH) in a.u.', 'E21.13e3')
-    if (ctrl%write_mag_dip==1) then
+    if (ctrl%laser_b==.true. .or. ctrl%laser_egrad==.true.) then
         call matwrite(nstates, traj%MDM_print_ssd(:,:,1), u, '! 4 Magnetic dipole moments X (MCH) in a.u.', 'E21.13e3')
         call matwrite(nstates, traj%MDM_print_ssd(:,:,2), u, '! 4 Magnetic dipole moments Y (MCH) in a.u.', 'E21.13e3')
         call matwrite(nstates, traj%MDM_print_ssd(:,:,3), u, '! 4 Magnetic dipole moments Z (MCH) in a.u.', 'E21.13e3')
-    endif
-    if (ctrl%write_el_quad==1) then
         call matwrite(nstates, traj%EQM_print_ssdd(:,:,1,1), u, '! 5 Electric quadrupole moments XX (MCH) in a.u.', 'E21.13e3')
         call matwrite(nstates, traj%EQM_print_ssdd(:,:,1,2), u, '! 5 Electric quadrupole moments XY (MCH) in a.u.', 'E21.13e3')
         call matwrite(nstates, traj%EQM_print_ssdd(:,:,1,3), u, '! 5 Electric quadrupole moments XZ (MCH) in a.u.', 'E21.13e3') 

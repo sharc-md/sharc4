@@ -1513,25 +1513,6 @@ module input
       ctrl%write_grad=0
     endif
 
-    ctrl%write_mag_dip=0                     !< write magnetic dipole moments:   \n        0=no magnetic dipole moments, 1=write magnetic dipole moments
-    line=get_value_from_key('write_mag_dip',io)
-    if (io==0) then
-      ctrl%write_mag_dip=1
-    endif
-    line=get_value_from_key('nowrite_mag_dip',io)
-    if (io==0) then
-      ctrl%write_mag_dip=0
-    endif
-
-    ctrl%write_el_quad=0                     !< write electric quadrupole moments:   \n        0=no electric quadrupole moments, 1=write electric quadrupole moments
-    line=get_value_from_key('write_el_quad',io)
-    if (io==0) then
-      ctrl%write_el_quad=1
-    endif
-    line=get_value_from_key('nowrite_el_quad',io)
-    if (io==0) then
-      ctrl%write_el_quad=0
-    endif
 
     ctrl%write_overlap=1                  !< write overlap matrix:   \n        0=no overlap, 1=write overlap
     line=get_value_from_key('write_overlap',io)
@@ -1830,24 +1811,16 @@ module input
         endif
       endif
       ! ---------------------
-      if (ctrl%write_mag_dip==0) then
+      if (ctrl%laser_b==.false.) then
         write(u_log,'(a)') 'Not writing magnetic dipole moments.'
       else
         write(u_log,'(a)') 'Writing magnetic dipole moments.'
-        if (ctrl%output_format==1) then
-          write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_mag_dip'
-          stop 1
-        endif
       endif
       ! ---------------------
-      if (ctrl%write_el_quad==0) then
+      if (ctrl%laser_egrad==.false.) then
         write(u_log,'(a)') 'Not writing electric quadrupole moments.'
       else
         write(u_log,'(a)') 'Writing electric quadrupole moments.'
-        if (ctrl%output_format==1) then
-          write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_el_quad'
-          stop 1
-        endif
       endif
       ! ---------------------
       if (ctrl%write_NACdr==0) then
@@ -2943,11 +2916,6 @@ module input
       endif
     endif
 
-    ctrl%calc_dipole=1
-
-    if (ctrl%laser/=0) then
-      ctrl%calc_dipole=1
-    endif
 
     ctrl%dipolegrad=0
     ctrl%calc_dipolegrad=-1
@@ -2974,7 +2942,6 @@ module input
 
 
     if (ctrl%laser==2) then
-
       ! get filename
       line=get_value_from_key('laserfile',io)
       if (io==0) then
@@ -3067,6 +3034,7 @@ module input
       rewind(u_i_laser_freq)
       ! Reading laser file data
       if (laser_file_version==2.0) then !Reading for new laser file format
+        write(*,*) "ENTERED LASER FILE VERSION 2.0"
         do i=1, com_line_number+1
           read(u_i_laser,'(A)',iostat=io) line                                                                                      
           if (io/=0) then                                                                                                           
@@ -3096,11 +3064,8 @@ module input
                           ctrl%laser_e = tmp
                       case ("b-field")
                           ctrl%laser_b = tmp 
-                      case ("e-field_grad")
+                      case ("e-field_gradients")
                           ctrl%laser_egrad = tmp  
-                      case ("b-field_grad")
-                          ctrl%laser_bgrad = tmp
-                      !LORENZ: What if the keyword is in the laserfile multiple times?
                     end select
                 end select
               endif
@@ -3123,14 +3088,9 @@ module input
         if (ctrl%laser_e .EQV. .true.) then
           allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
         endif
-        if (ctrl%laser_b .EQV. .true.) then
+        if ((ctrl%laser_b .EQV. .true.) .OR. (ctrl%laser_egrad .EQV. .true.)) then
           allocate(ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
-        endif
-        if (ctrl%laser_egrad .EQV. .true.) then
           allocate(ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
-        endif
-        if (ctrl%laser_egrad .EQV. .true.) then
-          allocate(ctrl%laserfield_bgrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
         endif
         allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
       else if (laser_file_version==1.0) then
@@ -3199,22 +3159,28 @@ module input
                   read(values(6*(j-1)+2*k+1+read_shift),*) b
                   ctrl%laserfield_egrad_tpd(i-com_line_number,j,k)=dcmplx(a,b)
                 enddo 
-              enddo 
-            read_shift=read_shift+18  
-            endif
-            if (ctrl%laser_bgrad .EQV. .true.) then
-              do j=1,3
+              enddo
+            elseif ((ctrl%laser_egrad .EQV. .true.) .and. (ctrl%laser_b .EQV. .false.)) then
+               do j=1,3
                 do k=1,3
-                  read(values(6*(j-1)+2*k+read_shift),*) a
-                  read(values(6*(j-1)+2*k+1+read_shift),*) b
-                  ctrl%laserfield_bgrad_tpd(i-com_line_number,j,k)=dcmplx(a,b)
-                enddo 
-              enddo 
+                  ctrl%laserfield_egrad_tpd(i-com_line_number,j,k)=dcmplx(0.,0.)
+                enddo
+               enddo
             endif
           endif
         enddo
         close(u_i_laser)
         
+        ctrl%calc_dipole=1
+        if (ctrl%laser/=0) then 
+          write(*,*) ctrl%laser_b, ctrl%laser_egrad
+          if (ctrl%laser_b==.true. .OR. ctrl%laser_egrad==.true.) then
+            ctrl%calc_dipole=2
+          else
+            ctrl%calc_dipole=1
+          endif
+        endif
+
         !LORENZ: Continue wit reading in frequency file! 
         !LASER ENERGY
         do i=1, freq_line_number
@@ -3311,6 +3277,11 @@ module input
         flush(u_log) 
         write(u_log,'(a,1x,i2,1x,a)') 'Laser central frequencies for',ctrl%nlasers,'lasers read.'
         write(u_log,*)
+        if (ctrl%calc_dipole==1) then
+              write(u_log,'(a)') 'Calculating only el. dip. moment.'
+        elseif (ctrl%calc_dipole==2) then
+              write(u_log,'(a)') 'Calculating el. dip. moment, mag. dip. moment, el. quad. moment.'
+        endif 
         if (ctrl%dipolegrad==1) then
           write(u_log,'(a)') 'Will include the cartesian gradient of the dipole moments in the gradient transformation.'
           select case (ctrl%calc_dipolegrad)
@@ -3946,23 +3917,14 @@ module input
         if (ctrl%laser_e .EQV. .true.) then
           write(key,'(6(F9.6))') (ctrl%laserfield_e_tp(i,j),j=1,3)
         endif
-        if (ctrl%laser_b .EQV. .true.) then
+        if (ctrl%laser_b .EQV. .true. .or. ctrl%laser_egrad .EQV. .true.) then
           write(key,'(6(F9.6))') (ctrl%laserfield_b_tp(i,j),j=1,3)
-        endif
-        if (ctrl%laser_egrad .EQV. .true.) then
           do j=1,3
             do k=1,3
               write(key,'(6(F9.6))') ctrl%laserfield_egrad_tpd(i,j,k)
             enddo
           enddo
         endif
-        if (ctrl%laser_bgrad .EQV. .true.) then
-          do j=1,3
-            do k=1,3
-              write(key,'(6(F9.6))') ctrl%laserfield_bgrad_tpd(i,j,k)
-            enddo
-          enddo
-        endif             
         string=trim(string)//trim(key)
       enddo
     endif

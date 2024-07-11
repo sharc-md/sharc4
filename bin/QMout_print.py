@@ -217,7 +217,7 @@ class diagonalizer:
 # ======================================================================================================================
 
 
-def transform(H, DM, P):
+def transform(H, DM, MDM, EQM, P):
     '''transforms the H and DM matrices in the representation where H is diagonal.'''
 
     if NONUMPY:
@@ -235,6 +235,35 @@ def transform(H, DM, P):
                     for i in range(len(H)):
                         UDMU[xyz][a][b] += temp[a][i] * U[i][b]
         DM = UDMU
+
+        UMDMU = [[[0. for i in range(len(H))] for j in range(len(H))] for k in range(3)]
+        for xyz in range(3):
+            temp = [[0. for i in range(len(H))] for j in range(len(H))]
+            for a in range(len(H)):
+                for b in range(len(H)):
+                    for i in range(len(H)):
+                        temp[a][b] += U[i][a].conjugate() * MDM[xyz][i][b]
+            for a in range(len(H)):
+                for b in range(len(H)):
+                    for i in range(len(H)):
+                        UMDMU[xyz][a][b] += temp[a][i] * U[i][b]
+
+        MDM = UDMU
+
+        UEQMU = [[[0. for i in range(len(H))] for j in range(len(H))] for k in range(3)]
+        for xyz1 in range(3):
+            for xyz2 in range(3):
+                temp = [[0. for i in range(len(H))] for j in range(len(H))]
+                for a in range(len(H)):
+                    for b in range(len(H)):
+                        for i in range(len(H)):
+                            temp[a][b] += U[i][a].conjugate() * EQM[xyz1][xyz2][i][b]
+                for a in range(len(H)):
+                    for b in range(len(H)):
+                        for i in range(len(H)):
+                            UEQMU[xyz1][xyz2][a][b] += temp[a][i] * U[i][b]
+
+        EQM = UEQMU
 
         if P is not None:
             UPU = [[0. for i in range(len(H))] for j in range(len(H))]
@@ -262,6 +291,17 @@ def transform(H, DM, P):
         for xyz in range(3):
             UDMU[xyz] = numpy.dot(Ucon, numpy.dot(DM[xyz], U))
         DM = UDMU
+
+        UMDMU = [0, 0, 0]
+        for xyz in range(3):
+            UMDMU[xyz] = numpy.dot(Ucon, numpy.dot(MDM[xyz], U))
+        MDM = UMDMU
+
+        UEQMU = 3*[[0, 0, 0]]
+        for xyz1 in range(3):
+            for xyz2 in range(3):
+                UEQMU[xyz1][xyz2] = numpy.dot(Ucon, numpy.dot(EQM[xyz1][xyz2], U))
+        EQM = UEQMU
 
         if P is not None:
             UPU = numpy.dot(Ucon, numpy.dot(P, U))

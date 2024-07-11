@@ -285,7 +285,7 @@ subroutine get_magnetic_dipoles(n, MDM_ssd)
 
   call check_qmout_unit('get_magnetic_dipoles')
 
-  call goto_flag(2,'get_magnetic_dipoles')
+  call goto_flag(41,'get_magnetic_dipoles')
 
   do idir=1,3
     call matread(n, MDM_ssd(:,:,idir), qmout_unit, title)
@@ -301,19 +301,20 @@ subroutine get_magnetic_dipoles(n, MDM_ssd)
 endsubroutine
 
 ! =================================================================== !
-
 !> reads the electric Quadrupole moment matrix from the already opened QMout file
 subroutine get_electric_quadrupoles(n, EQM_ssdd)
   use matrix
   implicit none
   integer,intent(in) :: n       ! size of the matrix
   complex*16,intent(out) :: EQM_ssdd(n,n,3,3)
-  integer :: icol,irow,idir,jdir
+  !complex*16,intent(out) :: EQM_ssdd(3,3,n,n)
+  complex*16 :: tmp_ss(n,n)
+  integer :: icol,irow,idir,jdir,idx,jdx
   character(len=8000) title
 
-  call check_qmout_unit('get_dipoles')
+  call check_qmout_unit('get_electric_quadrupoles')
 
-  call goto_flag(2,'get_dipoles')
+  call goto_flag(42,'get_electric_quadrupoles')
 
   do idir=1,3
     do jdir=1,3
@@ -322,9 +323,9 @@ subroutine get_electric_quadrupoles(n, EQM_ssdd)
       if ( (irow==n).and.(icol==n) ) then
         continue
       else
-        write(0,*) 'Electric quadrupole matrix has wrong format! nrow=',irow,'ncol=',icol
+        write(0,*) 'Magnetic Dipole matrix has wrong format! nrow=',irow,'ncol=',icol
         stop 1
-      endif
+      endif 
     enddo
   enddo
 

@@ -217,6 +217,7 @@ module qm
 
     ! get electric Dipole moments
     if (ctrl%calc_dipole==1) then
+      write(*,*) "CALC_DIPOLE=1 - GET DM"
       call get_dipoles(ctrl%nstates, traj%DM_ssd)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Dipole Moments:                ','OK'
       traj%DM_print_ssd=traj%DM_ssd
@@ -230,6 +231,7 @@ module qm
 
     ! get electric Dipole moments (DM), magnetic DM, electric QM
     if (ctrl%calc_dipole==2) then
+      write(*,*) "CALC_DIPOLE=2 - GET DM, MDM, EQM"
       call get_dipoles(ctrl%nstates, traj%DM_ssd)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Dipole Moments:                ','OK'
       call get_magnetic_dipoles(ctrl%nstates, traj%MDM_ssd)
@@ -624,8 +626,7 @@ module qm
       write(u_qm_qmin,'(A)') 'DM'
     else if (ctrl%calc_dipole==2) then
       write(u_qm_qmin,'(A)') 'DM'
-      write(u_qm_qmin,'(A)') 'MDM'
-      write(u_qm_qmin,'(A)') 'EQM'
+      write(u_qm_qmin,'(A)') 'MDEQM'
     endif
     select case (ctrl%calc_grad)
       case (0)
@@ -1159,7 +1160,7 @@ module qm
             H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
           enddo
         endif
-        if (ctrl%laser_egrad) then
+        if (ctrl%laser_egrad==.true.) then
           do idir=1,3
             do jdir=1,3
               H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
@@ -1663,7 +1664,6 @@ module qm
         traj%overlaps_ss(:,istate)=traj%overlaps_ss(:,istate)*traj%phases_s(istate)
       !endif
     enddo
-
     ! electronic structure phase patching finished
     if (traj%step>0) then
       ! U matrix phase patching follows
@@ -1688,7 +1688,7 @@ module qm
           traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,ixyz)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,ixyz))
         enddo
       endif
-      if (ctrl%laser==2 .and. ctrl%laser_egrad) then
+      if (ctrl%laser==2 .and. ctrl%laser_egrad==.true.) then
         do ixyz=1,3
           do jxyz=1,3
             traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,ixyz,jxyz)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,ixyz,jxyz))

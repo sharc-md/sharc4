@@ -1384,13 +1384,14 @@ Laser files can be created using $SHARC/laser.x
             INFOS['b-field'] = bool(set_fields[1])
             INFOS['e-field gradients'] = bool(set_fields[2])
             INFOS['b-field gradients'] = bool(set_fields[3])
+            log.info("DETECTED", set_fields)
         # only the analytical interface can do dipole gradients
         if "dipolegrad" in int_features:
             INFOS["dipolegrad"] = question("Do you want to use dipole moment gradients?", bool, False)
         else:
             INFOS["dipolegrad"] = False
         # 2nd order LM-interaction can only be described, if B-field and E-field gradients are present in laser file
-        if "mdeqm" in int_features and INFOS['b-field'] and INFOS['e-field gradients']:
+        if "mdeqm" in int_features:
             INFOS["mdeqm"] = True
         else:
             INFOS["mdeqm"] = False

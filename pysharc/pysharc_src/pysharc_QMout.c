@@ -88,8 +88,6 @@ QMout_new(PyTypeObject * type, PyObject *args, PyObject *kwds)
         self->iset_h = 0;
         self->iset_g = 0;
         self->iset_d = 0;
-        self->iset_mdm = 0;
-        self->iset_eqm = 0;
         self->iset_o = 0;
         self->iset_nacdr = 0;
 #ifdef __OWN_SPACE_QMout__
@@ -158,8 +156,8 @@ QMout_init(QMout *self, PyObject *args, PyObject *kwds)
     double ** NACDR_ptr = &self->nacdr;
     setPointers( (double complex **)H_ptr, 
                  (double complex **)DM_ptr, 
-                 (double complex **)MDM_ptr,
-                 (double complex **)EQM_ptr,
+                 (double complex **)MDM_ptr, 
+                 (double complex **)EQM_ptr, 
                  (double complex **)Ov_ptr, 
                  (double **)G_ptr, 
                  (double **)NACDR_ptr);
@@ -263,6 +261,7 @@ QMout_printAll(QMout * self)
         }
     }
 
+
     if (self->iset_eqm == 1) {
         printf("EQM\n");
         for (int k=0; k < 3; k++){
@@ -305,6 +304,7 @@ QMout_set_gradient(QMout * self, PyObject * args)
 
     double scale = 0.0;
     double soc_scale = 0.0;
+
     get_scalingfactor_(&scale, &soc_scale);
 
     if (!PyArg_ParseTuple(args, "Oi", &gradient, &icall))
@@ -449,15 +449,14 @@ QMout_set_dipolemoment(QMout * self, PyObject * args)
         return NULL;
 }
 
+
 static PyObject *
 QMout_set_mag_dipolemoment(QMout * self, PyObject * args)
 {
     PyObject * mag_dip;
     double complex complex_value;
-
     if (!PyArg_ParseTuple(args, "O", &mag_dip))
         return NULL;
-
     /* need to be python list */
     if ( !PyList_Check(mag_dip))
         goto fail;
@@ -481,13 +480,13 @@ QMout_set_mag_dipolemoment(QMout * self, PyObject * args)
                     complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
                 }
                 // if coefficients were right
-                // *(self->dipole_mom + (k * self->NStates * self->NStates) + (is*self->NStates) + js) = complex_value;
                 *(self->mag_dip_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = complex_value;
             }
         }
     }
 #ifdef __PYTHON_DEBUG__
     printf("FINISHED SETTING MDM!\n");
+
 #endif
     self->iset_mdm = 1;
     Py_RETURN_NONE;
@@ -495,46 +494,53 @@ QMout_set_mag_dipolemoment(QMout * self, PyObject * args)
         Py_XDECREF(mag_dip);
         return NULL;
 }
-
 static PyObject *
 QMout_set_el_quadrupolemoment(QMout * self, PyObject * args)
 {
     PyObject * el_quad;
     double complex complex_value;
-
     if (!PyArg_ParseTuple(args, "O", &el_quad))
-        return NULL;
+         return NULL;
 
     /* need to be python list */
     if ( !PyList_Check(el_quad))
         goto fail;
-    /* Clear the overlap matrix! */
+    
+    /* Clear the quadrupole moment matrix! */
     clear_complex_double(9*self->NStates*self->NStates, self->el_quad_mom);
+
     /* no further format checks! */
-    if (PyList_GET_SIZE(el_quad) !=  9)
+    if (PyList_GET_SIZE(el_quad) != 3)
         goto fail;
-    /* */
-    for (int k = 0; k < 3; k++){
-        for (int l = 0; l < 3; l++){
-            PyObject * xyz_el_quad = PyList_GetItem(el_quad, k+l);
-            if (PyList_GET_SIZE(xyz_el_quad) != self->NStates)
+
+    for (int i = 0; i < 3; i++){
+        PyObject * xyz_quad = PyList_GetItem(el_quad, i);
+        if (!PyList_Check(xyz_quad) || PyList_GET_SIZE(xyz_quad) != 3)
+            goto fail;
+
+        for (int j = 0; j < 3; j++){
+            PyObject * ij_quad = PyList_GetItem(xyz_quad, j);
+            if (!PyList_Check(ij_quad) || PyList_GET_SIZE(ij_quad) != self->NStates)
                 goto fail;
-            for (int is=0; is < self->NStates; is++){
-                PyObject * state_list = PyList_GetItem(xyz_el_quad, is);
-                for (int js =0; js < self->NStates; js++){
+
+            for (int is = 0; is < self->NStates; is++){
+                PyObject * state_list = PyList_GetItem(ij_quad, is);
+                if (!PyList_Check(state_list) || PyList_GET_SIZE(state_list) != self->NStates)
+                    goto fail;
+
+                for (int js = 0; js < self->NStates; js++){
                     PyObject * pyfloat = PyList_GetItem(state_list, js);
                     if (PyFloat_Check(pyfloat)) {
                         complex_value = (PyFloat_AsDouble(pyfloat) );
                     } else {
                         complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
                     }
-                    // if coefficients were right
-                    // *(self->dipole_mom + (k * self->NStates * self->NStates) + (is*self->NStates) + js) = complex_value;
-                    *(self->el_quad_mom + (k * l * self->NStates * self->NStates) + (js*self->NStates) + is) = complex_value;
+                    *(self->el_quad_mom + (i * 3 * self->NStates * self->NStates) + (j * self->NStates * self->NStates) + (js * self->NStates) + is) = complex_value;
                 }
             }
         }
     }
+
 #ifdef __PYTHON_DEBUG__
     printf("FINISHED SETTING EQM!\n");
 #endif
