@@ -952,21 +952,21 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             all_done = all(do in phi for do in dyson_orbitals_from_wigner_eckart)
         return phi
 
-    def _run_wfoverlap(self) -> None:
+    def _run_wfoverlap(self, mo_read: int = 0) -> None:
         """
         Prepare files and folders for wfoverlap and execute wfoverlap
         """
 
         # Content of wfoverlap input file
         wf_input = dedent(
-            """\
+            f"""\
         mix_aoovl=aoovl
         a_mo=mo.a
         b_mo=mo.b
         a_det=det.a
         b_det=det.b
-        a_mo_read=0
-        b_mo_read=0
+        a_mo_read={mo_read}
+        b_mo_read={mo_read}
         ao_read=0
         """
         )
