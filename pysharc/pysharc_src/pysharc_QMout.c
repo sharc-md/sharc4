@@ -88,6 +88,8 @@ QMout_new(PyTypeObject * type, PyObject *args, PyObject *kwds)
         self->iset_h = 0;
         self->iset_g = 0;
         self->iset_d = 0;
+        self->iset_mdm = 0;
+        self->iset_eqm = 0;
         self->iset_o = 0;
         self->iset_nacdr = 0;
 #ifdef __OWN_SPACE_QMout__
@@ -235,11 +237,14 @@ QMout_printAll(QMout * self)
 
     if (self->iset_d == 1) {
         printf("DM\n");
+        fprintf(stdout, "STARTED!\n");
         for (int k=0; k < 3; k++){
             printf("DM xyz = '%d'", k);
             for (int istate=0; istate < self->NStates; istate++){
                 for (int jstate=0; jstate <  self->NStates; jstate++){
                         double complex value = *(self->dipole_mom + istate*(self->NStates) + jstate);
+                        fprintf(stdout, "DM\n");
+                        fprintf(stdout, "%lf + %lf *i %d %d %d", creal(value), cimag(value), k,istate, jstate);
                         printf("%lf + %lf * i    ", creal(value), cimag(value));
                 }
                 printf("\n");
@@ -435,7 +440,7 @@ QMout_set_dipolemoment(QMout * self, PyObject * args)
                 }
                 // if coefficients were right
                 // *(self->dipole_mom + (k * self->NStates * self->NStates) + (is*self->NStates) + js) = complex_value;
-                *(self->dipole_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = complex_value;
+                *(self->dipole_mom + (is * 3 * self->NStates) + (js*3) + k) = complex_value;
             }
         }
     }
@@ -480,7 +485,7 @@ QMout_set_mag_dipolemoment(QMout * self, PyObject * args)
                     complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
                 }
                 // if coefficients were right
-                *(self->mag_dip_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = complex_value;
+                *(self->mag_dip_mom + (is * 3 * self->NStates) + (js*3) + k) = complex_value;
             }
         }
     }
@@ -535,7 +540,7 @@ QMout_set_el_quadrupolemoment(QMout * self, PyObject * args)
                     } else {
                         complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
                     }
-                    *(self->el_quad_mom + (i * 3 * self->NStates * self->NStates) + (j * self->NStates * self->NStates) + (js * self->NStates) + is) = complex_value;
+                    *(self->el_quad_mom + (is * 3*3 * self->NStates) + (js *3*3) + (i*3) + j) = complex_value;
                 }
             }
         }

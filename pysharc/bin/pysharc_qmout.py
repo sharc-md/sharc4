@@ -39,7 +39,7 @@ from __future__ import print_function
 import shutil
 import sys
 import os
-
+from logger import log
 import numpy
 import numpy as np
 
@@ -104,15 +104,15 @@ def read_QMout(path, nstates, natom, request=None):
                            'dim': (nstates, nstates),
                            'line': '! 6 Overlap matrix',
                            },
-               'mdm': {'flag': 7,
+               'mdm': {'flag': 41,
                        'type': complex,
                        'dim': (3, nstates, nstates),
-                       'line': '! 7 Magnetic Dipole Moment Matrices',
+                       'line': '! 41 Magnetic Dipole Moment Matrices',
                        },
-               'eqm': {'flag': 8,
+               'eqm': {'flag': 42,
                        'type': complex,
                        'dim': (3, 3, nstates, nstates),
-                       'line': '! 8 Electric Quadrupole Moment Matrices',
+                       'line': '! 42 Electric Quadrupole Moment Matrices',
                        },
                }
     # read QM.out
@@ -157,6 +157,7 @@ def read_QMout(path, nstates, natom, request=None):
                             row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]['dim'][2])]
                         elif targets[t]['type'] == float:
                             row = [float(line[i]) for i in range(targets[t]['dim'][2])]
+                        print("PYSHARCQMOUT", row, iblocks, irow, file="log.out", flush=True)
                         block.append(row)
                     values.append(block)
             # =========== matrix of matrices

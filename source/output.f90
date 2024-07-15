@@ -298,6 +298,8 @@ subroutine write_list_line(u, traj, ctrl)
         &+real( conjg(traj%U_ss(istate,traj%state_diag))&
         &*traj%DM_print_ssd(istate,jstate,idir)&
         &*traj%U_ss(jstate,traj%state_diag) )
+        !write(*,*) traj%DM_print_ssd(istate,jstate,idir) 
+        !write(*,*) istate,jstate,idir
       enddo
     enddo
     expec_dm=expec_dm+temp_dm**2

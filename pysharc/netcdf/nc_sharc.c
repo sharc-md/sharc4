@@ -28,6 +28,7 @@
 #define INATOMS 1
 #define ISPATIAL 2
 
+
 void
 write_sharc_ncoutputdat_init_()
 {
@@ -38,6 +39,7 @@ write_sharc_ncoutputdat_init_()
 void 
 setup_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
 {
+    printf("SETUP NETCDF");
     /*
      * defines all variables used in ncoutput
      */
@@ -216,7 +218,6 @@ write_sharc_ncoutputdat_istep_(
       start[0] *= -1;
     }
 
-
     check_nccall(iret, 
             nc_put_vara_double(ncdat->id, ncdat->H_MCH_id, start, count, H_MCH_ss)
     );
@@ -271,7 +272,19 @@ write_sharc_ncoutputdat_istep_(
     check_nccall(iret, 
             nc_put_vara_int(ncdat->id, ncdat->time_step_id, start, count, time_step)
     );
-    
+    //int test_idx; 
+    //int test_jdx;
+    //int test_kdx;
+    //fprintf(stdout, "DM write in NETCDF");
+    //for (test_idx=1;test_idx<=3;test_idx++){
+    //    for (test_jdx=1;test_jdx<=*nstates;test_jdx++){
+    //        for (test_kdx=1;test_kdx<=*nstates;test_kdx++){
+    //            printf(stdout,"DM", test_idx, test_jdx, test_kdx);
+    //            char* result = DM_print_ssd(test_kdx,test_jdx,test_idx);
+    //            printf(stdout,"%s\n", result);
+    //        }
+    //    }
+    //}
 
 };
 

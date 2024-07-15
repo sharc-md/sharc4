@@ -24,6 +24,7 @@
 
 
 import sys
+from logger import log
 from . import fileio
 
 
@@ -145,6 +146,7 @@ def writeQMoutdm(QMin, QMout):
         for i in range(nmstates):
             for j in range(nmstates):
                 string += '%s %s ' % (eformat(QMout['dm'][xyz][i][j].real, 9, 3), eformat(QMout['dm'][xyz][i][j].imag, 9, 3))
+                log.info(xyz, i, j, eformat(QMout['dm'][xyz][i][j].real, 9, 3), eformat(QMout['dm'][xyz][i][j].imag, 9, 3))
             string += '\n'
         # string+='\n'
     string += '\n'

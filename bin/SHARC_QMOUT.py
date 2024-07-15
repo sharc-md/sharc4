@@ -56,7 +56,6 @@ all_features = set(
         "grad",
         "nacdr",
         "overlap",
-        "multipolar_fit",
         "phases",
         # "ion",
         # "theodore",
@@ -161,46 +160,54 @@ class SHARC_QMOUT(SHARC_FAST):
         for k, v in self.QMin.requests.items():
             if v in (None, False, []):
                 continue
-            if k in ["retain", "theodore", "cleanup", "backup", "retain", "molden", "savestuff", "nooverlap"]:
-                continue
-            #self.log.info(f'REQEUEST: {k}')
             requests.add(k)
+        self.QMout.allocate(
+            self.QMin.molecule["states"],
+            self.QMin.molecule["natom"],
+            self.QMin.molecule["npc"],
+            requests,
+        )
+        if self.QMin.requests["h"] or self.QMin.requests["soc"]:
+            self.QMout["h"] = self.QMout2["h"]
+
+        if self.QMin.requests["dm"]:
+            self.QMout["dm"] = self.QMout2["dm"]
 
         if self.QMin.requests["overlap"]:
-            self.QMout["h"] = np.eye(self.QMout.nmstates)
+            np.fill_diagonal(self.QMout["overlap"], 1.0)
 
         if self.QMin.requests["phases"]:
             self.QMout["phases"] = [complex(1.0, 0.0) for i in range(self.QMout.nmstates)]
 
-        if self.QMin.requests["grad"] and "grad" not in self.QMout:
-            self.log.warning("Gradient not in QMout.template, set to zero!")
-            self.QMout["grad"] = np.zeros((self.QMout.nmstates, self.QMout.natom, 3))
-            
-        if "soc" in requests:
-            requests.remove("soc")
-            requests.add("h")
-        
-        if "mdeqm" in requests:
-            requests.remove("mdeqm")
-            requests.add("mdm")
-            requests.add("eqm")
-        #self.log.info(self.QMout)
+        if self.QMin.requests["mdeqm"]:
+            self.QMout["mdm"] = self.QMout2["mdm"]
+            self.QMout["eqm"] = self.QMout2["eqm"]
 
-        for k in requests:
-            # self.log.info("Request in getQMout:" , k)
-            if k not in self.QMout:
-                self.log.error(f"{k} not in self.QMout (not read from QMout.template)")
-                raise RuntimeError()
+        # if self.QMin.requests["ion"]:
+        # self.QMout["prop2d"] = self.QMout2["prop2d"]
 
-        return {k: self.QMout[k] for k in requests}
 
+
+        return self.QMout
 
     def run(self) -> None:
         pass
 
     def setup_interface(self):
         # read the file
-        self.QMout = QMout(filepath="QMout.template")
+        self.QMout2 = QMout(filepath="QMout.template")
+        self.QMout["notes"]["QMout"] = "Notes were not transferred."
+        # check the file
+        if any(
+            [
+                self.QMin.molecule["states"] != self.QMout2.states,
+                self.QMin.molecule["natom"] != self.QMout2.natom,
+                self.QMin.molecule["npc"] != self.QMout2.npc,
+            ]
+        ):
+            self.log.error("QMin.molecule and QM.out file are inconsistent")
+            raise ValueError()
+
 
     def read_resources(self, resources_file: str | None = None, kw_whitelist: list[str] | None = None) -> None:
         """

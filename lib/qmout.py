@@ -686,8 +686,8 @@ class QMout:
                             eformat(self.eqm[dxdydz][xyz][i][j].real, 12, 3),
                             eformat(self.eqm[dxdydz][xyz][i][j].imag, 12, 3),
                         )
-                        self.log.info("WRITE")
-                        self.log.info(self.eqm[dxdydz][xyz][i][j], dxdydz, xyz, i, j)
+                        #log.info("WRITE")
+                        #log.info(self.eqm[dxdydz][xyz][i][j], dxdydz, xyz, i, j)
                     string += "\n"
                 string += ""
         string += "\n"

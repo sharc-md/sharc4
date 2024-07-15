@@ -27,6 +27,7 @@
 # EXTERNAL
 import time
 import os
+import numpy as np
 from typing import Any, Union
 from optparse import OptionParser
 from constants import IAn2AName, ATOMCHARGE, FROZENS
@@ -89,9 +90,11 @@ class QMOUT:
                 self._QMout.set_hamiltonian(data["h"].tolist())
                 log.debug("setting h")
             if "dm" in data:
+                log.info(data["dm"].shape)
                 self._QMout.set_dipolemoment(data["dm"].tolist())
                 log.debug("setting dm")
             if "mdm" in data:
+                #log.info(data["dm"])
                 self._QMout.set_mag_dipolemoment(data["mdm"].tolist())
                 log.debug("setting mdm")
             if "eqm" in data:

@@ -252,7 +252,7 @@ subroutine get_dipoles(n, DM_ssd)
   implicit none
   integer,intent(in) :: n       ! size of the matrix
   complex*16,intent(out) :: DM_ssd(n,n,3)
-  integer :: icol,irow,idir
+  integer :: icol,irow,idir, jdir, kdir
   character(len=8000) title
 
   call check_qmout_unit('get_dipoles')
@@ -262,6 +262,14 @@ subroutine get_dipoles(n, DM_ssd)
   do idir=1,3
     call matread(n, DM_ssd(:,:,idir), qmout_unit, title)
     read(title,*) irow,icol
+    !write(*,*) "DM", idir, irow, icol
+    !write(*,*) "--------------------------------------------------"
+    !do jdir= 1,n
+    !    do kdir=1,n
+    !      write(*,*) DM_ssd(jdir,kdir,idir) 
+    !    enddo
+    !enddo
+    !write(*,*) "iTEST--------------------------------------------------"
     if ( (irow==n).and.(icol==n) ) then
       continue
     else
@@ -309,7 +317,7 @@ subroutine get_electric_quadrupoles(n, EQM_ssdd)
   complex*16,intent(out) :: EQM_ssdd(n,n,3,3)
   !complex*16,intent(out) :: EQM_ssdd(3,3,n,n)
   complex*16 :: tmp_ss(n,n)
-  integer :: icol,irow,idir,jdir,idx,jdx
+  integer :: icol,irow,idir,jdir
   character(len=8000) title
 
   call check_qmout_unit('get_electric_quadrupoles')
@@ -323,7 +331,7 @@ subroutine get_electric_quadrupoles(n, EQM_ssdd)
       if ( (irow==n).and.(icol==n) ) then
         continue
       else
-        write(0,*) 'Magnetic Dipole matrix has wrong format! nrow=',irow,'ncol=',icol
+        write(0,*) 'Electric Quadrupole matrix has wrong format! nrow=',irow,'ncol=',icol
         stop 1
       endif 
     enddo
