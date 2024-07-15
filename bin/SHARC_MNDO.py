@@ -336,11 +336,24 @@ class SHARC_MNDO(SHARC_ABINITIO):
             shutil.copy(fromfile, tofile)
 
         # dets
-        log_file = os.path.join(workdir, "MNDO.out")
         nstates = self.QMin.molecule["nstates"]
+        log_file = os.path.join(workdir, "MNDO.out")
         determinants = self._get_determinants(log_file, MO_occ, nstates)
         det = os.path.join(savedir, f"dets.{step}")
         writefile(det, determinants)
+
+
+        # tofile = os.path.join(savedir, f"MNDO.out.{step}")
+        # shutil.copy(log_file, tofile)
+
+        # out_file = os.path.join(workdir, "fort.15")
+        # tofile = os.path.join(savedir, f"fort.15.{step}")
+        # shutil.copy(out_file, tofile)
+
+        # mm_file = os.path.join(workdir, "fort.20")
+        # tofile = os.path.join(savedir, f"fort.20.{step}")
+        # shutil.copy(mm_file, tofile)
+
         return
 
     @staticmethod
@@ -1217,8 +1230,8 @@ mocoef
             ncigrd = len(qmin["maps"]["gradmap"])
             grads = [y for _,y in qmin["maps"]["gradmap"]]
         else:
-            ncigrd = 0
-            grads = []
+            ncigrd = 1
+            grads = [1]
 
         coords = qmin["coords"]["coords"]
         elements = qmin["molecule"]["elements"]
