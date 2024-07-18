@@ -38,7 +38,6 @@ extern"C" {
 #endif
 
 void prt_error(int istatus);
-
 int open_ncfile(const char *str, int imode);
 int create_ncfile(const char *str, int imode);
 void close_ncfile_(const int* ncid);

@@ -1249,9 +1249,9 @@ subroutine zwrite(n,A,wrunit,title,precstring)
   ! internal variables
   character*100 :: fmtstring
   integer :: i,j
-
+  
   write(wrunit,'(A)') trim(title)
-
+  
   write(fmtstring,'(I10)') n
   fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X,'//trim(adjustl(precstring))//',4X))'
   do i=1,n
@@ -1590,9 +1590,9 @@ subroutine zread(n,A,runit,title)
 !   real*8 :: re, im
 
   read(runit,'(A)', iostat=io) title
-
   do i=1,n
     read(runit,*,iostat=io) (line(j),j=1,2*n)
+
     if (io/=0) then
       write(*,*) 'Could not read matrix'
       write(*,*) 'routine=zread(), n=',n,', unit=',runit
@@ -1600,7 +1600,7 @@ subroutine zread(n,A,runit,title)
       stop 1
     endif
     do j=1,n
-      A(i,j)=dcmplx(line(2*j-1),line(2*j))
+       A(i,j)=dcmplx(line(2*j-1),line(2*j))
     enddo
   enddo
 
@@ -1621,7 +1621,6 @@ subroutine iread(n,A,runit,title)
   integer :: i,j, io
 
   read(runit,'(A)', iostat=io) title
-
   do i=1,n
     read(runit,*, iostat=io) (A(i,j),j=1,n)
     if (io/=0) then

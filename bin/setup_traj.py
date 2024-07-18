@@ -1716,8 +1716,8 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         if INFOS["dipolegrad"]:
             s += "dipole_gradient\n"
         s += "\n"
-        if INFOS["mdeqm"]:
-            s += "2_multipole_moments\n"
+        # if INFOS["mdeqm"]:
+        #     s += "2_multipole_moments\n"
     if "ion" in INFOS and INFOS["ion"]:
         s += "ionization\n"
         s += "ionization_step 1\n"

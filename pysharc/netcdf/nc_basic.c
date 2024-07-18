@@ -65,8 +65,9 @@ void
 close_ncfile_(const int* ncid)
 {
     int iretval;
-    if ((iretval = nc_close(*ncid)))
+    if ((iretval = nc_close(*ncid))){
         prt_error(iretval);
+    }
 };
 
 

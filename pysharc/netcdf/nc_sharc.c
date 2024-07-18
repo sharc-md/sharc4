@@ -39,7 +39,6 @@ write_sharc_ncoutputdat_init_()
 void 
 setup_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
 {
-    printf("SETUP NETCDF");
     /*
      * defines all variables used in ncoutput
      */
@@ -134,10 +133,8 @@ reopen_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
     // error handler
     int iret = 0;
     // open sharc file
-//     printf("REOPENING!\n");
     ncdat->id      = open_ncfile("output.dat.nc", NC_WRITE);
-//     printf("REOPENED!\n");
-
+    fprintf("OPEN NCFILE", ncdat->id); 
     // init nsteps
     size_t nsteps = 0;
 
@@ -171,6 +168,7 @@ reopen_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
     check_nccall(iret, nc_inq_varid(ncdat->id, "state_MCH", &ncdat->state_MCH_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "time_step", &ncdat->time_step_id));
 
+    close_ncfile_(ncdat->id);
 };
 
 // --------------------------------------------------------------------------
@@ -272,19 +270,6 @@ write_sharc_ncoutputdat_istep_(
     check_nccall(iret, 
             nc_put_vara_int(ncdat->id, ncdat->time_step_id, start, count, time_step)
     );
-    //int test_idx; 
-    //int test_jdx;
-    //int test_kdx;
-    //fprintf(stdout, "DM write in NETCDF");
-    //for (test_idx=1;test_idx<=3;test_idx++){
-    //    for (test_jdx=1;test_jdx<=*nstates;test_jdx++){
-    //        for (test_kdx=1;test_kdx<=*nstates;test_kdx++){
-    //            printf(stdout,"DM", test_idx, test_jdx, test_kdx);
-    //            char* result = DM_print_ssd(test_kdx,test_jdx,test_idx);
-    //            printf(stdout,"%s\n", result);
-    //        }
-    //    }
-    //}
 
 };
 
@@ -323,7 +308,7 @@ read_sharc_ncoutputdat_istep_(
    int pointer = 0;
    if (*istep == 0) {
         ncdat->id = open_ncfile("output.dat.nc", NC_NOWRITE);
-
+        fprintf("TEST OPEN NCFILE", ncdat->id);
         // init nsteps
         *nsteps = 0;
 
@@ -488,6 +473,10 @@ read_sharc_ncoutputdat_istep_(
                             count, 
                             time_step)
    );
+   if (*istep == *nsteps) { 
+     fprintf(stdout,"TESTTESTTEST");
+     close_ncfile_(ncdat->id);
+   }
 }
 
 // --------------------------------------------------------------------------

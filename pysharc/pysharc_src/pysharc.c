@@ -82,8 +82,10 @@ static PyObject * get_constants(PyObject * self)
         }
         PyDict_SetItemString(dct, const_names[i], pyfloat);
     }
+    printf("TESTCONSTA");
     free(consts);
 
+    printf("TESTCONSTB");
     return dct;
 }
 
@@ -223,7 +225,9 @@ static PyObject * get_basic_info(PyObject * self)
         }
         PyDict_SetItemString(dct, info_names_str[i], pystring);
     }
+    printf("STRINGA");
     free(string);
+    printf("STRINGB");
 // Integers
     int ivalue = 0;
     for (int i=0; i < N_func_int; i++) {
@@ -290,7 +294,9 @@ static PyObject * get_all_tasks(PyObject * self, PyObject * args)
         }
         PyDict_SetItemString(dct, task_names_str[i], pystring);
     }
+    printf("STRINGC");
     free(string);
+    printf("STRINGD");
     return dct;
 
     fail_string:
@@ -322,7 +328,9 @@ static PyObject * get_tasks(PyObject * self, PyObject * args)
         goto fail_string;
     }
     // free memory
+    printf("STRINGE");
     free(string);
+    printf("STRINGF");
     // return pystring
     return pystring;
 

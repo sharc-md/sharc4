@@ -243,8 +243,6 @@ QMout_printAll(QMout * self)
             for (int istate=0; istate < self->NStates; istate++){
                 for (int jstate=0; jstate <  self->NStates; jstate++){
                         double complex value = *(self->dipole_mom + istate*(self->NStates) + jstate);
-                        fprintf(stdout, "DM\n");
-                        fprintf(stdout, "%lf + %lf *i %d %d %d", creal(value), cimag(value), k,istate, jstate);
                         printf("%lf + %lf * i    ", creal(value), cimag(value));
                 }
                 printf("\n");

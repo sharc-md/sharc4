@@ -3173,7 +3173,6 @@ module input
         
         ctrl%calc_dipole=1
         if (ctrl%laser/=0) then 
-          write(*,*) ctrl%laser_b, ctrl%laser_egrad
           if (ctrl%laser_b==.true. .OR. ctrl%laser_egrad==.true.) then
             ctrl%calc_dipole=2
           else
@@ -3928,9 +3927,7 @@ module input
         string=trim(string)//trim(key)
       enddo
     endif
-!     write(*,*) trim(string)
     temp=djb_hash(trim(string))
-!     write(*,*) n
     hash_input=temp
 
   endfunction

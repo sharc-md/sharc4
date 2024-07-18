@@ -262,14 +262,6 @@ subroutine get_dipoles(n, DM_ssd)
   do idir=1,3
     call matread(n, DM_ssd(:,:,idir), qmout_unit, title)
     read(title,*) irow,icol
-    !write(*,*) "DM", idir, irow, icol
-    !write(*,*) "--------------------------------------------------"
-    !do jdir= 1,n
-    !    do kdir=1,n
-    !      write(*,*) DM_ssd(jdir,kdir,idir) 
-    !    enddo
-    !enddo
-    !write(*,*) "iTEST--------------------------------------------------"
     if ( (irow==n).and.(icol==n) ) then
       continue
     else

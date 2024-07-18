@@ -112,16 +112,13 @@ program data_extractor
     ! ========== Calculating is done for this time step =============
     call write_data_to_file(nstates, istep, general_infos, write_options, shdata)
     ! write progress to screen
-    write(*,*) shdata%time_step
-    write(*,*) general_infos%dtstep*shdata%time_step  
-    !write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',shdata%time_step*general_infos%dtstep,' fs'
+    write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',shdata%time_step*general_infos%dtstep,' fs'
     istep = istep + 1
     if (istep == nsteps) then
         exit
     endif
   enddo
-  call close_ncfile(ncdat%id)
-  write(*,*) "closed ncfile"
+  
 endprogram
 
 

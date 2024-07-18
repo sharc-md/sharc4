@@ -754,7 +754,6 @@ subroutine set_dipolemoments(N, DM_ssd)
         do i=1,N
             do j=1,N
                 traj%DM_ssd(j, i, k) =  DM_ssd(j, i, k)
-                write(*,*) DM_ssd(j,i,k), "TEST", j, i, k
             end do
         end do
     end do
@@ -1507,7 +1506,6 @@ subroutine Verlet_vstep(IRedo, pysharc)
     endif
     ! Decoherence, decay of mixing
     call Decoherence(traj,ctrl)
-    write(*,*) "VERLET VSTEP"
     call Calculate_cMCH(traj,ctrl)
     ! Switching of the pointer state
     if (ctrl%army_ants==0) then

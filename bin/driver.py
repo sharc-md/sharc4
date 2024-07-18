@@ -90,7 +90,6 @@ class QMOUT:
                 self._QMout.set_hamiltonian(data["h"].tolist())
                 log.debug("setting h")
             if "dm" in data:
-                log.info(data["dm"].shape)
                 self._QMout.set_dipolemoment(data["dm"].tolist())
                 log.debug("setting dm")
             if "mdm" in data:

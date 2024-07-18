@@ -197,6 +197,7 @@ class SHARC_QMOUT(SHARC_FAST):
         # read the file
         self.QMout2 = QMout(filepath="QMout.template")
         self.QMout["notes"]["QMout"] = "Notes were not transferred."
+        self.QMout["charges"] = [ 0 for i in range(len(self.QMin.molecule["states"])) ]
         # check the file
         if any(
             [
