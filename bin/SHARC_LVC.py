@@ -747,7 +747,6 @@ class SHARC_LVC(SHARC_FAST):
 
         # ========================== Prepare results ========================================
         if self.QMin.requests["soc"]:
-            Hd = Hd.astype(self._soc.dtype)
 
             if "_lambda_soc" in self.__dict__:
                 self.log.debug("adding linear derivatives of soc")
@@ -758,7 +757,7 @@ class SHARC_LVC(SHARC_FAST):
                 adia_soc = self._U.T @ self._soc @ self._U
                 self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
 
-            Hd += adia_soc
+            Hd = np.add(Hd, adia_soc, casting='safe')
 
         dipole = (
             np.einsum("in,kij,jm->knm", self._U, self._dipole, self._U, casting="no", optimize=True)
