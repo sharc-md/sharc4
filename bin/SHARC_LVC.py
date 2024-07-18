@@ -748,15 +748,17 @@ class SHARC_LVC(SHARC_FAST):
         # ========================== Prepare results ========================================
         if self.QMin.requests["soc"]:
             Hd = Hd.astype(self._soc.dtype)
-            adia_soc = self._U.T @ self._soc @ self._U
-            self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
-            Hd += adia_soc
+
             if "_lambda_soc" in self.__dict__:
                 self.log.debug("adding linear derivatives of soc")
-                Hd = Hd.astype(self._lambda_soc.dtype)
-                adia_lambda_soc = np.einsum('in,ijk,jm->nmk', self._U, self._lambda_soc, self._U)
-                self.log.debug(f"soc sanity check: {adia_lambda_soc.dtype} {self._lambda_soc.dtype}")
-                Hd += np.einsum("ijk,k->ij", adia_lambda_soc, self._Q)
+                soc = np.einsum("ijk,k->ij", self._lambda_soc, self._Q)
+                adia_soc = self._U.T @ (self._soc + soc) @ self._U
+                self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._lambda_soc.dtype}")
+            else:
+                adia_soc = self._U.T @ self._soc @ self._U
+                self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
+
+            Hd += adia_soc
 
         dipole = (
             np.einsum("in,kij,jm->knm", self._U, self._dipole, self._U, casting="no", optimize=True)
