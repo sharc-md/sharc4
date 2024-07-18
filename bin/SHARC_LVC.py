@@ -752,7 +752,7 @@ class SHARC_LVC(SHARC_FAST):
             if "_lambda_soc" in self.__dict__:
                 self.log.debug("adding linear derivatives of soc")
                 soc = np.einsum("ijk,k->ij", self._lambda_soc, self._Q)
-                adia_soc = self._U.T @ (self._soc + soc) @ self._U
+                adia_soc = self._U.T @ np.add(self._soc, soc, casting='safe') @ self._U
                 self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._lambda_soc.dtype}")
             else:
                 adia_soc = self._U.T @ self._soc @ self._U
