@@ -398,6 +398,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     f"SOCs are only compatible with ORCA version <= 4.x, found version {'.'.join(str(i) for i in orca)}"
                 )
                 raise ValueError()
+            if len(states := self.QMin.molecule["states"]) < 3 or (states[0] == 0 or states[2] == 0):
+                self.log.warning("SOCs require S+T states, disable SOCs!")
+                self.QMin.requests["soc"] = False
 
     def _create_aoovl(self) -> None:
         pass
@@ -878,9 +881,15 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             with open(os.path.join(scratchdir, f"master_{mult}/ricc2.out"), "r", encoding="utf-8") as f:
                 ricc2_out = f.read()
 
+            # Get D1 diagnostics
+            if diagnostic := re.findall(r"D1 diagnostic\s+:\s+(\d+\.\d+)", ricc2_out):
+                self.log.debug(f"D1 job {mult}: {diagnostic[-1]}")
+                self.QMout["notes"][f"D1 job {mult}"] = diagnostic[-1]
+            else:
+                self.log.warning(f"No D1 value for job {mult} found!")
+
             # SOCs, only possible between S1-T
             if self.QMin.requests["soc"] and mult == 1:
-                # TODO: cleanup
                 socs = self._get_socs(ricc2_out)[: states[0] - 1, states[0] - 1 :, :]
 
                 self.QMout["h"][1 : states[0], states[0] : states[0] + states[2]] = socs[:, :, 0]
@@ -890,7 +899,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
             # Energies
             if self.QMin.requests["h"]:
-                energies = self._get_energies(ricc2_out)
+                energies, t2_err = self._get_energies(ricc2_out)
+                self.log.debug(f"%T2 job {mult} {t2_err}")
+                self.QMout["notes"][f"%T2 job {mult}"] = t2_err
                 s_cnt = 0
                 for i in self.QMin.control["jobs"][mult]["mults"]:
                     np.einsum("ii->i", self.QMout["h"])[
@@ -990,9 +1001,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         soc_mat[idx] = np.asarray(socs, dtype=float) * rcm_to_Eh
         return soc_mat
 
-    def _get_energies(self, ricc2_out: str) -> np.ndarray:
+    def _get_energies(self, ricc2_out: str) -> tuple[np.ndarray, np.ndarray]:
         """
-        Extract energies from ASCII ricc2 output
+        Extract energies and %t2 from ASCII ricc2 output
         """
 
         # Get GS energy
@@ -1013,7 +1024,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
             # Extract energy values
             energies += re.findall(r"\d+\.\d{7}", raw_energies[0])
-        return np.asarray(energies, dtype=np.complex128) + float(gs_energy[0])
+        return np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]), re.findall(r"\d+\.\d{2}\s", raw_energies[0])[1::2]
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
