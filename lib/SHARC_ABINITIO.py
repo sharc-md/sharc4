@@ -1072,20 +1072,18 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         wfovl:  Path to wfovlp.out
         """
         with open(wfovl, "r", encoding="utf-8") as file:
-            raw_matrix = re.search(r"Dyson norm matrix(.*)", file.read(), re.DOTALL)
+            raw_matrix = re.search(r"Dyson norm matrix(.*)", wfout := file.read(), re.DOTALL)
 
             if not raw_matrix:
                 self.log.error(f"No Dyson matrix found in {wfovl}")
                 raise ValueError()
+            bra = int(re.findall(r"<bra\| states:\s+(\d+)", wfout)[0])
+            ket = int(re.findall(r"\|ket> states:\s+(\d+)", wfout)[0])
 
             # Extract values and create numpy matrix
             value_list = list(map(float, re.findall(r"\d+\.\d{10}", raw_matrix.group(1))))
 
-            dim = 1 if len(value_list) == 1 else math.sqrt(len(value_list))
-            if dim > 1 and dim**2 != len(value_list):
-                self.log.error(f"{wfovl} does not contain a square matrix!")
-                raise ValueError()
-            return np.asarray(value_list).reshape(-1, int(dim))
+            return np.asarray(value_list).reshape(bra, ket)
 
     @staticmethod
     def format_ci_vectors(ci_vectors: list[dict[tuple[int, ...], float]]) -> str:
