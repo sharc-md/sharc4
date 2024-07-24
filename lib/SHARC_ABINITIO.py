@@ -952,9 +952,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             all_done = all(do in phi for do in dyson_orbitals_from_wigner_eckart)
         return phi
 
-    def _run_wfoverlap(self, mo_read: int = 0) -> None:
+    def _run_wfoverlap(self, mo_read: int = 0, left: bool = False) -> None:
         """
         Prepare files and folders for wfoverlap and execute wfoverlap
+
+        mo_read:    Specify file format of mo files
+        left:       Use left determinant if bra and ket are different
         """
 
         # Content of wfoverlap input file
@@ -993,7 +996,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Link files
                 link(os.path.join(savedir, "AO_overl"), os.path.join(workdir, "aoovl"))
-                link(os.path.join(savedir, f"dets.{ion_pair[0]}.{step}"), os.path.join(workdir, "det.a"))
+                link(os.path.join(savedir, f"dets{'_left' if left else ''}.{ion_pair[0]}.{step}"), os.path.join(workdir, "det.a"))
                 link(os.path.join(savedir, f"dets.{ion_pair[2]}.{step}"), os.path.join(workdir, "det.b"))
                 link(os.path.join(savedir, f"mos.{ion_pair[1]}.{step}"), os.path.join(workdir, "mo.a"))
                 link(os.path.join(savedir, f"mos.{ion_pair[3]}.{step}"), os.path.join(workdir, "mo.b"))
@@ -1022,7 +1025,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Link files
                 link(os.path.join(savedir, "AO_overl.mixed"), os.path.join(workdir, "aoovl"))
-                link(os.path.join(savedir, f"dets.{m}.{step-1}"), os.path.join(workdir, "det.a"))
+                link(os.path.join(savedir, f"dets{'_left' if left else ''}.{m}.{step-1}"), os.path.join(workdir, "det.a"))
                 link(os.path.join(savedir, f"dets.{m}.{step}"), os.path.join(workdir, "det.b"))
                 link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step-1}"), os.path.join(workdir, "mo.a"))
                 link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step}"), os.path.join(workdir, "mo.b"))
