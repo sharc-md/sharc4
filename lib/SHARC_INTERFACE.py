@@ -387,13 +387,6 @@ class SHARC_INTERFACE(ABC):
         Return QMout object
         """
 
-    # @abstractmethod
-    # def dyson_orbitals_with_other(self,other):
-    #    """
-    #    Calculates Dyson orbitals between self and other.
-    #    Presumably it will be implemented in SHARC_ABINITIO subclass and in each individual FAST or HYBRID interface
-    #    """
-
     @abstractmethod
     def create_restart_files(self) -> None:
         """
@@ -712,7 +705,7 @@ class SHARC_INTERFACE(ABC):
                             else:
                                 raise ValueError(f"Boolian value for '{key}': {val} cannot be interpreted as a Boolian!")
                     elif key_type is dict:
-                        if val[0] == '[':
+                        if val[0] == "[":
                             lst = [x.split() for x in ast.literal_eval(val)]
                             res = {x[0]: x[1] for x in lst}
                         else:
