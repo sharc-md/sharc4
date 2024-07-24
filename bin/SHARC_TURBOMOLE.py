@@ -446,6 +446,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 nst = qmin.control["states_to_do"][mult - 1]
                 add_section.append(("$excitations", f"irrep=a multiplicity={mult} nexc={nst} npre={nst+1}, nstart={nst+1}\n"))
 
+            # Always calc both sides with CC2
+            if qmin.template["method"] == "cc2":
+                add_section.append(("$excitations", "bothsides\n"))
+
             self._modify_file((control := os.path.join(workdir, "control")), add_lines, ["$scfiterlimit"], add_section)
 
             # Run dscf/ridft, backup control file
@@ -557,7 +561,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             codes.append(self._run_ricc2(workdir))
         return max(codes), datetime.datetime.now() - starttime
 
-    def _get_dets(self, workdir: str, mult: int) -> list[dict[tuple[int, int], float]]:
+    def _get_dets(self, workdir: str, mult: int, side: str = "R") -> list[dict[tuple[int, int], float]]:
         """
         Parse determinants from CC* binary files
         """
@@ -587,7 +591,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         eigenvectors = [{tuple(occ_str): 1.0}] if mult != 3 else []
         for state in range(1, self.QMin.molecule["states"][mult - 1] + (1 if mult == 3 else 0)):
             with open(
-                fname := os.path.join(workdir, f"CCRE0-1--{mult if mult == 3 else 1}{state:4d}".replace(" ", "-")), "rb"
+                fname := os.path.join(workdir, f"CC{side}E0-1--{mult if mult == 3 else 1}{state:4d}".replace(" ", "-")), "rb"
             ) as f:
                 self.log.debug(f"Parsing file {fname}")
                 self._read_value(f, "u", 1)  # Skip header
@@ -1030,6 +1034,12 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 writefile(
                     os.path.join(self.QMin.save["savedir"], f"dets.{mult}.{self.QMin.save['step']}"), self.format_ci_vectors(dets)
                 )
+                if self.QMin.template["method"] == "cc2":
+                    dets = self._get_dets(os.path.join(self.QMin.resources["scratchdir"], f"master_{jobid}"), mult, "L")
+                    writefile(
+                        os.path.join(self.QMin.save["savedir"], f"dets_left.{mult}.{self.QMin.save['step']}"),
+                        self.format_ci_vectors(dets),
+                    )
 
         # Save copy of current geometry
         xyz_str = f"{self.QMin.molecule['natom']}\n\n"
@@ -1040,7 +1050,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self._get_aoovl()
         if self.QMin.requests["ion"]:
             self._get_aoovl(True)
-        self._run_wfoverlap(mo_read=2)
+        self._run_wfoverlap(mo_read=2, left=self.QMin.template["method"] == "cc2")
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
