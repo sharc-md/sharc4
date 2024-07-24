@@ -984,7 +984,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         step = self.QMin.save["step"]
 
         # Dyson calculations
-        # self.dyson_orbitals_with_other(self,self)
         if self.QMin.requests["ion"]:
             for ion_pair in self.QMin.maps["ionmap"]:
                 workdir = os.path.join(self.QMin.resources["scratchdir"], "Dyson_" + "_".join(str(ion) for ion in ion_pair))
@@ -1001,8 +1000,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
-                # setting the env variable will influence subsequent numpy calls etc.
-                # os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
                 code = self.run_program(workdir, wf_cmd, "wfovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(ion_pair):<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}"
@@ -1102,9 +1099,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             string += "".join(str(x) for x in det).translate(trans_table)
             for ci_vec in ci_vectors:
                 if det in ci_vec:
-                    string += f" {ci_vec[det]: 11.7f} "
+                    string += f" {ci_vec[det]: 11.15f} "
                 else:
-                    string += f" {0: 11.7f} "
+                    string += f" {0: 11.15f} "
             string += "\n"
         return string
 
