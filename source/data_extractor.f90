@@ -118,6 +118,7 @@ program data_extractor
   integer :: nprojections                    !< number of vectors to project dipole moment onto
   integer :: adaptive                     !< whether using adaptive time step
 
+  complex*16 :: sum  
   !> # Information that is needed in adaptive timestep
   real*8 :: dtstep_adapted                !< adapted nuclear timestep
   integer :: nsteps_adapted               !< adapted total steps
@@ -133,9 +134,9 @@ program data_extractor
   !> # Information which is updated per time step
   !> Most of these are equivalent to their definition in definitions.f90
   integer :: step
-  complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_mch_ssd(:,:,:),DM_diag_ssd(:,:,:)
-  complex*16, allocatable :: MDM_mch_ssd(:,:,:),MDM_diag_ssd(:,:,:)
-  complex*16, allocatable :: EQM_mch_ssdd(:,:,:,:),EQM_diag_ssdd(:,:,:,:)
+  complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_MCH_ssd(:,:,:),DM_diag_ssd(:,:,:)
+  complex*16, allocatable :: MDM_MCH_ssd(:,:,:),MDM_diag_ssd(:,:,:)
+  complex*16, allocatable :: EQM_MCH_ssdd(:,:,:,:),EQM_diag_ssdd(:,:,:,:)
   complex*16, allocatable :: Prop2d_xss(:,:,:)
   real*8, allocatable     :: Prop1d_ys(:,:)
   complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:), ref_ovl_ss(:,:)
@@ -589,7 +590,7 @@ program data_extractor
     allocate( U_ss(nstates,nstates) )
     allocate( Prop2d_xss(n_property2d,nstates,nstates),Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
-    allocate( DM_mch_ssd(nstates,nstates,3) )
+    allocate( DM_MCH_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
     allocate( dm_proj_sp(nstates,nprojections) )
     allocate( proj_vec_pd(nprojections,3) )
@@ -692,7 +693,7 @@ program data_extractor
     allocate( U_ss(nstates,nstates) )
     allocate( Prop2d_xss(n_property2d,nstates,nstates), Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
-    allocate( DM_mch_ssd(nstates,nstates,3) )
+    allocate( DM_MCH_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
     allocate( dm_proj_sp(nstates,nprojections) )
     allocate( proj_vec_pd(nprojections,3) )
@@ -865,16 +866,16 @@ program data_extractor
     endif
 
     if (write_mag_dip==.true.) then
-      allocate( MDM_mch_ssd(nstates,nstates,3) )
+      allocate( MDM_MCH_ssd(nstates,nstates,3) )
       allocate( MDM_diag_ssd(nstates,nstates,3) )
       allocate( mdm_proj_sp(nstates,nprojections) ) 
-      !MDM_mch_ssd=dcmplx(0.d0,0.d0)
+      !MDM_MCH_ssd=dcmplx(0.d0,0.d0)
     endif
     if (write_el_quad==.true.) then
-      allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
+      allocate( EQM_MCH_ssdd(nstates,nstates,3,3) )
       allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
       allocate( eqm_proj_sp(nstates,nprojections) )  
-      !EQM_mch_ssdd=dcmplx(0.d0,0.d0)
+      !EQM_MCH_ssdd=dcmplx(0.d0,0.d0)
     endif
     ! skip the "End of header array data" separator line
     read(u_dat,*)
@@ -1228,20 +1229,24 @@ program data_extractor
         call matread(nstates,H_MCH_ss,u_dat,string1)
         call matread(nstates,U_ss,u_dat,string1)
         do idir=1,3
-          call matread(nstates,DM_mch_ssd(:,:,idir),u_dat,string1)
+          call matread(nstates,DM_MCH_ssd(:,:,idir),u_dat,string1)
         enddo
         if (write_mag_dip==.true.) then 
           do idir=1,3
-            call matread(nstates,MDM_mch_ssd(:,:,idir),u_dat,string1)
+            call matread(nstates,MDM_MCH_ssd(:,:,idir),u_dat,string1)
           enddo
         endif
         if (write_el_quad==.true.) then 
           do idir=1,3
             do jdir=1,3
-              call matread(nstates,EQM_mch_ssdd(:,:,idir,jdir),u_dat,string1)
+              call matread(nstates,EQM_MCH_ssdd(:,:,idir,jdir),u_dat,string1)
             enddo
           enddo
         endif
+    !call matwrite(nstates, H_MCH_ss,u_log,'Hrunning','F12.9')
+    !call matwrite(nstates, DM_MCH_ssd,u_log,'DMrunning','F12.9')
+    !call matwrite(nstates, MDM_MCH_ssd,u_log,'MDrunning','F12.9')
+    !call matwrite(nstates, EQM_MCH_ssdd,u_log,'EQMrunning','F12.9')
     if (have_overlap==1) then
       call matread(nstates,overlaps_ss,u_dat,string1)
     endif
@@ -1308,26 +1313,36 @@ program data_extractor
     H_diag_ss=H_MCH_ss
     if (laser==2) then
       do idir=1,3
-        H_diag_ss=H_diag_ss - DM_mch_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
+        H_diag_ss=H_diag_ss - DM_MCH_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
       enddo
     endif
     if ((laser==2) .AND. (laser_b==.true.) .AND. (write_mag_dip==.true.)) then
       do idir=1,3
-        H_diag_ss=H_diag_ss - MDM_mch_ssd(:,:,idir)*real(laserfield_b_tp(step*nsubsteps+1,idir))
+        H_diag_ss=H_diag_ss - MDM_MCH_ssd(:,:,idir)*real(laserfield_b_tp(step*nsubsteps+1,idir))
       enddo
     endif
     if ((laser==2) .AND. (laser_egrad==.true.) .AND. (write_el_quad==.true.)) then
       do idir=1,3
         do jdir=1,3
-          H_diag_ss=H_diag_ss - EQM_mch_ssdd(:,:,idir,jdir)*real(laserfield_egrad_tpd(step*nsubsteps+1,idir,jdir))
+          H_diag_ss=H_diag_ss - EQM_MCH_ssdd(:,:,idir,jdir)*real(laserfield_egrad_tpd(step*nsubsteps+1,idir,jdir))
         enddo
       enddo
     endif
-!     call matwrite(nstates,H_diag_ss,0,'Hbefore','F12.9')
-!     call matwrite(nstates,U_ss,0,'U','F12.9')
+    !call matwrite(nstates,H_diag_ss,6,'Hbefore','F12.9')
+    !call matwrite(nstates,U_ss,6,'U','F12.9')
     call transform(nstates,H_diag_ss,U_ss,'utau')
-!     call matwrite(nstates,H_diag_ss,0,'Hafter','F12.9')
-
+    !call diagonalize(nstates, H_diag_ss, U_ss)
+    !call matwrite(nstates,H_diag_ss,6,'Hafter','F12.9')
+    sum = (0.0,0.)
+    do idir=1,nstates
+        do jdir=1,nstates
+            if (idir /= jdir) then
+                sum = sum + H_diag_ss(idir, jdir)
+            endif
+        enddo
+    enddo 
+    write(*,*) "SUM", sum
+                
     ! calculate MCH coefficients and potential energy
     call matvecmultiply(nstates,U_ss,coeff_diag_s,coeff_MCH_s,'n')
     Epot=real(H_diag_ss(state_diag,state_diag))
@@ -1347,7 +1362,7 @@ program data_extractor
       expec_dm_mch=0.d0
       expec_dm_act=0.d0
       do idir=1,3
-        A_ss=DM_mch_ssd(:,:,idir)
+        A_ss=DM_MCH_ssd(:,:,idir)
         expec_dm_mch=expec_dm_mch+real(A_ss(:,1)*A_ss(1,:))
         call transform(nstates,A_ss,U_ss,'utau')
         DM_diag_ssd(:,:,idir)=A_ss
@@ -1370,7 +1385,7 @@ program data_extractor
       expec_mdm_mch=0.d0
       expec_mdm_act=0.d0 
       do idir=1,3
-        A_ss=MDM_mch_ssd(:,:,idir)
+        A_ss=MDM_MCH_ssd(:,:,idir)
 
         expec_mdm_mch=expec_mdm_mch+real(A_ss(:,1)*A_ss(1,:))
         call transform(nstates,A_ss,U_ss,'utau')
@@ -1395,7 +1410,7 @@ program data_extractor
       expec_eqm_act=0.d0 
       do idir=1,3
         do jdir=1,3
-          A_ss=EQM_mch_ssdd(:,:,idir,jdir)
+          A_ss=EQM_MCH_ssdd(:,:,idir,jdir)
           expec_eqm_mch=expec_eqm_mch+real(A_ss(:,1)*A_ss(1,:))
           call transform(nstates,A_ss,U_ss,'utau')
           EQM_diag_ssdd(:,:,idir,jdir)=A_ss

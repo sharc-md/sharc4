@@ -157,6 +157,8 @@ module qm
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
     integer :: stat,i,j,imult,istate,jstate,iatom,idir
+    integer :: jdir
+    complex*16 :: sum 
 
     if (printlevel>3) then
       write(u_log,*) '============================================================='
@@ -231,20 +233,16 @@ module qm
 
     ! get electric Dipole moments (DM), magnetic DM, electric QM
     if (ctrl%calc_dipole>=2) then
-      write(*,*) "CALC_DIPOLE=2 - GET DM, MDM, EQM"
-      !call get_dipoles(ctrl%nstates, traj%DM_ssd)
-      !if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Dipole Moments:                ','OK'
+      write(*,*) "CALC_DIPOLE=2 - GET MDM, EQM"
       call get_magnetic_dipoles(ctrl%nstates, traj%MDM_ssd)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic Dipole Moments:                ','OK' 
       call get_electric_quadrupoles(ctrl%nstates, traj%EQM_ssdd)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Quadrupole Moments:                ','OK' 
-      !traj%DM_print_ssd=traj%DM_ssd
       traj%MDM_print_ssd=traj%MDM_ssd
       traj%EQM_print_ssdd=traj%EQM_ssdd
       ! apply frozen-state mask 
       do i=1,ctrl%nstates
         do j=1,ctrl%nstates
-          !if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%DM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
           if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%MDM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
           if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%EQM_ssdd(i,j,:,:)=dcmplx(0.d0,0.d0)
         enddo
@@ -346,6 +344,8 @@ module qm
     ! here we need to diagonalize only for selection of gradients/couplings/...
     traj%H_diag_ss=traj%H_MCH_ss
     ! if laser field, add it here, without imaginary part
+    
+    write(u_log,*) "QMf90", ctrl%surf, ctrl%laser, ctrl%laser_b, ctrl%laser_e, ctrl%Laser_egrad
     if (ctrl%laser==2) then
       do i=1,3
         traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
@@ -374,6 +374,16 @@ module qm
       enddo
     endif
 
+    !call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'H_do_qm_calculations(TEST)','F12.9')
+    !sum = (0.0,0.)
+    !do idir=1,ctrl%nstates
+    !    do jdir=1,ctrl%nstates
+    !        if (idir /= jdir) then
+    !            sum = sum + traj%H_diag_ss(idir, jdir)
+    !        endif
+    !    enddo
+    !enddo 
+    !write(u_log,*) "SUM", sum
 !     call check_allocation(u_log,ctrl,traj)
 
     ! get state in all representations
@@ -1139,7 +1149,7 @@ module qm
     complex*16 :: U_temp(ctrl%nstates,ctrl%nstates), H_temp(ctrl%nstates,ctrl%nstates)
     complex*16 :: NACdR_diag_ss(ctrl%nstates,ctrl%nstates), pNACdR_diag_ss(ctrl%nstates,ctrl%nstates)
     character(255) :: string
-
+    complex*16 :: sum
     if (printlevel>3) then
       write(u_log,*) '============================================================='
       write(u_log,*) '             Current Rotational Matrix U'
@@ -1174,7 +1184,16 @@ module qm
     elseif (ctrl%surf==1) then
       U_temp=traj%U_ss
     endif
-
+    call matwrite(ctrl%nstates,U_temp,u_log,'H_temp_NAC diagonal(TEST)','F12.9')
+    !sum = (0.0,0.)
+    !do idir=1,ctrl%nstates
+    !    do jdir=1,ctrl%nstates
+    !        if (idir /= jdir) then
+    !            sum = sum + traj%H_diag_ss(idir, jdir)
+    !        endif
+    !    enddo
+    !enddo 
+    !write(u_log,*) "SUMNAC", sum
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
 
     if (printlevel>3) then
@@ -1522,7 +1541,8 @@ module qm
     integer :: istate, jstate, ixyz, jxyz
     complex*16:: scalarProd(ctrl%nstates,ctrl%nstates)
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
-
+    complex*16 :: sum
+    integer :: idir, jdir
     ! if phases were not found in the QM output, try to obtain it
     if (traj%phases_found.eqv..false.) then
 
@@ -1714,6 +1734,15 @@ module qm
               call matmultiply(ctrl%nstates,traj%overlaps_ss,traj%U_old_ss,Utemp,'tn')
               Htemp=traj%H_MCH_old_ss
               call transform(ctrl%nstates,Htemp,traj%overlaps_ss,'utau')
+              !sum = (0.0,0.)
+              !do idir=1,ctrl%nstates
+              !    do jdir=1,ctrl%nstates
+              !        if (idir /= jdir) then
+              !            sum = sum + Htemp(idir, jdir)
+              !        endif
+              !    enddo
+              !enddo 
+              !write(u_log,*) "SUM_Overlap", sum
               if (printlevel>4) call matwrite(ctrl%nstates,Utemp,u_log,'Old U transformed','F12.9')
               if (printlevel>4) call matwrite(ctrl%nstates,Htemp,u_log,'Old H transformed','F12.9')
               if (printlevel>4) call matwrite(ctrl%nstates,traj%H_MCH_ss,u_log,'New H','F12.9')
@@ -1749,6 +1778,16 @@ module qm
       endif
     endif
 
+    !call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'HAdjust_phases(TEST)','F12.9')
+    !sum = (0.0,0.)
+    !do idir=1,ctrl%nstates
+    !    do jdir=1,ctrl%nstates
+    !        if (idir /= jdir) then
+    !            sum = sum + traj%H_diag_ss(idir, jdir)
+    !        endif
+    !    enddo
+    !enddo 
+    !write(u_log,*) "ADJUSTSUM", sum
   endsubroutine
 
 ! ===========================================================
@@ -2405,8 +2444,7 @@ module qm
       U_temp=traj%U_ss
     endif
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
-
-
+    !call matwrite(ctrl%nstates,H_temp,u_log,'NAC_processing_H_temp','F12.9')
     ! ===============================
     ! 1. Compute time derivative Hamiltonian matrix (Kmatrix, TDH matrix)
     ! ===============================

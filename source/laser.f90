@@ -235,7 +235,7 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
       H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz))
     enddo
     do ixyz=1,3
-      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz))
+      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz))
     enddo
     do ixyz=1,3
       do jxyz=1,3
@@ -354,11 +354,11 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, MD
       H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield(k,ixyz))
     enddo
     do ixyz=1,3
-      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_b(istep,ixyz))
+      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_b(istep,ixyz))
     enddo
     do ixyz=1,3
       do jxyz=1,3
-        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*k/nsubsteps ) * real(laserfield_egrad(istep,ixyz))
+        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*k/nsubsteps ) * real(laserfield_egrad(istep,ixyz,jxyz))
       enddo
     enddo
 

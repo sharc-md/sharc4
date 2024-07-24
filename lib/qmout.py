@@ -68,6 +68,7 @@ class QMout:
             self.states = states
             self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
             self.nstates = sum(self.states)
+            log.info("init_states", states)
         if natom is not None:
             self.natom = natom
         if npc is not None:
@@ -619,6 +620,7 @@ class QMout:
             string += "%i %i pol %s\n" % (nmstates, nmstates, IToPol[xyz])
             for i in range(nmstates):
                 for j in range(nmstates):
+                    log.info(["TESTXYZ", xyz, i, j, self.dm[xyz][i][j].real])
                     string += "%s %s " % (
                         eformat(self.dm[xyz][i][j].real, 12, 3),
                         eformat(self.dm[xyz][i][j].imag, 12, 3),

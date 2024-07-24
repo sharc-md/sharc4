@@ -2917,6 +2917,7 @@ module input
     endif
 
 
+    ctrl%calc_dipole=1
     ctrl%dipolegrad=0
     ctrl%calc_dipolegrad=-1
 
@@ -3171,7 +3172,6 @@ module input
         enddo
         close(u_i_laser)
         
-        ctrl%calc_dipole=1
         if (ctrl%laser/=0) then 
           if (ctrl%laser_b==.true. .OR. ctrl%laser_egrad==.true.) then
             ctrl%calc_dipole=2

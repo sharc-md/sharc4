@@ -438,7 +438,8 @@ QMout_set_dipolemoment(QMout * self, PyObject * args)
                 }
                 // if coefficients were right
                 // *(self->dipole_mom + (k * self->NStates * self->NStates) + (is*self->NStates) + js) = complex_value;
-                *(self->dipole_mom + (is * 3 * self->NStates) + (js*3) + k) = complex_value;
+                *(self->dipole_mom + (k * self->NStates * self->NStates) + (js * self->NStates) + is) = complex_value;
+                //*(self->dipole_mom + (is * 3 * self->NStates) + (js*3) + k) = complex_value;
             }
         }
     }
@@ -483,7 +484,8 @@ QMout_set_mag_dipolemoment(QMout * self, PyObject * args)
                     complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
                 }
                 // if coefficients were right
-                *(self->mag_dip_mom + (is * 3 * self->NStates) + (js*3) + k) = complex_value;
+                *(self->mag_dip_mom + (k * self->NStates * self->NStates) + (js * self->NStates) + is) = complex_value;
+                //*(self->mag_dip_mom + (is * 3 * self->NStates) + (js*3) + k) = complex_value;
             }
         }
     }

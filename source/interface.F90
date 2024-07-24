@@ -1050,6 +1050,8 @@ subroutine post_process_data(ISecond)
     use qm, only: print_qm
     implicit none
     integer :: i, j
+    integer :: idir, jdir
+    complex*16 :: sum
     __INT__, intent(out) :: ISecond
     ! ===============================
     ! all quantities read, post-processing
@@ -1090,6 +1092,7 @@ subroutine post_process_data(ISecond)
         traj%U_ss(i,i)=dcmplx(1.d0,0.d0)
       enddo
     endif
+
 
 !    call check_allocation(u_log,ctrl,traj)
 

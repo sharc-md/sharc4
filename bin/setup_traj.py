@@ -1367,6 +1367,8 @@ Laser files can be created using $SHARC/laser.x
                 usethisone = question("Use this laser file?", bool, True)
                 if usethisone:
                     INFOS["laserfile"] = "laser"
+                    if (check_laserfileversion(INFOS['laserfile'])[0]>=2.0):
+                        INFOS["laser_freq_file"] = "laser_freq"
         if "laserfile" not in INFOS:
             while True:
                 filename = question("Laser filename:", str)
@@ -1380,11 +1382,13 @@ Laser files can be created using $SHARC/laser.x
             INFOS["laserfile"] = filename
             INFOS['laser_freq_file'] = check_laserfileversion(filename)[1]
             set_fields = check_laserfields(filename)
-            INFOS['e-field'] = bool(set_fields[0])
-            INFOS['b-field'] = bool(set_fields[1])
-            INFOS['e-field gradients'] = bool(set_fields[2])
-            INFOS['b-field gradients'] = bool(set_fields[3])
-            log.info("DETECTED", set_fields)
+            if any(set_fields)!=0:
+                INFOS['e-field'] = bool(set_fields[0])
+                INFOS['b-field'] = bool(set_fields[1])
+                INFOS['e-field gradients'] = bool(set_fields[2])
+                INFOS['b-field gradients'] = bool(set_fields[3])
+            else:
+                INFOS['e-field'] = True  # for laserfileversion 1.0
         # only the analytical interface can do dipole gradients
         if "dipolegrad" in int_features:
             INFOS["dipolegrad"] = question("Do you want to use dipole moment gradients?", bool, False)

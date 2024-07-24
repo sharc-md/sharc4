@@ -535,7 +535,7 @@ There are two representations:
                     Ucon = np.conjugate(U)
                     DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
                     MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
-                    EQM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
+                    EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
                     if 'ion' in qmout:  # TODO: use Dysnorm instead of fosc
                         P = qmout.ion
                         P = np.einsum("kij,in,jm->knm", P, Ucon, U)
@@ -763,7 +763,7 @@ def get_QMout(INFOS, initlist):
             H = np.diag(eig)
             DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
             MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
-            EQM = np.einsum("kij,in,jm->knm", EQM, Ucon, U)
+            EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
             if 'ion' in qmout:
                 P = qmout.ion
                 P = np.einsum("kij,in,jm->knm", P, Ucon, U)
