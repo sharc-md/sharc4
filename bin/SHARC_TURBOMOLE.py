@@ -793,7 +793,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 excitations.append(
                     ("$excitations", f"irrep=a multiplicity=3 nexc={nst} npre={nst+1+pre_shift}, nstart={nst+1+start_shift}\n")
                 )
-            self._modify_file(os.path.join(workdir, "control"), None, ["irrep"], excitations)
+            self._modify_file(os.path.join(workdir, "control"), None, ["irrep=a"], excitations)
             # Run RICC2 again
             if (code := self.run_program(workdir, ricc2_bin, "ricc2.out", "ricc2.err")) != 0:
                 return code
