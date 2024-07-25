@@ -1023,8 +1023,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 raise ValueError()
 
             # Extract energy values
-            energies += re.findall(r"\d+\.\d{7}", raw_energies[0])
-        return np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]), re.findall(r"\d+\.\d{2}\s", raw_energies[0])[1::2]
+            energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
+        return np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]), re.findall(r"(\d+\.\d{2})\s", raw_energies[0])[1::2]
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
