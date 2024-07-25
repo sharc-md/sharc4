@@ -888,6 +888,16 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             else:
                 self.log.warning(f"No D1 value for job {mult} found!")
 
+            # Get SCF iterations
+            with open(os.path.join(scratchdir, f"master_{mult}/dscf.out"), "r", encoding="utf-8") as f:
+                for line in f:
+                    if iterations := re.findall(r"(\d+)\s+iterations", line):
+                        self.log.debug(f"Job {mult} converged after {iterations[0]} cycles.")
+                        self.QMout["notes"][f"iterations job {mult}"] = iterations[0]
+                        break
+                else:
+                    self.log.error(f"No iteration count found for job {mult}")
+
             # SOCs, only possible between S1-T
             if self.QMin.requests["soc"] and mult == 1:
                 socs = self._get_socs(ricc2_out)[: states[0] - 1, states[0] - 1 :, :]
