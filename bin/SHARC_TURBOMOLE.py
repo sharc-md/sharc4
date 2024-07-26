@@ -5,14 +5,16 @@ import re
 import shutil
 import subprocess as sp
 from copy import deepcopy
+from functools import cmp_to_key
 from io import TextIOWrapper
 
 import numpy as np
 from constants import NUMBERS, rcm_to_Eh
+from pyscf import gto, tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from SHARC_ORCA import SHARC_ORCA
-from utils import expand_path, mkdir, writefile
+from utils import expand_path, itmult, mkdir, writefile
 
 __all__ = ["SHARC_TURBOMOLE"]
 
@@ -202,6 +204,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             {"turbodir": str, "orcadir": str, "neglected_gradient": str, "schedule_scaling": float, "dry_run": bool}
         )
 
+        self._ao_labels = None
+
     @staticmethod
     def version() -> str:
         return SHARC_TURBOMOLE._version
@@ -334,6 +338,28 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
         # Build job map
         self._build_jobs()
+        # Setup multmap
+        self.log.debug("Building multmap")
+        self.QMin.maps["multmap"] = {}
+        for ijob, job in self.QMin.control["jobs"].items():
+            for imult in job["mults"]:
+                self.QMin.maps["multmap"][imult] = ijob
+            self.QMin.maps["multmap"][-(ijob)] = job["mults"]
+        self.QMin.maps["multmap"][1] = 1
+
+        # Setup ionmap
+        self.log.debug("Building ionmap")
+        self.QMin.maps["ionmap"] = []
+        for mult1 in itmult(self.QMin.molecule["states"]):
+            job1 = self.QMin.maps["multmap"][mult1]
+            el1 = self.QMin.maps["chargemap"][mult1]
+            for mult2 in itmult(self.QMin.molecule["states"]):
+                if mult1 >= mult2:
+                    continue
+                job2 = self.QMin.maps["multmap"][mult2]
+                el2 = self.QMin.maps["chargemap"][mult2]
+                if abs(mult1 - mult2) == 1 and abs(el1 - el2) == 1:
+                    self.QMin.maps["ionmap"].append((mult1, job1, mult2, job2))
 
     def _build_jobs(self) -> None:
         """
@@ -372,6 +398,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     f"SOCs are only compatible with ORCA version <= 4.x, found version {'.'.join(str(i) for i in orca)}"
                 )
                 raise ValueError()
+            if len(states := self.QMin.molecule["states"]) < 3 or (states[0] == 0 or states[2] == 0):
+                self.log.warning("SOCs require S+T states, disable SOCs!")
+                self.QMin.requests["soc"] = False
 
     def _create_aoovl(self) -> None:
         pass
@@ -420,6 +449,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 nst = qmin.control["states_to_do"][mult - 1]
                 add_section.append(("$excitations", f"irrep=a multiplicity={mult} nexc={nst} npre={nst+1}, nstart={nst+1}\n"))
 
+            # Always calc both sides with CC2
+            if qmin.template["method"] == "cc2":
+                add_section.append(("$excitations", "bothsides\n"))
+
             self._modify_file((control := os.path.join(workdir, "control")), add_lines, ["$scfiterlimit"], add_section)
 
             # Run dscf/ridft, backup control file
@@ -444,7 +477,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                             raise exc
                 case {"samestep": True}:
                     if jobid == 1:
-                        shutil.copy(os.path.join(qmin.save["savedir"], f"mos.{qmin.save['step']}"), os.path.join(workdir, "mos"))
+                        shutil.copy(
+                            os.path.join(qmin.save["savedir"], f"mos.{jobid}.{qmin.save['step']}"), os.path.join(workdir, "mos")
+                        )
                     else:
                         shutil.copy(
                             os.path.join(qmin.save["savedir"], f"alpha.{jobid}.{qmin.save['step']}"),
@@ -456,7 +491,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 case _:
                     if jobid == 1:
                         shutil.copy(
-                            os.path.join(qmin.save["savedir"], f"mos.{qmin.save['step']-1}"), os.path.join(workdir, "mos")
+                            os.path.join(qmin.save["savedir"], f"mos.{jobid}.{qmin.save['step']-1}"), os.path.join(workdir, "mos")
                         )
                     else:
                         shutil.copy(
@@ -474,13 +509,14 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             codes.append(self.run_program(workdir, "dscf", "dscf.out", "dscf.err"))
             self.log.debug(f"dscf exited with code {codes[-1]}")
 
-            # TODO: molden (theodore)
-
             # TODO: e, socs, dm
             if qmin.requests["soc"] and jobid == 1:
                 self._modify_file(control, None, None, [("$excitations", "tmexc istates=all fstates=all operators=soc\n")])
 
             codes.append(self._run_ricc2(workdir))
+
+            # Generate molden file
+            self._generate_molden(workdir)
 
             # Run orca_soc if soc requested
             if qmin.requests["soc"] and jobid == 1:
@@ -490,14 +526,30 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             # TODO
             # Save files
             if jobid == 1:
-                shutil.copy(os.path.join(workdir, "mos"), os.path.join(qmin.save["savedir"], f"mos.{qmin.save['step']}"))
+                shutil.copy(os.path.join(workdir, "mos"), os.path.join(qmin.save["savedir"], f"mos.{jobid}.{qmin.save['step']}"))
             else:
+                # Alpha and beta files for restarting unrestricted jobs
                 shutil.copy(
                     os.path.join(workdir, "alpha"), os.path.join(qmin.save["savedir"], f"alpha.{jobid}.{qmin.save['step']}")
                 )
                 shutil.copy(
                     os.path.join(workdir, "beta"), os.path.join(qmin.save["savedir"], f"beta.{jobid}.{qmin.save['step']}")
                 )
+                # Concat alpha and beta file to mos file
+                with open(os.path.join(qmin.save["savedir"], f"mos.{jobid}.{qmin.save['step']}"), "w", encoding="utf-8") as f:
+                    with open(os.path.join(workdir, "alpha"), "r", encoding="utf-8") as alpha:
+                        for line in alpha:
+                            if "$end" in line:
+                                continue
+                            f.write(line)
+                    with open(os.path.join(workdir, "beta"), "r", encoding="utf-8") as beta:
+                        for _ in range(5):  # Skip header
+                            next(beta)
+                        for line in beta:
+                            # Add total number of AO for wfoverlap not complaining
+                            if nsao := re.findall(r"\s+(\d+).*nsaos\=(\d+)", line):
+                                line = re.sub(r"\d+", str(int(nsao[0][0]) + int(nsao[0][1])), line, count=1)
+                            f.write(line)
 
         else:
             grad = list(qmin.maps["gradmap"])[0]
@@ -512,7 +564,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             codes.append(self._run_ricc2(workdir))
         return max(codes), datetime.datetime.now() - starttime
 
-    def _get_dets(self, workdir: str, mult: int) -> list[dict[tuple[int, int], float]]:
+    def _get_dets(self, workdir: str, mult: int, side: str = "R") -> list[dict[tuple[int, int], float]]:
         """
         Parse determinants from CC* binary files
         """
@@ -539,10 +591,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         occ_str = [3 if restr else 1] * n_occ[0] + [0] * n_virt[0] + [2] * n_occ[1] + [0] * n_virt[1]
 
         # Parse CC files
-        eigenvectors = [{tuple(occ_str): 1.0}]
+        eigenvectors = [{tuple(occ_str): 1.0}] if mult != 3 else []
         for state in range(1, self.QMin.molecule["states"][mult - 1] + (1 if mult == 3 else 0)):
             with open(
-                fname := os.path.join(workdir, f"CCRE0-1--{mult if mult == 3 else 1}{state:4d}".replace(" ", "-")), "rb"
+                fname := os.path.join(workdir, f"CC{side}E0-1--{mult if mult == 3 else 1}{state:4d}".replace(" ", "-")), "rb"
             ) as f:
                 self.log.debug(f"Parsing file {fname}")
                 self._read_value(f, "u", 1)  # Skip header
@@ -563,6 +615,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 # Unrestricted
                 if not restr:
                     coeffs = self._read_value(f, "f")
+                    self.log.debug(f"Parsed {len(coeffs)} beta values")
                     it_coeffs = iter(coeffs)
 
                 for occ in range(n_mo + n_froz, n_mo + n_occ[1]):
@@ -577,6 +630,123 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 self.trim_civecs(tmp)
                 eigenvectors.append(tmp)
         return eigenvectors
+
+    def _generate_molden(self, workdir: str) -> None:
+        """
+        Generate molden file, copy to savedir if requested
+        """
+        # Write tm2molden input file
+        writefile(os.path.join(workdir, "tm2molden.input"), "molden.input\ny\n")
+
+        # Execute tm2molden
+        if code := self.run_program(workdir, "tm2molden norm < tm2molden.input", "tm2molden.out", "tm2molden.err") != 0:
+            self.log.error(f"tm2molden failed with exit code {code}")
+            raise RuntimeError()
+
+        # Copy to savedir
+        if self.QMin.requests["molden"]:
+            shutil.copy(
+                os.path.join(workdir, "molden.input"),
+                os.path.join(
+                    self.QMin.save["savedir"], f"molden.{os.path.split(workdir)[-1].split('_')[-1]}.{self.QMin.save['step']}"
+                ),
+            )
+
+    def _get_aoovl(self, dyson: bool = False) -> None:
+        """
+        Calculate overlap matrix between previous and current geom
+        """
+        # Load molden file
+        mol2, _, _, _, _, _ = tools.molden.load(os.path.join(self.QMin.resources["scratchdir"], "master_1/molden.input"))
+
+        # Create Mole object, assign basis from molden
+        mol = gto.Mole()
+        mol.basis = {}
+        for atom, basis in mol2._basis.items():
+            mol.basis[re.split(r"\d+", atom)[0]] = basis
+
+        # Take prev geom and append current
+        if not dyson:
+            with open(
+                os.path.join(self.QMin.save["savedir"], f"input.xyz.{self.QMin.save['step']-1}"), "r", encoding="utf-8"
+            ) as f:
+                mol.atom = [line.strip() for line in f.readlines()[2:]]
+        mol.atom.extend([[e, c] for e, c in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"].tolist())])
+        mol.cart = False
+        mol.unit = "Bohr"
+        mol.build()
+        n_ao = mol.nao if dyson else (mol.nao // 2)
+
+        # Sort functions from pySCF to Turbomole order
+        self._ao_labels = [i.split()[::2] for i in mol.ao_labels()[:n_ao]]
+        self.log.debug(f"AOLABELS {self._ao_labels}")
+        self.log.debug(f"PySCF AO order:{self._print_ao(self._ao_labels)}")
+        ovlp = mol.intor("int1e_ovlp")
+        if not dyson:
+            ovlp = ovlp[:n_ao, n_ao:]
+        order = sorted(list(range(n_ao)), key=cmp_to_key(self._sort_ao))
+        for i, l in enumerate(self._ao_labels):  # Some functions have opposite sign
+            if "f-3" in l[1] or "g+2" in l[1] or "g-3" in l[1]:
+                ovlp[i, :] *= -1
+                ovlp[:, i] *= -1
+        self.log.debug(f"TURBOMOLE AO order:\n{self._print_ao([self._ao_labels[i] for i in order])}")
+        ovlp = ovlp[np.ix_(order, order)]
+        ovlp_str = f"{n_ao} {n_ao}\n"
+        ovlp_str += "\n".join(" ".join(f"{elem: .15e}" for elem in row) for row in ovlp)
+        writefile(os.path.join(self.QMin.save["savedir"], f"AO_overl{'.mixed' if not dyson else ''}"), ovlp_str)
+
+    def _sort_ao(self, ao1: int, ao2: int) -> int:
+        """
+        PySCF AO label order to NWChem AO label order
+        """
+        first = self._ao_labels[ao1]
+        second = self._ao_labels[ao2]
+
+        label_to_int = {"s": 1, "p": 2, "d": 3, "f": 4, "g": 5}
+        angular_to_int = {
+            "s": 1,
+            "px": 1,
+            "py": 1,
+            "pz": 1,
+            "dz^2": 1,
+            "dxz": 2,
+            "dyz": 3,
+            "dx2-y2": 5,
+            "dxy": 4,
+            "f+0": 1,
+            "f+1": 2,
+            "f-1": 3,
+            "f+2": 5,
+            "f-2": 4,
+            "f+3": 6,
+            "f-3": 7,
+            "g+0": 1,
+            "g+1": 2,
+            "g-1": 3,
+            "g-2": 4,
+            "g+2": 5,
+            "g+3": 6,
+            "g-3": 7,
+            "g-4": 8,
+            "g+4": 9,
+        }
+        return (
+            (int(first[0]) - int(second[0])) * 1000  # Atom
+            + (int(first[1][0]) - int(second[1][0])) * 10  # Shell
+            + (label_to_int[first[1][1]] - label_to_int[second[1][1]]) * 100  # Function
+            + (angular_to_int[first[1][1:]] - angular_to_int[second[1][1:]]) * 1  # Angular
+        )
+
+    def _print_ao(self, ao_labels: list[list[str]]) -> str:
+        """
+        Make PySCF AO label string better readable
+
+        ao_labels:  List of AO labels
+        """
+        ao_str = ""
+        for label in ao_labels:
+            ao_str += f"{self.QMin.molecule['elements'][int(label[0])]:4s} {label[1]:10s}\n"
+        return ao_str
 
     def _read_value(self, f, t: str = "i", l: int = 8) -> np.ndarray:
         """
@@ -623,7 +793,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 excitations.append(
                     ("$excitations", f"irrep=a multiplicity=3 nexc={nst} npre={nst+1+pre_shift}, nstart={nst+1+start_shift}\n")
                 )
-            self._modify_file(os.path.join(workdir, "control"), None, ["irrep"], excitations)
+            self._modify_file(os.path.join(workdir, "control"), None, ["irrep=a"], excitations)
             # Run RICC2 again
             if (code := self.run_program(workdir, ricc2_bin, "ricc2.out", "ricc2.err")) != 0:
                 return code
@@ -711,9 +881,25 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             with open(os.path.join(scratchdir, f"master_{mult}/ricc2.out"), "r", encoding="utf-8") as f:
                 ricc2_out = f.read()
 
+            # Get D1 diagnostics
+            if diagnostic := re.findall(r"D1 diagnostic\s+:\s+(\d+\.\d+)", ricc2_out):
+                self.log.debug(f"D1 job {mult}: {diagnostic[-1]}")
+                self.QMout["notes"][f"D1 job {mult}"] = diagnostic[-1]
+            else:
+                self.log.warning(f"No D1 value for job {mult} found!")
+
+            # Get SCF iterations
+            with open(os.path.join(scratchdir, f"master_{mult}/dscf.out"), "r", encoding="utf-8") as f:
+                for line in f:
+                    if iterations := re.findall(r"(\d+)\s+iterations", line):
+                        self.log.debug(f"Job {mult} converged after {iterations[0]} cycles.")
+                        self.QMout["notes"][f"iterations job {mult}"] = iterations[0]
+                        break
+                else:
+                    self.log.error(f"No iteration count found for job {mult}")
+
             # SOCs, only possible between S1-T
             if self.QMin.requests["soc"] and mult == 1:
-                # TODO: cleanup
                 socs = self._get_socs(ricc2_out)[: states[0] - 1, states[0] - 1 :, :]
 
                 self.QMout["h"][1 : states[0], states[0] : states[0] + states[2]] = socs[:, :, 0]
@@ -723,13 +909,61 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
             # Energies
             if self.QMin.requests["h"]:
-                energies = self._get_energies(ricc2_out)
+                energies, t2_err = self._get_energies(ricc2_out)
+                self.log.debug(f"%T2 job {mult} {t2_err}")
+                self.QMout["notes"][f"%T2 job {mult}"] = t2_err
                 s_cnt = 0
                 for i in self.QMin.control["jobs"][mult]["mults"]:
                     np.einsum("ii->i", self.QMout["h"])[
                         sum(s * m for m, s in enumerate(states[: i - 1], 1)) : sum(s * m for m, s in enumerate(states[:i], 1))
                     ] = np.tile(energies[s_cnt : s_cnt + states[i - 1]], i)
                     s_cnt += states[i - 1]
+
+        # Overlaps
+        if self.QMin.requests["overlap"]:
+            for mult in itmult(self.QMin.molecule["states"]):
+                job = self.QMin.maps["multmap"][mult]
+                ovlp_mat = self.parse_wfoverlap(os.path.join(scratchdir, f"WFOVL_{mult}_{job}", "wfovl.out"))
+                for i in range(self.QMin.molecule["nmstates"]):
+                    for j in range(self.QMin.molecule["nmstates"]):
+                        m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                        m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+                        if not m1 == m2 == mult:
+                            continue
+                        if not ms1 == ms2:
+                            continue
+                        self.QMout["overlap"][i, j] = ovlp_mat[s1 - 1, s2 - 1]
+            # Phases
+            if self.QMin.requests["phases"]:
+                for i in range(self.QMin.molecule["nmstates"]):
+                    self.QMout["phases"][i] = -1 if self.QMout["overlap"][i, i] < 0 else 1
+
+        # Dyson norms
+        if self.QMin.requests["ion"]:
+            ion_mat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
+
+            for ion in self.QMin.maps["ionmap"]:
+                dyson_mat = self.get_dyson(os.path.join(scratchdir, f"Dyson_{'_'.join(str(i) for i in ion)}", "wfovl.out"))
+                for i in range(self.QMin.molecule["nmstates"]):
+                    for j in range(self.QMin.molecule["nmstates"]):
+                        m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                        m2, s2, ms2 = tuple(self.QMin.maps["statemap"][j + 1])
+                        if (ion[0], ion[2]) != (m1, m2) and (ion[0], ion[2]) != (m2, m1):
+                            continue
+                        if not abs(ms1 - ms2) == 0.5:
+                            continue
+                        # switch multiplicities such that m1 is smaller mult
+                        if m1 > m2:
+                            s1, s2 = s2, s1
+                            m1, m2 = m2, m1
+                            ms1, ms2 = ms2, ms1
+                        # compute M_S overlap factor
+                        if ms1 < ms2:
+                            factor = (ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
+                        else:
+                            factor = (-ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
+                        ion_mat[i, j] = dyson_mat[s1 - 1, s2 - 1] * factor
+            self.QMout["prop2d"].append(("ion", ion_mat))
 
         # Gradients
         if self.QMin.requests["grad"]:
@@ -777,9 +1011,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         soc_mat[idx] = np.asarray(socs, dtype=float) * rcm_to_Eh
         return soc_mat
 
-    def _get_energies(self, ricc2_out: str) -> np.ndarray:
+    def _get_energies(self, ricc2_out: str) -> tuple[np.ndarray, np.ndarray]:
         """
-        Extract energies from ASCII ricc2 output
+        Extract energies and %t2 from ASCII ricc2 output
         """
 
         # Get GS energy
@@ -799,8 +1033,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 raise ValueError()
 
             # Extract energy values
-            energies += re.findall(r"\d+\.\d{7}", raw_energies[0])
-        return np.asarray(energies, dtype=np.complex128) + float(gs_energy[0])
+            energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
+        return np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]), re.findall(r"(\d+\.\d{2})\s", raw_energies[0])[1::2]
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
@@ -821,6 +1055,23 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 writefile(
                     os.path.join(self.QMin.save["savedir"], f"dets.{mult}.{self.QMin.save['step']}"), self.format_ci_vectors(dets)
                 )
+                if self.QMin.template["method"] == "cc2":
+                    dets = self._get_dets(os.path.join(self.QMin.resources["scratchdir"], f"master_{jobid}"), mult, "L")
+                    writefile(
+                        os.path.join(self.QMin.save["savedir"], f"dets_left.{mult}.{self.QMin.save['step']}"),
+                        self.format_ci_vectors(dets),
+                    )
+
+        # Save copy of current geometry
+        xyz_str = f"{self.QMin.molecule['natom']}\n\n"
+        for label, coords in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"]):
+            xyz_str += f"{label:4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}\n"
+        writefile(os.path.join(self.QMin.save["savedir"], f"input.xyz.{self.QMin.save['step']}"), xyz_str)
+        if self.QMin.requests["overlap"]:
+            self._get_aoovl()
+        if self.QMin.requests["ion"]:
+            self._get_aoovl(True)
+        self._run_wfoverlap(mo_read=2, left=self.QMin.template["method"] == "cc2")
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
