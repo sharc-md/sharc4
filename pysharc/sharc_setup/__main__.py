@@ -24,6 +24,7 @@
 
 import os
 import sys
+import numpy
 
 
 # py_setuptools applies some customization to the setuptools code
@@ -67,10 +68,11 @@ extra_compile_args = ['-std=c99', '-Wall', ]
 
 pysharc_extension = Extension('sharc/sharc',
                               [os.path.join(pysharc_path, fname) for fname in pysharc_cfiles],
-                              include_dirs=['include', ],
+                              include_dirs=['include', numpy.get_include()],
                               library_dirs=['lib', '$ANACONDA/lib'],
                               libraries=mkl_libs + basic_libs,
                               extra_compile_args=extra_compile_args,
+                              define_macros=[("NPY_NO_DEPRECATED_API","NPY_1_7_API_VERSION")],
                               )
 
 
