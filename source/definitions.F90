@@ -163,11 +163,11 @@ module definitions
     real*8,allocatable :: atomicnumber_a(:)                !< atomic number
     character*2,allocatable :: element_a(:)                !< element descriptor
     real*8,allocatable :: mass_a(:)                        !< atomic mass in a.u. (1 a.u. = rest mass of electron m_e)
-  #ifdef __PYSHARC__
+#ifdef __PYSHARC__
     real*8,pointer :: geom_ad(:,:)                         !< Cartesian coordinates of atom in a.u. (bohr)
-  #else
+#else
     real*8,allocatable :: geom_ad(:,:)                     !< Cartesian coordinates of atom in a.u. (bohr)
-  #endif
+#endif
     real*8,allocatable :: veloc_ad(:,:)                    !< Cartesian velocity in a.u. (bohr/atu)
     real*8,allocatable :: veloc_old_ad(:,:)                !< Cartesian velocity in a.u. (bohr/atu) of last timestep
     real*8,allocatable :: veloc_app_ad(:,:)                !< Forward verlet approximated Cartesian velocity in a.u. (bohr/atu)
@@ -175,11 +175,11 @@ module definitions
     real*8,allocatable :: accel_ad(:,:)                    !< Cartesian acceleration in a.u. (bohr/atu/atu)
   
     ! electronic information
-  #ifdef __PYSHARC__
+#ifdef __PYSHARC__
     complex*16, pointer :: H_MCH_ss(:,:)                   !< MCH Hamiltonian as read from QM.out (no laser)
-  #else
+#else
     complex*16, allocatable :: H_MCH_ss(:,:)               !< MCH Hamiltonian as read from QM.out (no laser)
-  #endif
+#endif
                                                            !< Laser interaction is added during propagation
     complex*16,allocatable :: dH_MCH_ss(:,:)               !< time derivative of MCH Hamiltonian
     complex*16,allocatable :: dH_MCH_old_ss(:,:)           !< time derivative of MCH Hamiltonian of last timestep
@@ -196,15 +196,15 @@ module definitions
     complex*16,allocatable :: NACdt_old_ss(:,:)            !< time-derivatives of wavefunctions of last timestep
     complex*16,allocatable :: NACdt_diag_ss(:,:)           !< time-derivatives of wavefunctions in diagonal basis
     complex*16,allocatable :: NACdt_diag_old_ss(:,:)       !< time-derivatives of wavefunctions in diagonal basis of last timestep
-  #ifdef __PYSHARC__
+#ifdef __PYSHARC__
     complex*16, pointer :: overlaps_ss(:,:)                !< overlaps for LD propagation
     complex*16, pointer :: DM_ssd(:,:,:)                   !< (transition) dipole moment matrix
                                                            !< transition dipoles between active and inactive states are zero.
-  #else
+#else
     complex*16, allocatable :: overlaps_ss(:,:)            !< overlaps for LD propagation
     complex*16, allocatable :: DM_ssd(:,:,:)               !< (transition) dipole moment matrix
                                                            !< transition dipoles between active and inactive states are zero.
-  #endif
+#endif
     complex*16,allocatable :: DM_old_ssd(:,:,:)            !< old dipole moment matrix
     complex*16,allocatable :: DM_print_ssd(:,:,:)          !< dipole moment matrix used for the output routines
                                                            !< transition dipoles between active and inactive states are not zero.
@@ -237,13 +237,13 @@ module definitions
   
     ! vector information
     real*8,allocatable :: DMgrad_ssdad(:,:,:,:,:)          !< Cartesian gradient of the dipole moments (bra, ket, polarization, atom, cartesian component of atom displacement)
-  #ifdef __PYSHARC__
+#ifdef __PYSHARC__
     real*8, pointer :: NACdR_ssad(:,:,:,:)                 !< vectorial non-adiabatic couplings in a.u.
     real*8, pointer :: grad_MCH_sad(:,:,:)                 !< Cartesian gradient in a.u (hartree/bohr) of all states
-  #else
+#else
     real*8, allocatable :: NACdR_ssad(:,:,:,:)             !< vectorial non-adiabatic couplings in a.u.
     real*8, allocatable :: grad_MCH_sad(:,:,:)             !< Cartesian gradient in a.u (hartree/bohr) of all states
-  #endif
+#endif
     real*8, allocatable :: grad_MCH_old_sad(:,:,:)         !< Cartesian gradient in a.u (hartree/bohr) of all states of last timestep
     real*8, allocatable :: grad_MCH_old2_sad(:,:,:)        !< Cartesian gradient in a.u (hartree/bohr) of all states of second last timestep
     real*8,allocatable :: NACdR_old_ssad(:,:,:,:)          !< vectorial non-adiabatic couplings of last timestep
@@ -1107,7 +1107,7 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
         implicit none
         type(trajectory_type), intent(inout) :: traj
   
-  #ifdef __PYSHARC__
+#ifdef __PYSHARC__
       ! Pointer routines
       if (associated(traj%H_MCH_ss))                  deallocate(traj%H_MCH_ss)
       if (associated(traj%DM_ssd))                    deallocate(traj%DM_ssd)
@@ -1115,14 +1115,14 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       if (associated(traj%grad_MCH_sad))              deallocate(traj%grad_MCH_sad)
       if (associated(traj%NACdR_ssad))                deallocate(traj%NACdR_ssad)
       if (associated(traj%geom_ad))                   deallocate(traj%geom_ad)
-  #else
+#else
       if (allocated(traj%H_MCH_ss))                   deallocate(traj%H_MCH_ss)
       if (allocated(traj%DM_ssd))                     deallocate(traj%DM_ssd)
       if (allocated(traj%overlaps_ss))                deallocate(traj%overlaps_ss)
       if (allocated(traj%grad_MCH_sad))               deallocate(traj%grad_MCH_sad)
       if (allocated(traj%NACdR_ssad))                 deallocate(traj%NACdR_ssad)
       if (allocated(traj%geom_ad))                    deallocate(traj%geom_ad)
-  #endif
+#endif
   
       if (allocated(traj%atomicnumber_a))             deallocate(traj%atomicnumber_a)
       if (allocated(traj%element_a))                  deallocate(traj%element_a)
@@ -1238,7 +1238,7 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       type(trajectory_type), intent(inout) :: traj
   
       write(u,*) '________________ CHECKING ISALLOCATED ___________________'
-  #ifdef __PYSHARC__
+#ifdef __PYSHARC__
       ! Pointer routines
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        associated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          associated(traj%DM_ssd          )
@@ -1246,14 +1246,14 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    associated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      associated(traj%NACdR_ssad      )
       write(u,'(A20,1X,L1)') 'geom_ad',         associated(traj%geom_ad         )
-  #else
+#else
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        allocated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
       write(u,'(A20,1X,L1)') 'overlaps_ss',     allocated(traj%overlaps_ss     )
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    allocated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      allocated(traj%NACdR_ssad      )
       write(u,'(A20,1X,L1)') 'geom_ad',         allocated(traj%geom_ad         )
-  #endif
+#endif
   
   
       write(u,'(A20,1X,L1)') 'atomicnumber_a',  allocated(traj%atomicnumber_a  )
