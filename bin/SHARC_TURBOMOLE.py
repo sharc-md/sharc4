@@ -793,7 +793,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 excitations.append(
                     ("$excitations", f"irrep=a multiplicity=3 nexc={nst} npre={nst+1+pre_shift}, nstart={nst+1+start_shift}\n")
                 )
-            self._modify_file(os.path.join(workdir, "control"), None, ["irrep"], excitations)
+            self._modify_file(os.path.join(workdir, "control"), None, ["irrep=a"], excitations)
             # Run RICC2 again
             if (code := self.run_program(workdir, ricc2_bin, "ricc2.out", "ricc2.err")) != 0:
                 return code
@@ -888,13 +888,24 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             else:
                 self.log.warning(f"No D1 value for job {mult} found!")
 
+            # Get SCF iterations
+            with open(os.path.join(scratchdir, f"master_{mult}/dscf.out"), "r", encoding="utf-8") as f:
+                for line in f:
+                    if iterations := re.findall(r"(\d+)\s+iterations", line):
+                        self.log.debug(f"Job {mult} converged after {iterations[0]} cycles.")
+                        self.QMout["notes"][f"iterations job {mult}"] = iterations[0]
+                        break
+                else:
+                    self.log.error(f"No iteration count found for job {mult}")
+
             # SOCs, only possible between S1-T
-            if self.QMin.requests["soc"] and mult == 1:
+            if  mult == 1 and self.QMin.requests["soc"]:
                 socs = self._get_socs(ricc2_out)[: states[0] - 1, states[0] - 1 :, :]
 
-                self.QMout["h"][1 : states[0], states[0] : states[0] + states[2]] = socs[:, :, 0]
-                self.QMout["h"][1 : states[0], states[2] + states[0] : states[0] + (2 * states[2])] = socs[:, :, 1]
-                self.QMout["h"][1 : states[0], (2 * states[2]) + states[0] : states[0] + (3 * states[2])] = socs[:, :, 2]
+                skip = states[0] + 2 * states[1]
+                self.QMout["h"][1 : states[0], skip : skip + states[2]] = socs[:, :, 0]
+                self.QMout["h"][1 : states[0], states[2] + skip : skip + (2 * states[2])] = socs[:, :, 1]
+                self.QMout["h"][1 : states[0], (2 * states[2]) + skip : skip + (3 * states[2])] = socs[:, :, 2]
                 self.QMout["h"] += self.QMout["h"].T
 
             # Energies
@@ -1023,8 +1034,11 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 raise ValueError()
 
             # Extract energy values
-            energies += re.findall(r"\d+\.\d{7}", raw_energies[0])
-        return np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]), re.findall(r"\d+\.\d{2}\s", raw_energies[0])[1::2]
+            energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
+        return (
+            np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]),
+            re.findall(r"(\d+\.\d{2})\s", raw_energies[0])[1::2],
+        )
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
@@ -1080,6 +1094,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             master_job.control["master"] = True
             master_job.control["jobid"] = job
             master_job.control["states_to_do"][job - 1] -= 1
+            if job != 1:
+                master_job.requests["soc"] = False
             master[f"master_{job}"] = master_job
         self.QMin.control["nslots_pool"].append(nslots)
         schedule = [master]

@@ -209,12 +209,14 @@ DATA_EXTRACTOR_NETCDF = data_extractor_NetCDF.o data_extractor_NetCDFmodule.o de
 
 DATA_CONVERTER = data_converter.o data_extractor_NetCDFmodule.o definitions_NetCDF.o qm_out.o 
 
+DATA_CONVERTER_TO_ASCII = data_converter_to_ASCII.o data_extractor_NetCDFmodule.o definitions_NetCDF.o qm_out.o 
+
 
 
 # -------------------------------------- rules ---------------------------------------
 
 ifeq ($(USE_PYSHARC),true)
-all: sharc data_extractor diagonalizer laser sharcvars libsharc data_extractor_NetCDF data_converter
+all: sharc data_extractor diagonalizer laser sharcvars libsharc data_extractor_NetCDF data_converter data_converter_to_ASCII
 else
 all: sharc data_extractor diagonalizer laser sharcvars
 endif
@@ -239,6 +241,9 @@ data_extractor_NetCDF: $(DATA_EXTRACTOR_NETCDF) $(TOOLS)
 
 data_converter: $(DATA_CONVERTER) $(TOOLS)
 	$(F90)  $(DATA_CONVERTER) $(TOOLS) -o $@.x $(LD)
+
+data_converter_to_ASCII: $(DATA_CONVERTER_TO_ASCII) $(TOOLS)
+	$(F90)  $(DATA_CONVERTER_TO_ASCII) $(TOOLS) -o $@.x $(LD)
 
 
 diagonalizer: $(DIAGONALIZER) 
@@ -353,4 +358,4 @@ LASER_calc_fftw.o: LASER_definitions.o
 data_extractor_NetCDFmodule.o: $(TOOLS) qm_out.o
 data_extractor_NetCDF.o: data_extractor_NetCDFmodule.o definitions.o matrix.o definitions_NetCDF.o
 data_converter.o:        data_extractor_NetCDFmodule.o definitions.o matrix.o definitions_NetCDF.o
-
+data_converter_to_ASCII.o: data_extractor_NetCDFmodule.o definitions.o matrix.o definitions_NetCDF.o 

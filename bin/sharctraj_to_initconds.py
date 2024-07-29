@@ -739,7 +739,7 @@ def get_coords_from_sing(INFOS):
         print("(skipping, problems in steps: 0<=%i<=%i<=%i)" % (a, b, n))
         exit()
     start = -1
-    for igeom, step in enumerate(range(a, b, INFOS["stride"])):
+    for igeom, step in enumerate(range(a, b+1, INFOS["stride"])):
         atomlist, start = get_atoms_step_sing(data, step, inf, start)
         if not INFOS["KTR"]:
             if INFOS["debug"]:
@@ -749,7 +749,7 @@ def get_coords_from_sing(INFOS):
             # remove_rotations(atomlist)
             if INFOS["debug"]:
                 print("%-40s" % "  Done", datetime.datetime.now() - starttime)
-        sys.stdout.write("Structure % 5i: %s  Step: % 5i/% 5i  " % (igeom - 1, INFOS["dirs"][0], step, inf["nmax"]))
+        sys.stdout.write("Structure % 5i: %s  Step: % 5i/% 5i  " % (igeom, INFOS["dirs"][0], step, inf["nmax"]))
         if igeom == 0:
             sys.stdout.write("(Reference geometry)")
             molecule = INITCOND(atomlist, inf["ezero"], 0.0)
