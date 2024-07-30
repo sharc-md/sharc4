@@ -53,7 +53,6 @@ temp_unit_fac = 1E-15  # Conversion input unit to SI
 # nsubsteps = 25  # Number of substeps for the integration of the electronic EOM: QA -> take from SHARC                                               
 efield_au_to_v_per_m = const.physical_constants["Hartree energy"][0]/const.e/const.physical_constants["Bohr radius"][0]                             
 bfield_au_to_t = const.electron_mass*const.physical_constants["Hartree energy"][0]/(const.e*const.physical_constants["reduced Planck constant"][0]) 
-time_au_to_s = const.physical_constants["reduced Planck constant"][0]/const.physical_constants["Hartree energy"][0]
 # efield_grad_au_to_v_per_m2 = efield_au_to_v_per_m*const.physical_constants["Bohr radius"][0]                                                        
 # bfield_grad_au_to_t_per_m =  bfield_au_to_t*const.physical_constants["Bohr radius"][0]                                                              
 
@@ -178,14 +177,17 @@ def get_general(INFOS):
 
 
 def fft_calc(field, time_arr):                                                              
-    freq_signal = fft.fft(field)[1:len(time_arr)//2]                                               
-    freq = fft.fftfreq(len(time_arr), d=(time_arr[1]-time_arr[0]))[1:len(time_arr)//2]             
-    central_freq = np.sum(np.abs(freq_signal)*np.abs(freq))/np.sum(np.abs(freq_signal))            
-    # plt.plot(freq, np.abs(freq_signal), label="abs")                                               
-    # plt.vlines(central_freq, 0, 2.5E-5, color="red", label="central_freq")                         
-    # plt.legend()                                                                                   
-    # plt.show()                                                                                     
-    return central_freq
+    freq_signal = np.abs(fft.fft(np.real(field))[:len(time_arr)//2])                                               
+    freq = fft.fftfreq(len(time_arr), d=(time_arr[1]-time_arr[0]))[:len(time_arr)//2]             
+    #central_freq = np.sum(np.abs(freq_signal)*np.abs(freq))/np.sum(np.abs(freq_signal))            
+    #plt.plot(field)
+    #plt.show()
+    #plt.plot(freq, freq_signal, label="abs")                                          
+    #plt.xlim(0,2E15)
+    #plt.vlines(central_freq, 0, 2.5E-5, color="red", label="central_freq")                         
+    #plt.legend()                                                                                   
+    #plt.show()                                                                                     
+    return freq, freq_signal
 
 
 def wavelet_calc(field, time_arr):
@@ -256,36 +258,61 @@ def main():
     laser_freq_file[:, 0] = time_arr*1E15  # SAVE timesteps in fs
     if check_laser_file_version(INFOS["laser_file_path"]):
         while True:
-            fft_field = question("Do you want to obtain perform FFT (0) or WT (1)?", int, [0])
+            fft_field = question("Do you want to provide laser frequencies (0), perform FFT (1) or WT (2)?", int, [0])
             em_fields= read_fields(INFOS)
-            e_fields = em_fields[:, :6]
-            b_fields = em_fields[:, 6:]/const.c
-            e_fields_max = [np.max(e_fields[:, field_idx]) for field_idx in range(6)]
-            b_fields_max = [np.max(b_fields[:, field_idx]) for field_idx in range(6)]
-            em_fields_max = np.append(e_fields_max, b_fields_max)
-            em_fields = np.hstack((e_fields, b_fields))
-            if fft_field[0]==0:
-                central_fft_freq = [fft_calc(em_fields[:, field_idx], time_arr) for field_idx in range(len(em_fields[0, :]))]
-                combined_central_fft_freq = np.nansum(em_fields_max*central_fft_freq)/np.nansum(em_fields_max)
-                # print(combined_central_fft_freq/(const.c/527.5E-9))
-                laser_freq_file[:, 1] = np.ones_like(time_arr)*combined_central_fft_freq*time_au_to_s
-                break
-            elif fft_field[0]==1:
-                central_fft_freq = [wavelet_calc(em_fields[:, field_idx], time_arr) for field_idx in range(len(em_fields[0, :]))]
-                combined_central_fft_freq = np.nansum(em_fields.T**2*central_fft_freq, axis=0)/np.nansum(em_fields.T**2, axis=0)  
-                laser_freq_file[:, 1] = combined_central_fft_freq*time_au_to_s
-                # QA: Should a treshold be implemented such that the frequency is assigned NaN, if the corresponding fields are within noise/lower than a treshold value?
-                # print(combined_central_fft_freq)#/(const.c/527.5E-9))
-                # for i in range(12):
-                #     plt.plot(range(161), central_fft_freq[i], label=i)
-                # plt.plot(range(161), combined_central_fft_freq, linestyle="dashed", label="combined")
-                # plt.legend()
-                # plt.show()
-                
-                break
-            else:
-                log.info(f"Did not understand input: {fft_field}!")
-                continue
+            e_fields = [em_fields[:, i] + 1.j*em_fields[:, i+1] for i in range(3)]
+            b_fields = [em_fields[:, 6+i]/const.c + 1.j*em_fields[:, 7+i] for i in range(3)]
+            #e_fields_max = [np.max(e_fields[:, field_idx]) for field_idx in range(3)]
+            #b_fields_max = [np.max(b_fields[:, field_idx]) for field_idx in range(3)]
+            #em_fields_max = np.append(e_fields_max, b_fields_max)
+            em_fields = [*e_fields, *b_fields]
+            print(len(em_fields))
+            time_au_to_s = const.physical_constants["reduced Planck constant"][0]/const.physical_constants["Hartree energy"][0]
+            match fft_field:
+                case 0:
+                    i_unit = question("Frequency unit: (0) nm, (1) Hz, (2) eV, (3) a.u.", int, [0])
+                    laser_frequencies = question("Provide frequency list:", list, [None])
+                    match i_unit:
+                        case 0:
+                            log.info(f"Provided frequencies: {laser_frequencies} in nm")
+                            laser_frequencies = [time_au_to_s*(const.c/(freq*1E-9)) for freq in laser_frequencies]
+                        case 1:
+                            log.info(f"Provided frequencies: {laser_frequencies} in Hz")
+                            laser_frequencies *= time_au_to_s
+                        case 2: 
+                            log.info(f"Provided frequencies: {laser_frequencies} in eV")
+                            laser_frequencies *time_au_to_s/const.h 
+                        case 3:
+                            log.info(f"Provided frequencies: {laser_frequencies} in a.u.")
+                        case _:
+                            log.info(f"Did not understand input: {i_unit}!")
+                case 1:
+                    fft_freq = [fft_calc(em_fields[field_idx], time_arr)[0] for field_idx in range(6)]
+                    fft_signal = [fft_calc(em_fields[field_idx], time_arr)[1] for field_idx in range(6)]
+                    #print(len(fft_freq[0])i)
+                    #plt.plot(fft_freq[0], np.nansum(fft_signal, axis=0))
+                    #plt.show()
+                    combined_central_fft_freq = np.nansum(em_fields_max*central_fft_freq)/np.nansum(em_fields_max)
+                    print(combined_central_fft_freq/(const.c/527.5E-9))
+                    laser_freq_file[:, 1] = np.ones_like(time_arr)*combined_central_fft_freq*time_au_to_s
+                    break
+                case 2:
+                    central_fft_freq = [wavelet_calc(em_fields[:, field_idx], time_arr) for field_idx in range(len(em_fields[0, :]))]
+                    combined_central_fft_freq = np.nansum(em_fields.T**2*central_fft_freq, axis=0)/np.nansum(em_fields.T**2, axis=0)  
+                    laser_freq_file[:, 1] = combined_central_fft_freq*time_au_to_s
+                    print(const.c/(laser_freq_file[:, 1] / time_au_to_s))
+                    # QA: Should a treshold be implemented such that the frequency is assigned NaN, if the corresponding fields are within noise/lower than a treshold value?
+                    # print(combined_central_fft_freq)#/(const.c/527.5E-9))
+                    # for i in range(12):
+                    #     plt.plot(range(161), central_fft_freq[i], label=i)
+                    # plt.plot(range(161), combined_central_fft_freq, linestyle="dashed", label="combined")
+                    # plt.legend()
+                    # plt.show()
+                    
+                    break
+                case _:
+                    log.info(f"Did not understand input: {fft_field}!")
+                    continue
     else:
         log.info("Laser file version not implemented currently!")
         raise IOError

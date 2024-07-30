@@ -35,8 +35,10 @@ import datetime
 import time
 import sys
 import scipy.constants as const  # SHOULD THIS BE WRITTEN in the constants library? 
+from scipy.signal import find_peaks
 import shutil
 import matplotlib.pyplot as plt
+import pywt
 
 from logger import log
 from scipy import fft, signal, ndimage
@@ -55,12 +57,12 @@ old_question = question
 # UNIT FACTORS
 spat_unit_fac = 1E-6  # Conversion input unit to SI
 temp_unit_fac = 1E-15  # Conversion input unit to SI
-stepsize = 0.5  # Length of the nuclear dynamics time steps in fs: QA -> take from SHARC
-nsubsteps = 25  # Number of substeps for the integration of the electronic EOM: QA -> take from SHARC
+# stepsize = 0.5  # Length of the nuclear dynamics time steps in fs: QA -> take from SHARC
+# nsubsteps = 25  # Number of substeps for the integration of the electronic EOM: QA -> take from SHARC
 efield_au_to_v_per_m = const.physical_constants["Hartree energy"][0]/const.e/const.physical_constants["Bohr radius"][0]
 bfield_au_to_t = const.electron_mass*const.physical_constants["Hartree energy"][0]/(const.e*const.physical_constants["reduced Planck constant"][0])
-efield_grad_au_to_v_per_m2 = efield_au_to_v_per_m*const.physical_constants["Bohr radius"][0]     
-bfield_grad_au_to_t_per_m =  bfield_au_to_t*const.physical_constants["Bohr radius"][0]    
+efield_grad_au_to_v_per_m2 = efield_au_to_v_per_m/const.physical_constants["Bohr radius"][0]     
+bfield_grad_au_to_t_per_m =  bfield_au_to_t/const.physical_constants["Bohr radius"][0]    
 
 
 int_method = "cubic"                 
@@ -131,12 +133,12 @@ for SHARC dynamics.
 
 def open_keystrokes():
     global KEYSTROKES
-    KEYSTROKES = open('KEYSTROKES.tmp', 'w')
+    KEYSTROKES = open('KEYSTROKES.temp', 'w')
 
 
 def close_keystrokes():
     KEYSTROKES.close()
-    shutil.move('KEYSTROKES.tmp', 'KEYSTROKES.extract_laser_fields')
+    shutil.move('KEYSTROKES.temp', 'KEYSTROKES.extract_laser_fields')
 
 
 def get_general(INFOS):
@@ -168,6 +170,8 @@ def get_general(INFOS):
             if not os.path.isfile(sim_file_path):
                 log.info(f'File does not exist: {sim_file_path}')
                 continue
+            else:
+                break
     try:
         sim_file = h5py.File(sim_file_path, 'r')
     except IOError:
@@ -236,7 +240,7 @@ def get_general(INFOS):
             log.info('Enter one time step!')
             continue
         break
-    INFOS["nuc_dyn_stepsize"] = stepsize*temp_unit_fac
+    INFOS["nuc_dyn_stepsize"] = INFOS["tmax"]/(INFOS["Nt"]-1)
     INFOS["electronic time_step"] = INFOS["nuc_dyn_stepsize"]/no_el_time_step[0] 
     while True:
         log.info('\nPlease enter the desired spatial interpolation step (in nm). Default: 10')
@@ -263,79 +267,184 @@ def get_general(INFOS):
 
 
 # def calc_fields(t_i, point, point_idx, delta, quant, cmplx, method, tol, dim):
-def calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, quant: str, cmplx: str, readout_time: float, point_idx: list, tol: int, int_method: str):
+def calc_fields(INFOS, time_arr, rx_arr, y_arr, z_arr, quant_name: str, quant: np.ndarray, cmplx: str, readout_time: float, point_idx: list, tol: int, int_method: str):
     assert isinstance(readout_time, float), "readout_time must be a float!"
     assert isinstance(point_idx, list), "point_ipoint_idx must be a list!" 
     assert isinstance(tol, int), "tol must be an integer!"
-    assert isinstance(quant, str), "quant must be a string!"
+    assert isinstance(quant, np.ndarray), "quant must be an array!"
+    assert isinstance(quant_name, str), "quant name must be a string!"
     # QA: Should I couple the tolerance directly to the tolerance or give an error if cubic is expected and tol=1?
     assert isinstance(int_method, str), "int_method must be a string!"
     assert isinstance(cmplx, str), "cmplx must be a string!"
-
-    sim_file = h5py.File(INFOS["sim_file_path"], "r")
     
 
     if INFOS["dimensions"]=="CARTESIAN": 
-        point_idt = np.argmin(np.abs(readout_time-t_arr))
+        point_idt = np.argmin(np.abs(readout_time-time_arr))
         grid_idx_x = (point_idx[0]-tol, point_idx[0]+tol+1)
         grid_idx_y = (point_idx[1]-tol, point_idx[1]+tol+1)
         grid_idx_z = (point_idx[2]-tol, point_idx[2]+tol+1)
-        dx_basis, dy_basis, dz_basis = [np.eye(3)[idx, :]*INFOS["delta"] for idx in range(3)]  
-        if (point_idt-tol)<=0 or (point_idt+tol)>=len(t_arr):
+        dx_basis, dy_basis, dz_basis = [np.eye(3)[idx, :]*INFOS["delta"] for idx in range(3)]
+
+        if (point_idt-tol)<=0 or (point_idt+tol)>=len(time_arr):  # Time point at border of simulated time 
             grid = (rx_arr[grid_idx_x[0]:grid_idx_x[1]],
                     y_arr[grid_idx_y[0]:grid_idx_y[1]],
                     z_arr[grid_idx_z[0]:grid_idx_z[1]])
             interpol_point = INFOS["extract_point"]
             if cmplx=="real":
-                interp = RegularGridInterpolator(grid, np.real(sim_file[quant][
+                interp = RegularGridInterpolator(grid, np.real(quant[
                                 point_idt,
                                 point_idx[0]-tol:point_idx[0]+tol+1,  # No fancy indexing allowed!                                                                                                                                                                                                                              
                                 point_idx[1]-tol:point_idx[1]+tol+1,                                                                                                                                                                                                                              
                                 point_idx[2]-tol:point_idx[2]+tol+1]),
                                                  method=int_method)
             elif cmplx=="imag":
-                interp = RegularGridInterpolator(grid, np.imag(sim_file[quant][
+                interp = RegularGridInterpolator(grid, np.imag(quant[
                                 point_idt, 
                                 point_idx[0]-tol:point_idx[0]+tol+1,
                                 point_idx[1]-tol:point_idx[1]+tol+1,
                                 point_idx[2]-tol:point_idx[2]+tol+1]),
                                                  method=int_method)
-        else:
-            red_t_arr_idx = (point_idt-tol, point_idt+tol+1) 
-            red_t_arr = t_arr[red_t_arr_idx[0]:red_t_arr_idx[1]]
-            grid = (red_t_arr,
+        else:  # Also interpolate in time
+            red_time_arr_idx = (point_idt-tol, point_idt+tol+1) 
+            red_time_arr = time_arr[red_time_arr_idx[0]:red_time_arr_idx[1]]
+            grid = (red_time_arr,
                     rx_arr[grid_idx_x[0]:grid_idx_x[1]],
                     y_arr[grid_idx_y[0]:grid_idx_y[1]],
                     z_arr[grid_idx_z[0]:grid_idx_z[1]]) 
             interpol_point=[readout_time, *INFOS["extract_point"]]
-            
             dx_basis , dy_basis, dz_basis = np.array([[0, *dx_basis], [0, *dy_basis], [0, *dz_basis]])
             if cmplx=="real":
-                interp = RegularGridInterpolator(grid, np.real(sim_file[quant][
+                interp = RegularGridInterpolator(grid, np.real(quant[
                                      point_idt-tol:point_idt+tol+1,
                                      point_idx[0]-tol:point_idx[0]+tol+1,  # No fancy indexing allowed!                                                                                                                                                                                                                              
                                      point_idx[1]-tol:point_idx[1]+tol+1,                                                                                                                                                                                                                              
                                      point_idx[2]-tol:point_idx[2]+tol+1]),
                                                  method=int_method)
             elif cmplx=="imag":
-                interp = RegularGridInterpolator(grid, np.imag(sim_file[quant][
+                interp = RegularGridInterpolator(grid, np.imag(quant[
                                      point_idt-tol:point_idt+tol+1, 
                                      point_idx[0]-tol:point_idx[0]+tol+1,
                                      point_idx[1]-tol:point_idx[1]+tol+1,
                                      point_idx[2]-tol:point_idx[2]+tol+1]),
                                                  method=int_method) 
         fields = interp(interpol_point)[0]
-        if ((quant in efields) and INFOS["export_egrad"]) or ((quant in bfields) and INFOS["export_bgrad"]):
+        if ((quant_name in efields) and INFOS["export_egrad"]) or ((quant_name in bfields) and INFOS["export_bgrad"]):
             gradients = [(interp((interpol_point+di_basis))[0]- interp((interpol_point-di_basis))[0])/(2*INFOS["delta"]) for di_basis in [dx_basis, dy_basis, dz_basis]]
+            
             return fields, *gradients 
         else:
             return [fields]
     else:
         log.info(f'Dimension not implemented yet: {INFOS["dimensions"]}')
         raise IOError
-        # QA: Does one have to return a value, if raise IOError?
         return 0
 
+
+def fft_calc(field, time_arr, zero_padding_factor=2):                                                              
+    N_padded = len(time_arr)*zero_padding_factor
+    field_padded = np.pad(field, (0, N_padded - len(time_arr)), 'constant')
+    freq_signal = 2.0 / N_padded * np.abs(fft.fft(field_padded)[:N_padded//2])                                               
+    freq = fft.fftfreq(N_padded, d=(time_arr[1]-time_arr[0]))[:N_padded//2]
+    return freq, freq_signal
+
+
+def wavelet_calc(field, time_arr):
+    dt = time_arr[1]-time_arr[0]                                                                   
+    freq_step = 1/dt                                                                               
+    freq_arr = np.linspace(1, freq_step/2, 100)
+    #scaleswtm = np.abs(signal.cwt(field, signal.morlet2, widths, w=w))                                  
+    f_min = 2.8E14 # IR light
+    f_max = 1E15 # UV light 
+    a_min = 1 / (f_max * dt)
+    a_max = 1 / (f_min * dt)
+    scales = np.linspace(a_min, a_max, num=int(1E3))  # lam_res = (lam_c-lam_max)/(const.c/d_nu)
+    cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet="morl", sampling_period=dt)
+    cwtmatr = np.abs(cwtmatr)
+    # plot result using matplotlib's pcolormesh (image with annoted axes)
+    #fig, axs = plt.subplots(2, 1)
+    #print(cwtmatr.shape, time_arr.shape, freqs.shape)
+    #pcm = axs[0].pcolormesh(time_arr, freqs, cwtmatr)
+    freq_sig_integrated = np.sum(cwtmatr, axis=1)/len(time_arr) # mean signal on frequencies over all times 
+    
+    #freq_sig_integrated = freq_sig_integrated.max()
+    # axs[1].plot(freqs, summed)
+    # axs[0].set_yscale("log")
+    # axs[0].set_xlabel("Time (s)")
+    # axs[0].set_ylabel("Frequency (Hz)")
+    # axs[0].set_title("Continuous Wavelet Transform (Scaleogram)")
+    # fig.colorbar(pcm, ax=axs[0])
+    # 
+    # plt.tight_layout()
+
+    #plt.show()
+    return freqs, freq_sig_integrated                                                                                       
+
+
+def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, time_arr):
+    while True:
+        shift = 0
+        em_fields = []
+        if avail_e:
+            efield = np.transpose(laser_file[:, 1:7:2] + 1.j * laser_file[:, 2:7:2])
+            em_fields += [comp for comp in efield]
+            shift+=6
+        if avail_b:
+            bfield = np.transpose(laser_file[:, 1 + shift:7 + shift:2] + 1.j * laser_file[:, 2 + shift:7 + shift:2])
+            em_fields += [comp*const.c for comp in bfield]  # B-field amplitude match to E-field for weighting 
+            shift+=6
+
+        time_au_to_s = const.physical_constants["reduced Planck constant"][0]/const.physical_constants["Hartree energy"][0]
+        fft_field = question("Do you want to provide laser frequencies (0), perform FFT (1) or WT (2)?", int, [0])
+        match fft_field[0]:
+            case 0:
+                i_unit = question("Frequency unit: (0) nm, (1) Hz, (2) eV, (3) a.u.", int, 0)
+                laser_frequencies = question("Provide frequency list:", list, [None])
+                match i_unit[0]:
+                    case 0:
+                        log.info(f"Provided frequencies: {laser_frequencies} in nm")
+                        laser_frequencies = [time_au_to_s*(const.c/(freq*1E-9)) for freq in laser_frequencies]
+                    case 1:
+                        log.info(f"Provided frequencies: {laser_frequencies} in Hz")
+                        laser_frequencies *= time_au_to_s
+                    case 2: 
+                        log.info(f"Provided frequencies: {laser_frequencies} in eV")
+                        laser_frequencies *time_au_to_s/const.h 
+                    case 3:
+                        log.info(f"Provided frequencies: {laser_frequencies} in a.u.")
+                    case _:
+                        log.info(f"Did not understand input: {i_unit}!")
+            case 1:
+                fft_freq = [fft_calc(em_fields[field_idx], time_arr)[0] for field_idx in range(len(em_fields))]
+                fft_signal = [fft_calc(em_fields[field_idx], time_arr)[1] for field_idx in range(len(em_fields))]
+                fft_signal_max = [(fft_calc(em_fields[field_idx], time_arr)[1]).max() for field_idx in range(len(em_fields))]
+                freq_peaks = [find_peaks(fft_signal[field_idx], prominence=fft_signal_max[field_idx]/3., height=1E-7) for field_idx in range(len(em_fields))]  # print(len(fft_freq[0])i)
+                # Peak criteria: 20% prominence relative to the max. height, bigger than twice the average and 1E-8
+                for i in range(len(em_fields)):
+                    plt.plot(fft_freq[i], fft_signal[i])
+                    plt.plot(fft_freq[i][freq_peaks[i][0]], fft_signal[i][freq_peaks[i][0]], "rx")
+                    plt.show()
+                    # plt.plot(time_arr, em_fields[i], "b.")
+                    # plt.show()
+                freq_ex = np.hstack([fft_freq[0][peak[0]] for peak in freq_peaks])
+                print(freq_ex)
+                if len(freq_ex) == 0:
+                    log.info('Found no distinct frequencies!')
+                    raise IOError                                                    
+                return np.hstack([fft_freq[0][peak[0]] for peak in freq_peaks])
+                break
+            case 2:
+                freqs, freq_signals_summed = zip(*[wavelet_calc(em_fields[field_idx], time_arr) for field_idx in range(len(em_fields))])
+                freq_signals_summed_max = np.max(freq_signals_summed, axis = 1)
+                freq_peaks = [find_peaks(freq_signals_summed[field_idx], prominence=freq_signals_summed_max[field_idx]/5., height=1E-7) for field_idx in range(len(em_fields))]
+                for i in range(len(em_fields)):
+                    plt.plot(freqs[i], freq_signals_summed[i])
+                    plt.plot(freqs[i][freq_peaks[i][0]], freq_signals_summed[i][freq_peaks[i][0]], "rx")
+                    plt.show()
+                return np.hstack([freqs[0][peak[0]] for peak in freq_peaks])
+                break
+            case _:
+                log.info(f"Did not understand input: {fft_field}!")
+                continue
 
 def main():
     '''Main routine'''
@@ -360,7 +469,7 @@ def main():
     extract = question("Do you want to perform the specified EM-Field extraction?", bool, True) 
     log.info("")                                                                     
     if extract:
-        t_arr = np.linspace(INFOS["tmin"], INFOS["tmax"], INFOS["Nt"], endpoint=True)   
+        t_arr = np.linspace(INFOS["tmin"], INFOS["tmax"], INFOS["Nt"], endpoint=True)  
         int_t_arr = np.arange(INFOS["tmin"], INFOS["tmax"]+INFOS["electronic time_step"], INFOS["electronic time_step"])
         rx_arr = np.linspace(INFOS["xmin"], INFOS["xmax"], INFOS["Nx"], endpoint=True)
         y_arr = np.linspace(INFOS["ymin"], INFOS["ymax"], INFOS["Ny"], endpoint=True)
@@ -380,17 +489,17 @@ def main():
         no_of_columns = bgrad_write_shift+18*int(INFOS["export_bgrad"])
         head_line_length = 16*no_of_columns-2
         # Initialize laser fields file
-        laser_file = np.nan*np.ones((len(int_t_arr), no_of_columns))  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
+        laser_file = np.full((len(int_t_arr), no_of_columns), np.nan)  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
         laser_file[:, 0] = int_t_arr*1E15  # SAVE timesteps in fs
         if INFOS["export_e"] or INFOS["export_egrad"]:
+
             for fld_count, fld in enumerate(efields):
-                fields_gradients_real = []
-                fields_gradients_imag = []
+                fld_arr = np.asarray(h5py.File(INFOS["sim_file_path"], "r")[fld])
+                fields_gradients_real = [None]*len(int_t_arr)
+                fields_gradients_imag = [None]*len(int_t_arr)
                 for t_count, t_i in enumerate(int_t_arr):
-                    # Calculate real fields
-                    fields_gradients_real.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method))
-                    # Calculate imaginary fields
-                    fields_gradients_imag.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method))
+                    fields_gradients_real[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, fld_arr, "real", t_i, point_idx, tolerance, int_method)
+                    fields_gradients_imag[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, fld_arr, "imag", t_i, point_idx, tolerance, int_method)
                     done = t_count * progress_width // len(int_t_arr)
                     sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
                 sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
@@ -406,11 +515,12 @@ def main():
         if INFOS["export_b"] or INFOS["export_bgrad"]:
             log.info("Interpolating B-fields/Gradients and writing to laser file:") 
             for fld_count, fld in enumerate(bfields):
-                fields_gradients_real = []
-                fields_gradients_imag = []
+                fld_arr = np.asarray(h5py.File(INFOS["sim_file_path"], "r")[fld])
+                fields_gradients_real = [None] * len(int_t_arr)
+                fields_gradients_imag = [None] * len(int_t_arr)
                 for t_count, t_i in enumerate(int_t_arr):
-                    fields_gradients_real.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "real", t_i, point_idx, tolerance, int_method))
-                    fields_gradients_imag.append(calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, "imag", t_i, point_idx, tolerance, int_method))
+                    fields_gradients_real[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, fld_arr, "real", t_i, point_idx, tolerance, int_method)
+                    fields_gradients_imag[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld , fld_arr, "imag", t_i, point_idx, tolerance, int_method)
                     done = t_count * progress_width // len(int_t_arr)
                     sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
                 sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
@@ -423,7 +533,9 @@ def main():
                     laser_file[:, bgrad_write_shift+fld_count*6], laser_file[:, bgrad_write_shift+2+fld_count*6], laser_file[:, bgrad_write_shift+4+fld_count*6] =  (fields_gradients_real[:, 1:]/bfield_grad_au_to_t_per_m).T 
                     laser_file[:, bgrad_write_shift+1+fld_count*6], laser_file[:, bgrad_write_shift+3+fld_count*6], laser_file[:, bgrad_write_shift+5+fld_count*6] =  (fields_gradients_imag[:, 1:]/bfield_grad_au_to_t_per_m).T 
             log.info("B-field/B-gradients extracted!")
-        log.info("Calculate central laser frequency on the chosen position.")
+        
+        # Obtain frequencies from laser simulation
+        freq_arr = extract_frequencies(laser_file, INFOS["export_e"], INFOS["export_b"], INFOS["export_egrad"], INFOS["export_bgrad"], int_t_arr)
         # SAVE LASER FILE
         # header = "t/fs , Re[Erho/x] (au), Im[Erho/x] (au), Re[Ephi/y] (au), Im[Ephi/y] (au), Re[Ez] (au), Im[Ez] (au), \
         # Re[Brho/x] (au), Im[Brho/x] (au), Re[Bphi/y] (au), Im[Brho/y] (au), Re[Bz] (au), Im[Bz] (au)"
