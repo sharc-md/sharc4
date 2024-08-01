@@ -66,7 +66,8 @@ bfield_grad_au_to_t_per_m =  bfield_au_to_t/const.physical_constants["Bohr radiu
 
 
 int_method = "cubic"                 
-tolerance = 2  # only one works for now
+space_tolerance = 2  # only one works for now
+time_tolerance = 2  # only one works for now
 
 progress_width = 50
 write_shift=0
@@ -229,7 +230,8 @@ def get_general(INFOS):
             log.info(f'Z-coordinate of extraction point {extract_point[2]} must lie within ({INFOS["zmin"]/spat_unit_fac:.2f}, {INFOS["zmax"]/spat_unit_fac:.2f}) \u03bcm !')
             continue
         break
-    log.info(f'Script will extract fields at {extract_point} \u03bcm.\n')
+    extract_point_fmt = ', '.join([f"{val:.2f}" for val in extract_point])
+    log.info(f'Script will extract fields at [{extract_point_fmt}] \u03bcm.')
     INFOS["extract_point"] = [coord*spat_unit_fac for coord in extract_point]
     # QA: time step / resolution
     #   -> what should be the default, default unit
@@ -267,10 +269,11 @@ def get_general(INFOS):
 
 
 # def calc_fields(t_i, point, point_idx, delta, quant, cmplx, method, tol, dim):
-def calc_fields(INFOS, time_arr, rx_arr, y_arr, z_arr, quant_name: str, quant: np.ndarray, cmplx: str, readout_time: float, point_idx: list, tol: int, int_method: str):
+def calc_fields(INFOS, time_arr, rx_arr, y_arr, z_arr, quant_name: str, quant: np.ndarray, cmplx: str, readout_time: float, point_idx: list, space_tol: int, time_tol: int, int_method: str):
     assert isinstance(readout_time, float), "readout_time must be a float!"
     assert isinstance(point_idx, list), "point_ipoint_idx must be a list!" 
-    assert isinstance(tol, int), "tol must be an integer!"
+    assert isinstance(space_tol, int), "space_tol must be an integer!"
+    assert isinstance(time_tol, int), "time_tol must be an integer!"
     assert isinstance(quant, np.ndarray), "quant must be an array!"
     assert isinstance(quant_name, str), "quant name must be a string!"
     # QA: Should I couple the tolerance directly to the tolerance or give an error if cubic is expected and tol=1?
@@ -280,12 +283,12 @@ def calc_fields(INFOS, time_arr, rx_arr, y_arr, z_arr, quant_name: str, quant: n
 
     if INFOS["dimensions"]=="CARTESIAN": 
         point_idt = np.argmin(np.abs(readout_time-time_arr))
-        grid_idx_x = (point_idx[0]-tol, point_idx[0]+tol+1)
-        grid_idx_y = (point_idx[1]-tol, point_idx[1]+tol+1)
-        grid_idx_z = (point_idx[2]-tol, point_idx[2]+tol+1)
+        grid_idx_x = (point_idx[0]-space_tol, point_idx[0]+space_tol+1)
+        grid_idx_y = (point_idx[1]-space_tol, point_idx[1]+space_tol+1)
+        grid_idx_z = (point_idx[2]-space_tol, point_idx[2]+space_tol+1)
         dx_basis, dy_basis, dz_basis = [np.eye(3)[idx, :]*INFOS["delta"] for idx in range(3)]
 
-        if (point_idt-tol)<=0 or (point_idt+tol)>=len(time_arr):  # Time point at border of simulated time 
+        if (point_idt-time_tol)<=0 or (point_idt+time_tol)>=len(time_arr):  # Time point at border of simulated time 
             grid = (rx_arr[grid_idx_x[0]:grid_idx_x[1]],
                     y_arr[grid_idx_y[0]:grid_idx_y[1]],
                     z_arr[grid_idx_z[0]:grid_idx_z[1]])
@@ -293,19 +296,19 @@ def calc_fields(INFOS, time_arr, rx_arr, y_arr, z_arr, quant_name: str, quant: n
             if cmplx=="real":
                 interp = RegularGridInterpolator(grid, np.real(quant[
                                 point_idt,
-                                point_idx[0]-tol:point_idx[0]+tol+1,  # No fancy indexing allowed!                                                                                                                                                                                                                              
-                                point_idx[1]-tol:point_idx[1]+tol+1,                                                                                                                                                                                                                              
-                                point_idx[2]-tol:point_idx[2]+tol+1]),
+                                point_idx[0]-space_tol:point_idx[0]+space_tol+1,  # No fancy indexing allowed!                                                                                                                                                                                                                              
+                                point_idx[1]-space_tol:point_idx[1]+space_tol+1,                                                                                                                                                                                                                              
+                                point_idx[2]-space_tol:point_idx[2]+space_tol+1]),
                                                  method=int_method)
             elif cmplx=="imag":
                 interp = RegularGridInterpolator(grid, np.imag(quant[
                                 point_idt, 
-                                point_idx[0]-tol:point_idx[0]+tol+1,
-                                point_idx[1]-tol:point_idx[1]+tol+1,
-                                point_idx[2]-tol:point_idx[2]+tol+1]),
+                                point_idx[0]-space_tol:point_idx[0]+space_tol+1,
+                                point_idx[1]-space_tol:point_idx[1]+space_tol+1,
+                                point_idx[2]-space_tol:point_idx[2]+space_tol+1]),
                                                  method=int_method)
         else:  # Also interpolate in time
-            red_time_arr_idx = (point_idt-tol, point_idt+tol+1) 
+            red_time_arr_idx = (point_idt-time_tol, point_idt+time_tol+1) 
             red_time_arr = time_arr[red_time_arr_idx[0]:red_time_arr_idx[1]]
             grid = (red_time_arr,
                     rx_arr[grid_idx_x[0]:grid_idx_x[1]],
@@ -315,17 +318,17 @@ def calc_fields(INFOS, time_arr, rx_arr, y_arr, z_arr, quant_name: str, quant: n
             dx_basis , dy_basis, dz_basis = np.array([[0, *dx_basis], [0, *dy_basis], [0, *dz_basis]])
             if cmplx=="real":
                 interp = RegularGridInterpolator(grid, np.real(quant[
-                                     point_idt-tol:point_idt+tol+1,
-                                     point_idx[0]-tol:point_idx[0]+tol+1,  # No fancy indexing allowed!                                                                                                                                                                                                                              
-                                     point_idx[1]-tol:point_idx[1]+tol+1,                                                                                                                                                                                                                              
-                                     point_idx[2]-tol:point_idx[2]+tol+1]),
+                                     point_idt-time_tol:point_idt+time_tol+1,
+                                     point_idx[0]-space_tol:point_idx[0]+space_tol+1,  # No fancy indexing allowed!                                                                                                                                                                                                                              
+                                     point_idx[1]-space_tol:point_idx[1]+space_tol+1,                                                                                                                                                                                                                              
+                                     point_idx[2]-space_tol:point_idx[2]+space_tol+1]),
                                                  method=int_method)
             elif cmplx=="imag":
                 interp = RegularGridInterpolator(grid, np.imag(quant[
-                                     point_idt-tol:point_idt+tol+1, 
-                                     point_idx[0]-tol:point_idx[0]+tol+1,
-                                     point_idx[1]-tol:point_idx[1]+tol+1,
-                                     point_idx[2]-tol:point_idx[2]+tol+1]),
+                                     point_idt-time_tol:point_idt+time_tol+1, 
+                                     point_idx[0]-space_tol:point_idx[0]+space_tol+1,
+                                     point_idx[1]-space_tol:point_idx[1]+space_tol+1,
+                                     point_idx[2]-space_tol:point_idx[2]+space_tol+1]),
                                                  method=int_method) 
         fields = interp(interpol_point)[0]
         if ((quant_name in efields) and INFOS["export_egrad"]) or ((quant_name in bfields) and INFOS["export_bgrad"]):
@@ -348,36 +351,41 @@ def fft_calc(field, time_arr, zero_padding_factor=2):
     return freq, freq_signal
 
 
+def wavelet_calc_sum(field, time_arr):
+    dt = time_arr[1]-time_arr[0]                                                                   
+    # freq_step = 1/dt                                                                               
+    # freq_arr = np.linspace(1, freq_step/2, 100)
+    f_min = const.c/1E-6  # IR light
+    f_max = const.c/2E-7  # UV light 
+    wavelet = 'cmor2-4'
+    scales = np.linspace(*pywt.frequency2scale(wavelet, [f_min, f_max])/dt, num=int(1E3))  # lam_res = (lam_c-lam_max)/(const.c/d_nu), from max to min to get ascending frequencies in return
+    #cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet="morl", sampling_period=dt)
+    cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet=wavelet, sampling_period=dt)
+    cwtmatr = np.abs(cwtmatr)
+    freq_sig_integrated = np.sum(cwtmatr, axis=1)/len(time_arr)  # mean signal on frequencies over all times 
+    return freqs, freq_sig_integrated                                                                                       
+
+
 def wavelet_calc(field, time_arr):
     dt = time_arr[1]-time_arr[0]                                                                   
-    freq_step = 1/dt                                                                               
-    freq_arr = np.linspace(1, freq_step/2, 100)
-    #scaleswtm = np.abs(signal.cwt(field, signal.morlet2, widths, w=w))                                  
-    f_min = 2.8E14 # IR light
-    f_max = 1E15 # UV light 
-    a_min = 1 / (f_max * dt)
-    a_max = 1 / (f_min * dt)
-    scales = np.linspace(a_min, a_max, num=int(1E3))  # lam_res = (lam_c-lam_max)/(const.c/d_nu)
-    cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet="morl", sampling_period=dt)
+    # freq_step = 1/dt                                                                               
+    # freq_arr = np.linspace(1, freq_step/2, 100)
+    # f_min = 2.8E14  # IR light
+    # f_max = 1E15  # UV light 
+    # a_min = 1 / (f_max * dt)
+    # a_max = 1 / (f_min * dt)
+    # scales = np.linspace(a_max, a_min, num=int(1E3))  # lam_res = (lam_c-lam_max)/(const.c/d_nu)
+    f_min = const.c/1E-6  # IR light
+    f_max = const.c/2E-7  # UV light 
+    wavelet = 'cmor2-4'
+    scales = np.linspace(*pywt.frequency2scale(wavelet, [f_min, f_max])/dt, num=int(1E3))  # lam_res = (lam_c-lam_max)/(const.c/d_nu), from max to min to get ascending frequencies in return
+    # cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet="morl", sampling_period=dt)
+    cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet=wavelet, sampling_period=dt)
+    # cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet="morl", sampling_period=dt)
     cwtmatr = np.abs(cwtmatr)
-    # plot result using matplotlib's pcolormesh (image with annoted axes)
-    #fig, axs = plt.subplots(2, 1)
-    #print(cwtmatr.shape, time_arr.shape, freqs.shape)
-    #pcm = axs[0].pcolormesh(time_arr, freqs, cwtmatr)
-    freq_sig_integrated = np.sum(cwtmatr, axis=1)/len(time_arr) # mean signal on frequencies over all times 
-    
-    #freq_sig_integrated = freq_sig_integrated.max()
-    # axs[1].plot(freqs, summed)
-    # axs[0].set_yscale("log")
-    # axs[0].set_xlabel("Time (s)")
-    # axs[0].set_ylabel("Frequency (Hz)")
-    # axs[0].set_title("Continuous Wavelet Transform (Scaleogram)")
-    # fig.colorbar(pcm, ax=axs[0])
-    # 
-    # plt.tight_layout()
-
-    #plt.show()
-    return freqs, freq_sig_integrated                                                                                       
+    # plt.plot(time_arr, field)
+    # plt.show()
+    return freqs, cwtmatr
 
 
 def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, time_arr):
@@ -394,57 +402,96 @@ def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, 
             shift+=6
 
         time_au_to_s = const.physical_constants["reduced Planck constant"][0]/const.physical_constants["Hartree energy"][0]
-        fft_field = question("Do you want to provide laser frequencies (0), perform FFT (1) or WT (2)?", int, [0])
-        match fft_field[0]:
-            case 0:
-                i_unit = question("Frequency unit: (0) nm, (1) Hz, (2) eV, (3) a.u.", int, 0)
-                laser_frequencies = question("Provide frequency list:", list, [None])
-                match i_unit[0]:
-                    case 0:
-                        log.info(f"Provided frequencies: {laser_frequencies} in nm")
-                        laser_frequencies = [time_au_to_s*(const.c/(freq*1E-9)) for freq in laser_frequencies]
-                    case 1:
-                        log.info(f"Provided frequencies: {laser_frequencies} in Hz")
-                        laser_frequencies *= time_au_to_s
-                    case 2: 
-                        log.info(f"Provided frequencies: {laser_frequencies} in eV")
-                        laser_frequencies *time_au_to_s/const.h 
-                    case 3:
-                        log.info(f"Provided frequencies: {laser_frequencies} in a.u.")
-                    case _:
-                        log.info(f"Did not understand input: {i_unit}!")
-            case 1:
-                fft_freq = [fft_calc(em_fields[field_idx], time_arr)[0] for field_idx in range(len(em_fields))]
-                fft_signal = [fft_calc(em_fields[field_idx], time_arr)[1] for field_idx in range(len(em_fields))]
-                fft_signal_max = [(fft_calc(em_fields[field_idx], time_arr)[1]).max() for field_idx in range(len(em_fields))]
-                freq_peaks = [find_peaks(fft_signal[field_idx], prominence=fft_signal_max[field_idx]/3., height=1E-7) for field_idx in range(len(em_fields))]  # print(len(fft_freq[0])i)
-                # Peak criteria: 20% prominence relative to the max. height, bigger than twice the average and 1E-8
-                for i in range(len(em_fields)):
-                    plt.plot(fft_freq[i], fft_signal[i])
-                    plt.plot(fft_freq[i][freq_peaks[i][0]], fft_signal[i][freq_peaks[i][0]], "rx")
-                    plt.show()
-                    # plt.plot(time_arr, em_fields[i], "b.")
-                    # plt.show()
-                freq_ex = np.hstack([fft_freq[0][peak[0]] for peak in freq_peaks])
-                print(freq_ex)
-                if len(freq_ex) == 0:
-                    log.info('Found no distinct frequencies!')
-                    raise IOError                                                    
-                return np.hstack([fft_freq[0][peak[0]] for peak in freq_peaks])
-                break
-            case 2:
-                freqs, freq_signals_summed = zip(*[wavelet_calc(em_fields[field_idx], time_arr) for field_idx in range(len(em_fields))])
-                freq_signals_summed_max = np.max(freq_signals_summed, axis = 1)
-                freq_peaks = [find_peaks(freq_signals_summed[field_idx], prominence=freq_signals_summed_max[field_idx]/5., height=1E-7) for field_idx in range(len(em_fields))]
-                for i in range(len(em_fields)):
-                    plt.plot(freqs[i], freq_signals_summed[i])
-                    plt.plot(freqs[i][freq_peaks[i][0]], freq_signals_summed[i][freq_peaks[i][0]], "rx")
-                    plt.show()
-                return np.hstack([freqs[0][peak[0]] for peak in freq_peaks])
-                break
-            case _:
-                log.info(f"Did not understand input: {fft_field}!")
-                continue
+        while True:
+            fft_field = question("Do you want to provide laser frequencies (0), perform FFT (1), perform WT (2)  or integrated WT (3)?", int, [0])
+            match fft_field[0]:
+                case 0:
+                    i_unit = question("Frequency unit: (0) nm, (1) Hz, (2) eV, (3) a.u.", int, 0)
+                    laser_frequencies = question("Provide frequency list:", list, [None])
+                    match i_unit[0]:
+                        case 0:
+                            log.info(f"Provided frequencies: {laser_frequencies} in nm")
+                            laser_frequencies = [time_au_to_s*(const.c/(freq*1E-9)) for freq in laser_frequencies]
+                        case 1:
+                            log.info(f"Provided frequencies: {laser_frequencies} in Hz")
+                            laser_frequencies *= time_au_to_s
+                        case 2: 
+                            log.info(f"Provided frequencies: {laser_frequencies} in eV")
+                            laser_frequencies *time_au_to_s/const.h 
+                        case 3:
+                            log.info(f"Provided frequencies: {laser_frequencies} in a.u.")
+                        case _:
+                            log.info(f"Did not understand input: {i_unit}!")
+                case 1:
+                    fft_freq = [fft_calc(em_fields[field_idx], time_arr)[0] for field_idx in range(len(em_fields))]
+                    fft_signal = [fft_calc(em_fields[field_idx], time_arr)[1] for field_idx in range(len(em_fields))]
+                    fft_signal_max = [(fft_calc(em_fields[field_idx], time_arr)[1]).max() for field_idx in range(len(em_fields))]
+                    freq_peaks = [find_peaks(fft_signal[field_idx], prominence=fft_signal_max[field_idx]/3., height=1E-7) for field_idx in range(len(em_fields))]  # indices of found  peaks
+                    # Peak criteria: 20% prominence relative to the max. height, bigger than twice the average and 1E-8
+                    # for i in range(len(em_fields)):
+                    #     plt.plot(fft_freq[i], fft_signal[i])
+                    #     plt.plot(fft_freq[i][freq_peaks[i][0]], fft_signal[i][freq_peaks[i][0]], "rx")
+                    #     plt.show()
+                    #     # plt.plot(time_arr, em_fields[i], "b.")
+                    #     # plt.show()
+                    freq_ex = np.hstack([fft_freq[0][peak[0]] for peak in freq_peaks])
+                    if len(freq_ex) == 0:
+                        log.info('Found no distinct frequencies!')
+                        raise IOError                                                    
+                    return np.vstack([freq_ex for t_el in time_arr])
+                    break
+                case 2:
+                    freqs, freq_signals_per_time = zip(*[wavelet_calc(em_fields[field_idx], time_arr) for field_idx in range(len(em_fields))])
+                    freq_signals_summed_max = np.max(freq_signals_per_time, axis = (1, 2))  # Maximum over all times and frequencies for one field
+                    max_no_of_peaks = 0 
+                    for field_idx in range(len(em_fields)):
+                        for t_idx in range(len(time_arr)):
+                            a, _ = find_peaks(freq_signals_per_time[field_idx][:, t_idx], prominence=freq_signals_summed_max[field_idx]/5., height=1E-7)
+                            if len(a) > max_no_of_peaks:
+                                max_no_of_peaks = len(a)
+                    freq_peaks = np.zeros((len(em_fields), len(time_arr), max_no_of_peaks), int)
+                    for field_idx in range(len(em_fields)):
+                        for t_idx in range(len(time_arr)):
+                            freqs_field_time, _ = find_peaks(freq_signals_per_time[field_idx][:, t_idx], prominence=freq_signals_summed_max[field_idx]/5., height=1E-7)
+                            freqs_field_time = freqs_field_time[freqs_field_time != len(freq_signals_per_time[0][:, 0])-1]  # filter out last value
+                            if len(freqs_field_time) != 0:
+                                freq_peaks[field_idx, t_idx, :len(freqs_field_time)] = np.array([freqs[0][freqs_field_time]])  # frequencies of peaks per field per time
+                            #plot
+                            #if len(freqs_field_time) != 0:
+                            #    freq_peaks[field_idx, t_idx, :len(freqs_field_time)] = np.array([freqs_field_time])  # frequencies of peaks per field per time
+                            # for t_i in range(len(time_arr)):
+                            #     if freq_peaks[field_idx, t_i, 0] != int(0):
+                            #         plt.plot(freqs[0], freq_signals_per_time[0][:, t_i], "b-")
+                            #         for freq_idx in range(len(freq_peaks[0, 0, :])):
+                            #             print(freq_peaks[field_idx, t_i, freq_idx])
+                            #             plt.plot(freqs[0][freq_peaks[field_idx, t_i, freq_idx]], freq_signals_per_time[0][freq_peaks[field_idx, t_i, freq_idx], t_i], "rx")
+                            #         plt.show()
+                        #plt.pcolormesh(time_arr, freqs[field_idx], freq_signals_per_time[field_idx])#, aspect='auto', origin='lower', extent=[time_arr[0], time_arr[-1], freqs[field_idx][0], freqs[field_idx][-1]])
+                        #plt.scatter(time_arr, freqs[0][freq_peaks[field_idx, :, :]])
+                        #plt.show()
+                    freq_peaks = np.einsum('ijk->jki', freq_peaks).reshape(len(time_arr), -1)
+                    freq_peaks = freq_peaks[:, np.any(freq_peaks != 0, axis=0)] 
+                    freq_peaks = np.unique(freq_peaks, axis=1)
+                    return freq_peaks 
+                    break
+                case 3:
+                    freqs, freq_signals_summed = zip(*[wavelet_calc_sum(em_fields[field_idx], time_arr) for field_idx in range(len(em_fields))])
+                    freq_signals_summed_max = np.max(freq_signals_summed, axis = 1)
+                    freq_peaks, _ = zip(*[find_peaks(freq_signals_summed[field_idx], prominence=freq_signals_summed_max[field_idx]/5., height=1E-7) for field_idx in range(len(em_fields))])
+                    freq_peaks = np.hstack(freq_peaks)
+                    if len(freq_peaks) != 0:
+                        print(freq_peaks)
+                        freq_peaks = np.array([freqs[0][freq] for freq in freq_peaks])
+                    # for i in range(len(em_fields)):
+                    #     plt.plot(freqs[i], freq_signals_summed[i])
+                    #     plt.plot(freqs[i][freq_peaks[i][0]], freq_signals_summed[i][freq_peaks[i][0]], "rx")
+                    #     plt.show()
+                    return np.vstack([freq_peaks for t_idx, t_el in enumerate(time_arr)])
+                    break
+                case _:
+                    log.info(f"Did not understand input: {fft_field}!")
+                    continue
+
 
 def main():
     '''Main routine'''
@@ -487,30 +534,29 @@ def main():
         egrad_write_shift = b_write_shift+6*int(INFOS["export_b"])
         bgrad_write_shift = egrad_write_shift+18*int(INFOS["export_egrad"])
         no_of_columns = bgrad_write_shift+18*int(INFOS["export_bgrad"])
-        head_line_length = 16*no_of_columns-2
         # Initialize laser fields file
-        laser_file = np.full((len(int_t_arr), no_of_columns), np.nan)  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
+        laser_file = np.zeros((len(int_t_arr), no_of_columns))  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
         laser_file[:, 0] = int_t_arr*1E15  # SAVE timesteps in fs
         if INFOS["export_e"] or INFOS["export_egrad"]:
 
             for fld_count, fld in enumerate(efields):
                 fld_arr = np.asarray(h5py.File(INFOS["sim_file_path"], "r")[fld])
                 fields_gradients_real = [None]*len(int_t_arr)
-                fields_gradients_imag = [None]*len(int_t_arr)
+                #fields_gradients_imag = [None]*len(int_t_arr)
                 for t_count, t_i in enumerate(int_t_arr):
-                    fields_gradients_real[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, fld_arr, "real", t_i, point_idx, tolerance, int_method)
-                    fields_gradients_imag[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, fld_arr, "imag", t_i, point_idx, tolerance, int_method)
+                    fields_gradients_real[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, fld_arr, "real", t_i, point_idx, space_tolerance, time_tolerance, int_method)
+                    #fields_gradients_imag[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, fld_arr, "imag", t_i, point_idx, tolerance, int_method)
                     done = t_count * progress_width // len(int_t_arr)
                     sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
                 sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
                 fields_gradients_real = np.asarray(fields_gradients_real)
-                fields_gradients_imag = np.asarray(fields_gradients_imag)  
+                #fields_gradients_imag = np.asarray(fields_gradients_imag)  
                 if INFOS["export_e"]:
                     laser_file[:, e_write_shift+fld_count*2] = fields_gradients_real[:, 0]/efield_au_to_v_per_m
-                    laser_file[:, e_write_shift+1+fld_count*2] = fields_gradients_imag[:, 0]/efield_au_to_v_per_m
+                    #laser_file[:, e_write_shift+1+fld_count*2] = fields_gradients_imag[:, 0]/efield_au_to_v_per_m
                 if INFOS["export_egrad"]:
                     laser_file[:, egrad_write_shift+fld_count*6], laser_file[:, egrad_write_shift+2+fld_count*6], laser_file[:, egrad_write_shift+4+fld_count*6] =  (fields_gradients_real[:, 1:]/efield_grad_au_to_v_per_m2).T 
-                    laser_file[:, egrad_write_shift+1+fld_count*6], laser_file[:, egrad_write_shift+3+fld_count*6], laser_file[:, egrad_write_shift+5+fld_count*6] =  (fields_gradients_imag[:, 1:]/efield_grad_au_to_v_per_m2).T 
+                    #laser_file[:, egrad_write_shift+1+fld_count*6], laser_file[:, egrad_write_shift+3+fld_count*6], laser_file[:, egrad_write_shift+5+fld_count*6] =  (fields_gradients_imag[:, 1:]/efield_grad_au_to_v_per_m2).T 
             log.info("E-field/E-gradients extracted!")
         if INFOS["export_b"] or INFOS["export_bgrad"]:
             log.info("Interpolating B-fields/Gradients and writing to laser file:") 
@@ -519,8 +565,8 @@ def main():
                 fields_gradients_real = [None] * len(int_t_arr)
                 fields_gradients_imag = [None] * len(int_t_arr)
                 for t_count, t_i in enumerate(int_t_arr):
-                    fields_gradients_real[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, fld_arr, "real", t_i, point_idx, tolerance, int_method)
-                    fields_gradients_imag[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld , fld_arr, "imag", t_i, point_idx, tolerance, int_method)
+                    fields_gradients_real[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld, fld_arr, "real", t_i, point_idx, space_tolerance, time_tolerance, int_method)
+                    fields_gradients_imag[t_count] = calc_fields(INFOS, t_arr, rx_arr, y_arr, z_arr, fld , fld_arr, "imag", t_i, point_idx, space_tolerance, time_tolerance, int_method)
                     done = t_count * progress_width // len(int_t_arr)
                     sys.stdout.write("\rProgress for component '%s': [" % (fld) + "=" * done + " " * (progress_width - done) + "] %3i%%" % (done * 100 // progress_width))
                 sys.stdout.write("\rProgress for component '%s': ["  % (fld) + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))
@@ -536,6 +582,10 @@ def main():
         
         # Obtain frequencies from laser simulation
         freq_arr = extract_frequencies(laser_file, INFOS["export_e"], INFOS["export_b"], INFOS["export_egrad"], INFOS["export_bgrad"], int_t_arr)
+        freq_arr = np.asarray(freq_arr)
+
+        head_line_length = 16*(no_of_columns + freq_arr.shape[1]) - 2
+        laser_file = np.hstack((laser_file, freq_arr))
         # SAVE LASER FILE
         # header = "t/fs , Re[Erho/x] (au), Im[Erho/x] (au), Re[Ephi/y] (au), Im[Ephi/y] (au), Re[Ez] (au), Im[Ez] (au), \
         # Re[Brho/x] (au), Im[Brho/x] (au), Re[Bphi/y] (au), Im[Brho/y] (au), Re[Bz] (au), Im[Bz] (au)"
@@ -562,7 +612,8 @@ def main():
                                                "Re(By_grad_x)", "Im(By_grad_x)", "Re(By_grad_y)", "Im(By_grad_y)", "Re(By_grad_z)", "Im(By_grad_z)",
                                                "Re(Bz_grad_x)", "Im(Bz_grad_x)", "Re(Bz_grad_y)", "Im(Bz_grad_y)", "Re(Bz_grad_z)", "Im(Bz_grad_z)"]
             if INFOS["export_bgrad"]]
-        
+        [field_columns.append(val) for val in ["Freq."]*freq_arr.shape[1]]
+
         unit_columns = ["[fs]"]+["a.u."]*(len(field_columns)-1)
         # {"[fs] |":>14} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} 
         #{"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} {"[a.u.] |":>17} 
