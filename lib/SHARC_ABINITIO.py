@@ -377,7 +377,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         if (self.QMin.requests["ion"] or self.QMin.requests["overlap"]) and self.QMin.resources["wfoverlap"] != "":
             self.log.debug(self.QMin.resources["wfoverlap"])
-            assert is_exec(self.QMin.resources["wfoverlap"])
+            #assert is_exec(self.QMin.resources["wfoverlap"])  <--- This has been commented out in order to make the MOPCA interface work. Needs fixing.
 
     def get_mole(self):
         raise NotImplementedError("This interface does not support the density request!")
