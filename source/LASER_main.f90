@@ -41,7 +41,9 @@ program create_laser
   integer :: ilasers
   integer :: ip_xyz ! index running over the polarization directions x,y,z
  ! integer :: id_xyz ! index running over the gradient directions x,y,z
-  integer :: it
+  integer :: it, j
+  character(len=1000) :: fmt
+  character(len=:), allocatable :: freq_str, unit_str
 !   integer :: NE
 !   integer :: max_polarizaton_index(1)
   
@@ -102,6 +104,7 @@ program create_laser
       enddo
     enddo
   enddo
+
   write(6,*) 'Writing out laser field'
   open (10,file='laser')
   ! Write the header information
@@ -122,99 +125,99 @@ program create_laser
   endif  
   write(10, '(a)') ' ! e-field_gradients false'
   write(10, '(a)') ' ! b-field_gradients false'
-  write(10, '(a)') ' ! laser_freq_path laser_freq'
-  if (export_field_settings==0) then 
-    write(10, '(a)') ' #' // adjustl(repeat('=', 218))
-    write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17)') & 
-                                        ' # ', 'Time |', 'Re(Ex) |', 'Im(Ex) |', 'Re(Ey) |', 'Im(Ey) |', 'Re(Ez) |', 'Im(Ez) |', & 
-                                                         'Re(Bx) |', 'Im(Bx) |', 'Re(By) |', 'Im(By) |', 'Re(Bz) |', 'Im(Bz) |'!,
-    write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17)') &
-                                       ' # ', '[fs] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', &
-                                                        '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |'
-    write(10, '(a)') ' #' // adjustl(repeat('=', 218))
-  elseif (export_field_settings==1) then 
-    write(10, '(a)') ' #' // adjustl(repeat('=', 116))
-    write(10, '(A2, A14, A17, A17, A17, A17, A17, A17)') & 
-                                        ' # ', 'Time |', 'Re(Ex) |', 'Im(Ex) |', 'Re(Ey) |', 'Im(Ey) |', 'Re(Ez) |', 'Im(Ez) |' 
-    write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17)') &
-                                       ' # ', '[fs] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |'
-    write(10, '(a)') ' #' // adjustl(repeat('=', 116))
-  elseif (export_field_settings==2) then 
-    write(10, '(a)') ' #' // adjustl(repeat('=', 116))
-    write(10, '(A2, A14, A17, A17, A17, A17, A17, A17)') & 
-                                        ' # ', 'Time |', 'Re(Bx) |', 'Im(Bx) |', 'Re(By) |', 'Im(By) |', 'Re(Bz) |', 'Im(Bz) |' 
-    write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17)') &
-                                       ' # ', '[fs] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |'
-    write(10, '(a)') ' #' // adjustl(repeat('=', 116))
+
+
+  freq_str = repeat('          Freq. |', Nlasers)
+  unit_str = repeat('         [a.u.] |', Nlasers)
+  if (export_field_settings==0) then
+      write(10, '(a)') ' #' // adjustl(repeat('=', 218 + 17*Nlasers))  ! Adjust the length of the line
+      write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, a)') & 
+          ' # ', 'Time |', 'Re(Ex) |', 'Im(Ex) |', 'Re(Ey) |', 'Im(Ey) |', 'Re(Ez) |', 'Im(Ez) |', &
+          'Re(Bx) |', 'Im(Bx) |', 'Re(By) |', 'Im(By) |', 'Re(Bz) |', 'Im(Bz) |', freq_str
+      write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, A17, a)') & 
+          ' # ', '[fs] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', &
+          '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', unit_str
+      write(10, '(a)') ' #' // adjustl(repeat('=', 218 + 17*Nlasers))  ! Adjust the length of the line
+  elseif (export_field_settings==1) then
+      write(10, '(a)') ' #' // adjustl(repeat('=', 116 + 17*Nlasers))  ! Adjust the length of the line
+      write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, a)') &
+          ' # ', 'Time |', 'Re(Ex) |', 'Im(Ex) |', 'Re(Ey) |', 'Im(Ey) |', 'Re(Ez) |', 'Im(Ez) |', freq_str
+      write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, a)') &
+          ' # ', '[fs] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', unit_str
+      write(10, '(a)') ' #' // adjustl(repeat('=', 116 + 17*Nlasers))  ! Adjust the length of the line
+  elseif (export_field_settings==2) then
+      write(10, '(a)') ' #' // adjustl(repeat('=', 116 + 17*Nlasers))  ! Adjust the length of the line
+      write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, a)') &
+          ' # ', 'Time |', 'Re(Bx) |', 'Im(Bx) |', 'Re(By) |', 'Im(By) |', 'Re(Bz) |', 'Im(Bz) |', freq_str
+      write(10, '(A2, A14, A17, A17, A17, A17, A17, A17, a)') &
+          ' # ', '[fs] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', '[a.u.] |', unit_str
+      write(10, '(a)') ' #' // adjustl(repeat('=', 116 + 17*Nlasers))  ! Adjust the length of the line
   endif
-  write(10, '(a)') ''
+  
   do it = 1,Nt
     t = t0 + (it-1) * dt
     if (realvalued) then
-      if (export_field_settings==0) then
-        write(10,'(15(ES16.8,x))') t*au2fs, &
-                                dble(laser_efield(it,1)), 0.d0, &
-                                dble(laser_efield(it,2)), 0.d0, &
-                                dble(laser_efield(it,3)), 0.d0, &
-                                dble(laser_bfield(it,1)), 0.d0, &
-                                dble(laser_bfield(it,2)), 0.d0, &
-                                dble(laser_bfield(it,3)), 0.d0   
-      else if (export_field_settings==1) then
-        write(10,'(7(ES16.8,x))') t*au2fs, &
-                               dble(laser_efield(it,1)), 0.d0, &
-                               dble(laser_efield(it,2)), 0.d0, &
-                               dble(laser_efield(it,3)), 0.d0
-      else if (export_field_settings==2) then
-        write(10,'(7(ES16.8,x))') t*au2fs, &
-                               dble(laser_bfield(it,1)), 0.d0, &
-                               dble(laser_bfield(it,2)), 0.d0, &
-                               dble(laser_bfield(it,3)), 0.d0
+      if (export_field_settings == 0) then
+        !write(10, '(15(ES16.8,x), ', ilasers, '(ES16.8,x))') t*au2fs, &
+        write(fmt, '(A, I0, A)') '(15(ES16.8,1X), ', Nlasers, '(ES16.8,1X))'
+        write(10, fmt) t*au2fs, &
+              dble(laser_efield(it, 1)), 0.d0, &
+              dble(laser_efield(it, 2)), 0.d0, &
+              dble(laser_efield(it, 3)), 0.d0, &
+              dble(laser_bfield(it, 1)), 0.d0, &
+              dble(laser_bfield(it, 2)), 0.d0, &
+              dble(laser_bfield(it, 3)), 0.d0, &
+              (mom_freq(it, j), j = 1, Nlasers)
+      else if (export_field_settings == 1) then
+        ! write(10, '(7(ES16.8,x), ', ilasers, '(ES16.8,x))') t*au2fs, &
+        write(fmt, '(A, I0, A)') '(7(ES16.8,1X), ', Nlasers, '(ES16.8,1X))'
+        write(10, fmt) t*au2fs, &
+              dble(laser_efield(it, 1)), 0.d0, &
+              dble(laser_efield(it, 2)), 0.d0, &
+              dble(laser_efield(it, 3)), 0.d0, &
+              (mom_freq(it, j), j = 1, Nlasers)
+      else if (export_field_settings == 2) then
+        ! write(10, '(7(ES16.8,x), ', Nlasers, '(ES16.8,x))') t*au2fs, &
+        write(fmt, '(A, I0, A)') '(7(ES16.8,1X), ', Nlasers, '(ES16.8,1X))'
+        write(10, fmt) t*au2fs, &
+              dble(laser_bfield(it, 1)), 0.d0, &
+              dble(laser_bfield(it, 2)), 0.d0, &
+              dble(laser_bfield(it, 3)), 0.d0, &
+              (mom_freq(it, j), j = 1, Nlasers)
       endif
-    else
+    else 
       if (export_field_settings==0) then
-        write(10,'(15(ES16.8,x))') t*au2fs, & 
-                             dble(laser_efield(it,1)), aimag(laser_efield(it,1)), &
-                             dble(laser_efield(it,2)), aimag(laser_efield(it,2)), &
-                             dble(laser_efield(it,3)), aimag(laser_efield(it,3)), &
-                             dble(laser_bfield(it,1)), aimag(laser_bfield(it,1)), &
-                             dble(laser_bfield(it,2)), aimag(laser_bfield(it,2)), &
-                             dble(laser_bfield(it,3)), aimag(laser_bfield(it,3))
-      else if (export_field_settings==1) then
-        write(10,'(7(ES16.8,x))') t*au2fs, & 
-                             dble(laser_efield(it,1)), aimag(laser_efield(it,1)), &
-                             dble(laser_efield(it,2)), aimag(laser_efield(it,2)), &
-                             dble(laser_efield(it,3)), aimag(laser_efield(it,3))
-      else if (export_field_settings==2) then
-        write(10,'(7(ES16.8,x))') t*au2fs, &
-                             dble(laser_bfield(it,1)), aimag(laser_bfield(it,1)), &
-                             dble(laser_bfield(it,2)), aimag(laser_bfield(it,2)), &
-                             dble(laser_bfield(it,3)), aimag(laser_bfield(it,3))
+        ! write(10, '(15(ES16.8,x), ', Nlasers, '(ES16.8,x))') t*au2fs, &
+        write(fmt, '(A, I0, A)') '(15(ES16.8,1X), ', Nlasers, '(ES16.8,1X))'
+        write(10, fmt) t*au2fs, &
+              dble(laser_efield(it, 1)), aimag(laser_efield(it, 1)), &
+              dble(laser_efield(it, 2)), aimag(laser_efield(it, 2)), &
+              dble(laser_efield(it, 3)), aimag(laser_efield(it, 3)), &
+              dble(laser_bfield(it, 1)), aimag(laser_bfield(it, 1)), &
+              dble(laser_bfield(it, 2)), aimag(laser_bfield(it, 2)), &
+              dble(laser_bfield(it, 3)), aimag(laser_bfield(it, 3)), &
+              (mom_freq(it, j), j = 1, Nlasers)
+      else if (export_field_settings == 1) then
+        ! write(10, '(7(ES16.8,x), ', Nlasers, '(ES16.8,x))') t*au2fs, &
+        write(fmt, '(A, I0, A)') '(7(ES16.8,1X), ', Nlasers, '(ES16.8,1X))'
+        write(10, fmt) t*au2fs, &
+              dble(laser_efield(it, 1)), aimag(laser_efield(it, 1)), &
+              dble(laser_efield(it, 2)), aimag(laser_efield(it, 2)), &
+              dble(laser_efield(it, 3)), aimag(laser_efield(it, 3)), &
+              (mom_freq(it, j), j = 1, Nlasers)
+      else if (export_field_settings == 2) then
+        ! write(10, '(7(ES16.8,x), ', Nlasers, '(ES16.8,x))') t*au2fs, &
+        write(fmt, '(A, I0, A)') '(7(ES16.8,1X), ', Nlasers, '(ES16.8,1X))'
+        write(10, fmt) t*au2fs, &
+              dble(laser_bfield(it, 1)), aimag(laser_bfield(it, 1)), &
+              dble(laser_bfield(it, 2)), aimag(laser_bfield(it, 2)), &
+              dble(laser_bfield(it, 3)), aimag(laser_bfield(it, 3)), &
+              (mom_freq(it, j), j = 1, Nlasers)
       endif
     endif 
   enddo
   close (10)
   
-  write(6,*) 'Writing out laser frequency'
-  
-  open (10,file='laser_freq')
-  ! Write the header information
-  write(10, '(a)') ' ! laser frequency file'
-  write(10, '(a)') ' ! SHARC 4.0'
-  write(10, '(a)') ' ! file_version 2.0' 
-  write(10, '(a)') ' #' // adjustl(repeat('=',31))
-  write(10, '(A2, A14, A17)') & 
-            ' # ', 'Time |', 'Frequency |'
-   write(10, '(A2, A14, A17)') &
-             ' # ', '[fs] |', '[a.u.] |'
-  write(10, '(a)') ' #' // adjustl(repeat('=', 31))
-  write(10, '(a)') ''
-  do it = 1,Nt
-    t = t0 + (it-1) * dt
-    write(10,'(107(e16.8,x))') t*au2fs, &
-                            (mom_freq(it,ilasers),ilasers=1,Nlasers)
-  enddo
-  close (10)
-
   if ((export_field_settings==0) .OR. (export_field_settings==1)) then  
     deallocate (polarization_e)
     deallocate (laser_efield)

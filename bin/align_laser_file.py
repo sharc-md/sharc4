@@ -84,7 +84,7 @@ def custom_formatter(val: float):
             val=0.0
     val_form = '{:.8e}'.format(val)  # Format with 3 digits for the exponent
     mantissa, exponent = val_form.split('e')
-    sign = '   ' if float(mantissa) >= 0 else '  '  # Check if positive
+    sign = '  ' if float(mantissa) >= 0 else ' '  # Check if positive
     return f'{sign}{mantissa}E{exponent[0]}{exponent[1:].zfill(2)}'
 
 
@@ -176,13 +176,13 @@ def rotate_matrix(laser_file_path, rot_mat_file_path, INFOS):
         log.info(f'No valid rotational matrix!')
         raise IOError
         
-    e_write_shift = int(0)                                             
-    b_write_shift = e_write_shift+6*int(INFOS["e_field"])             
-    egrad_write_shift = b_write_shift+6*int(INFOS["b_field"])  
-    bgrad_write_shift = egrad_write_shift+18*int(INFOS["e_field_gradients"])
-    no_of_columns = bgrad_write_shift+18*int(INFOS["b_field_gradients"])    
+    # b_write_shift = e_write_shift+6*int(INFOS["e_field"])             
+    # egrad_write_shift = b_write_shift+6*int(INFOS["b_field"])  
+    # bgrad_write_shift = egrad_write_shift+18*int(INFOS["e_field_gradients"])
+    # no_of_columns = bgrad_write_shift+18*int(INFOS["b_field_gradients"])    
     for line_no, line in enumerate(laser_file):
         done = int(line_no * progress_width // laser_file.shape[0])
+        write_shift = int(0)                                             
         #log.info(done,laser_file.shape[0])
         #log.info(line_no)
         sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
@@ -194,18 +194,22 @@ def rotate_matrix(laser_file_path, rot_mat_file_path, INFOS):
             result=result+[efield_real[0], efield_imag[0], 
                            efield_real[1], efield_imag[1],
                            efield_real[2], efield_imag[2]]
+            write_shift += 6
         if str(INFOS["b_field"]).lower() in posresponse:
-            bfield_real = np.matmul(line[1+b_write_shift:6+b_write_shift:2], rot_mat) 
-            bfield_imag = np.matmul(line[2+b_write_shift:7+b_write_shift:2], rot_mat) 
+            bfield_real = np.matmul(line[1+write_shift:6+write_shift:2], rot_mat) 
+            bfield_imag = np.matmul(line[2+write_shift:7+write_shift:2], rot_mat) 
             result=result+[bfield_real[0], bfield_imag[0],
                            bfield_real[1], bfield_imag[1],
                            bfield_real[2], bfield_imag[2]]
+            write_shift += 6
         if str(INFOS["e_field_gradients"]).lower() in posresponse:
-            efield_grad_real =  (rot_mat @ np.reshape(line[1+egrad_write_shift:18+egrad_write_shift:2], (3, 3)) @ rot_mat.T).flatten() 
-            efield_grad_imag =  (rot_mat @ np.reshape(line[2+egrad_write_shift:19+egrad_write_shift:2], (3, 3)) @ rot_mat.T).flatten() 
+            efield_grad_real =  (rot_mat @ np.reshape(line[1+write_shift:18+write_shift:2], (3, 3)) @ rot_mat.T).flatten() 
+            efield_grad_imag =  (rot_mat @ np.reshape(line[2+write_shift:19+write_shift:2], (3, 3)) @ rot_mat.T).flatten() 
             result=result+[item for pair in zip(efield_grad_real, efield_grad_imag) for item in pair]
-
+            write_shift += 18
+        result = result+[freq for freq in line[1+write_shift:]]
         rot_laser_fields.append(result)
+        #print(rot_laser_fields, line_no)
     
     return rot_laser_fields
 
@@ -304,7 +308,6 @@ def main():
         rot_laser_fields = rotate_matrix(INFOS["laser_file_path"], INFOS["rot_mat_file_path"], INFOS) 
     else:
         rot_laser_fields = rotate_matrix_old(INFOS["laser_file_path"], INFOS["rot_mat_file_path"], INFOS)
-
     sys.stdout.write("\rTransformation progress: [" + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))                                   
     sys.stdout.flush()
     formatted_laser_file = np.array([[" "]+[custom_formatter(val) for val in row] for row in rot_laser_fields], dtype=str)

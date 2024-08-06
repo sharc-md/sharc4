@@ -1067,15 +1067,20 @@ subroutine post_process_data(ISecond)
     traj%H_diag_ss=traj%H_MCH_ss
     ! if laser field, add it here, without imaginary part
     if (ctrl%laser==2) then
-      do i=1,3
-        traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
-      enddo
+      if (ctrl%laser_e==.true.) then
+        write(0,*) "laser_e true"
+        do i=1,3
+          traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
+        enddo
+      endif
       if (ctrl%laser_b==.true.) then
+        write(0,*) "laser_b true"
         do i=1,3
           traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,i)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,i))
         enddo 
       endif
       if (ctrl%laser_egrad==.true.) then
+        write(0,*) "laser_egrad"
         do i=1,3
           do j=1,3
             traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,i,j)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,i,j))

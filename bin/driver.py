@@ -93,7 +93,6 @@ class QMOUT:
                 self._QMout.set_dipolemoment(data["dm"].tolist())
                 log.debug("setting dm")
             if "mdm" in data:
-                #log.info(data["dm"])
                 self._QMout.set_mag_dipolemoment(data["mdm"].tolist())
                 log.debug("setting mdm")
             if "eqm" in data:

@@ -64,6 +64,7 @@ bfield_au_to_t = const.electron_mass*const.physical_constants["Hartree energy"][
 efield_grad_au_to_v_per_m2 = efield_au_to_v_per_m/const.physical_constants["Bohr radius"][0]     
 bfield_grad_au_to_t_per_m =  bfield_au_to_t/const.physical_constants["Bohr radius"][0]    
 
+time_au_to_s = const.physical_constants["Planck constant"][0]/const.physical_constants["Hartree energy"][0]
 
 int_method = "cubic"                 
 space_tolerance = 2  # only one works for now
@@ -256,7 +257,7 @@ def get_general(INFOS):
     export_e = question('Export electric field:', bool, True)  # Default time step 
     export_b = question('Export magnetic field:', bool, True)  # Default time step 
     export_egrad = question('Export electric field gradients:', bool, True)  # Default time step 
-    export_bgrad = question('Export magnetic field gradients:', bool, True)  # Default time step 
+    export_bgrad = False  # question('Export magnetic field gradients:', bool, True)  # Default time step 
     if not export_e and not export_b and not export_egrad and not export_bgrad: 
         log.info('Nothing to export!')
         raise IOError
@@ -357,8 +358,8 @@ def wavelet_calc_sum(field, time_arr):
     # freq_arr = np.linspace(1, freq_step/2, 100)
     f_min = const.c/1E-6  # IR light
     f_max = const.c/2E-7  # UV light 
-    wavelet = 'cmor2-4'
-    scales = np.linspace(*pywt.frequency2scale(wavelet, [f_min, f_max])/dt, num=int(1E3))  # lam_res = (lam_c-lam_max)/(const.c/d_nu), from max to min to get ascending frequencies in return
+    wavelet = 'cmor2-5'
+    scales = np.linspace(*pywt.frequency2scale(wavelet, [f_min, f_max])/dt, num=int(1E4))  # lam_res = (lam_c-lam_max)/(const.c/d_nu), from max to min to get ascending frequencies in return
     #cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet="morl", sampling_period=dt)
     cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet=wavelet, sampling_period=dt)
     cwtmatr = np.abs(cwtmatr)
@@ -377,8 +378,8 @@ def wavelet_calc(field, time_arr):
     # scales = np.linspace(a_max, a_min, num=int(1E3))  # lam_res = (lam_c-lam_max)/(const.c/d_nu)
     f_min = const.c/1E-6  # IR light
     f_max = const.c/2E-7  # UV light 
-    wavelet = 'cmor2-4'
-    scales = np.linspace(*pywt.frequency2scale(wavelet, [f_min, f_max])/dt, num=int(1E3))  # lam_res = (lam_c-lam_max)/(const.c/d_nu), from max to min to get ascending frequencies in return
+    wavelet = 'cmor2-5'
+    scales = np.linspace(*pywt.frequency2scale(wavelet, [f_min, f_max])/dt, num=int(1E4))  # lam_res = (lam_c-lam_max)/(const.c/d_nu), from max to min to get ascending frequencies in return
     # cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet="morl", sampling_period=dt)
     cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet=wavelet, sampling_period=dt)
     # cwtmatr, freqs = pywt.cwt(field, scales=scales, wavelet="morl", sampling_period=dt)
@@ -386,6 +387,27 @@ def wavelet_calc(field, time_arr):
     # plt.plot(time_arr, field)
     # plt.show()
     return freqs, cwtmatr
+
+
+# Function to convert frequencies based on the unit
+def convert_frequencies(laser_frequencies, i_unit):
+    match i_unit[0]:
+        case 0:
+            #log.info(f"Provided frequencies: {laser_frequencies} in nm")
+            return [time_au_to_s * (const.c / (freq * 1E-9)) for freq in laser_frequencies]
+        case 1:
+            #log.info(f"Provided frequencies: {laser_frequencies} in Hz")
+            return [freq * time_au_to_s for freq in laser_frequencies]
+        case 2:
+            #log.info(f"Provided frequencies: {laser_frequencies} in eV")
+            return [freq * time_au_to_s / const.h for freq in laser_frequencies]
+        case 3:
+            #log.info(f"Provided frequencies: {laser_frequencies} in a.u.")
+            return laser_frequencies
+        case _:
+            log.info(f"Did not understand input: {i_unit}!")
+            return None
+
 
 
 def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, time_arr):
@@ -401,40 +423,30 @@ def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, 
             em_fields += [comp*const.c for comp in bfield]  # B-field amplitude match to E-field for weighting 
             shift+=6
 
-        time_au_to_s = const.physical_constants["reduced Planck constant"][0]/const.physical_constants["Hartree energy"][0]
         while True:
             fft_field = question("Do you want to provide laser frequencies (0), perform FFT (1), perform WT (2)  or integrated WT (3)?", int, [0])
             match fft_field[0]:
                 case 0:
-                    i_unit = question("Frequency unit: (0) nm, (1) Hz, (2) eV, (3) a.u.", int, 0)
-                    laser_frequencies = question("Provide frequency list:", list, [None])
-                    match i_unit[0]:
-                        case 0:
-                            log.info(f"Provided frequencies: {laser_frequencies} in nm")
-                            laser_frequencies = [time_au_to_s*(const.c/(freq*1E-9)) for freq in laser_frequencies]
-                        case 1:
-                            log.info(f"Provided frequencies: {laser_frequencies} in Hz")
-                            laser_frequencies *= time_au_to_s
-                        case 2: 
-                            log.info(f"Provided frequencies: {laser_frequencies} in eV")
-                            laser_frequencies *time_au_to_s/const.h 
-                        case 3:
-                            log.info(f"Provided frequencies: {laser_frequencies} in a.u.")
-                        case _:
-                            log.info(f"Did not understand input: {i_unit}!")
+                    i_unit = question("Frequency unit: (0) nm, (1) Hz, (2) eV, (3) a.u.", int, [0])
+                    laser_frequencies = question("Provide frequency list:", float, [0.0])
+                    laser_frequencies = convert_frequencies(laser_frequencies, i_unit)
+                    if laser_frequencies is not None:
+                        log.info(f"Calculated laser frequencies: {laser_frequencies} in a.u.")
+                        return np.vstack([laser_frequencies for t_el in time_arr])
+                        break
                 case 1:
-                    fft_freq = [fft_calc(em_fields[field_idx], time_arr)[0] for field_idx in range(len(em_fields))]
-                    fft_signal = [fft_calc(em_fields[field_idx], time_arr)[1] for field_idx in range(len(em_fields))]
-                    fft_signal_max = [(fft_calc(em_fields[field_idx], time_arr)[1]).max() for field_idx in range(len(em_fields))]
+                    fft_freq, fft_signal = zip(*[fft_calc(em_fields[field_idx], time_arr) for field_idx in range(len(em_fields))])
+                    fft_signal_max = np.max(fft_signal, axis=1)#[(fft_calc(em_fields[field_idx], time_arr)[1]).max() for field_idx in range(len(em_fields))]
                     freq_peaks = [find_peaks(fft_signal[field_idx], prominence=fft_signal_max[field_idx]/3., height=1E-7) for field_idx in range(len(em_fields))]  # indices of found  peaks
                     # Peak criteria: 20% prominence relative to the max. height, bigger than twice the average and 1E-8
                     # for i in range(len(em_fields)):
                     #     plt.plot(fft_freq[i], fft_signal[i])
                     #     plt.plot(fft_freq[i][freq_peaks[i][0]], fft_signal[i][freq_peaks[i][0]], "rx")
                     #     plt.show()
-                    #     # plt.plot(time_arr, em_fields[i], "b.")
-                    #     # plt.show()
+                        # plt.plot(time_arr, em_fields[i], "b.")
+                        # plt.show()
                     freq_ex = np.hstack([fft_freq[0][peak[0]] for peak in freq_peaks])
+                    freq_ex = convert_frequencies(freq_ex, [1]) # convert from Hz to a.u.
                     if len(freq_ex) == 0:
                         log.info('Found no distinct frequencies!')
                         raise IOError                                                    
@@ -472,7 +484,7 @@ def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, 
                     freq_peaks = np.einsum('ijk->jki', freq_peaks).reshape(len(time_arr), -1)
                     freq_peaks = freq_peaks[:, np.any(freq_peaks != 0, axis=0)] 
                     freq_peaks = np.unique(freq_peaks, axis=1)
-                    return freq_peaks 
+                    return convert_frequencies(freq_peaks, [1])
                     break
                 case 3:
                     freqs, freq_signals_summed = zip(*[wavelet_calc_sum(em_fields[field_idx], time_arr) for field_idx in range(len(em_fields))])
@@ -480,13 +492,12 @@ def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, 
                     freq_peaks, _ = zip(*[find_peaks(freq_signals_summed[field_idx], prominence=freq_signals_summed_max[field_idx]/5., height=1E-7) for field_idx in range(len(em_fields))])
                     freq_peaks = np.hstack(freq_peaks)
                     if len(freq_peaks) != 0:
-                        print(freq_peaks)
                         freq_peaks = np.array([freqs[0][freq] for freq in freq_peaks])
                     # for i in range(len(em_fields)):
                     #     plt.plot(freqs[i], freq_signals_summed[i])
                     #     plt.plot(freqs[i][freq_peaks[i][0]], freq_signals_summed[i][freq_peaks[i][0]], "rx")
                     #     plt.show()
-                    return np.vstack([freq_peaks for t_idx, t_el in enumerate(time_arr)])
+                    return np.vstack([convert_frequencies(freq_peaks, [1]) for t_idx, t_el in enumerate(time_arr)])
                     break
                 case _:
                     log.info(f"Did not understand input: {fft_field}!")
@@ -528,7 +539,6 @@ def main():
                      np.argmin(np.abs(INFOS["extract_point"][2]-z_arr))]  
 
 
-        log.info("Interpolating E-fields/Gradients and writing to laser file:")
         e_write_shift = int(1)
         b_write_shift = e_write_shift+6*int(INFOS["export_e"])
         egrad_write_shift = b_write_shift+6*int(INFOS["export_b"])
@@ -538,7 +548,7 @@ def main():
         laser_file = np.zeros((len(int_t_arr), no_of_columns))  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
         laser_file[:, 0] = int_t_arr*1E15  # SAVE timesteps in fs
         if INFOS["export_e"] or INFOS["export_egrad"]:
-
+            log.info("Interpolating E-fields/Gradients and writing to laser file:")
             for fld_count, fld in enumerate(efields):
                 fld_arr = np.asarray(h5py.File(INFOS["sim_file_path"], "r")[fld])
                 fields_gradients_real = [None]*len(int_t_arr)
@@ -599,8 +609,7 @@ def main():
          b-field {str(INFOS["export_b"]).lower()}  
          e-field_gradients {str(INFOS["export_egrad"]).lower()}   
          b-field_gradents {str(INFOS["export_bgrad"]).lower()}    
-         laser_freq_path laser_freq'''
-        header_line = f''' #{"="*head_line_length}'''+"\n"
+         header_line = f''' #{"="*head_line_length}'''+"\n"
         field_columns = ["Time"]
         [field_columns.append(val) for val in ["Re(Ex)", "Im(Ex)", "Re(Ey)", "Im(Ey)", "Re(Ez)", "Im(Ez)"] if INFOS["export_e"]]
         [field_columns.append(val) for val in ["Re(Bx)", "Im(Bx)", "Re(By)", "Im(By)", "Re(Bz)", "Im(Bz)"] if INFOS["export_b"]]
@@ -622,7 +631,7 @@ def main():
         header_fields = " # " + " | ".join([f"{column:>{length}}" for column, length in zip(field_columns, max_lengths)])+" |"+"\n"
         header_units = " # " + " | ".join([f"{column:>{length}}" for column, length in zip(unit_columns, max_lengths)])+" |"+"\n"
         header=header+header_line+header_fields+header_units+header_line
-        log.info("Writing fields and gradients to file:")
+        log.info("Writing information to file: laser")
         formatted_laser_file = np.array([[custom_formatter(val) for val in row] for row in laser_file], dtype=str)
         np.savetxt("laser", formatted_laser_file, fmt="%s", delimiter="", header=header, comments='')
     

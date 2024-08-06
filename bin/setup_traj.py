@@ -518,22 +518,17 @@ def check_laserfileversion(filename):
         print('Could not open laser file %s' % (filename))
         return False 
     laserfile_version=1.0
-    laser_freq_path="None"
     for line in data:
         split_line = line.split()
         if len(split_line):
             if split_line[0]=="!":
-                if split_line[1]=="laser_freq_path":
-                    laser_freq_path = os.path.join(os.path.dirname(filename), split_line[2])
-                    laserfile_version=2.0
+                if split_line[1]=="file_version":
                     try:
-                        f = open(laser_freq_path)
-                        data = f.readlines()
-                        f.close()
-                    except IOError:
-                        print('Could not open laser frequency file %s' % (laser_freq_path))
+                        laserfile_version=float(split_line[2])
+                    except ValueError:
+                        print('No valid version detected %s' % (laserfile_version))
                         return False  
-    return laserfile_version, laser_freq_path
+    return laserfile_version
 
 # ======================================================================================================================
 
@@ -608,7 +603,7 @@ def check_laserfile(filename, nsteps, dt):
     #         return False
     # return True
 
-    if check_laserfileversion(filename)[0]==1.0:
+    if check_laserfileversion(filename)==1.0:
         n = 0
         for line in data:
             if len(line.split()) >= 8:  # time, Ex_r, Ex_i, Ey_r, Ey_i, Ez_r, Ez_i, Bx_r, Bx_i , By_r, By_i, Bz_r, Bz_i
@@ -625,14 +620,14 @@ def check_laserfile(filename, nsteps, dt):
                 print('Time step wrong in file %s at line %i.' % (filename, i + 1))
                 return False
         return True
-    elif check_laserfileversion(filename)[0]==2.0:
+    elif check_laserfileversion(filename)==2.0:
         set_efield, set_bfield, set_egrad, set_bgrad = check_laserfields(filename)
         n = 0
         for line_no, line in enumerate(data):
             split_line = line.split()
             if len(split_line)>0:
                 if (split_line[0]!="!") and (split_line[0]!="#"):
-                    if len(split_line)==(1+6*(set_efield+set_bfield)+18*(set_egrad+set_bgrad)):
+                    if len(split_line)>=(1+6*(set_efield+set_bfield)+18*(set_egrad+set_bgrad)+1):  # at least one frequency
                         n += 1
                     else:
                         com_line=line_no
@@ -649,34 +644,6 @@ def check_laserfile(filename, nsteps, dt):
 # ======================================================================================================================
 
 
-def check_laserfreqfile(filename, nsteps, dt):
-    try:
-        f = open(filename)
-        data = f.readlines()
-        f.close()
-    except IOError:
-        print('Could not open laser file %s' % (filename))
-        return False
-    n = 0
-    for line in data:
-        if len(line.split()) >= 13:  # time, freq 
-            n += 1
-        else:
-            break
-    if n < nsteps:
-        print('File %s has only %i timesteps, %i steps needed!' % (filename, n, nsteps))
-        return False
-    for i in range(int(nsteps) - 1):
-        t0 = float(data[i].split()[0])
-        t1 = float(data[i + 1].split()[0])
-        if abs(abs(t1 - t0) - dt) > 1e-6:
-            print('Time step wrong in file %s at line %i.' % (filename, i + 1))
-            return False
-    return True
-
-
-# ======================================================================================================================
-# ======================================================================================================================
 # ======================================================================================================================
 
 
@@ -1367,8 +1334,6 @@ Laser files can be created using $SHARC/laser.x
                 usethisone = question("Use this laser file?", bool, True)
                 if usethisone:
                     INFOS["laserfile"] = "laser"
-                    if (check_laserfileversion(INFOS['laserfile'])[0]>=2.0):
-                        INFOS["laser_freq_file"] = "laser_freq"
         if "laserfile" not in INFOS:
             while True:
                 filename = question("Laser filename:", str)
@@ -1380,7 +1345,6 @@ Laser files can be created using $SHARC/laser.x
                 ):
                     break
             INFOS["laserfile"] = filename
-            INFOS['laser_freq_file'] = check_laserfileversion(filename)[1]
             set_fields = check_laserfields(filename)
             if any(set_fields)!=0:
                 INFOS['e-field'] = bool(set_fields[0])
@@ -1811,9 +1775,6 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     if INFOS['laser']:
         laserfname = iconddir + '/laser'
         shutil.copy(INFOS['laserfile'], laserfname)
-        if (check_laserfileversion(INFOS['laserfile'])[0]==2.0):
-            laserfreqname = iconddir + '/laser_freq'
-            shutil.copy(INFOS['laser_freq_file'], laserfreqname)
 
     # atommask file
     if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:

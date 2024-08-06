@@ -75,7 +75,6 @@ module input
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   character*255 :: filename
-  character*255 :: laser_freq_file_path
   character*8000 :: geomfilename, line, rattlefilename
   character*8000, allocatable :: values(:)
   integer :: narg, io, io_freq, nlines, selg, selt
@@ -2985,9 +2984,6 @@ module input
             if (trim(values(2))=='file_version') then
                 read(values(3), *) laser_file_version 
                 write(0,*) 'Detected laser file version: ', laser_file_version
-            else if (trim(values(2))=='laser_freq_path') then
-                read(values(3), *) laser_freq_file_path 
-                write(0,*) 'Detected laser frequency file path: ', laser_freq_file_path   
             endif
           endif
         else
@@ -2996,79 +2992,56 @@ module input
       enddo
       rewind(u_i_laser)
 
-      if (laser_file_version==2.0) then
-        open(u_i_laser_freq, file=laser_freq_file_path, status='old', action='read', iostat=io)
-
-        if (printlevel>1) write(u_log,'(3a)') 'Reading from laser frequency file "',trim(laser_freq_file_path),'"'
-        if (io/=0) then
-          write(0,*) 'Could not find laser frequency file!'
-          stop 1
-        endif
-        !  check for header of laser file
-        read(u_i_laser_freq,'(A)',iostat=io) line
-        if (io/=0) then
-          write(0,*) 'EOF encountered during read of laser frequency file!'
-          stop 1
-        endif
-        rewind(u_i_laser_freq)      
-        freq_line_number = 0
-        freq_com_line_number = 0
-        do 
-          read(u_i_laser_freq,'(A)',iostat=io_freq) line
-          call split(line,' ',values,n)
-          if (io_freq/=0) then
-            exit
-          else if (trim(values(1))=='!' .OR. index(values(1),'#')/=0 .OR. n==1) then
-            freq_com_line_number = freq_com_line_number+1
-            freq_line_number = freq_line_number+1
-          else
-            freq_line_number = freq_line_number+1
-            ctrl%nlasers=n-1
-          endif
-        enddo
-        if (ctrl%nsteps*ctrl%nsubsteps+1 /= freq_line_number-freq_com_line_number) then
-          write(0,*) 'Number of lines in laser frequency file does not match requested steps!' 
-          write(0,*) ctrl%nsteps*ctrl%nsubsteps+1,  freq_line_number-freq_com_line_number
-          stop 1
-        endif
-      endif
-      rewind(u_i_laser_freq)
       ! Reading laser file data
+      
       if (laser_file_version==2.0) then !Reading for new laser file format
         write(*,*) "ENTERED LASER FILE VERSION 2.0"
+        read_shift = 0
         do i=1, com_line_number+1
           read(u_i_laser,'(A)',iostat=io) line                                                                                      
           if (io/=0) then                                                                                                           
              write(0,*) 'EOF encountered during lookup for header section!'                                                    
              stop 1                                                                                                                
           endif
+          line = adjustl(trim(line))
+          if (len_trim(line) == 0) then
+            cycle
+          endif
           call lowercase(line)
           call split(line,' ',values,n)
           ! check if ! in values(1), if # cycle, if neither then exit
-          select case (trim(values(1)))
-            case('#')
-                cycle
+          select case (line(1:1))
             case('!')
-              if (values(1)=='#' .OR. values(1)=='!') then
-                select case (trim(values(2)))
-                  case ("e-field", "b-field", "e-field_grad", "b-field_grad")
-                    if (trim(values(3))=='true') then
-                      tmp = .true.
-                    elseif (trim(values(3))=='false') then
-                      tmp = .false.
-                    else 
-                      write(0,*) 'EOF encountered during lookup for field/gradient existence!'                                                    
-                      stop 1                                                                                                                    
-                    endif
-                    select case (trim(values(2)))
-                      case ("e-field")
-                          ctrl%laser_e = tmp
-                      case ("b-field")
-                          ctrl%laser_b = tmp 
-                      case ("e-field_gradients")
-                          ctrl%laser_egrad = tmp  
-                    end select
-                end select
+              select case (trim(values(2)))
+                case ("e-field", "b-field", "e-field_gradients", "b-field_gradients")
+                  if (trim(values(3))=='true') then
+                    tmp = .true.
+                  elseif (trim(values(3))=='false') then
+                    tmp = .false.
+                  else 
+                    write(0,*) 'EOF encountered during lookup for field/gradient existence!'                                                    
+                    stop 1                                                                                                                    
+                  endif
+                  select case (trim(values(2)))
+                    case ("e-field")
+                        ctrl%laser_e = tmp
+                        read_shift = read_shift + 6*merge(1, 0, ctrl%laser_e)
+                    case ("b-field")
+                        ctrl%laser_b = tmp 
+                        read_shift = read_shift + 6*merge(1, 0, ctrl%laser_b)
+                    case ("e-field_gradients")
+                        ctrl%laser_egrad = tmp  
+                        read_shift = read_shift + 18*merge(1, 0, ctrl%laser_egrad)
+                  end select
+              end select
+            case ('#')
+              cycle
+            case default
+              ctrl%nlasers = n - read_shift - 1
+              write(0,*) "Found number of lasers:", ctrl%nlasers 
+              if (ctrl%nlasers < 1) then
+                write(0,*) 'No central energies for lasers found in ',filename
+                stop 1
               endif
           end select
         enddo
@@ -3089,8 +3062,10 @@ module input
         if (ctrl%laser_e .EQV. .true.) then
           allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
         endif
-        if ((ctrl%laser_b .EQV. .true.) .OR. (ctrl%laser_egrad .EQV. .true.)) then
+        if (ctrl%laser_b .EQV. .true.)  then
           allocate(ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
+        endif 
+        if (ctrl%laser_egrad .EQV. .true.) then
           allocate(ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
         endif
         allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
@@ -3122,7 +3097,7 @@ module input
           else
             call split(line,' ',values,n)
             if ((i>=(com_line_number+1)+1) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
-              write(0,*) 'Laser file malformatted! Line=',i
+              write(0,*) 'Laser file malformatted (laser file version 2.0)! Line=',i
               stop 1
             endif
             read(values(1),*) a
@@ -3161,13 +3136,27 @@ module input
                   ctrl%laserfield_egrad_tpd(i-com_line_number,j,k)=dcmplx(a,b)
                 enddo 
               enddo
-            elseif ((ctrl%laser_egrad .EQV. .true.) .and. (ctrl%laser_b .EQV. .false.)) then
-               do j=1,3
-                do k=1,3
-                  ctrl%laserfield_egrad_tpd(i-com_line_number,j,k)=dcmplx(0.,0.)
-                enddo
-               enddo
+              read_shift=read_shift+18
             endif
+            ! BFIELD GRAD NOT IMPLEMENTED
+            ! if ((ctrl%laser_bgrad .EQV. .true.) then
+            !    do j=1,3
+            !      do k=1,3
+            !        read(values(6*(j-1)+2*k+read_shift),*) a
+            !        read(values(6*(j-1)+2*k+1+read_shift),*) b
+            !        ctrl%laserfield_bgrad_tpd(i-com_line_number,j,k)=dcmplx(a,b)
+            !      enddo
+            !   enddo
+            !   read_shift=read_shift+18
+            ! endif
+            if ( ctrl%nlasers /= n - read_shift - 1) then
+                write(0,*) "Found conflicting number of lasers in line:", i, line
+                stop 1
+            endif
+            do j=1,ctrl%nlasers
+              read(values(read_shift+j+1),*) a
+              ctrl%laserenergy_tl(i-com_line_number,j)=dcmplx(a,0.d0)
+            enddo
           endif
         enddo
         close(u_i_laser)
@@ -3182,38 +3171,38 @@ module input
 
         !LORENZ: Continue wit reading in frequency file! 
         !LASER ENERGY
-        do i=1, freq_line_number
-          read(u_i_laser_freq,'(A)',iostat=io_freq) line
-          if (io_freq/=0) then
-            write(0,*) 'EOF encountered during read of laser frequency file!'
-            stop 1
-          endif
-          if (i<=freq_com_line_number) then
-              cycle
-          else
-            call split(line,' ',values,n)
-            if ((i>=(freq_com_line_number+1)+1) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
-              write(0,*) 'Laser frequency file malformatted! Line=',i
-              stop 1
-            endif
-            read(values(1),*) a
-            if (i==1) then
-              if (dabs(a)>0.001d0) then
-                write(0,*) 'Laser frequency file must start at t=0 fs!'
-                stop 1
-              endif
-            endif
-            b=ctrl%dtstep/ctrl%nsubsteps
-            if ( dabs(a-b*(i-2-freq_com_line_number+1))>0.001d0) then 
-              write(0,*) 'Laser frequency spacing does not match substep spacing!'
-              stop 1
-            endif
-            do j=1,ctrl%nlasers
-              read(values(1+j),*) a
-              ctrl%laserenergy_tl(i-freq_com_line_number,j)=dcmplx(a,0.d0)
-            enddo
-          endif  
-        enddo
+        ! do i=1, freq_line_number
+        !   read(u_i_laser_freq,'(A)',iostat=io_freq) line
+        !   if (io_freq/=0) then
+        !     write(0,*) 'EOF encountered during read of laser frequency file!'
+        !     stop 1
+        !   endif
+        !   if (i<=freq_com_line_number) then
+        !       cycle
+        !   else
+        !     call split(line,' ',values,n)
+        !     if ((i>=(freq_com_line_number+1)+1) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
+        !       write(0,*) 'Laser frequency file malformatted! Line=',i
+        !       stop 1
+        !     endif
+        !     read(values(1),*) a
+        !     if (i==1) then
+        !       if (dabs(a)>0.001d0) then
+        !         write(0,*) 'Laser frequency file must start at t=0 fs!'
+        !         stop 1
+        !       endif
+        !     endif
+        !     b=ctrl%dtstep/ctrl%nsubsteps
+        !     if ( dabs(a-b*(i-2-freq_com_line_number+1))>0.001d0) then 
+        !       write(0,*) 'Laser frequency spacing does not match substep spacing!'
+        !       stop 1
+        !     endif
+        !     do j=1,ctrl%nlasers
+        !       read(values(1+j),*) a
+        !       ctrl%laserenergy_tl(i-freq_com_line_number,j)=dcmplx(a,0.d0)
+        !     enddo
+        !   endif  
+        ! enddo
       else if (laser_file_version==1.0) then
         read(u_i_laser,'(A)',iostat=io) line 
         if (io/=0) then
@@ -3916,8 +3905,10 @@ module input
         if (ctrl%laser_e .EQV. .true.) then
           write(key,'(6(F9.6))') (ctrl%laserfield_e_tp(i,j),j=1,3)
         endif
-        if (ctrl%laser_b .EQV. .true. .or. ctrl%laser_egrad .EQV. .true.) then
+        if (ctrl%laser_b .EQV. .true.) then 
           write(key,'(6(F9.6))') (ctrl%laserfield_b_tp(i,j),j=1,3)
+        endif
+        if (ctrl%laser_egrad .EQV. .true.) then
           do j=1,3
             do k=1,3
               write(key,'(6(F9.6))') ctrl%laserfield_egrad_tpd(i,j,k)
