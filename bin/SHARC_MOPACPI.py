@@ -60,11 +60,13 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         self.QMin.resources.update(
             {
                 "mopacpidir": None,
+                "wfoverlap": "",
             }
         )
         self.QMin.resources.types.update(
             {
                 "mopacpidir": str,
+                "wfoverlap": str,
             }
         )
 
