@@ -605,12 +605,12 @@ subroutine write_dat(u, traj, ctrl)
     call matwrite(nstates, traj%DM_print_ssd(:,:,1), u, '! 3 Dipole moments X (MCH) in a.u.', 'E21.13e3')
     call matwrite(nstates, traj%DM_print_ssd(:,:,2), u, '! 3 Dipole moments Y (MCH) in a.u.', 'E21.13e3')
     call matwrite(nstates, traj%DM_print_ssd(:,:,3), u, '! 3 Dipole moments Z (MCH) in a.u.', 'E21.13e3')
-    if (ctrl%laser_b==.true.) then
+    if (ctrl%laser_b .or. ctrl%laser_egrad) then
         call matwrite(nstates, traj%MDM_print_ssd(:,:,1), u, '! 4 Magnetic dipole moments X (MCH) in a.u.', 'E21.13e3')
         call matwrite(nstates, traj%MDM_print_ssd(:,:,2), u, '! 4 Magnetic dipole moments Y (MCH) in a.u.', 'E21.13e3')
         call matwrite(nstates, traj%MDM_print_ssd(:,:,3), u, '! 4 Magnetic dipole moments Z (MCH) in a.u.', 'E21.13e3')
-    endif
-    if (ctrl%laser_egrad==.true.) then
+    ! endif
+    ! if (ctrl%laser_egrad==.true.) then
         call matwrite(nstates, traj%EQM_print_ssdd(:,:,1,1), u, '! 5 Electric quadrupole moments XX (MCH) in a.u.', 'E21.13e3')
         call matwrite(nstates, traj%EQM_print_ssdd(:,:,1,2), u, '! 5 Electric quadrupole moments XY (MCH) in a.u.', 'E21.13e3')
         call matwrite(nstates, traj%EQM_print_ssdd(:,:,1,3), u, '! 5 Electric quadrupole moments XZ (MCH) in a.u.', 'E21.13e3') 

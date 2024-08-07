@@ -52,18 +52,18 @@ subroutine propagate_laser(traj,ctrl)
   complex*16 :: local_laser_bfield_tp(ctrl%nsubsteps, 3)
   complex*16 :: local_laser_egrad_tpd(ctrl%nsubsteps, 3, 3)
 
-  if (ctrl%laser_e .EQV. .true.) then
+  if (ctrl%laser_e) then
     local_laser_efield_tp(:,:) = ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:)
     !write(0,*) ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:)
   else 
     local_laser_efield_tp(:,:) = cmplx(0.0, 0.0) 
   endif
-  if (ctrl%laser_b .EQV. .true.) then
+  if (ctrl%laser_b) then
     local_laser_bfield_tp(:,:) = ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:)
   else
     local_laser_bfield_tp(:,:) = cmplx(0.0, 0.0)
   endif
-  if (ctrl%laser_egrad .EQV. .true.) then
+  if (ctrl%laser_egrad) then
     do idir=1,3
       local_laser_egrad_tpd(:,:,idir) = ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:, idir)
     enddo

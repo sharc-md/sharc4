@@ -774,13 +774,6 @@ program data_extractor
     endif
     
     if (laser==2) then
-      ! look up laser e-field keyword
-      line=get_value_from_key('laser_e',io)
-      if (io==0) then
-        read(line,*) laser_e
-      else
-        laser_e=.false.
-      endif
       ! look up laser b-field keyword
       line=get_value_from_key('laser_b',io)
       if (io==0) then
@@ -804,7 +797,22 @@ program data_extractor
       else
         laser_egrad=.false.! look up laser e-field gradient keyword
       endif
+            !for laser file without explicit definition of laser_x variables
+            ! look up laser e-field keyword
+      line=get_value_from_key('laser_e',io)
+      if (io==0) then
+        read(line,*) laser_e
+      else if (laser_b==.false. .and. laser_egrad==.false.) then
+        laser_e=.true.   
+      else
+        laser_e=.false.
+      endif
+      if (laser_e==.true.) then
+        write_dip  = .true.
+        write_dipact = .true.
+      endif
     endif 
+        
 
     line=get_value_from_key('nsteps',io)
     if (io==0) then
@@ -845,11 +853,11 @@ program data_extractor
     ! if an explicit laser file is in the dat file, read it now
     ! laser field comes before the time step data
     if (laser==2) then
-      if (laser_e .EQV. .true.) then
+      if (laser_e) then
         allocate( laserfield_e_tp(nsteps*nsubsteps+1,3) )
         call vec3read(nsteps*nsubsteps+1,laserfield_e_tp,u_dat,string1)
       endif
-      if (laser_b .EQV. .true. .or. laser_egrad .EQV. .true.) then
+      if (laser_b .or. laser_egrad) then
         allocate( laserfield_b_tp(nsteps*nsubsteps+1,3) )
         call vec3read(nsteps*nsubsteps+1,laserfield_b_tp,u_dat,string1) 
         allocate( laserfield_egrad_tpd(nsteps*nsubsteps+1,3,3) )
@@ -857,11 +865,6 @@ program data_extractor
           call vec3read(nsteps*nsubsteps+1,laserfield_egrad_tpd(:,:,idir),u_dat,string1)
         enddo
       endif
-      if ((laser_e .EQV. .false.) .and. (laser_b .EQV. .false.) &
-          .and. (laser_egrad .EQV. .false.)) then
-        allocate( laserfield_e_tp(nsteps*nsubsteps+1,3) )
-        call vec3read(nsteps*nsubsteps+1,laserfield_e_tp,u_dat,string1)
-      endif           
       write(*,*) "Reading of fields"
     endif
 
@@ -1312,22 +1315,21 @@ program data_extractor
     ! calculate Hamiltonian including laser field
     H_diag_ss=H_MCH_ss
     if (laser==2) then
-      do idir=1,3
-        H_diag_ss=H_diag_ss - DM_MCH_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
-      enddo
-    endif
-    if ((laser==2) .AND. (laser_b==.true.) .AND. (write_mag_dip==.true.)) then
-      do idir=1,3
-        H_diag_ss=H_diag_ss - MDM_MCH_ssd(:,:,idir)*real(laserfield_b_tp(step*nsubsteps+1,idir))
-      enddo
-    endif
-    if ((laser==2) .AND. (laser_egrad==.true.) .AND. (write_el_quad==.true.)) then
-      do idir=1,3
-        do jdir=1,3
-          H_diag_ss=H_diag_ss - EQM_MCH_ssdd(:,:,idir,jdir)*real(laserfield_egrad_tpd(step*nsubsteps+1,idir,jdir))
+      if (laser_e) then
+        do idir=1,3
+          H_diag_ss=H_diag_ss - DM_MCH_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
         enddo
-      enddo
+      endif
+      if (laser_b .or. laser_egrad) then
+        do idir=1,3
+          H_diag_ss=H_diag_ss - MDM_MCH_ssd(:,:,idir)*real(laserfield_b_tp(step*nsubsteps+1,idir))
+          do jdir=1,3
+            H_diag_ss=H_diag_ss - EQM_MCH_ssdd(:,:,idir,jdir)*real(laserfield_egrad_tpd(step*nsubsteps+1,idir,jdir))
+          enddo
+        enddo
+      endif
     endif
+
     !call matwrite(nstates,H_diag_ss,6,'Hbefore','F12.9')
     !call matwrite(nstates,U_ss,6,'U','F12.9')
     call transform(nstates,H_diag_ss,U_ss,'utau')

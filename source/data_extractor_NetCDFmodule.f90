@@ -702,6 +702,42 @@ contains
     if (io==0) then
       read(line,*) general_infos%laser
       if (general_infos%laser==2) then
+        line=get_value_from_key('laser_b',io)
+        if (io==0) then
+          read(line,*) general_infos%laser_b
+          if (general_infos%laser_b==.true.) then
+            write_options%write_mag_dip = .true.
+            write_options%write_mag_dipact = .true.
+          endif
+        else
+          general_infos%laser_b=.false.
+        endif
+        
+        ! look up laser e-field gradient keyword
+        line=get_value_from_key('laser_egrad',io)
+        if (io==0) then
+          read(line,*) general_infos%laser_egrad
+          if (general_infos%laser_egrad==.true.) then
+            write_options%write_el_quad = .true.
+            write_options%write_el_quadact = .true.
+          endif
+        else
+          general_infos%laser_egrad=.false.! look up laser e-field gradient keyword
+        endif
+              !for laser file without explicit definition of laser_x variables
+              ! look up laser e-field keyword
+        line=get_value_from_key('laser_e',io)
+        if (io==0) then
+          read(line,*) general_infos%laser_e
+        else if (general_infos%laser_b==.false. .and. general_infos%laser_egrad==.false.) then
+          general_infos%laser_e=.true.   
+        else
+          general_infos%laser_e=.false.
+        endif
+        if (general_infos%laser_e==.true.) then
+          write_options%write_dip  = .true.
+          write_options%write_dipact = .true.
+        endif
         line=get_value_from_key('nsteps',io)
         if (io==0) then
           read(line,*) general_infos%nsteps
@@ -744,16 +780,19 @@ contains
 
     ! if an explicit laser file is in the dat file, read it now
     ! laser field comes before the time step data
-    if (general_infos%laser==2 .and. general_infos%laser_b==.false.) then
-      allocate( shdata%laser_efield_tp(general_infos%nsteps*general_infos%nsubsteps+1,3) )
-      call vec3read(general_infos%nsteps*general_infos%nsubsteps+1,shdata%laser_efield_tp,u_dat,string1)
-    elseif  (general_infos%laser==2 .and. general_infos%laser_b==.true.) then
-      allocate( shdata%laser_bfield_tp(general_infos%nsteps*general_infos%nsubsteps+1,3) )
-      call vec3read(general_infos%nsteps*general_infos%nsubsteps+1,shdata%laser_bfield_tp,u_dat,string1) 
-      allocate( shdata%laser_egrad_tpd(general_infos%nsteps*general_infos%nsubsteps+1,3,3) )
-      do idir=1,3
-        call vec3read(general_infos%nsteps*general_infos%nsubsteps+1,shdata%laser_egrad_tpd(:,:,idir),u_dat,string1) 
-      enddo 
+    if (general_infos%laser==2) then
+      if (general_infos%laser_e) then
+        allocate( shdata%laser_efield_tp(general_infos%nsteps*general_infos%nsubsteps+1,3) )
+        call vec3read(general_infos%nsteps*general_infos%nsubsteps+1,shdata%laser_efield_tp,u_dat,string1)
+      endif
+      if (general_infos%laser_b .or. general_infos%laser_egrad) then
+        allocate( shdata%laser_bfield_tp(general_infos%nsteps*general_infos%nsubsteps+1,3) )
+        call vec3read(general_infos%nsteps*general_infos%nsubsteps+1,shdata%laser_bfield_tp,u_dat,string1) 
+        allocate( shdata%laser_egrad_tpd(general_infos%nsteps*general_infos%nsubsteps+1,3,3) )
+        do idir=1,3
+          call vec3read(general_infos%nsteps*general_infos%nsubsteps+1,shdata%laser_egrad_tpd(:,:,idir),u_dat,string1) 
+        enddo 
+      endif
     endif
 
     ! skip the "End of header array data" separator line
@@ -1462,19 +1501,20 @@ contains
     time_step=shdata%time_step
     ! calculate Hamiltonian including laser field
     shdata%H_diag_ss=shdata%H_MCH_ss
-    if ((general_infos%laser==2) .and. (general_infos%laser_e==.true.) .and. (general_infos%laser_b==.false.)) then
-      do idir=1,3
-        shdata%H_diag_ss=shdata%H_diag_ss - shdata%DM_ssd(:,:,idir)*real(shdata%laser_efield_tp(time_step*general_infos%nsubsteps+1,idir))
-      enddo
-    elseif ((general_infos%laser==2) .and. (general_infos%laser_e==.true.) .and. ((general_infos%laser_b==.true.) .or.&
-            &(general_infos%laser_egrad==.true.))) then
+    if (general_infos%laser==2) then
+      if (general_infos%laser_e) then
         do idir=1,3
-            shdata%H_diag_ss=shdata%H_diag_ss - shdata%DM_ssd(:,:,idir)*real(shdata%laser_efield_tp(time_step*general_infos%nsubsteps+1,idir))&
-                                        & - shdata%MDM_ssd(:,:,idir)*real(shdata%laser_bfield_tp(time_step*general_infos%nsubsteps+1,idir)) 
+          shdata%H_diag_ss=shdata%H_diag_ss - shdata%DM_ssd(:,:,idir)*real(shdata%laser_efield_tp(time_step*general_infos%nsubsteps+1,idir))
+        enddo
+      endif
+      if (general_infos%laser_b .or. general_infos%laser_egrad) then
+        do idir=1,3
+            shdata%H_diag_ss=shdata%H_diag_ss - shdata%MDM_ssd(:,:,idir)*real(shdata%laser_bfield_tp(time_step*general_infos%nsubsteps+1,idir)) 
             do jdir=1,3
                 shdata%H_diag_ss=shdata%H_diag_ss - shdata%EQM_ssdd(:,:,idir,jdir)*real(shdata%laser_egrad_tpd(time_step*general_infos%nsubsteps+1,idir,jdir))
             enddo
         enddo
+      endif
     endif
 !     call matwrite(nstates,H_diag_ss,0,'Hbefore','F12.9')
 !     call matwrite(nstates,U_ss,0,'U','F12.9')

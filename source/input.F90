@@ -3059,13 +3059,13 @@ module input
       
       if (laser_file_version==2.0) then
         write(0,*) 'Laser file version 2.0 detected!'
-        if (ctrl%laser_e .EQV. .true.) then
+        if (ctrl%laser_e) then
           allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
         endif
-        if (ctrl%laser_b .EQV. .true.)  then
+        if (ctrl%laser_b .or. ctrl%laser_egrad) then
           allocate(ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
-        endif 
-        if (ctrl%laser_egrad .EQV. .true.) then
+        ! endif 
+        ! if (ctrl%laser_egrad .EQV. .true.) then
           allocate(ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
         endif
         allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
@@ -3112,7 +3112,7 @@ module input
               write(0,*) 'Laser field spacing does not match substep spacing!'
               stop 1
             endif
-            if (ctrl%laser_e .EQV. .true.) then 
+            if (ctrl%laser_e) then 
               do j=1,3
                 read(values(2*j),*) a
                 read(values(2*j+1),*) b
@@ -3120,15 +3120,15 @@ module input
               enddo
               read_shift=read_shift+6
             endif
-            if (ctrl%laser_b .EQV. .true.) then
+            if (ctrl%laser_b .or. ctrl%laser_egrad) then
               do j=1,3
                 read(values(2*j+read_shift),*) a
                 read(values(2*j+1+read_shift),*) b
                 ctrl%laserfield_b_tp(i-com_line_number,j)=dcmplx(a,b)
               enddo
               read_shift=read_shift+6
-            endif
-            if (ctrl%laser_egrad .EQV. .true.) then 
+            !endif
+            !if (ctrl%laser_egrad .EQV. .true.) then 
               do j=1,3
                 do k=1,3
                   read(values(6*(j-1)+2*k+read_shift),*) a
@@ -3162,7 +3162,7 @@ module input
         close(u_i_laser)
         
         if (ctrl%laser/=0) then 
-          if (ctrl%laser_b==.true. .OR. ctrl%laser_egrad==.true.) then
+          if (ctrl%laser_b .or. ctrl%laser_egrad) then
             ctrl%calc_dipole=2
           else
             ctrl%calc_dipole=1
@@ -3905,10 +3905,10 @@ module input
         if (ctrl%laser_e .EQV. .true.) then
           write(key,'(6(F9.6))') (ctrl%laserfield_e_tp(i,j),j=1,3)
         endif
-        if (ctrl%laser_b .EQV. .true.) then 
+        if (ctrl%laser_b .or. ctrl%laser_egrad) then 
           write(key,'(6(F9.6))') (ctrl%laserfield_b_tp(i,j),j=1,3)
-        endif
-        if (ctrl%laser_egrad .EQV. .true.) then
+        !endif
+        !if (ctrl%laser_egrad .EQV. .true.) then
           do j=1,3
             do k=1,3
               write(key,'(6(F9.6))') ctrl%laserfield_egrad_tpd(i,j,k)

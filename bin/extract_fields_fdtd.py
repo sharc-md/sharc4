@@ -608,8 +608,8 @@ def main():
          e-field {str(INFOS["export_e"]).lower()} 
          b-field {str(INFOS["export_b"]).lower()}  
          e-field_gradients {str(INFOS["export_egrad"]).lower()}   
-         b-field_gradents {str(INFOS["export_bgrad"]).lower()}    
-         header_line = f''' #{"="*head_line_length}'''+"\n"
+         b-field_gradients {str(INFOS["export_bgrad"]).lower()}'''    
+        header_line = f''' #{"="*head_line_length}'''+"\n"
         field_columns = ["Time"]
         [field_columns.append(val) for val in ["Re(Ex)", "Im(Ex)", "Re(Ey)", "Im(Ey)", "Re(Ez)", "Im(Ez)"] if INFOS["export_e"]]
         [field_columns.append(val) for val in ["Re(Bx)", "Im(Bx)", "Re(By)", "Im(By)", "Re(Bz)", "Im(Bz)"] if INFOS["export_b"]]
