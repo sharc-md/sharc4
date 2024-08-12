@@ -96,6 +96,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "rohf": 0,
                 "levexc": 2,
                 "mciref": 0,
+                
             }
         )
         self.QMin.template.types.update(
@@ -214,7 +215,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
         self.make_resources = False
         # Resources
-        if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=False):
+        if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
             while True:
                 resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MNDO.resources")
                 self.files.append(resources_file)
@@ -267,6 +268,10 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
         # Write MNDO input
         input_str = self.generate_inputstr(qmin)
+
+        save_input_file = os.path.join(savedir, f"input.{step}.exp")
+        writefile(save_input_file, input_str)
+
         self.log.debug(f"Generating input string\n{input_str}")
         input_path = os.path.join(workdir, "MNDO.inp")
         self.log.debug(f"Write input into file {input_path}")
@@ -320,9 +325,16 @@ class SHARC_MNDO(SHARC_ABINITIO):
         shutil.copy(moldenfile, tofile)
 
         # MOs
-        mos, MO_occ, NAO, *_ = self._get_MO_from_molden(moldenfile)
+        mos, MO_occ, NAO, _, mo_energies = self._get_MO_from_molden(moldenfile)
+
         mo = os.path.join(savedir, f"mos.{step}")
         writefile(mo, mos)
+
+        mo_e = os.path.join(savedir, f"mo_energies.{step}.exp")
+        with open(mo_e, 'w') as f:
+            for line in mo_energies:
+                f.write(f"{line}\n")
+
         
         #AO_OVL
         aos = self.get_Double_AOovl(NAO)
@@ -381,6 +393,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         #                              2) write GS occupation to MO_occ
         f = readfile(molden_file)
         mo_coeff_matrix = []
+        mo_energies = []
         # get MOs and MO_occ in a dict from molden file
         MOs = {}
         NMO = 0
@@ -390,6 +403,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 NMO += 1
                 AO = {}
                 o = f[iline + 3].split()
+                mo_energies.append(f[iline + 1].split()[1])
                 MO_occ[NMO] = o[1]
                 jline = iline + 4
                 line = f[jline]
@@ -442,7 +456,7 @@ mocoef
                 x = 0
             string += "% 6.12e " % (0.0)
             x += 1
-        return string, MO_occ, len(AO), mo_coeff_matrix
+        return string, MO_occ, len(AO), mo_coeff_matrix, mo_energies
 
 
     def _get_csfs(self, log_file: str, active_mos, nstates):
@@ -681,8 +695,6 @@ mocoef
         # Get contents of output file(s)
         states, interstates = self._get_states_interstates(log_file)
 
-        #TODO: mults needed?
-        #mults = self.QMin.maps["mults"]
 
         # Populate energies no SOCs, so no diagonal elements
         if self.QMin.requests["h"]:
@@ -1025,7 +1037,6 @@ mocoef
             except IOError:
                 self.log.error('IOError during prepareMNDO, iconddir=%s' % (workdir))
                 quit(1)
-#  project='GAUSSIAN'
             string = 'scratchdir %s/\n' % INFOS['scratchdir']
             string += 'mndodir %s\n' % INFOS['mndodir']
             string += 'memory %i\n' % (INFOS['memory'])
@@ -1133,6 +1144,7 @@ mocoef
         #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)+
 
         self._save_files(self.QMin.control["workdir"])
+        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
         # Run wfoverlap
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             self._run_wfoverlap()
