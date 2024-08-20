@@ -269,8 +269,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
         # Write MNDO input
         input_str = self.generate_inputstr(qmin)
 
-        save_input_file = os.path.join(savedir, f"input.{step}.exp")
-        writefile(save_input_file, input_str)
+        # save_input_file = os.path.join(savedir, f"input.{step}.exp")
+        # writefile(save_input_file, input_str)
 
         self.log.debug(f"Generating input string\n{input_str}")
         input_path = os.path.join(workdir, "MNDO.inp")
@@ -279,7 +279,9 @@ class SHARC_MNDO(SHARC_ABINITIO):
         # Write point charges
         if self.QMin.molecule["point_charges"]:
             pc_str = ""
-            for coords, charge in zip(self.QMin.coords["pccoords"] * BOHR_TO_ANG, self.QMin.coords["pccharge"]):
+            pccoords = np.array(self.QMin.coords["pccoords"])
+            pccharges = np.array(self.QMin.coords["pccharge"])
+            for coords, charge in zip(pccoords * BOHR_TO_ANG, pccharges):
                 pc_str += f"{' '.join(map(str, coords))} {charge}\n"
             writefile(os.path.join(workdir, "fort.20"), pc_str)
 
@@ -330,10 +332,10 @@ class SHARC_MNDO(SHARC_ABINITIO):
         mo = os.path.join(savedir, f"mos.{step}")
         writefile(mo, mos)
 
-        mo_e = os.path.join(savedir, f"mo_energies.{step}.exp")
-        with open(mo_e, 'w') as f:
-            for line in mo_energies:
-                f.write(f"{line}\n")
+        # mo_e = os.path.join(savedir, f"mo_energies.{step}.exp")
+        # with open(mo_e, 'w') as f:
+        #     for line in mo_energies:
+        #         f.write(f"{line}\n")
 
         
         #AO_OVL
