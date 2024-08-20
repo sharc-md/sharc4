@@ -359,6 +359,46 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
                                     break
         
         return inpstring, par_str
+    
+    
+    def writeQMin(self, qmin : QMin) -> str:
+        coords = qmin["coords"]["coords"]
+        elements = qmin["molecule"]["elements"]
+        natom = qmin["molecule"]["natom"]
+        step = qmin["save"]["step"]
+        savedir = qmin["save"]["savedir"]
+
+        qminstr = f"{natom}\n\n"
+        for i in range(natom):
+            qminstr += f"{elements[i]}\t{coords[i][0]*BOHR_TO_ANG:>5,.7f}\t{coords[i][1]*BOHR_TO_ANG:>5,.7f}\t{coords[i][2]*BOHR_TO_ANG:>5,.7f}\t{0:>10,.5f}\t{0:>10,.5f}\t{0:>10,.5f}\n"
+        qminstr += f"unit angstrom\n"
+        
+        if (qmin.molecule["states"]):
+            qminstr += "states\t"
+            for i in qmin.molecule["states"]:
+                qminstr += f" {i}"
+            qminstr += "\n"
+
+        qminstr += f"dt\t20.670687\nstep\t{step}\nsavedir\t{savedir}\n"
+
+        if (qmin.requests["h"]):
+            qminstr += "H\n"
+        if (qmin.requests["dm"]):
+            qminstr += "DM\n"
+        if (qmin.requests["grad"]):
+            qminstr += "GRAD\t"
+            for i in qmin.requests["grad"]:
+                qminstr += f" {i}"
+            qminstr += "\n"
+        # if (qmin.requests["nacdr"]): ##Still have to think about this!!
+        #     qminstr += "NACDR\t"
+        #     for i in qmin.requests["nacdr"]:
+        #         qminstr += f" {i}"
+        #     qminstr += "\n"
+        if(qmin.requests["overlap"]):
+            qminstr += "OVERLAP\n"
+        
+        return qminstr
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         # Setup workdir
@@ -370,9 +410,12 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         force_field = qmin["template"]["force_field"]
         main_dir = "./"
         
-        filecopy = os.path.join(self.QMin.control["workdir"], "QM.in")
-        saved_file = os.path.join(main_dir, "QM.in")
-        shutil.copy(saved_file,filecopy)
+
+        qminstring = self.writeQMin(qmin)
+        writefile(os.path.join(workdir, "QM.in"), qminstring)
+        # filecopy = os.path.join(self.QMin.control["workdir"], "QM.in")
+        # saved_file = os.path.join(main_dir, "QM.in")
+        # shutil.copy(saved_file,filecopy)
 
         if qmin["template"]["qmmm"] != None:
             filecopy = os.path.join(self.QMin.control["workdir"], "MOPACPI_tnk.xyz")
@@ -523,6 +566,8 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
             if self.QMin.requests["phases"]:
                 for i in range(nmstates):
                     self.QMout["phases"][i] = -1 if self.QMout["overlap"][i, i] < 0 else 1
+        
+        return self.QMout
 
     def _get_energy(self, log_energies: str):
 
