@@ -14,7 +14,7 @@ import numpy as np
 from constants import *
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import containsstring, expand_path, itmult, link, makecmatrix, mkdir, readfile, writefile
+from utils import containsstring, expand_path, question, itmult, link, makecmatrix, mkdir, readfile, writefile
 
 __all__ = ["SHARC_MOPACPI"]
 
@@ -155,6 +155,100 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         INFOS: dictionary with all previously collected infos during setup
         KEYSTROKES: object as returned by open() to be used with question()
         """
+        """prepare INFOS obj
+
+        ---
+        Parameters:
+        INFOS: dictionary with all previously collected infos during setup
+        KEYSTROKES: object as returned by open() to be used with question()
+
+        """
+        """prepare INFOS obj
+
+        ---
+        Parameters:
+        INFOS: dictionary with all previously collected infos during setup
+        KEYSTROKES: object as returned by open() to be used with question()
+        """
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'MOPAC-PI interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+        self.files = []
+
+
+        # scratch
+        self.log.info(f"{'Scratch directory':-^60}\n")
+        self.log.info(
+            "Please specify an appropriate scratch directory. This will be used to run the MOPAC-PI calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
+        )
+        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.log.info("")
+
+        self.template_file = None
+        self.log.info(f"{'MOPAC-PI input template file':-^60}\n")
+
+        if os.path.isfile("MOPACPI.template"):
+            usethisone = question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True)
+            if usethisone:
+                self.template_file = "MOPACPI.template"
+        else:
+            while True:
+                self.template_file = question("Template filename:", str, KEYSTROKES=KEYSTROKES)
+                if not os.path.isfile(self.template_file):
+                    self.log.info(f"File {self.template_file} does not exist!")
+                    continue
+                break
+            
+        self.log.info("")
+        self.files.append(self.template_file)
+
+        self.make_resources = False
+        # Resources
+        if question("Do you have a 'MOPACPI.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+            while True:
+                resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MOPACPI.resources")
+                self.files.append(resources_file)
+                self.make_resources = False
+                if os.path.isfile(resources_file):
+                    break
+                else:
+                    self.log.info(f"file at {resources_file} does not exist!")
+        else:
+            self.make_resources = True
+            self.log.info(
+            "\nPlease specify path to MOPACPI directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
+            )
+            INFOS["mopacdir"] = question("Path to MOPACPI:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("")
+
+        if question("Do you want to run a QM/MM calculation?", bool, KEYSTROKES=KEYSTROKES, default=True):
+            self.log.info(
+            "\nThree files are needed:\n -MOPACPI_tnk.key\n -MOPACPI_tnk.xyz\n -oplsaa.prm\n"
+            )
+            while True:
+                tinkerkey_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MOPACPI_tnk.key")
+                self.files.append(tinkerkey_file)
+                if os.path.isfile(tinkerkey_file):
+                    break
+                else:
+                    self.log.info(f"file at {tinkerkey_file} does not exist!")
+            while True:
+                tinkercoords_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MOPACPI_tnk.xyz")
+                self.files.append(tinkercoords_file)
+                if os.path.isfile(tinkercoords_file):
+                    break
+                else:
+                    self.log.info(f"file at {tinkercoords_file} does not exist!")
+            while True:
+                forcefield_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="oplsaa.prm")
+                self.files.append(forcefield_file)
+                if os.path.isfile(forcefield_file):
+                    break
+                else:
+                    self.log.info(f"file at {forcefield_file} does not exist!")
+            
         return INFOS
 
     def create_restart_files(self):
@@ -213,8 +307,9 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         if qmmm != None:
             elements_link = []
             elements_link = elements
-            for i in range(len(link_atoms)):
-                elements_link[int(link_atom_pos[i])-1] = link_atoms[i]
+            if link_atoms != None:
+                for i in range(len(link_atoms)):
+                    elements_link[int(link_atom_pos[i])-1] = link_atoms[i]
             for i in range(natom-qmmm):
                 inpstring += f"{elements_link[i]}\t{coords[i][0]*au2ang:>10,.5f} 1\t{coords[i][1]*au2ang:>10,.5f} 1\t{coords[i][2]*au2ang:>10,.5f} 1\n"
         else:
@@ -279,21 +374,18 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         saved_file = os.path.join(main_dir, "QM.in")
         shutil.copy(saved_file,filecopy)
 
-        filecopy = os.path.join(self.QMin.control["workdir"], "QM.in")
-        saved_file = os.path.join(main_dir, "QM.in")
-        shutil.copy(saved_file,filecopy)
+        if qmin["template"]["qmmm"] != None:
+            filecopy = os.path.join(self.QMin.control["workdir"], "MOPACPI_tnk.xyz")
+            saved_file = os.path.join(main_dir, "MOPACPI_tnk.xyz")
+            shutil.copy(saved_file,filecopy)
 
-        filecopy = os.path.join(self.QMin.control["workdir"], "MOPACPI_tnk.xyz")
-        saved_file = os.path.join(main_dir, "MOPACPI_tnk.xyz")
-        shutil.copy(saved_file,filecopy)
+            filecopy = os.path.join(self.QMin.control["workdir"], "MOPACPI_tnk.key")
+            saved_file = os.path.join(main_dir, "MOPACPI_tnk.key")
+            shutil.copy(saved_file,filecopy)
 
-        filecopy = os.path.join(self.QMin.control["workdir"], "MOPACPI_tnk.key")
-        saved_file = os.path.join(main_dir, "MOPACPI_tnk.key")
-        shutil.copy(saved_file,filecopy)
-
-        filecopy = os.path.join(self.QMin.control["workdir"], force_field)
-        saved_file = os.path.join(main_dir, force_field)
-        shutil.copy(saved_file,filecopy)
+            filecopy = os.path.join(self.QMin.control["workdir"], force_field)
+            saved_file = os.path.join(main_dir, force_field)
+            shutil.copy(saved_file,filecopy)
 
         if step > 0:
             fromfile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
@@ -346,9 +438,32 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
 
-    def prepare(self, INFOS: dict, dir_path: str):
-        "setup the calculation in directory 'dir'"
-        return
+    def prepare(self, INFOS: dict, workdir: str):
+        """
+        prepare the workdir according to dictionary
+
+        ---
+        Parameters:
+        INFOS: dictionary with infos
+        workdir: path to workdir
+        """
+        if self.make_resources:
+            try:
+                resources_file = open('%s/MOPACPI.resources' % (workdir), 'w')
+            except IOError:
+                self.log.error('IOError during prepareMOPACPI, iconddir=%s' % (workdir))
+                quit(1)
+
+            #string = 'scratchdir %s/\n' % INFOS['scratchdir']
+            string = 'mopacdir %s\n' % INFOS['mopacdir']
+
+            resources_file.write(string)
+            resources_file.close()
+            
+        create_file = link if INFOS["link_files"] else shutil.copy
+        #print(self.files)
+        for file in self.files:
+            create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
 
     def printQMout(self) -> None:
         super().writeQMout()
