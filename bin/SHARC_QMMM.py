@@ -218,25 +218,26 @@ class SHARC_QMMM(SHARC_HYBRID):
             self.template_file = question(
                 "Please specify the path to your QMMM.template file", str, KEYSTROKES=KEYSTROKES, default="QMMM.template"
             )
-            
+
             self.read_template(self.template_file)
 
         qm_features = self.qm_interface.get_features()
         mm_features = self.mml_interface.get_features()
 
-        if "point_charges" in qm_features:
-            qm_features.remove("point_charges")
+        qmmm_features = {feat for feat in qm_features}
+        if "point_charges" in qmmm_features:
+            qmmm_features.remove("point_charges")
         else:
             self.log.error("Your QM interface needs to be able to include point charges in its calculations")
 
-        if "grad" in qm_features and "grad" not in mm_features:
-            qm_features.remove("grad")
+        if "grad" in qmmm_features and "grad" not in mm_features:
+            qmmm_features.remove("grad")
 
-        if "h" in qm_features and "h" not in mm_features:
-            qm_features.remove("h")
-        self.log.debug(qm_features)
+        if "h" in qmmm_features and "h" not in mm_features:
+            qmmm_features.remove("h")
+        self.log.debug(qmmm_features)
 
-        return set(qm_features)
+        return set(qmmm_features)
 
     def _step_logic(self):
         super()._step_logic()
