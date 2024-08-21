@@ -217,6 +217,9 @@ class QMout:
                         self.prop2d, iline = QMout.get_property(data, iline, float, (self.nmstates, self.nmstates))
                     case 8: # runtime
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
+                    case 999: # notes
+                        self.notes, iline = QMout.get_notes(data, iline)  
+                        break  # as we do not know how many lines the notes are, we are not reading the QM.out file after the notes
                     case _:
                         iline += 1
                         log.warning(f"Warning!: property with flag {flag} not yet implemented in QMout class")
@@ -324,6 +327,14 @@ class QMout:
             iline -= 1
         return result, iline
 
+    @staticmethod                                   
+    def get_notes(data, iline):                     
+        num = int(data[iline+1].split()[0])         
+        # currently only skipping                   
+        toskip = 4 + 3*num                          
+        return {'Notes': 'not read'}, iline + toskip
+        # TODO: actually read in the notes as dict. Readig should stop at the first empty line
+
     @staticmethod
     def get_property(data, iline, type, shape):
         num = int(data[iline + 1].split()[0])
@@ -379,7 +390,6 @@ class QMout:
             m2 = int(2*float(m2))
             n1 = int(n1)
             n2 = int(n2)
-            #  print('From qmout.get_densities: s1, ms1, n1 = ', s1, m1, n1)
             state1 = electronic_state(Z=charges[s1], S=s1, M=m1, N=n1)
             state2 = electronic_state(Z=charges[s2], S=s2, M=m2, N=n2)
             rho = np.zeros((Nao,Nao))
@@ -391,33 +401,6 @@ class QMout:
         iline += Nao*Nrho
         return res, iline
 
-    def get_densities(data, iline, charges):
-        res = {}
-        shape = data[iline].split('(')[1].split(')')[0].split('x')
-        Nao, Nrho = int(shape[0]), int(shape[2])
-        for d in range(Nrho):
-            line = data[iline+d*(Nao+1)+1] 
-            state1, state2, spin = line.split('|')
-            spin = spin.split()[0]
-            s1, m1, n1 = state1.split(',')
-            s2, m2, n2 = state2.split(',')
-            s1 = int(2*float(s1))
-            s2 = int(2*float(s2))
-            m1 = int(2*float(m1))
-            m2 = int(2*float(m2))
-            n1 = int(n1)
-            n2 = int(n2)
-            state1 = electronic_state(Z=charges[s1], S=s1, M=m1, N=n1) 
-            state2 = electronic_state(Z=charges[s2], S=s2, M=m2, N=n2) 
-            density = (state1,state2,spin)
-            rho = np.zeros((Nao,Nao))
-            for i in range(Nao):
-                row = data[iline+d*(Nao+1)+2+i].split()
-                row = np.array([ float(r) for r in row ])
-                rho[i,:] = row
-            res[(state1,state2,spin)] = rho
-        iline += Nao*Nrho
-        return res, iline
 
     @staticmethod
     def get_mol(data, iline):

@@ -26,7 +26,7 @@
 # IMPORTS
 # EXTERNAL
 import time
-import os
+import numpy as np
 from typing import Any, Union
 from optparse import OptionParser
 from constants import IAn2AName, ATOMCHARGE, FROZENS
@@ -81,30 +81,34 @@ class QMOUT:
         if icall == 1:
             log.debug("setting h and dm")
             if "h" in data:
-                self._QMout.set_hamiltonian(data["h"].tolist())
+                self._QMout.set_hamiltonian(data["h"])
             if "dm" in data:
-                self._QMout.set_dipolemoment(data["dm"].tolist())
+                self._QMout.set_dipolemoment(data["dm"])
 
         if "overlap" in data:
-            if not isinstance(data["overlap"], type([])):
-                # assumes type is numpy array
-                data["overlap"] = data["overlap"].tolist()
+            # assumes type is numpy array
             self._QMout.set_overlap(data["overlap"])
         if "grad" in data:
             if isinstance(data["grad"], list):
                 self._QMout.set_gradient(list2dict(data["grad"]), icall)
             elif data["grad"] is None:
                 self._QMout.set_gradient({}, icall)
+            elif isinstance(data["grad"], np.ndarray):
+                self._QMout.set_gradient_full_array(data["grad"])
             else:
-                self._QMout.set_gradient(list2dict(data["grad"].tolist()), icall)
+                raise RuntimeError
         if "nacdr" in data:
             if isinstance(data["nacdr"], dict):
                 self._QMout.set_nacdr(data["nacdr"], icall)
-            else:
+            elif isinstance(data["nacdr"], list):
                 nacdr = {}
-                for i, ele in enumerate(data["nacdr"].tolist()):
+                for i, ele in enumerate(data["nacdr"]):
                     nacdr[i] = list2dict(ele)
                 self._QMout.set_nacdr(nacdr, icall)
+            elif isinstance(data["nacdr"], np.ndarray):
+                self._QMout.set_nacdr_full_array(data["nacdr"])
+            else:
+                raise RuntimeError
 
         return
 
@@ -185,9 +189,10 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     i.read_requests(get_all_tasks(icall))
     log.debug(f"\tcoords")
     i.set_coords(get_crd())
-    log.debug(f"\trun")
     with InDir("QM"):
+        log.debug(f"\trun")
         safe(i.run)
+        log.debug(f"\twrite Stepfile")
         i.write_step_file()
     log.debug(f"\tset_props")
     qmout.set_props(i.getQMout(), icall)

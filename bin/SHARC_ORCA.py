@@ -15,7 +15,7 @@ import numpy as np
 from constants import IToMult
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import batched, expand_path, itmult, mkdir, question, readfile, writefile
+from utils import batched, expand_path, itmult, link, mkdir, question, readfile, writefile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -78,12 +78,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.template_file = None
+        self.resources_file = None
+
         # Add resource keys
         self.QMin.resources.update(
-            {"orcadir": None, "orcaversion": None, "numfrozcore": -1, "numocc": None, "schedule_scaling": 0.9, "dry_run": False}
+            {"orcadir": None, "orcaversion": None, "numfrozcore": -1, "schedule_scaling": 0.9, "dry_run": False}
         )
         self.QMin.resources.types.update(
-            {"orcadir": str, "orcaversion": tuple, "numfrozcore": int, "numocc": int, "schedule_scaling": float, "dry_run": bool}
+            {"orcadir": str, "orcaversion": tuple, "numfrozcore": int, "schedule_scaling": float, "dry_run": bool}
         )
 
         # Add template keys
@@ -191,7 +194,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.log.info(f"||{'ORCA interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
-        self.files = []
 
         self.log.info(
             "\nPlease specify path to ORCA directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
@@ -207,7 +209,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
         self.log.info("")
 
-        self.template_file = None
         self.log.info(f"{'ORCA input template file':-^60}\n")
 
         if os.path.isfile("ORCA.template"):
@@ -222,21 +223,16 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     continue
                 break
         self.log.info("")
-        self.files.append(self.template_file)
 
         # Resources
         if question("Do you have a 'ORCA.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=False):
-            while True:
-                resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="ORCA.resources")
-                if os.path.isfile(resources_file):
-                    break
-                else:
-                    self.log.info(f"file at {resources_file} does not exist!")
-                self.files.append(resources_file)
-                self.make_resources = False
+            while not os.path.isfile(
+                (resources_file := question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="ORCA.resources"))
+            ):
+                self.log.info(f"file at {resources_file} does not exist!")
+            self.resources_file = resources_file
         else:
-            self.make_resources = True
-            self.log.info(f"{'GAUSSIAN Ressource usage':-^60}\n")
+            self.log.info(f"{'ORCA Ressource usage':-^60}\n")
             self.log.info(
                 """Please specify the number of CPUs to be used by EACH calculation.
         """
@@ -249,9 +245,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
         Typical values for ORCA are 0.90-0.98."""
                 )
-                INFOS["scaling"] = min(
-                    1.0, max(0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0])
-                )
+                INFOS["scaling"] = max(0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0])
             else:
                 INFOS["scaling"] = 0.9
 
@@ -269,7 +263,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 self.log.info("")
                 self.log.info("State threshold for choosing determinants to include in the overlaps")
                 self.log.info("For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1")
-                INFOS["ciothres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                INFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
                 self.log.info("")
 
             # TheoDORE
@@ -302,7 +296,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if "theodore" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'Wave function analysis by TheoDORE':-^60}\n")
 
-                INFOS["theodore"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
+                INFOS["theodir"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
                 self.log.info("")
 
                 self.log.info("Please give a list of the properties to calculate by TheoDORE.\nPossible properties:")
@@ -313,7 +307,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         string += "\n"
                 self.log.info(string)
                 line = question("TheoDORE properties:", str, default="Om  PRNTO  S_HE  Z_HE  RMSeh", KEYSTROKES=KEYSTROKES)
-                INFOS["theodore.prop"] = line.split()
+                INFOS["theodore_prop"] = line.split()
                 self.log.info("")
 
                 self.log.info("Please give a list of the fragments used for TheoDORE analysis.")
@@ -321,16 +315,39 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 self.log.info(
                     'Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
                 )
-                INFOS["theodore.frag"] = []
+                INFOS["theodore_frag"] = []
                 while True:
                     line = question("TheoDORE fragment:", str, default="end", KEYSTROKES=KEYSTROKES)
                     if "end" in line.lower():
                         break
                     f = [int(i) for i in line.split()]
-                    INFOS["theodore.frag"].append(f)
+                    INFOS["theodore_frag"].append(f)
                 INFOS["theodore.count"] = len(INFOS["theodore.prop"]) + len(INFOS["theodore.frag"]) ** 2
 
         return INFOS
+
+    def prepare(self, INFOS: dict, dir_path: str):
+        "setup the calculation in directory 'dir'"
+        create_file = link if INFOS["link_files"] else shutil.copy
+        if not self.resources_file:
+            with open(os.path.join(dir_path, "ORCA.resources"), "w", encoding="utf-8") as file:
+                for key in (
+                    "orcadir",
+                    "scratchdir",
+                    "ncpu",
+                    "memory",
+                    "scaling",
+                    "theodir",
+                    "theodore_prop",
+                    "theodore_frag",
+                    "wfoverlap",
+                    "wfthres",
+                ):
+                    if key in INFOS:
+                        file.write(f"{key} {INFOS[key]}\n")
+        else:
+            create_file(expand_path(self.resources_file), os.path.join(dir_path, "ORCA.resources"))
+        create_file(expand_path(self.template_file), os.path.join(dir_path, "ORCA.template"))
 
     def create_restart_files(self):
         pass
@@ -783,7 +800,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
             for ion in self.QMin.maps["ionmap"]:
                 dyson_mat = self.get_dyson(os.path.join(scratchdir, f"Dyson_{'_'.join(str(i) for i in ion)}", "wfovl.out"))
-                # TODO: REFACTOR
                 for i in range(self.QMin.molecule["nmstates"]):
                     for j in range(self.QMin.molecule["nmstates"]):
                         m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
@@ -810,7 +826,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         Extract point charge gradients from ORCA.pcgrad
         """
-        # TODO: REFACTOR
         # read file
         out = readfile(grad_path)
 
@@ -972,15 +987,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         return energies
 
-    def prepare(self, INFOS: dict, dir_path: str):
-        "setup the calculation in directory 'dir'"
-        return
-
     def printQMout(self) -> None:
         super().writeQMout()
-
-    def print_qmin(self) -> None:
-        pass
 
     def _set_request(self, *args, **kwargs) -> None:
         super()._set_request(*args, **kwargs)
@@ -1670,21 +1678,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             assert it == len(new_order)
 
         return new_order
-
-    # TODO: WTF IS THIS
-    # @staticmethod
-    # def get_dens_matrices(json_file: str) -> tuple[np.ndarray, np.ndarray]:
-    #    with open(json_file, "r", encoding="utf-8") as file:
-    #        orca_json = json.load(file)
-    #    dens_relaxed, dens_unrelaxed = np.array(orca_json["Molecule"]["Densities"]["cisp"]), np.array(orca_json["Molecule"]["Densities"]["scfp"])
-
-    #    atom_symbols = [at["ElementLabel"] for at in orca_json["Molecule"]["Atoms"]]
-    #    basis = ORCA._get_basis(orca_json)
-    #    new_order = ORCA.get_pyscf_order_from_orca(atom_symbols, basis)
-    #    dens_relaxed = dens_relaxed[new_order, :][:, new_order]
-    #    dens_unrelaxed = dens_unrelaxed[new_order, :][:, new_order]
-
-    #    return (dens_relaxed, dens_unrelaxed)
 
     @staticmethod
     def get_orca_version(path: str) -> tuple[int, ...]:

@@ -452,7 +452,6 @@ class SHARC_LVC(SHARC_FAST):
                     "axk,yx->kay", (dc - dcom[None, ...]), self._Trot
                 )
                 coords_deriv = coords_deriv.reshape((r3N, r3N))
-                # print(coords_deriv.T)
             else:
                 self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
             coords_ref_basis = (coords - self._com_coords) @ self._Trot.T + self._com_ref
@@ -485,7 +484,7 @@ class SHARC_LVC(SHARC_FAST):
         # Build full H and diagonalize
         self._Q = np.sqrt(self._Om) * (self._Km @ (coords_ref_basis.flatten() - self._ref_coords.flatten()))
         self._V = self._Om * self._Q
-        V0 = 0.5 * (self._V) @ self._Q
+        V0 = 0.5 * (self._V @ self._Q)
         start = 0  # starting index for blocks
         start_req = 0  # starting index for blocks
         # TODO what if I want to get gradients only ? i.e. samestep
@@ -536,28 +535,6 @@ class SHARC_LVC(SHARC_FAST):
                 del mult_prefactors_deriv
 
             if do_derivs:
-                # numerically calculate the derivatives of the coordinates in the reference system with respect ot the sharc coords
-                # shift = 0.0005
-                # multiplier = 1 / (2 * shift)
-
-                # fits_deriv2 = {im: np.zeros((n, n, natom, 9, natom * 3)) for im, n in enumerate(states) if n != 0}
-                # # coords_deriv = np.zeros((r3N, r3N))
-                # for a in range(self.QMin.molecule["natom"]):
-                #     for x in range(3):
-                #         for f, m in [(1, multiplier), (-1, -multiplier)]:
-                #             c = np.copy(coords)
-                #             c[a, x] += f * shift
-                #             Trot, com_ref, com_c = kabsch(self._ref_coords, c, weights)
-                #             c_rot = (c - com_c) @ Trot.T + com_ref
-                #             # coords_deriv[..., a * 3 + x] += (m * c_rot).flat
-                #             if do_pc:
-                #                 for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
-                #                     _fits_rot = self.rotate_multipoles(self._fits[im], Trot)
-                #                     fits_deriv2[im][..., a * 3 + x] += m * _fits_rot[..., 1:]
-                # if do_pc:
-                #     print(fits_deriv2[0][1, 0, 1, :5, 0])
-                #     print(np.einsum("kijay-> ijayk", fits_deriv[im])[1, 0, 1, :5, 0])
-
                 dQ_dr = np.sqrt(self._Om)[..., None] * (self._Km @ coords_deriv.T)
                 dQ_dr = dQ_dr.T
                 del coords_deriv
@@ -609,18 +586,19 @@ class SHARC_LVC(SHARC_FAST):
                 stop_req = start_req + n_req
 
                 u = self._U[start:stop, start_req:stop_req]
-                dlvc = np.zeros((r3N, n, n))
-                np.einsum("kii->ki", dlvc)[...] += self._V[
-                    ..., None
-                ]  # fills diagonal on matrix with shape (nmstates,nmstates, r3N)
+                dlvc = np.zeros((r3N, n*n))
+                dlvc[:, ::n+1] += self._V[:, None]
+                dlvc = dlvc.reshape((r3N, n, n))
+                # np.einsum("kii->ki", dlvc)[...] += self._V[
+                    # ..., None
+                # ]  # fills diagonal on matrix with shape (r3N,nmstates,nmstates)
                 dlvc += self._H_i[im]
                 dlvc = np.einsum("kij,lk->lij", dlvc, dQ_dr, casting="no", optimize=True)
                 if self._gammas:
                     dlvc += np.einsum("n,ijnm,lm->lij", self._Q, self._G[im], dQ_dr, casting="no", optimize=True)
                 if self._diagonalize:
-                    if "_dlvc_nac_diag_path" not in self.__dict__:
-                        self._dlvc_nac_diag_path = np.einsum_path("kij,im,jn->kmn", dlvc, u, u, optimize="optimal")[0]
-                    dlvc = np.einsum("kij,im,jn->kmn", dlvc, u, u, casting="no", optimize=self._dlvc_nac_diag_path)
+                    # dlvc = u.T @ dlvc @ u
+                    dlvc = np.einsum("kij,im,jn->kmn", dlvc, u, u, casting="no", optimize=["einsum_path", (0, 1), (0, 1)])
                 else:
                     dlvc = dlvc[..., :n_req, :n_req]
 
@@ -670,7 +648,7 @@ class SHARC_LVC(SHARC_FAST):
                 start_req += n_req * (im + 1)
 
         # calculate only gradients
-        if self.QMin.requests["grad"]:
+        if self.QMin.requests["grad"] and not self.QMin.requests["nacdr"]:
             self.log.debug("start calculating gradients")
             grad = np.zeros((r3N, req_nmstates))
             start = 0
@@ -747,16 +725,20 @@ class SHARC_LVC(SHARC_FAST):
 
         # ========================== Prepare results ========================================
         if self.QMin.requests["soc"]:
-            Hd = Hd.astype(self._soc.dtype)
-            adia_soc = self._U.T @ self._soc @ self._U
-            self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
-            Hd += adia_soc
+
             if "_lambda_soc" in self.__dict__:
                 self.log.debug("adding linear derivatives of soc")
-                Hd = Hd.astype(self._lambda_soc.dtype)
-                adia_lambda_soc = np.einsum('in,ijk,jm->nmk', self._U, self._lambda_soc, self._U)
-                self.log.debug(f"soc sanity check: {adia_lambda_soc.dtype} {self._lambda_soc.dtype}")
-                Hd += np.einsum("ijk,k->ij", adia_lambda_soc, self._Q)
+                soc = np.einsum("ijk,k->ij", self._lambda_soc, self._Q)
+                soc = np.add(self._soc, soc, casting='safe')
+                adia_soc = np.einsum('in,ij,jm->nm', self._U, soc, self._U, casting='safe', optimize=["einsum_path", (0,1),(0,1)])
+                self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._lambda_soc.dtype}")
+            else:
+                adia_soc = np.einsum('in,ij,jm->nm', self._U, self._soc, self._U, casting='safe', optimize=["einsum_path", (0,1),(0,1)])
+                self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
+
+            if adia_soc.dtype == complex:
+                Hd = Hd.astype(complex)
+            Hd += adia_soc
 
         dipole = (
             np.einsum("in,kij,jm->knm", self._U, self._dipole, self._U, casting="no", optimize=True)
@@ -843,7 +825,7 @@ class SHARC_LVC(SHARC_FAST):
         dm_found = False
         with open(self.template_file, "r") as f:
             for line in f:
-                if "SOC" in line:
+                if "SOC" in line or "lambda_soc" in line:
                     soc_found = True
                 if "DM" in line:
                     dm_found = True

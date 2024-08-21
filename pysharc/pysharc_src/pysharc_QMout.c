@@ -23,8 +23,8 @@
 
 
 /*
- * @author: Maximilian F.S.J. Menger
- * @date: 18.04.2018
+ * @author: Maximilian F.S.J. Menger, Severin Polonius
+ * @date: 29.07.2024
  * @version: 0.1.1 
  *
  * Python Wrapper for the SHARC LIBRARY
@@ -305,145 +305,228 @@ QMout_set_gradient(QMout * self, PyObject * args)
         return NULL;
 }
 
+
+static PyObject *
+QMout_set_gradient_full_array(QMout * self, PyObject * args)
+{
+   PyArrayObject * grad=NULL;
+
+   if (!PyArg_ParseTuple(args, "O", &grad)){
+       return NULL;
+   }
+
+   if (grad == NULL) {
+      return NULL;
+   }
+
+
+   if (!PyArray_Check(grad)) {
+     PyErr_SetString(PyExc_TypeError, "Input must be a NumPy array");
+     return NULL;
+   }
+   
+
+   npy_intp* dim= PyArray_DIMS(grad);
+   int num_dims = PyArray_NDIM(grad);
+   if (num_dims != 3) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be 3d!");
+     goto fail;
+   }
+   if (dim[0] != self->NStates || dim[1] != self->NAtoms || dim[2] != 3) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be of dim Nstates x Natoms x 3 !");
+     goto fail;
+   }
+
+   /* Clear the gradient vector! */
+   /*Not needed if every element is assigned*/
+   /*clear_double(self->NStates*self->NAtoms*3, self->gradient);*/
+
+   /* set state gradient  */
+   for (size_t istate=0; istate<self->NStates; istate++){
+        for (size_t a=0; a<self->NAtoms; a++){
+            for (size_t x=0; x<3; x++){
+              // SHARC order: 3*natoms*nstates)
+              *(self->gradient +  x * self->NAtoms * self->NStates + a * self->NStates + istate) = *((double *)PyArray_GETPTR3(grad, istate, a, x));
+            }
+        }
+   }
+
+   /* free memory */
+   self->iset_g = 1;
+   /*Py_DECREF(grad);*/
+   Py_RETURN_NONE;
+   fail:
+       Py_XDECREF(grad);
+       return NULL;
+}
+
 static PyObject *
 QMout_set_hamiltonian(QMout * self, PyObject * args)
 {
-    PyObject * hamiltonian;
-    double complex complex_value;
+   PyArrayObject * hamiltonian=NULL;
 
-    if (!PyArg_ParseTuple(args, "O", &hamiltonian))
+   if (!PyArg_ParseTuple(args, "O", &hamiltonian)){
         return NULL;
-    /* need to be python list */
-    if (!PyList_Check(hamiltonian)) { 
-        printf("Hamiltonian is not a list!\n");
-        goto fail;
-    } 
-    /* Clear the matrix! */
-    clear_complex_double(self->NStates*self->NStates, self->hamiltonian);
-    /* no further format checks! */
-    if (PyList_GET_SIZE(hamiltonian) !=  self->NStates) {
-        printf("Size not consistent!\n");
-        goto fail;
-    }
-    for (int is=0; is < self->NStates; is++){
-        PyObject * state_list = PyList_GetItem(hamiltonian, is);
-        for (int js =0; js < self->NStates; js++){
-            PyObject * pyfloat = PyList_GetItem(state_list, js);
-            /*
-            printf("is = %d, js = %d\n", is, js);
-            PyObject_Print(pyfloat, stdout, 0);
-            printf("\n");
-            */
-            if (PyFloat_Check(pyfloat)) {
-                complex_value = (PyFloat_AsDouble(pyfloat) );
-            } else {
-                complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
-            }
-            // if coefficients were right...
-            // *(self->hamiltonian + (is*self->NStates) + js) = complex_value; 
-            *(self->hamiltonian + (js*self->NStates) + is) = complex_value;
-        }
-    }
-#ifdef __PYTHON_DEBUG__
-    printf("FINISHED SETTING H!\n");
-#endif
-    self->iset_h = 1;
-    Py_RETURN_NONE;
-    fail:
-        Py_XDECREF(hamiltonian);
-        return NULL;
+   }
 
+   if (hamiltonian == NULL) {
+      return NULL;
+   }
+
+    /* needs to be array */
+   if (!PyArray_Check(hamiltonian)) {
+     PyErr_SetString(PyExc_TypeError, "Input must be a NumPy array");
+     return NULL;
+   }
+
+   npy_intp* dim= PyArray_DIMS(hamiltonian);
+   int num_dims = PyArray_NDIM(hamiltonian);
+   if (num_dims != 2) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be 2d!");
+     goto fail;
+   }
+   if (dim[0] != self->NStates || dim[1] != self->NStates) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be of dim 3 x Nstates x Nstates!");
+     goto fail;
+   }
+
+
+   int is_complex = PyArray_TYPE(hamiltonian) == NPY_COMPLEX128;
+    /* Clear the overlap matrix! */
+   /*Not needed if every element is assigned*/
+    /*clear_complex_double(self->NStates*self->NStates, self->hamiltonian);*/
+
+
+   for (int is=0; is < self->NStates; is++){
+       for (int js =0; js < self->NStates; js++){
+         if (is_complex) {
+           *(self->hamiltonian + (js*self->NStates) + is) = *((double complex *)PyArray_GETPTR2(hamiltonian, is, js));
+         }
+         else {
+           *(self->hamiltonian + (js*self->NStates) + is) = *((double *)PyArray_GETPTR2(hamiltonian, is, js)) + 0. * _Complex_I;
+         }
+       }
+   }
+   self->iset_h = 1;
+   Py_RETURN_NONE;
+   fail:
+       Py_XDECREF(hamiltonian);
+       return NULL;
 }
 
 static PyObject *
 QMout_set_dipolemoment(QMout * self, PyObject * args)
 {
-    PyObject * dip;
-    double complex complex_value;
+   PyArrayObject * dip=NULL;
+   /*double complex complex_value;*/
+   /*PyFloat * pyfloat;*/
 
-    if (!PyArg_ParseTuple(args, "O", &dip))
+   if (!PyArg_ParseTuple(args, "O", &dip)){
         return NULL;
+   }
 
-    /* need to be python list */
-    if ( !PyList_Check(dip)) 
-        goto fail;
+   if (dip == NULL) {
+      return NULL;
+   }
+
+    /* needs to be array */
+   if (!PyArray_Check(dip)) {
+     PyErr_SetString(PyExc_TypeError, "Input must be a NumPy array");
+     return NULL;
+   }
+
+   npy_intp* dim= PyArray_DIMS(dip);
+   int num_dims = PyArray_NDIM(dip);
+   if (num_dims != 3) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be 3d!");
+     goto fail;
+   }
+   if (dim[0] != 3 || dim[1] != self->NStates || dim[2] != self->NStates) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be of dim 3 x Nstates x Nstates!");
+     goto fail;
+   }
+
+   int is_complex = PyArray_TYPE(dip) == NPY_COMPLEX128;
+
     /* Clear the overlap matrix! */
-    clear_complex_double(3*self->NStates*self->NStates, self->dipole_mom);
-    /* no further format checks! */
-    if (PyList_GET_SIZE(dip) !=  3)
-        goto fail;
-    /* */
-    for (int k = 0; k < 3; k++){
-        PyObject * xyz_dip = PyList_GetItem(dip, k);
-        if (PyList_GET_SIZE(xyz_dip) != self->NStates)
-            goto fail;
-        for (int is=0; is < self->NStates; is++){
-            PyObject * state_list = PyList_GetItem(xyz_dip, is);
-            for (int js =0; js < self->NStates; js++){
-                PyObject * pyfloat = PyList_GetItem(state_list, js);
-                if (PyFloat_Check(pyfloat)) {
-                    complex_value = (PyFloat_AsDouble(pyfloat) );
-                } else {
-                    complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
-                }
-                // if coefficients were right
-                // *(self->dipole_mom + (k * self->NStates * self->NStates) + (is*self->NStates) + js) = complex_value;
-                *(self->dipole_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = complex_value;
-            }
-        }
-    }
-#ifdef __PYTHON_DEBUG__
-    printf("FINISHED SETTING DM!\n");
-#endif
-    self->iset_d = 1;
-    Py_RETURN_NONE;
-    fail:
-        Py_XDECREF(dip);
-        return NULL;
+   /*Not needed if every element is assigned*/
+    /*clear_complex_double(3*self->NStates*self->NStates, self->dipole_mom);*/
+
+
+   for (int k = 0; k < 3; k++){
+       for (int is=0; is < self->NStates; is++){
+           for (int js =0; js < self->NStates; js++){
+               if (is_complex) {
+                  *(self->dipole_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = *((double complex *)PyArray_GETPTR3(dip, k, is, js));
+               }
+               else {
+                  *(self->dipole_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = *((double *)PyArray_GETPTR3(dip, k, is, js)) + 0. * _Complex_I;
+               }
+           }
+      }
+   }
+   self->iset_d = 1;
+   Py_RETURN_NONE;
+   fail:
+       Py_XDECREF(dip);
+       return NULL;
 }
 
 static PyObject *
 QMout_set_overlap(QMout * self, PyObject * args)
 {
-    PyObject * overlap;
-    double complex complex_value;
+   PyArrayObject * overlap=NULL;
+   /*double complex complex_value;*/
+   /*PyFloat * value;*/
 
-    if (!PyArg_ParseTuple(args, "O", &overlap))
+   if (!PyArg_ParseTuple(args, "O", &overlap)){
         return NULL;
+   }
 
-    /* need to be python dict */
-    if ( !PyList_Check(overlap)) 
-        goto fail;
-    /* Clear the overlap matrix! */
-    clear_complex_double(self->NStates*self->NStates, self->overlap);
-    /* no further format checks! */
-    if (PyList_GET_SIZE(overlap) !=  self->NStates)
-        goto fail;
-#ifdef __PYTHON_DEBUG__
-    printf("GOING TO SET OVERLAP!\n");
-#endif
-    for (int is=0; is < self->NStates; is++){
-        PyObject * state_list = PyList_GetItem(overlap, is);
-        for (int js =0; js < self->NStates; js++){
-            PyObject * pyfloat = PyList_GetItem(state_list, js);
-            if (PyFloat_Check(pyfloat)) {
-                complex_value = (PyFloat_AsDouble(pyfloat) );
-            } else {
-                complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
-            }
-            // if coefficients were right
-            // *(self->overlap + self->NStates*is + js) = complex_value;
-            *(self->overlap + is + self->NStates*js) = complex_value;
-        }
-    }
-#ifdef __PYTHON_DEBUG__
-    printf("FINISHED SETTING OVERLAP!\n");
-#endif
-    self->iset_o = 1;
-    Py_RETURN_NONE;
-    fail:
-        Py_XDECREF(overlap);
-        return NULL;
+   if (overlap == NULL) {
+      return NULL;
+   }
+
+    /* needs to be array */
+   if (!PyArray_Check(overlap)) {
+     PyErr_SetString(PyExc_TypeError, "Input must be a NumPy array");
+     return NULL;
+   }
+
+   npy_intp* dim= PyArray_DIMS(overlap);
+   int num_dims = PyArray_NDIM(overlap);
+   if (num_dims != 2) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be 2d!");
+     goto fail;
+   }
+   if (dim[0] != self->NStates || dim[1] != self->NStates) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be of dim Nstates x Nstates!");
+     goto fail;
+   }
+   int is_complex = PyArray_TYPE(overlap) == NPY_COMPLEX128;
+
+
+   /* Clear the overlap matrix! */
+   /*Not needed if every element is assigned*/
+   /*clear_complex_double(self->NStates*self->NStates, self->overlap);*/
+
+   for (int is=0; is < self->NStates; is++){
+       for (int js =0; js < self->NStates; js++){
+
+         if (is_complex) {
+           *(self->overlap + self->NStates*js + is) = *((double complex *) PyArray_GETPTR2(overlap, is,js));
+         }
+         else {
+           *(self->overlap + self->NStates*js + is) = *((double *) PyArray_GETPTR2(overlap, is,js)) + 0. * _Complex_I;
+         }
+       }
+   }
+
+   self->iset_o = 1;
+   Py_RETURN_NONE;
+   fail:
+      Py_XDECREF(overlap);
+      return NULL;
 }
 
 static PyObject *
@@ -513,17 +596,81 @@ QMout_set_nacdr(QMout * self, PyObject * args)
         return NULL;
 }
 
+static PyObject *
+QMout_set_nacdr_full_array(QMout * self, PyObject * args)
+{
+   PyArrayObject * nacdr=NULL;
+
+   if (!PyArg_ParseTuple(args, "O", &nacdr)){
+       return NULL;
+   }
+
+   if (nacdr == NULL) {
+      return NULL;
+   }
+
+
+   if (!PyArray_Check(nacdr)) {
+     PyErr_SetString(PyExc_TypeError, "Input must be a NumPy array");
+     return NULL;
+   }
+   
+   /*nacdr = PyArray_FROM_OTF(arg1, NPY_DOUBLE, NPY_ARRAY_IN_ARRAY);*/
+
+
+
+   npy_intp* dim= PyArray_DIMS(nacdr);
+   int num_dims = PyArray_NDIM(nacdr);
+   if (num_dims != 4) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be 4d!");
+     goto fail;
+   }
+   if (dim[0] != self->NStates || dim[1] != self->NStates || dim[2] != self->NAtoms || dim[3] != 3) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be of dim Nstates x Nstates x Natoms x 3 !");
+     goto fail;
+   }
+
+   /* Clear the NAC vector! */
+   /*Not needed if every element is assigned*/
+   /*clear_double(self->NStates*self->NStates*self->NAtoms*3, self->nacdr);*/
+
+   for (size_t istate=0; istate<self->NStates; istate++){
+       for (size_t jstate=0; jstate<self->NStates; jstate++){
+           for (size_t a=0; a<self->NAtoms; a++){
+               for (size_t x=0; x<3; x++){
+                 // SHARC order: 3*natoms*nstates*nstates)
+                 *(self->nacdr +  x * self->NAtoms * self->NStates * self->NStates + a * self->NStates * self->NStates + jstate * self->NStates + istate) = *((double *)PyArray_GETPTR4(nacdr, istate, jstate, a, x));
+                 // idx++;
+               }
+           }
+
+       }
+   }
+
+   /* free memory */
+   self->iset_nacdr = 1;
+   /*Py_DECREF(nacdr);*/
+   Py_RETURN_NONE;
+   fail:
+       Py_XDECREF(nacdr);
+       return NULL;
+}
+
 static PyMethodDef QMout_methods[] = {
     {"set_hamiltonian", (PyCFunction)QMout_set_hamiltonian, METH_VARARGS,
      "enters a list of list of [nstate][nstate], type: complex or float "},
     {"set_gradient", (PyCFunction)QMout_set_gradient, METH_VARARGS,
      "enters a dict of lists, grad[IState] = [NAtoms][3], type: floats" },
+    {"set_gradient_full_array", (PyCFunction)QMout_set_gradient_full_array, METH_VARARGS,
+     "gradient ndarray [nstates][NAtoms][3], dtype: float  "},
     {"set_dipolemoment", (PyCFunction)QMout_set_dipolemoment, METH_VARARGS,
      "enters a list of list of list of [3][nstate][nstate], type: complex or float"},
     {"set_overlap", (PyCFunction)QMout_set_overlap, METH_VARARGS,
      "enters a list of list of [nstate][nstate], type: complex or float "},
     {"set_nacdr", (PyCFunction)QMout_set_nacdr, METH_VARARGS,
      "enters dict of dics nacs[istate][jstate] = [NAtoms][3], type: float  "},
+    {"set_nacdr_full_array", (PyCFunction)QMout_set_nacdr_full_array, METH_VARARGS,
+     "nacdr ndarray [nstates][nstates][NAtoms][3], dtype: float  "},
     {"printInfos", (PyCFunction)QMout_printInfo, METH_NOARGS,
         "print info about system" },
     {"printAll", (PyCFunction)QMout_printAll, METH_NOARGS,
