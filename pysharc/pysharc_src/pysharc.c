@@ -35,9 +35,9 @@
 
 #include <Python.h>
 #include "structmember.h"
-#ifdef __NUMPY__ALLOWED__
-    #include <numpy/arrayobject.h>
-#endif
+/*#ifdef __NUMPY__ALLOWED__*/
+#include <numpy/arrayobject.h>
+/*#endif*/
 /* DEFINITIONS USED TO COMMUNICATE */
 #include "data.inc"
 #include <stdio.h>
@@ -147,36 +147,33 @@ static char get_current_coordinates_docstring[] =
     "get_current_coordinates()\n\
     :return: lst";
 
-static PyObject * get_current_coordinates(PyObject * self, PyObject * args)
+static PyArrayObject * get_current_coordinates(PyObject * self, PyObject * args)
 {
 
-    PyObject * lst;
+    int NAtoms = 0;
+    get_natoms_(&NAtoms);
+
+    const npy_intp dims[] = {NAtoms, 3};
+    PyArrayObject * Crd  = ((PyArrayObject *)PyArray_ZEROS(2, dims, NPY_FLOAT64, 0));
+    double * data = ((double *)PyArray_DATA(Crd));
 
     int ang;
 
     if (!PyArg_ParseTuple(args, "i", &ang))
         return NULL;
 
+    get_current_coordinates_(&NAtoms, data, &ang);
 
-    int NAtoms = 0;
-    get_natoms_(&NAtoms);
+    /*lst = PyList_New(NAtoms);*/
+    /*for (int i=0; i<NAtoms; i++){*/
+        /*PyObject * pylst = PyList_New(3);*/
+        /*for (int j =0; j<3; j++){*/
+            /*PyList_SetItem(pylst, j, PyFloat_FromDouble( *(Crd+i*3+j)));*/
+        /*}*/
+        /*PyList_SetItem(lst, i, pylst);*/
+    /*}*/
 
-    double * Crd;
-    Crd = (double *)malloc(3*NAtoms*sizeof(double));
-
-    get_current_coordinates_(&NAtoms, Crd, &ang);
-
-    lst = PyList_New(NAtoms);
-    for (int i=0; i<NAtoms; i++){
-        PyObject * pylst = PyList_New(3);
-        for (int j =0; j<3; j++){
-            PyList_SetItem(pylst, j, PyFloat_FromDouble( *(Crd+i*3+j)));
-        }
-        PyList_SetItem(lst, i, pylst);
-    }
-    free(Crd);
-
-    return lst;
+    return Crd;
 }
 
 
@@ -483,9 +480,7 @@ sharc_module_init(void)
     PyModule_AddObject(mod, "QMin",
             (PyObject *)&QMinType);
     /* Load `numpy` */
-#ifdef __NUMPY__ALLOWED__
-        import_array();
-#endif
+    import_array();
     return mod;
 }
 

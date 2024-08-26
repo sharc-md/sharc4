@@ -899,12 +899,13 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     self.log.error(f"No iteration count found for job {mult}")
 
             # SOCs, only possible between S1-T
-            if self.QMin.requests["soc"] and mult == 1:
+            if  mult == 1 and self.QMin.requests["soc"]:
                 socs = self._get_socs(ricc2_out)[: states[0] - 1, states[0] - 1 :, :]
 
-                self.QMout["h"][1 : states[0], states[0] : states[0] + states[2]] = socs[:, :, 0]
-                self.QMout["h"][1 : states[0], states[2] + states[0] : states[0] + (2 * states[2])] = socs[:, :, 1]
-                self.QMout["h"][1 : states[0], (2 * states[2]) + states[0] : states[0] + (3 * states[2])] = socs[:, :, 2]
+                skip = states[0] + 2 * states[1]
+                self.QMout["h"][1 : states[0], skip : skip + states[2]] = socs[:, :, 0]
+                self.QMout["h"][1 : states[0], states[2] + skip : skip + (2 * states[2])] = socs[:, :, 1]
+                self.QMout["h"][1 : states[0], (2 * states[2]) + skip : skip + (3 * states[2])] = socs[:, :, 2]
                 self.QMout["h"] += self.QMout["h"].T
 
             # Energies
@@ -1034,7 +1035,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
             # Extract energy values
             energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
-        return np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]), re.findall(r"(\d+\.\d{2})\s", raw_energies[0])[1::2]
+        return (
+            np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]),
+            re.findall(r"(\d+\.\d{2})\s", raw_energies[0])[1::2],
+        )
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
@@ -1090,6 +1094,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             master_job.control["master"] = True
             master_job.control["jobid"] = job
             master_job.control["states_to_do"][job - 1] -= 1
+            if job != 1:
+                master_job.requests["soc"] = False
             master[f"master_{job}"] = master_job
         self.QMin.control["nslots_pool"].append(nslots)
         schedule = [master]

@@ -291,7 +291,7 @@ read_sharc_ncoutputdat_istep_(
         ncdat->id = open_ncfile("output.dat.nc", NC_NOWRITE);
 
         // init nsteps
-        *nsteps = 0;
+        size_t nsteps = 0;
 
         int unlim_id = 0;
 
@@ -300,10 +300,9 @@ read_sharc_ncoutputdat_istep_(
         );
 
         check_nccall(iret,
-                nc_inq_dimlen(ncdat->id, unlim_id, nsteps)
+                nc_inq_dimlen(ncdat->id, unlim_id, &nsteps)
         );
 
-        printf("found %d steps\n", *nsteps);
         
         check_nccall(iret, 
                 nc_inq_varid(ncdat->id, "H_MCH", &ncdat->H_MCH_id)
