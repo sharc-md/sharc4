@@ -236,14 +236,14 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         # process restraint file
         self.restraints = []
         factors = {'kcal/mol': kcal_to_Eh,
-                   'kJ/mol': 1./kJpermol_to_Eh,
-                   'Eh': 1.,
+                   'kj/mol': 1./kJpermol_to_Eh,
+                   'eh': 1.,
                    'cm-1': rcm_to_Eh,
-                   'eV': EV_TO_EH,
+                   'ev': EV_TO_EH,
                    'angstrom': ANG_TO_BOHR,
                    'bohr': 1.,
                    'degree': np.pi/180.,
-                   'radians': 1.
+                   'radian': 1.
                    }
         types = {'r': 2,
                  'a': 3,
@@ -257,7 +257,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                 continue
             if len(s) < 5+types[s[0]]:
                 continue
-            restraint = (s[0], float(s[1])*factors[s[2]], float(s[3])*factors[s[4]], [int(i)-1 for i in s[5:]] )
+            restraint = (s[0], abs(float(s[1])*factors[s[2].lower()]), abs(float(s[3])*factors[s[4].lower()]), [int(i)-1 for i in s[5:]] )
             self.log.info(str(restraint))
             self.restraints.append(restraint)
 
@@ -319,8 +319,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         self.QMout = self.child_interface.QMout
 
         # compute restraint energy and gradient
-        if self.QMin.requests["h"]:
-            E = []
+        E = []
         if self.QMin.requests["grad"]:
             Grad = []
         coords = self.QMin.coords['coords']
