@@ -509,9 +509,12 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             codes.append(self.run_program(workdir, "dscf", "dscf.out", "dscf.err"))
             self.log.debug(f"dscf exited with code {codes[-1]}")
 
-            # TODO: e, socs, dm
+            # TODO: dm
             if qmin.requests["soc"] and jobid == 1:
                 self._modify_file(control, None, None, [("$excitations", "tmexc istates=all fstates=all operators=soc\n")])
+            # self._modify_file(control, None, None, [("$excitations", "exprop states=all relaxed operators=diplen\n")])
+            # self._modify_file(control, None, None, [("$excitations", "static relaxed operators=diplen\n")])
+            # self._modify_file(control, None, None, [("$excitations", "spectrum states=all operators=diplen\n")])
 
             codes.append(self._run_ricc2(workdir))
 
@@ -523,7 +526,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 codes.append(self._run_orca_soc(workdir))
                 self.log.debug(f"orca_mkl/orca_soc exited with code {codes[-1]}")
 
-            # TODO
             # Save files
             if jobid == 1:
                 shutil.copy(os.path.join(workdir, "mos"), os.path.join(qmin.save["savedir"], f"mos.{jobid}.{qmin.save['step']}"))
@@ -605,11 +607,11 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 for occ in range(n_froz, n_occ[0]):
                     for virt in range(n_occ[0], n_mo):
                         key = occ_str[:]
-                        key[occ], key[virt] = (2, 1) if restr else (0, 1)
+                        key[occ], key[virt] = (1, 2) if restr else (0, 1)
                         val = next(it_coeffs) * (np.sqrt(0.5) if restr else 1.0)
                         tmp[tuple(key)] = val
                         if restr:
-                            key[occ], key[virt] = 1, 2
+                            key[occ], key[virt] = 2, 1
                             tmp[tuple(key)] = val if mult == 3 else -val
 
                 # Unrestricted
@@ -624,7 +626,11 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                         key[occ], key[virt] = 0, 2
                         tmp[tuple(key)] = next(it_coeffs)
 
-                self.log.debug(f"Determinant {mult} {state} norm {np.linalg.norm(list(tmp.values())):.5f}")
+                norm = np.linalg.norm(list(tmp.values()))
+                self.log.debug(f"Determinant {mult} {state} norm {norm:.5f}")
+
+                # Renormalize (needed for SOCs)
+                tmp = {k: v/norm for k, v in tmp.items()}
 
                 # Filter out dets with lowest contribution
                 self.trim_civecs(tmp)
@@ -639,7 +645,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         writefile(os.path.join(workdir, "tm2molden.input"), "molden.input\ny\n")
 
         # Execute tm2molden
-        if code := self.run_program(workdir, "tm2molden norm < tm2molden.input", "tm2molden.out", "tm2molden.err") != 0:
+        if code := self.run_program(workdir, "tm2molden < tm2molden.input", "tm2molden.out", "tm2molden.err") != 0:
             self.log.error(f"tm2molden failed with exit code {code}")
             raise RuntimeError()
 
@@ -657,7 +663,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         Calculate overlap matrix between previous and current geom
         """
         # Load molden file
-        mol2, _, _, _, _, _ = tools.molden.load(os.path.join(self.QMin.resources["scratchdir"], "master_1/molden.input"))
+        mol2, _, _, _, _, _ = tools.molden.load(os.path.join(self.QMin.resources["scratchdir"], f"master_{self.QMin.control['joblist'][0]}/molden.input"))
 
         # Create Mole object, assign basis from molden
         mol = gto.Mole()
@@ -676,10 +682,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         mol.unit = "Bohr"
         mol.build()
         n_ao = mol.nao if dyson else (mol.nao // 2)
-
         # Sort functions from pySCF to Turbomole order
         self._ao_labels = [i.split()[::2] for i in mol.ao_labels()[:n_ao]]
-        self.log.debug(f"AOLABELS {self._ao_labels}")
         self.log.debug(f"PySCF AO order:{self._print_ao(self._ao_labels)}")
         ovlp = mol.intor("int1e_ovlp")
         if not dyson:
