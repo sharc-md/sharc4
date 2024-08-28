@@ -31,6 +31,7 @@ import os
 import shutil
 from io import TextIOWrapper
 import re
+import copy
 
 import numpy as np
 # internal
@@ -233,6 +234,15 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             raise RuntimeError()
         data = readfile(self.QMin.template["restraint_file"])
 
+        ## example restraint file:
+        # r 100. kcal/mol bohr    1.4 angstrom 1 2     # counting starts from 1
+        # a 200. kcal/mol radians 90. degree   2 1 3   # middle atom is apex
+        # d 300. kcal/mol radians 10. degree   1 2 3 4 # angles will always be between 0 and 180°
+        # first is type
+        # 2-4 is force constant, value is multiplied by first unit and divided by second unit
+        # 5-6 is equilibrium value, multiplied by unit
+        # 7-10 are atom indices to define the bond/angle/dihedral
+    
         # process restraint file
         self.restraints = []
         factors = {'kcal/mol': kcal_to_Eh,
@@ -243,11 +253,14 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                    'angstrom': ANG_TO_BOHR,
                    'bohr': 1.,
                    'degree': np.pi/180.,
-                   'radian': 1.
+                   'radian': 1.,
+                   'one': 1.,
+                   'per': 1.,
                    }
         types = {'r': 2,
                  'a': 3,
-                 'd': 4}
+                 'd': 4,
+                 'de': 2}
         for line in data:
             line = re.sub('#.*$', '', line)
             s = line.split()
@@ -257,7 +270,11 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                 continue
             if len(s) < 5+types[s[0]]:
                 continue
-            restraint = (s[0], abs(float(s[1])*factors[s[2].lower()]), abs(float(s[3])*factors[s[4].lower()]), [int(i)-1 for i in s[5:]] )
+            restraint = (s[0].lower(), 
+                         abs( float(s[1]) * factors[s[2].lower()] / factors[s[3].lower()] ), 
+                         abs( float(s[4]) * factors[s[5].lower()] ), 
+                         [int(i)-1 for i in s[6:]] 
+                         )
             self.log.info(str(restraint))
             self.restraints.append(restraint)
 
@@ -309,6 +326,22 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                 self.child_interface.QMin.requests[key] = value
         self.child_interface._request_logic()
 
+        # add h request to child if needed for "de" restraints:
+        if not self.QMin.requests["h"] and not self.QMin.requests["soc"]:
+            self.child_interface.QMin.requests["h"] = True
+
+        # if there are "de" restraints, we need to make sure to compute all necessary gradients
+        if self.QMin.requests["grad"]:
+            self.original_gradient_request = copy.deepcopy(self.QMin.requests["grad"])
+            gradrequests = set(self.QMin.requests["grad"])
+            for i, restraint in enumerate(self.restraints):
+                t, _, _, indices = restraint
+                if t == "de":
+                    gradrequests.add(indices[0])
+                    gradrequests.add(indices[1])
+            self.child_interface.QMin.requests["grad"] = sorted(gradrequests)
+            
+
         with InDir(self.QMin.template["child-dir"]) as _:
             self.child_interface.run()
             self.child_interface.getQMout()
@@ -324,22 +357,22 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             Grad = []
         coords = self.QMin.coords['coords']
         for i, restraint in enumerate(self.restraints):
-            t, k, v0, atoms = restraint
+            t, k, v0, indices = restraint
             e = 0.
             grad = np.zeros_like(self.QMout['grad'][0])
             match t:
                 case 'r':
-                    Ri = coords[atoms[0]]
-                    Rj = coords[atoms[1]]
+                    Ri = coords[indices[0]]
+                    Rj = coords[indices[1]]
                     Rij = np.linalg.norm(Ri-Rj)
                     e = k/2. * (Rij - v0)**2
                     if self.QMin.requests["grad"]:
-                        grad[atoms[0],:] = +k*(Rij - v0)/Rij*(Ri-Rj)
-                        grad[atoms[1],:] = -k*(Rij - v0)/Rij*(Ri-Rj)
+                        grad[indices[0],:] = +k*(Rij - v0)/Rij*(Ri-Rj)
+                        grad[indices[1],:] = -k*(Rij - v0)/Rij*(Ri-Rj)
                 case 'a':
-                    Ri = coords[atoms[0]]
-                    Rj = coords[atoms[1]]
-                    Rk = coords[atoms[2]]
+                    Ri = coords[indices[0]]
+                    Rj = coords[indices[1]]
+                    Rk = coords[indices[2]]
                     R1 = Ri - Rj
                     R2 = Rk - Rj
                     aijk = np.arccos(np.dot(R1,R2)/np.linalg.norm(R1)/np.linalg.norm(R2))
@@ -349,14 +382,14 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                         dcosa_i = ( R2 / np.linalg.norm(R2) - R1 / np.linalg.norm(R1) * np.cos(aijk) ) / np.linalg.norm(R1)
                         dcosa_k = ( R1 / np.linalg.norm(R1) - R2 / np.linalg.norm(R2) * np.cos(aijk) ) / np.linalg.norm(R2)
                         g1 = -k*(aijk - v0) / np.sin(aijk) 
-                        grad[atoms[0],:] =  g1 * dcosa_i
-                        grad[atoms[2],:] =  g1 * dcosa_k
-                        grad[atoms[1],:] = -g1 * dcosa_i -g1 * dcosa_k
+                        grad[indices[0],:] =  g1 * dcosa_i
+                        grad[indices[2],:] =  g1 * dcosa_k
+                        grad[indices[1],:] = -g1 * dcosa_i -g1 * dcosa_k
                 case 'd':
-                    Ri = coords[atoms[0]]
-                    Rj = coords[atoms[1]]
-                    Rk = coords[atoms[2]]
-                    Rl = coords[atoms[3]]
+                    Ri = coords[indices[0]]
+                    Rj = coords[indices[1]]
+                    Rk = coords[indices[2]]
+                    Rl = coords[indices[3]]
                     R1 = Rj - Ri
                     R2 = Rk - Rj
                     R3 = Rl - Rk
@@ -371,10 +404,24 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                         dcosphi_k = np.cross(np.cross(np.cross(m,n),m),R1)/np.linalg.norm(np.cross(R1,R2)) - np.cross(np.cross(np.cross(n,m),n),R3+R2)/np.linalg.norm(np.cross(R2,R3))
                         dcosphi_l = np.cross(np.cross(np.cross(n,m),n),R2)/np.linalg.norm(np.cross(R2,R3))
                         g1 = -k*(dijkl - v0) / np.sin(dijkl)
-                        grad[atoms[0],:] = g1 * dcosphi_i
-                        grad[atoms[1],:] = g1 * dcosphi_j
-                        grad[atoms[2],:] = g1 * dcosphi_k
-                        grad[atoms[3],:] = g1 * dcosphi_l
+                        grad[indices[0],:] = g1 * dcosphi_i
+                        grad[indices[1],:] = g1 * dcosphi_j
+                        grad[indices[2],:] = g1 * dcosphi_k
+                        grad[indices[3],:] = g1 * dcosphi_l
+                    # todo:
+                    # rewrite based on https://github.com/ochsenfeld-lab/adaptive_sampling/blob/227efd3d3c218a8f7e50c4bc1d0983767a112a9c/adaptive_sampling/colvars/colvars.py#L179
+                    # to have dihedrals between -pi and pi
+                case 'de':
+                    Ei = self.child_interface.QMout.h[indices[0],indices[0]]
+                    Ej = self.child_interface.QMout.h[indices[1],indices[1]]
+                    dE = Ei - Ej
+                    e = k/2. * (dE - v0)**2
+                    if self.QMin.requests["grad"]:
+                        gi = self.child_interface.QMout.grad[indices[0]]
+                        gj = self.child_interface.QMout.grad[indices[1]]
+                        g1 = k*(dE - v0)
+                        grad = g1 * (gi - gj)
+
             # save the computed results
             E.append(e)
             if self.QMin.requests["grad"]:
@@ -395,6 +442,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             self.QMout.grad = self.child_interface.QMout.grad.copy()
             for i,_ in enumerate(self.QMout.grad):
                 self.QMout.grad[i] += Gradtot
+                # TODO: set gradients to zero that were not originally requested, but keep M_S sublevels
+
 
         self.QMout.runtime = self.clock.measuretime()
         return self.QMout
