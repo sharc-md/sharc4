@@ -33,6 +33,12 @@ from io import TextIOWrapper
 import re
 import copy
 
+try:
+    import torch
+    pytorch_available = True
+except ImportError:
+    pytorch_available = False
+
 import numpy as np
 # internal
 from constants import ATOMCHARGE, FROZENS, ANG_TO_BOHR, rcm_to_Eh, kcal_to_Eh, EV_TO_EH, kJpermol_to_Eh
@@ -78,6 +84,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         self.child_interface = None
         self.restraints = None
 
+        self.pytorch = pytorch_available
 
 
     @staticmethod
@@ -271,8 +278,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             if len(s) < 5+types[s[0]]:
                 continue
             restraint = (s[0].lower(), 
-                         abs( float(s[1]) * factors[s[2].lower()] / factors[s[3].lower()] ), 
-                         abs( float(s[4]) * factors[s[5].lower()] ), 
+                         float(s[1]) * factors[s[2].lower()] / factors[s[3].lower()], 
+                         float(s[4]) * factors[s[5].lower()], 
                          [int(i)-1 for i in s[6:]] 
                          )
             self.log.info(str(restraint))
@@ -362,55 +369,109 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             grad = np.zeros_like(self.QMout['grad'][0])
             match t:
                 case 'r':
-                    Ri = coords[indices[0]]
-                    Rj = coords[indices[1]]
-                    Rij = np.linalg.norm(Ri-Rj)
-                    e = k/2. * (Rij - v0)**2
-                    if self.QMin.requests["grad"]:
-                        grad[indices[0],:] = +k*(Rij - v0)/Rij*(Ri-Rj)
-                        grad[indices[1],:] = -k*(Rij - v0)/Rij*(Ri-Rj)
+                    if self.pytorch:
+                        with torch.enable_grad():
+                            coords_p = torch.from_numpy(coords)
+                            coords_p.requires_grad = bool(self.QMin.requests["grad"])
+                            Ri = coords_p[indices[0]]
+                            Rj = coords_p[indices[1]]
+                            Rij = torch.norm(Ri - Rj)
+                            e = k / 2. * (Rij - v0) ** 2
+                            if self.QMin.requests["grad"]:
+                                e.backward()
+                                grad = coords_p.grad.detach().clone().numpy()
+                            e = e.detach().numpy()
+                    else:
+                        Ri = coords[indices[0]]
+                        Rj = coords[indices[1]]
+                        Rij = np.linalg.norm(Ri-Rj)
+                        e = k/2. * (Rij - v0)**2
+                        if self.QMin.requests["grad"]:
+                            grad[indices[0],:] = +k*(Rij - v0)/Rij*(Ri-Rj)
+                            grad[indices[1],:] = -k*(Rij - v0)/Rij*(Ri-Rj)
                 case 'a':
-                    Ri = coords[indices[0]]
-                    Rj = coords[indices[1]]
-                    Rk = coords[indices[2]]
-                    R1 = Ri - Rj
-                    R2 = Rk - Rj
-                    aijk = np.arccos(np.dot(R1,R2)/np.linalg.norm(R1)/np.linalg.norm(R2))
-                    e = k/2. * (aijk - v0)**2
-                    if self.QMin.requests["grad"]:
-                        # https://math.stackexchange.com/questions/1165532/gradient-of-an-angle-in-terms-of-the-vertices (answer by nben, Apr 17, 2015)
-                        dcosa_i = ( R2 / np.linalg.norm(R2) - R1 / np.linalg.norm(R1) * np.cos(aijk) ) / np.linalg.norm(R1)
-                        dcosa_k = ( R1 / np.linalg.norm(R1) - R2 / np.linalg.norm(R2) * np.cos(aijk) ) / np.linalg.norm(R2)
-                        g1 = -k*(aijk - v0) / np.sin(aijk) 
-                        grad[indices[0],:] =  g1 * dcosa_i
-                        grad[indices[2],:] =  g1 * dcosa_k
-                        grad[indices[1],:] = -g1 * dcosa_i -g1 * dcosa_k
+                    if self.pytorch:
+                        with torch.enable_grad():
+                            coords_p = torch.from_numpy(coords)
+                            coords_p.requires_grad = bool(self.QMin.requests["grad"])
+                            Ri = coords_p[indices[0]]
+                            Rj = coords_p[indices[1]]
+                            Rk = coords_p[indices[2]]
+                            R1 = Ri - Rj
+                            R2 = Rk - Rj
+                            aijk = torch.arccos(torch.dot(R1,R2)/torch.norm(R1)/torch.norm(R2))
+                            e = k/2. * (aijk - v0)**2
+                            if self.QMin.requests["grad"]:
+                                e.backward()
+                                grad = coords_p.grad.detach().clone().numpy()
+                            e = e.detach().numpy()
+                    else:
+                        Ri = coords[indices[0]]
+                        Rj = coords[indices[1]]
+                        Rk = coords[indices[2]]
+                        R1 = Ri - Rj
+                        R2 = Rk - Rj
+                        aijk = np.arccos(np.dot(R1,R2)/np.linalg.norm(R1)/np.linalg.norm(R2))
+                        e = k/2. * (aijk - v0)**2
+                        if self.QMin.requests["grad"]:
+                            # https://math.stackexchange.com/questions/1165532/gradient-of-an-angle-in-terms-of-the-vertices (answer by nben, Apr 17, 2015)
+                            dcosa_i = ( R2 / np.linalg.norm(R2) - R1 / np.linalg.norm(R1) * np.cos(aijk) ) / np.linalg.norm(R1)
+                            dcosa_k = ( R1 / np.linalg.norm(R1) - R2 / np.linalg.norm(R2) * np.cos(aijk) ) / np.linalg.norm(R2)
+                            g1 = -k*(aijk - v0) / np.sin(aijk) 
+                            grad[indices[0],:] =  g1 * dcosa_i
+                            grad[indices[2],:] =  g1 * dcosa_k
+                            grad[indices[1],:] = -g1 * dcosa_i -g1 * dcosa_k
                 case 'd':
-                    Ri = coords[indices[0]]
-                    Rj = coords[indices[1]]
-                    Rk = coords[indices[2]]
-                    Rl = coords[indices[3]]
-                    R1 = Rj - Ri
-                    R2 = Rk - Rj
-                    R3 = Rl - Rk
-                    m = np.cross(R1,R2)/np.linalg.norm(np.cross(R1,R2))
-                    n = np.cross(R2,R3)/np.linalg.norm(np.cross(R2,R3))
-                    dijkl = np.arccos(np.dot(m,n)) 
-                    e = k/2. * (dijkl - v0)**2
-                    if self.QMin.requests["grad"]:
-                        # https://nosarthur.github.io/free%20energy%20perturbation/2017/02/01/dihedral-force.html
-                        dcosphi_i = np.cross(np.cross(np.cross(m,n),m),R2)/np.linalg.norm(np.cross(R1,R2))
-                        dcosphi_j = np.cross(np.cross(np.cross(n,m),n),R3)/np.linalg.norm(np.cross(R2,R3)) - np.cross(np.cross(np.cross(m,n),m),R1+R2)/np.linalg.norm(np.cross(R1,R2))
-                        dcosphi_k = np.cross(np.cross(np.cross(m,n),m),R1)/np.linalg.norm(np.cross(R1,R2)) - np.cross(np.cross(np.cross(n,m),n),R3+R2)/np.linalg.norm(np.cross(R2,R3))
-                        dcosphi_l = np.cross(np.cross(np.cross(n,m),n),R2)/np.linalg.norm(np.cross(R2,R3))
-                        g1 = -k*(dijkl - v0) / np.sin(dijkl)
-                        grad[indices[0],:] = g1 * dcosphi_i
-                        grad[indices[1],:] = g1 * dcosphi_j
-                        grad[indices[2],:] = g1 * dcosphi_k
-                        grad[indices[3],:] = g1 * dcosphi_l
-                    # todo:
-                    # rewrite based on https://github.com/ochsenfeld-lab/adaptive_sampling/blob/227efd3d3c218a8f7e50c4bc1d0983767a112a9c/adaptive_sampling/colvars/colvars.py#L179
-                    # to have dihedrals between -pi and pi
+                    if self.pytorch:
+                        with torch.enable_grad():
+                            coords_p = torch.from_numpy(coords)
+                            coords_p.requires_grad = bool(self.QMin.requests["grad"])
+                            Ri = coords_p[indices[0]]
+                            Rj = coords_p[indices[1]]
+                            Rk = coords_p[indices[2]]
+                            Rl = coords_p[indices[3]]
+                            R1 = Ri - Rj
+                            R2 = Rk - Rj
+                            R3 = Rk - Rl
+                            ## https://en.wikipedia.org/wiki/Dihedral_angle#In_polymer_physics
+                            # dijkl = torch.atan2(
+                            #     torch.dot(R2,torch.cross(torch.cross(R1,R2),torch.cross(R2,R3))),
+                            #     torch.norm(R2)*torch.dot(torch.cross(R1,R2),torch.cross(R2,R3))
+                            # )
+                            ## https://github.com/ochsenfeld-lab/adaptive_sampling/blob/227efd3d3c218a8f7e50c4bc1d0983767a112a9c/adaptive_sampling/colvars/colvars.py#L179
+                            R2u = R2 / torch.norm(R2)
+                            n1 = -R1 - torch.dot(-R1,R2u) * R2u
+                            n2 =  R3 - torch.dot( R3,R2u) * R2u
+                            dijkl = torch.atan2(torch.dot(torch.cross(R2u,n1), n2), torch.dot(n1,n2))
+                            self.log.info(dijkl)
+                            e = k/2. * (dijkl - v0)**2
+                            if self.QMin.requests["grad"]:
+                                e.backward()
+                                grad = coords_p.grad.detach().clone().numpy()
+                            e = e.detach().numpy()
+                    else:
+                        Ri = coords[indices[0]]
+                        Rj = coords[indices[1]]
+                        Rk = coords[indices[2]]
+                        Rl = coords[indices[3]]
+                        R1 = Rj - Ri
+                        R2 = Rk - Rj
+                        R3 = Rl - Rk
+                        m = np.cross(R1,R2)/np.linalg.norm(np.cross(R1,R2))
+                        n = np.cross(R2,R3)/np.linalg.norm(np.cross(R2,R3))
+                        dijkl = np.arccos(np.dot(m,n)) 
+                        e = k/2. * (dijkl - v0)**2
+                        if self.QMin.requests["grad"]:
+                            # https://nosarthur.github.io/free%20energy%20perturbation/2017/02/01/dihedral-force.html
+                            dcosphi_i = np.cross(np.cross(np.cross(m,n),m),R2)/np.linalg.norm(np.cross(R1,R2))
+                            dcosphi_j = np.cross(np.cross(np.cross(n,m),n),R3)/np.linalg.norm(np.cross(R2,R3)) - np.cross(np.cross(np.cross(m,n),m),R1+R2)/np.linalg.norm(np.cross(R1,R2))
+                            dcosphi_k = np.cross(np.cross(np.cross(m,n),m),R1)/np.linalg.norm(np.cross(R1,R2)) - np.cross(np.cross(np.cross(n,m),n),R3+R2)/np.linalg.norm(np.cross(R2,R3))
+                            dcosphi_l = np.cross(np.cross(np.cross(n,m),n),R2)/np.linalg.norm(np.cross(R2,R3))
+                            g1 = -k*(dijkl - v0) / np.sin(dijkl)
+                            grad[indices[0],:] = g1 * dcosphi_i
+                            grad[indices[1],:] = g1 * dcosphi_j
+                            grad[indices[2],:] = g1 * dcosphi_k
+                            grad[indices[3],:] = g1 * dcosphi_l
                 case 'de':
                     Ei = self.child_interface.QMout.h[indices[0],indices[0]]
                     Ej = self.child_interface.QMout.h[indices[1],indices[1]]
@@ -444,9 +505,15 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                 self.QMout.grad[i] += Gradtot
                 # TODO: set gradients to zero that were not originally requested, but keep M_S sublevels
 
-
         self.QMout.runtime = self.clock.measuretime()
         return self.QMout
+
+
+
+
+
+
+
 
     def create_restart_files(self):
         self.child_interface.create_restart_files()
