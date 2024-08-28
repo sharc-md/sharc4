@@ -221,7 +221,7 @@ class QMinRequests(QMinBase):
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
-            "mol": False,
+            "mol": False,                   # does not match self.types!
             "density_matrices": None,
             "dyson_orbitals": None,
         }
