@@ -848,6 +848,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             self.log.error("Cannot find dipole moment in ORCA outfile!")
             raise ValueError()
         find_dipole = [list(map(float, x.split())) for x in find_dipole]
+        if len(find_dipole) == 1 and not ground_state:
+            return np.zeros(3)
         return np.asarray(find_dipole[0] if ground_state else find_dipole[-1])
 
     def _get_grad(self, grad_path: str, ground_state: bool = False) -> np.ndarray:
