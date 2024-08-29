@@ -1866,10 +1866,11 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 log.info("Could not make QM or restart directory!")
                 continue
             interface.prepare(INFOS, dirname + "/QM")
-            if INFOS["pysharc"]:
+            if not INFOS["pysharc"]:
                 run_qm = open(dirname + "/QM/runQM.sh", "w")
                 string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)                
-            run_qm.write(string)                               
+                run_qm.write(string)      
+                run_qm.close() 
 
             writeRunscript(INFOS, dirname, interface)
             if INFOS["rattle"]:
