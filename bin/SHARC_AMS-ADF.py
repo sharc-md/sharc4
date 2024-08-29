@@ -745,6 +745,19 @@ def writeQMout(QMin, QMout, QMinfilename):
     if PRINT:
         print('===> Writing output to file %s in SHARC Format\n' % (outfilename))
     string = ''
+
+    # add header info
+    string += '! 0 Basic information\nstates '
+    for i in QMin['states']:
+        string += '%i ' % i
+    string += '\nnmstates %i\n' % QMin['nmstates']
+    string += 'natom %i\n' % QMin['natom']
+    string += 'npc 0\n'
+    string += 'charges '
+    for i in QMin['states']:
+        string += '%i ' % 0
+    string += '\n\n'
+
     if 'h' in QMin or 'soc' in QMin:
         string += writeQMoutsoc(QMin, QMout)
     if 'dm' in QMin:
@@ -2369,7 +2382,7 @@ def writeAMSinput(QMin, WORKDIR):
                     gscorr = True
 
     # gradients
-    if QMin['gradmap']:
+    if QMin['gradmap'] and 'AOoverlap' not in QMin:
         dograd = True
         egrad = ()
         for grad in QMin['gradmap']:
@@ -2454,123 +2467,124 @@ def writeAMSinput(QMin, WORKDIR):
             string += '  %s %s\n' % (i, QMin['template']['basis_per_element'][i])
         string += 'END\n\n'
 
-    # chemistry
-    string += 'XC\n  %s\n' % QMin['template']['functional']
-    if QMin['template']['dispersion']:
-        string += '  dispersion %s\n' % QMin['template']['dispersion']
-    if QMin['template']['functional_xcfun'] or QMin['template']['fullkernel']:
-        string += '  xcfun\n'
-    string += 'END\n'
-    if QMin['template']['totalenergy']:
-        string += 'TOTALENERGY\n'
-    string += '\n'
-
-    # accuracy
-    if 'beckegrid' in QMin['template']['grid']:  # TODO: beckegrid gives warning
-        string += 'BECKEGRID\n  quality %s\n' % (QMin['template']['grid'].split()[1])
-        if QMin['template']['grid_per_atom']:
-            string += '  atomdepquality\n'
-            for i in QMin['template']['grid_per_atom']:
-                string += '    %i %s\n' % (i, QMin['template']['grid_per_atom'][i])
-            string += '  subend\n'
-        string += 'END\n\n'
-    elif 'integration' in QMin['template']['grid']:
-        string += 'INTEGRATION\n  accint %s\n' % (QMin['template']['grid'].split()[1])
+    if 'AOoverlap' not in QMin:
+        # chemistry
+        string += 'XC\n  %s\n' % QMin['template']['functional']
+        if QMin['template']['dispersion']:
+            string += '  dispersion %s\n' % QMin['template']['dispersion']
+        if QMin['template']['functional_xcfun'] or QMin['template']['fullkernel']:
+            string += '  xcfun\n'
         string += 'END\n'
-    if 'zlmfit' in QMin['template']['fit']:
-        string += 'ZLMFIT\n  quality %s\n' % QMin['template']['fit'].split()[1]
-        if QMin['template']['fit_per_atom']:
-            string += '  atomdepquality\n'
-            for i in QMin['template']['fit_per_atom']:
-                string += '    %i %s\n' % (i, QMin['template']['fit_per_atom'][i])
-            string += '  subend\n'
-        string += 'END\n'
-    elif 'stofit' in QMin['template']['fit']:
-        string += 'STOFIT\n'
-    if QMin['template']['exactdensity']:
-        string += 'EXACTDENSITY\n'
-    if QMin['template']['rihartreefock']:
-        string += 'RIHARTREEFOCK\n  useme True\n  quality %s\n' % QMin['template']['rihartreefock']
-        if QMin['template']['rihf_per_atom']:
-            string += '  atomdepquality\n'
-            for i in QMin['template']['rihf_per_atom']:
-                string += '    %i %s\n' % (i, QMin['template']['rihf_per_atom'][i])
-            string += '  subend\n'
-        string += 'END\n'
-    else:
-        string += 'RIHARTREEFOCK\n  useme False\nEND\n'
-    string += '\n'
-
-    # excitations
-    if ncalc > 0:
-        string += 'EXCITATIONS\n'
-        if onlysing:
-            string += '  onlysing\n'
-        if onlytrip:
-            string += '  onlytrip\n'
-        if not onlysing and not onlytrip and restr:
-            string += '  lowest %i %i\n' % (states_to_do[0], states_to_do[2])
-        else:
-            string += '  lowest %i\n' % (ncalc)
-        if QMin['template']['dvd_vectors'] > 0:
-            string += '  vectors %i\n' % (QMin['template']['dvd_vectors'])
-        string += '  tolerance %16.12f\n' % (QMin['template']['dvd_tolerance'])
-        string += '  residu %16.12f\n' % (QMin['template']['dvd_residu'])
-        if QMin['template']['dvd_mblocksmall']:
-            string += '  iterations %i\n' % (max(200, 20 * ncalc))
-        if DEBUG:
-            string += '  nto\n'
-        if QMin['template']['fullkernel']:
-            string += 'FULLKERNEL\n'
-        string += 'END\n'
-        if QMin['template']['dvd_mblocksmall']:
-            string += 'MBLOCKSMALL\n'
-        if not QMin['template']['no_tda']:
-            # string+='TDA\n'
-            string += '\nTDA\n'
-        if QMin['template']['modifyexcitations'] > 0:
-            string += 'MODIFYEXCITATION\n  useoccupied\n    A'
-            for i in range(QMin['template']['modifyexcitations']):
-                string += ' %i' % (i + 1)
-            string += '\n  subend\nEND\n'
+        if QMin['template']['totalenergy']:
+            string += 'TOTALENERGY\n'
         string += '\n'
 
-    # spin-orbit coupling
-    if sopert:
-        string += 'SOPERT\n'
-        string += 'END\n'
-        if gscorr:
-            string += 'GSCORR\n'
-        string += 'PRINT SOMATRIX\n\n'
+        # accuracy
+        if 'beckegrid' in QMin['template']['grid']:  # TODO: beckegrid gives warning
+            string += 'BECKEGRID\n  quality %s\n' % (QMin['template']['grid'].split()[1])
+            if QMin['template']['grid_per_atom']:
+                string += '  atomdepquality\n'
+                for i in QMin['template']['grid_per_atom']:
+                    string += '    %i %s\n' % (i, QMin['template']['grid_per_atom'][i])
+                string += '  subend\n'
+            string += 'END\n\n'
+        elif 'integration' in QMin['template']['grid']:
+            string += 'INTEGRATION\n  accint %s\n' % (QMin['template']['grid'].split()[1])
+            string += 'END\n'
+        if 'zlmfit' in QMin['template']['fit']:
+            string += 'ZLMFIT\n  quality %s\n' % QMin['template']['fit'].split()[1]
+            if QMin['template']['fit_per_atom']:
+                string += '  atomdepquality\n'
+                for i in QMin['template']['fit_per_atom']:
+                    string += '    %i %s\n' % (i, QMin['template']['fit_per_atom'][i])
+                string += '  subend\n'
+            string += 'END\n'
+        elif 'stofit' in QMin['template']['fit']:
+            string += 'STOFIT\n'
+        if QMin['template']['exactdensity']:
+            string += 'EXACTDENSITY\n'
+        if QMin['template']['rihartreefock']:
+            string += 'RIHARTREEFOCK\n  useme True\n  quality %s\n' % QMin['template']['rihartreefock']
+            if QMin['template']['rihf_per_atom']:
+                string += '  atomdepquality\n'
+                for i in QMin['template']['rihf_per_atom']:
+                    string += '    %i %s\n' % (i, QMin['template']['rihf_per_atom'][i])
+                string += '  subend\n'
+            string += 'END\n'
+        else:
+            string += 'RIHARTREEFOCK\n  useme False\nEND\n'
+        string += '\n'
 
-    # gradients
-    if dograd and egrad:
-        string += 'EXCITEDGO\n'
-        if singgrad:
-            string += '  SING_GRADS\n    A '
-            string += ' '.join([str(i) for i in singgrad])
-            string += '\n  END\n'
-        if tripgrad:
-            string += '  TRIP_GRADS\n    A '
-            string += ' '.join([str(i) for i in tripgrad])
-            string += '\n  END\n'
-        if not (tripgrad or singgrad):
-            string += '  state A %i\n' % (egrad[1] - (gsmult == egrad[0]))
-            if restr:
-                if egrad[0] == 1:
-                    string += '  singlet\n'
-                elif egrad[0] == 3:
-                    string += '  triplet\n'
-        string += '  output 4\n\n  cpks eps={0:.9f}\n'.format(QMin['template']['cpks_eps'])
-        string += 'END\n'
-    string += '\n'
+        # excitations
+        if ncalc > 0:
+            string += 'EXCITATIONS\n'
+            if onlysing:
+                string += '  onlysing\n'
+            if onlytrip:
+                string += '  onlytrip\n'
+            if not onlysing and not onlytrip and restr:
+                string += '  lowest %i %i\n' % (states_to_do[0], states_to_do[2])
+            else:
+                string += '  lowest %i\n' % (ncalc)
+            if QMin['template']['dvd_vectors'] > 0:
+                string += '  vectors %i\n' % (QMin['template']['dvd_vectors'])
+            string += '  tolerance %16.12f\n' % (QMin['template']['dvd_tolerance'])
+            string += '  residu %16.12f\n' % (QMin['template']['dvd_residu'])
+            if QMin['template']['dvd_mblocksmall']:
+                string += '  iterations %i\n' % (max(200, 20 * ncalc))
+            if DEBUG:
+                string += '  nto\n'
+            if QMin['template']['fullkernel']:
+                string += 'FULLKERNEL\n'
+            string += 'END\n'
+            if QMin['template']['dvd_mblocksmall']:
+                string += 'MBLOCKSMALL\n'
+            if not QMin['template']['no_tda']:
+                # string+='TDA\n'
+                string += '\nTDA\n'
+            if QMin['template']['modifyexcitations'] > 0:
+                string += 'MODIFYEXCITATION\n  useoccupied\n    A'
+                for i in range(QMin['template']['modifyexcitations']):
+                    string += ' %i' % (i + 1)
+                string += '\n  subend\nEND\n'
+            string += '\n'
 
-    # COSMO
-    if QMin['template']['cosmo']:
-        string += 'SOLVATION\n  solv name=%s' % QMin['template']['cosmo']
-        if QMin['template']['cosmo_neql'] >= 0.:
-            string += ' neql=%6.3f' % QMin['template']['cosmo_neql']
-        string += '\nEND\n\n'
+        # spin-orbit coupling
+        if sopert:
+            string += 'SOPERT\n'
+            if gscorr:
+                string += 'GSCORR\n'
+            string += 'END\n'
+            string += 'PRINT SOMATRIX\n\n'
+
+        # gradients
+        if dograd and egrad:
+            string += 'EXCITEDGO\n'
+            if singgrad:
+                string += '  SING_GRADS\n    A '
+                string += ' '.join([str(i) for i in singgrad])
+                string += '\n  END\n'
+            if tripgrad:
+                string += '  TRIP_GRADS\n    A '
+                string += ' '.join([str(i) for i in tripgrad])
+                string += '\n  END\n'
+            if not (tripgrad or singgrad):
+                string += '  state A %i\n' % (egrad[1] - (gsmult == egrad[0]))
+                if restr:
+                    if egrad[0] == 1:
+                        string += '  singlet\n'
+                    elif egrad[0] == 3:
+                        string += '  triplet\n'
+            string += '  output 4\n\n  cpks eps={0:.9f}\n'.format(QMin['template']['cpks_eps'])
+            string += 'END\n'
+        string += '\n'
+
+        # COSMO
+        if QMin['template']['cosmo']:
+            string += 'SOLVATION\n  solv name=%s' % QMin['template']['cosmo']
+            if QMin['template']['cosmo_neql'] >= 0.:
+                string += ' neql=%6.3f' % QMin['template']['cosmo_neql']
+            string += '\nEND\n\n'
 
     # options which are always used
     # MARK

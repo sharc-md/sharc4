@@ -1336,6 +1336,19 @@ def writeQMout(QMin, QMout, QMinfilename):
     if PRINT:
         print('===> Writing output to file %s in SHARC Format\n' % (outfilename))
     string = ''
+
+    # add header info
+    string += '! 0 Basic information\nstates '
+    for i in QMin['states']:
+        string += '%i ' % i
+    string += '\nnmstates %i\n' % QMin['nmstates']
+    string += 'natom %i\n' % QMin['natom']
+    string += 'npc 0\n'
+    string += 'charges '
+    for i in QMin['states']:
+        string += '%i ' % 0
+    string += '\n\n'
+
     if 'h' in QMin or 'soc' in QMin:
         string += writeQMoutsoc(QMin, QMout)
     if 'dm' in QMin:
