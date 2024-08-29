@@ -351,7 +351,7 @@ excitation energies and oscillator strengths.
 
     if not options.L:
         sys.stderr.write('Number of states: %s\n' % (states))
-        sys.stderr.write('%5s  %11s %16s %12s %12s   %6s\n' % ('State', 'Label', 'E (E_h)', 'dE (eV)', 'f_osc', 'Spin'))
+        sys.stderr.write('%5s  %11s %16s %12s %12s   %6s\n' % ('State', 'Label', 'E (E_h)', 'dE (eV)', ['f_osc','Dys norm'][options.I], 'Spin'))
 
     if options.D:
         h, dm, U = transform(QMout['h'][0], QMout['dm'], None)

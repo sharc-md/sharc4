@@ -292,9 +292,10 @@ def main():
         log.debug(f"{istep} done")
 
         if IRedo == 2:
-            derived_int.read_requests(get_all_tasks(count))
-            safe(derived_int.run)
-            QMout.set_props(derived_int.getQMout(), 3)
+            with(InDir("QM")):
+                derived_int.read_requests(get_all_tasks(count))
+                safe(derived_int.run)
+                QMout.set_props(derived_int.getQMout(), 3)
         iexit = verlet_finalize(1)
         all_s2 = time.perf_counter_ns()
         all_time += all_s2 - all_s1
