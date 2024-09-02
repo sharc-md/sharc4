@@ -838,7 +838,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         dets = np.char.replace(dets, old="b", new="1,")
         dets = np.char.replace(dets, old="e", new="-1,")
         dets = np.array([np.fromstring(i, dtype=int, sep=",") for i in dets])
-        return nst, dets, ci, mos
+        return nst, dets, CI, mos
 
     # DYSON ORBITAL WITH OTHER INSTANCE (MAINLY FOR ECI)
     @staticmethod
