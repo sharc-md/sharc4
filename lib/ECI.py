@@ -123,7 +123,7 @@ class excitonic_slater_determinant:
             sf2, sg2, sh2 = other.site_states[f], other.site_states[g], other.site_states[h]
             dZf = sf2.Z - sf1.Z
             dZg = sg2.Z - sg1.Z
-            dZg = sh2.Z - sh1.Z
+            dZh = sh2.Z - sh1.Z
             if dZf == 1 and dZg == -1 and dZh == 0:
                 comparison = { 'relationship' : (1,1), 'donor' : f, 'acceptor' : g, 'exciton' : h }
             elif dZf == -1 and dZg == 1 and dZh == 0:
@@ -1103,13 +1103,9 @@ class ECI:
                             J[mult][row,column] -= prefactors[(mult,row,column)]*values[i]
                 t2 = time.time()
                 self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
-            del Tmat
-            del Fmat
-            del hmat
-            del phis1
-            del phis2
-            del loc_lists
-            del values
+            for var in helpvars:
+                if var in locals():
+                    del var
                     
         integrals, prefactors  = ECI_integrals
         integrals  = integrals.get( 'SCT_I', None )
@@ -1117,31 +1113,12 @@ class ECI:
             self.log.print(' Calculating internal SCT J- and K-integrals...')
             for (f1,f2,f), dysons1_dysons2__Jdensities_Kdensities__locs in integrals.items():
                 self.log.print('    Site 1: '+f1.label+', Site 2:'+f2.label+', Site 3: '+f.label)
-                #  for (d1,d2), JK__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items():
-                    #  self.log.print('     phi1 = '+d1[0].symbol()+ " ---" + d1[2] + "---> " + d1[1].symbol())
-                    #  self.log.print('     phi2 = '+d2[0].symbol()+ " ---" + d2[2] + "---> " + d2[1].symbol())
-                    #  for (Jdens,Kdens), locs in JK__locs.items():
-                        #  if Jdens != None:
-                            #  self.log.print('            Jdens = '+density_representation(Jdens))
-                        #  else:
-                            #  self.log.print('            Jdens = None' )
-                        #  if Kdens != None:
-                            #  self.log.print("            Kdens = "+density_representation(Kdens) )
-                        #  else:
-                            #  self.log.print('            Kdens = None' )
-                        #  for loc in locs:
-                            #  self.log.print('                locs = '+str(locs))
-
                 t1 = time.time()
                 G = self.calculate_Gtensor( [ f1.mol, f2.mol, f.mol, f.mol ] )
                 t2 = time.time()
                 self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
 
                 self.log.print('       Calculating J-integrals...')
-                #  phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() 
-                                   #  if any([ Jdensity != None for (Jdensity,_) in Jdensities_Kdensities__locs.keys() ]) ])
-                #  phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() 
-                                   #  if any([ Jdensity != None for (Jdensity,_) in Jdensities_Kdensities__locs.keys() ]) ])
                 phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() ]) 
                 phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() ])
                 self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
@@ -1165,10 +1142,6 @@ class ECI:
                 del values
 
                 self.log.print('       Calculating K-integrals...')
-                #  phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() 
-                                   #  if any([ Kdensity != None for (_,Kdensity) in Jdensities_Kdensities__locs.keys() ]) ])
-                #  phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() 
-                                   #  if any([ Kdensity != None for (_,Kdensity) in Jdensities_Kdensities__locs.keys() ]) ])
                 self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
                 t1 = time.time()
                 if f is f1: G12 = np.einsum('mi,mj,kjil->mkl', phis1, phis2, G, optimize=True )
@@ -1187,41 +1160,74 @@ class ECI:
                             K[mult][row,column] += prefactors[(mult,row,column)]*values[i]
                 t2 = time.time()
                 self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
-                del G12
-                del rhos
-                del loc_lists
-                del values
+            for var in helpvars:
+                if var in locals():
+                    del var
 
         # Needs to be corrected
         integrals, prefactors  = ECI_integrals
         integrals  = integrals.get( 'SCT_J', None )
         if integrals != None:
             self.log.print(' Calculating external SCT J-integrals...')
-            for (f1,f2,f), dysons1_dysons2_Jdensities__locs in integrals.items():
-                phis1 = np.array( [ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_,_) in dysons1_dysons2_Jdensities__locs.keys() ] )
-                phis2 = np.array( [ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2,_) in dysons1_dysons2_Jdensities__locs.keys() ] )
-                Jrhos = np.array( [ f.rho[density[0].Z][Jdensity] for (_,_,Jdensity) in dysons1_dysons2_Jdensities__locs.keys() ] )
-                locs = dysons1_dysons2_Jdensities__locs.values()
+            for (f1,f2,f), dysons1_dysons2__Jdensities__locs in integrals.items():
+                t1 = time.time()
                 G = self.calculate_Gtensor( [ f1.mol, f2.mol, f.mol, f.mol ] )
-                values = np.einsum( phis1, phis2, G, Jrhos, 'ni,nj,ijkl,nkl->n', optimize=['einsum_path', (2, 3), (0, 2), (0, 1)] ) 
-                for i, individual_locs in enumerate(locs):
-                    for (mult,row,column) in individual_locs:
-                        J[mult][row,column] += prefactors[(mult,row,column)]*values[i]
+                t2 = time.time()
+                self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
+                phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_) in dysons1_dysons2__Jdensities__locs.keys() ]) 
+                phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2) in dysons1_dysons2__Jdensities__locs.keys() ])
+                self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
+                t1 = time.time()
+                G12 = np.einsum('mi,mj,ijkl->mkl', phis1, phis2, G, optimize=True )
+                del G
+                t2 = time.time()
+                self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
+                t1 = time.time()
+                for i12, Jdensities__locs in enumerate(dysons1_dysons2__Jdensities__locs.values()):
+                    rhos = np.array( [ f.rho[Jdensity[0].Z][Jdensity] for Jdensity in Jdensities__locs.keys() ] )
+                    if len(rhos) == 0: continue
+                    loc_lists = [ locs for locs in Jdensities__locs.values() ]
+                    values = np.einsum('kl,nkl->n', G12[i12,:,:], rhos, optimize=['einsum_path', (0, 1)] )
+                    for i, locs in enumerate(loc_lists):
+                        for (mult,row,column) in locs:
+                            J[mult][row,column] += prefactors[(mult,row,column)]*values[i]
+                t2 = time.time()
+                self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
+            for var in helpvars:
+                if var in locals():
+                    del var
 
         integrals, prefactors  = ECI_integrals
         integrals  = integrals.get( 'SCT_K', None )
         if integrals != None:
-            self.log.print(' Calculating SCT K-integrals...')
-            for (f1,f2,f), dysons1_dysons2_Kdensities__locs in integrals.items():
-                phis1 = np.array( [ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_,_) in dysons1_dysons2_Kdensities__locs.keys() ] )
-                phis2 = np.array( [ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2,_) in dysons1_dysons2_Kdensities__locs.keys() ] )
-                Jrhos = np.array( [ f.rho[density[0].Z][Kdensity] for (_,_,Kdensity) in dysons1_dysons2_Kdensities__locs.keys() ] )
-                locs = dysons1_dysons2_Jdensities__locs.values()
+            self.log.print(' Calculating external SCT K-integrals...')
+            for (f1,f2,f), dysons1_dysons2__Kdensities__locs in integrals.items():
+                t1 = time.time()
                 G = self.calculate_Gtensor( [ f1.mol, f.mol, f2.mol, f.mol ] )
-                values = np.einsum( phis1, phis2, G, Jrhos, 'ni,nj,ilkj,nkl->n', optimize=['einsum_path', (2, 3), (0, 2), (0, 1)] ) 
-                for i, individual_locs in enumerate(locs):
-                    for (mult,row,column) in individual_locs:
-                        K[mult][row,column] += prefactors[(mult,row,column)]*values[i]
+                t2 = time.time()
+                self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
+                phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_) in dysons1_dysons2__Kdensities__locs.keys() ]) 
+                phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2) in dysons1_dysons2__Kdensities__locs.keys() ])
+                self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
+                t1 = time.time()
+                G12 = np.einsum('mi,mj,ilkj->mkl', phis1, phis2, G, optimize=True )
+                del G
+                t2 = time.time()
+                self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
+                t1 = time.time()
+                for i12, Kdensities__locs in enumerate(dysons1_dysons2__Kdensities__locs.values()):
+                    rhos = np.array( [ f.rho[Kdensity[0].Z][Kdensity] for Kdensity in Kdensities__locs.keys() ] )
+                    if len(rhos) == 0: continue
+                    loc_lists = [ locs for locs in Kdensities__locs.values() ]
+                    values = np.einsum('kl,nkl->n', G12[i12,:,:], rhos, optimize=['einsum_path', (0, 1)] )
+                    for i, locs in enumerate(loc_lists):
+                        for (mult,row,column) in locs:
+                            K[mult][row,column] += prefactors[(mult,row,column)]*values[i]
+                t2 = time.time()
+                self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
+            for var in helpvars:
+                if var in locals():
+                    del var
 
         #  self.log.print(' Calculating all h2-matrices')
         V1 = self.V1
