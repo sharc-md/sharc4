@@ -348,22 +348,25 @@ module qm
     write(0,*) "QMf90", ctrl%surf, ctrl%laser, ctrl%laser_b, ctrl%laser_e, ctrl%Laser_egrad
     if (ctrl%laser==2) then
       if (ctrl%laser_e) then
-        write(0,*) "laser_e true qm.f90"
         do i=1,3
           traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
         enddo
       endif
-      if (ctrl%laser_b .or. ctrl%laser_egrad) then
-        write(0,*) "laser_b or laser_egrad true qm.f90"
+      if (ctrl%laser_b) then 
         do i=1,3
           traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,i)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,i))
+        enddo
+      endif
+      if (ctrl%laser_egrad) then
+        do i=1,3
           do j=1,3
             traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,i,j)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,i,j))
           enddo
         enddo
       endif
     endif
-
+    
+    call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'qm.f90 before diag','F12.9')
     ! diagonalize, if SHARC dynamics
     if (ctrl%surf==0) then
       call diagonalize(ctrl%nstates,traj%H_diag_ss,traj%U_ss)
@@ -374,16 +377,17 @@ module qm
       enddo
     endif
 
-    !call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'H_do_qm_calculations(TEST)','F12.9')
-    !sum = (0.0,0.)
-    !do idir=1,ctrl%nstates
-    !    do jdir=1,ctrl%nstates
-    !        if (idir /= jdir) then
-    !            sum = sum + traj%H_diag_ss(idir, jdir)
-    !        endif
-    !    enddo
-    !enddo 
-    !write(u_log,*) "SUM", sum
+    call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'qm.f90 after diag','F12.9')
+    sum = (0.0,0.)
+    do idir=1,ctrl%nstates
+        do jdir=1,ctrl%nstates
+            if (idir /= jdir) then
+                ! write(*,*) "qm.f90", traj%H_diag_ss(idir, jdir), idir, jdir
+                sum = sum + traj%H_diag_ss(idir, jdir)
+            endif
+        enddo
+    enddo 
+    write(u_log,*) "SUM", sum
 !     call check_allocation(u_log,ctrl,traj)
 
     ! get state in all representations
@@ -1162,14 +1166,18 @@ module qm
         U_temp=traj%U_ss
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
-        if (ctrl%laser_e==.true.) then
+        if (ctrl%laser_e) then
           do idir=1,3
             H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
           enddo
         endif
-        if (ctrl%laser_b .or. ctrl%laser_egrad) then
+        if (ctrl%laser_b) then
           do idir=1,3
             H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_egrad) then
+          do idir=1,3
             do jdir=1,3
               H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
             enddo
@@ -1639,9 +1647,11 @@ module qm
       traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*traj%phases_s(istate)
       traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*traj%phases_s(istate)
       traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*traj%phases_s(istate)
-      if (ctrl%laser_b .or. ctrl%laser_egrad) then
+      if (ctrl%laser_b) then 
         traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*traj%phases_s(istate)
         traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*traj%phases_s(istate)
+      endif
+      if (ctrl%laser_egrad) then
         traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*traj%phases_s(istate)
         traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*traj%phases_s(istate)
       endif  
@@ -1662,9 +1672,11 @@ module qm
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)
       traj%DM_print_ssd(:,istate,:)=traj%DM_print_ssd(:,istate,:)*traj%phases_s(istate)
-      if (ctrl%laser_b .or. ctrl%laser_egrad) then
+      if (ctrl%laser_b) then 
         traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*traj%phases_s(istate)
         traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*traj%phases_s(istate)
+      endif
+      if (ctrl%laser_egrad) then
         traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*traj%phases_s(istate)
         traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*traj%phases_s(istate)
       endif 
@@ -1693,16 +1705,18 @@ module qm
 
       traj%H_diag_ss=traj%H_MCH_ss
       if (ctrl%laser==2) then
-        if (ctrl%laser_e==.true.) then
-          write(0,*) "laser_e true 2 qm.f90"
+        if (ctrl%laser_e) then
           do ixyz=1,3
             traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ixyz))
           enddo
         endif
-        if (ctrl%laser_b .or. ctrl%laser_egrad) then
-          write(0,*) "laser_b or laser_egrad true 2 qm.f90"
+        if (ctrl%laser_b) then
           do ixyz=1,3
             traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,ixyz)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,ixyz))
+          enddo
+        endif
+        if (ctrl%laser_egrad) then
+          do ixyz=1,3
             do jxyz=1,3
               traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,ixyz,jxyz)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,ixyz,jxyz))
             enddo
@@ -2417,16 +2431,18 @@ module qm
         U_temp=traj%U_ss
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
-        if (ctrl%laser_e==.true.) then
-          write(0,*) "laser_e true 3 qm.f90"
+        if (ctrl%laser_e) then
           do idir=1,3
             H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
           enddo
         endif
-        if (ctrl%laser_b .or. ctrl%laser_egrad) then
-          write(0,*) "laser_b or laser_egrad true 3 qm.f90"
+        if (ctrl%laser_b) then
           do idir=1,3 
             H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_egrad) then
+          do idir=1,3
             do jdir=1,3
               H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
             enddo

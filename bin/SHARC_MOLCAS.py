@@ -318,11 +318,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.resources["mpi_parallel"] = False
 
         # MOLCAS driver
-        for p in os.walk(self.QMin.resources["molcas"]):
-            if "pymolcas" in p[2]:
-                self.QMin.resources.update({"driver": "/user/lorenz/bin/sharc/traj_euo2/init/pymolcas"})
-                # self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
-                break
+        # for p in os.walk(self.QMin.resources["molcas"]):
+        if "pymolcas" in os.listdir(self.QMin.resources["molcas"]):
+            self.QMin.resources.update({"driver": "/user/lorenz/bin/sharc/sharc_github/euo2_mdeqm/opt_freq/pymolcas"})
+            # self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
 
         if not os.path.isfile(self.QMin.resources["driver"]):
             self.log.error(f"No driver found in {self.QMin.resources['molcas']}")
@@ -393,6 +392,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     break
 
         self.QMin.template["origin"] = convert_list(self.QMin.template["origin"], float)
+        self.QMin.template["origin"] = [el/au2a for el in self.QMin.template["origin"]]
         for idx, val in enumerate(self.QMin.template["origin"]):
             if isinstance(val, float):
                 pass
@@ -1036,7 +1036,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "GRID INPUT\nNOSC\nEND OF GRID INPUT\n"
         input_str += "\n"
         if qmin.template["origin"]:
-            center = [f"{el:.2f}" for el in qmin.template["origin"]]
+            center = [f"{el:.15f}" for el in qmin.template["origin"]]
             center =" ".join(center)
             if qmin.requests["soc"] or qmin.requests["mdeqm"]:
                 input_str += f"CENTER\n3\n0 {center}\n1 {center}\n2 {center}\n"
@@ -1060,7 +1060,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.requests["soc"]:
             input_str += "AMFI\n"
         if qmin.requests["soc"] or qmin.requests["mdeqm"]:
-            center = [f"{el:.2f}" for el in qmin.template["origin"]]
+            center = [f"{el:.15f}" for el in qmin.template["origin"]]
             center =" ".join(center)                                
             input_str += f"ANGMOM\n{center}\n"
         if qmin.template["baslib"]:

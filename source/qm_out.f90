@@ -307,7 +307,6 @@ subroutine get_electric_quadrupoles(n, EQM_ssdd)
   implicit none
   integer,intent(in) :: n       ! size of the matrix
   complex*16,intent(out) :: EQM_ssdd(n,n,3,3)
-  !complex*16,intent(out) :: EQM_ssdd(3,3,n,n)
   complex*16 :: tmp_ss(n,n)
   integer :: icol,irow,idir,jdir
   character(len=8000) title

@@ -538,15 +538,19 @@ subroutine Electronic_gradients_MCH(traj,ctrl)
   ! include laser fields
   if (ctrl%laser==0) then
     H_ss=traj%H_MCH_ss
-  else if (ctrl%laser==2) then
+  elseif (ctrl%laser==2) then
     if (ctrl%laser_e) then
       do idir=1,3
         H_ss=traj%H_MCH_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
       enddo
     endif
-    if (ctrl%laser_b .or. ctrl%laser_egrad) then
+    if (ctrl%laser_b) then
       do idir=1,3
         H_ss=H_ss-traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+      enddo 
+    endif
+    if (ctrl%laser_egrad) then
+      do idir=1,3
         do jdir=1,3
           H_ss=H_ss-traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
         enddo

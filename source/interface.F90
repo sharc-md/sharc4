@@ -823,13 +823,14 @@ subroutine set_electricquadrupolemoments(N, EQM_ssdd)
         write(*,*) "Electric quadrupole Matrix has wrong dimension!"
         call Exit(1)
     end if
-
-    do k = 1,3
-        do i=1,N
-            do j=1,N
-                traj%EQM_ssdd(j, i, k, l) =  EQM_ssdd(j, i, k,l)
-            end do
-        end do
+    do l = 1,3
+      do k = 1,3
+          do i=1,N
+              do j=1,N
+                  traj%EQM_ssdd(j, i, k, l) =  EQM_ssdd(j, i, k,l)
+              end do
+          end do
+      end do 
     end do
     if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Quadrupole Moments:                ','OK'
     traj%EQM_print_ssdd=traj%EQM_ssdd
@@ -1068,15 +1069,17 @@ subroutine post_process_data(ISecond)
     ! if laser field, add it here, without imaginary part
     if (ctrl%laser==2) then
       if (ctrl%laser_e) then
-        write(0,*) "laser_e true"
         do i=1,3
           traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
         enddo
       endif
-      if (ctrl%laser_b .or. ctrl%laser_egrad) then
-        write(0,*) "laser_b true or laser_egrad true"
+      if (ctrl%laser_b) then 
         do i=1,3
           traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,i)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,i))
+        enddo
+      endif
+      if (ctrl%laser_egrad) then 
+        do i=1,3
           do j=1,3
             traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,i,j)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,i,j))
           enddo

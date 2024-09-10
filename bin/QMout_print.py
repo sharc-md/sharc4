@@ -218,7 +218,7 @@ class diagonalizer:
 
 
 def transform(H, DM, MDM, EQM, P):
-    '''transforms the H and DM matrices in the representation where H is diagonal.'''
+    '''transforms the H, DM, MDM, and EQM matrices in the representation where H is diagonal.'''
 
     if NONUMPY:
         diagon = diagonalizer()
@@ -302,12 +302,12 @@ def transform(H, DM, MDM, EQM, P):
             for xyz2 in range(3):
                 UEQMU[xyz1][xyz2] = numpy.dot(Ucon, numpy.dot(EQM[xyz1][xyz2], U))
         EQM = UEQMU
-
+        self.log.info("EQM")
         if P is not None:
             UPU = numpy.dot(Ucon, numpy.dot(P, U))
             P = UPU
 
-    return H, DM, U
+    return H, DM, MDM, EQM, U
 
 # ========================== Main Code =============================== #
 
@@ -394,9 +394,11 @@ excitation energies and oscillator strengths.
         sys.stderr.write('%5s  %11s %16s %12s %12s   %6s\n' % ('State', 'Label', 'E (E_h)', 'dE (eV)', 'f_osc', 'Spin'))
 
     if options.D:
-        h, dm, U = transform(QMout['h'][0], QMout['dm'], None)
+        h, dm, mdm, eqm, U = transform(QMout['h'][0], QMout['dm'], QMout['mdm'], QMout['eqm'], None)
         QMout['h'] = [h]
         QMout['dm'] = dm
+        QMout['mdm'] = mdm
+        QMout['eqm'] = eqm
 
     # pprint.pprint(QMin)
     # pprint.pprint(QMout)

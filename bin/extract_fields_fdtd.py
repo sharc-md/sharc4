@@ -135,12 +135,12 @@ for SHARC dynamics.
 
 def open_keystrokes():
     global KEYSTROKES
-    KEYSTROKES = open('KEYSTROKES.temp', 'w')
+    KEYSTROKES = open('KEYSTROKES.tmp', 'w')
 
 
 def close_keystrokes():
     KEYSTROKES.close()
-    shutil.move('KEYSTROKES.temp', 'KEYSTROKES.extract_laser_fields')
+    shutil.move('KEYSTROKES.tmp', 'KEYSTROKES.extract_laser_fields')
 
 
 def get_general(INFOS):
@@ -583,8 +583,8 @@ def main():
                 fields_gradients_real = np.asarray(fields_gradients_real)
                 fields_gradients_imag = np.asarray(fields_gradients_imag) 
                 if INFOS["export_b"]:
-                    laser_file[:, b_write_shift+fld_count*2] = fields_gradients_real[:, 0]/bfield_au_to_t 
-                    laser_file[:, b_write_shift+1+fld_count*2] = fields_gradients_imag[:, 0]/bfield_au_to_t
+                    laser_file[:, b_write_shift+fld_count*2] = fields_gradients_real[:, 0]/bfield_au_to_t*const.c*10 
+                    laser_file[:, b_write_shift+1+fld_count*2] = fields_gradients_imag[:, 0]/bfield_au_to_t*const.c*10
                 if INFOS["export_bgrad"]:
                     laser_file[:, bgrad_write_shift+fld_count*6], laser_file[:, bgrad_write_shift+2+fld_count*6], laser_file[:, bgrad_write_shift+4+fld_count*6] =  (fields_gradients_real[:, 1:]/bfield_grad_au_to_t_per_m).T 
                     laser_file[:, bgrad_write_shift+1+fld_count*6], laser_file[:, bgrad_write_shift+3+fld_count*6], laser_file[:, bgrad_write_shift+5+fld_count*6] =  (fields_gradients_imag[:, 1:]/bfield_grad_au_to_t_per_m).T 
@@ -604,7 +604,7 @@ def main():
          SHARC {sharcversion}
          file_version 2.0 
          nsteps = {len(int_t_arr)} 
-         dt {INFOS["electronic time_step"]:.8E}
+         dt {INFOS["electronic time_step"] * 1e15:.8E}
          e-field {str(INFOS["export_e"]).lower()} 
          b-field {str(INFOS["export_b"]).lower()}  
          e-field_gradients {str(INFOS["export_egrad"]).lower()}   

@@ -524,7 +524,6 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         INFOS["mdeqm"] = question("Do you want to calculate Magnetic Dipoles and Electric Quadrupoles?", bool, False)
         if INFOS["mdeqm"]:
             INFOS["needed_requests"].append("mdeqm")
-
     return INFOS
 
 
@@ -692,8 +691,8 @@ def writeQMin(INFOS, iconddir):
         string += "theodore\n"
     if "mdeqm" in INFOS and INFOS["mdeqm"]:
         string += "MDEQM\n"
-    if "origin" in INFOS and INFOS["origin"]:
-        string += "ORIGIN\n"    
+    # if "origin" in INFOS and INFOS["origin"]:
+    #     string += "ORIGIN\n"    
     qmin.write(string)
     qmin.close()
     return

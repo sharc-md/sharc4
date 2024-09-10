@@ -576,7 +576,6 @@ def check_laserfields(filename):
 
 
 def check_laserfile(filename, nsteps, dt):
-    log.info('Laser file must have %i steps and a time step of %f fs.' % (nsteps, dt))
     last_com_line = -1 #Last comment line
     try:
         f = open(filename)
@@ -1336,6 +1335,7 @@ Laser files can be created using $SHARC/laser.x
                     INFOS["laserfile"] = "laser"
         if "laserfile" not in INFOS:
             while True:
+                log.info('Laser file must have %i steps and a time step of %f fs.' % ((INFOS["tmax"] / INFOS["dtstep"] * INFOS["nsubstep"] + 1), INFOS["dtstep"] / INFOS["nsubstep"]))
                 filename = question("Laser filename:", str)
                 if not os.path.isfile(filename):
                     log.info("File %s does not exist!" % (filename))

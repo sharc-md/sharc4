@@ -1810,18 +1810,18 @@ module input
         endif
       endif
       ! ---------------------
-      if (ctrl%laser_b==.false.) then
-        write(u_log,'(a)') 'Not writing magnetic dipole moments.'
-      else
-        write(u_log,'(a)') 'Writing magnetic dipole moments.'
-      endif
-      ! ---------------------
-      if (ctrl%laser_egrad==.false.) then
-        write(u_log,'(a)') 'Not writing electric quadrupole moments.'
-      else
-        write(u_log,'(a)') 'Writing electric quadrupole moments.'
-      endif
-      ! ---------------------
+      !if (ctrl%laser_b==.false.) then
+      !  write(u_log,'(a)') 'Not writing magnetic dipole moments.'
+      !else
+      !  write(u_log,'(a)') 'Writing magnetic dipole moments.'
+      !endif
+      !! ---------------------
+      !if (ctrl%laser_egrad==.false.) then
+      !  write(u_log,'(a)') 'Not writing electric quadrupole moments.'
+      !else
+      !  write(u_log,'(a)') 'Writing electric quadrupole moments.'
+      !endif
+      !! ---------------------
       if (ctrl%write_NACdr==0) then
         write(u_log,'(a)') 'Not writing nonadiabatic couplings.'
       else
@@ -3062,27 +3062,23 @@ module input
         if (ctrl%laser_e) then
           allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
         endif
-        if (ctrl%laser_b .or. ctrl%laser_egrad) then
+        if (ctrl%laser_b) then
           allocate(ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
-        ! endif 
-        ! if (ctrl%laser_egrad .EQV. .true.) then
+        endif 
+        if (ctrl%laser_egrad) then
           allocate(ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
         endif
         allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
+        if (ctrl%nsteps*ctrl%nsubsteps+1 /= line_number-com_line_number) then
+          write(0,*) 'Number of lines in laserfile does not match requested steps!'
+          stop 1
+        endif
       else if (laser_file_version==1.0) then
         write(0,*) 'Laser file version 1.0 detected!'
         allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
         allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
       endif  !allocate(laser_freq_file_path)
       
-      if (laser_file_version==2.0) then
-        if (ctrl%nsteps*ctrl%nsubsteps+1 /= line_number-com_line_number) then
-          write(0,*) 'Number of lines in laserfile does not match requested steps!'
-          stop 1
-        endif
-      !else if (laser_file_version==1.0) then
-
-      endif
       ! READING FIELDS
       if (laser_file_version==2.0) then
         do i=1, line_number
@@ -3120,15 +3116,15 @@ module input
               enddo
               read_shift=read_shift+6
             endif
-            if (ctrl%laser_b .or. ctrl%laser_egrad) then
+            if (ctrl%laser_b) then
               do j=1,3
                 read(values(2*j+read_shift),*) a
                 read(values(2*j+1+read_shift),*) b
                 ctrl%laserfield_b_tp(i-com_line_number,j)=dcmplx(a,b)
               enddo
               read_shift=read_shift+6
-            !endif
-            !if (ctrl%laser_egrad .EQV. .true.) then 
+            endif
+            if (ctrl%laser_egrad) then 
               do j=1,3
                 do k=1,3
                   read(values(6*(j-1)+2*k+read_shift),*) a
@@ -3168,7 +3164,6 @@ module input
             ctrl%calc_dipole=1
           endif
         endif
-
         !LORENZ: Continue wit reading in frequency file! 
         !LASER ENERGY
         ! do i=1, freq_line_number
@@ -3902,13 +3897,13 @@ module input
     enddo
     if (ctrl%laser==2) then
       do i=1,min(40,ctrl%nsteps*ctrl%nsubsteps+1)
-        if (ctrl%laser_e .EQV. .true.) then
+        if (ctrl%laser_e) then
           write(key,'(6(F9.6))') (ctrl%laserfield_e_tp(i,j),j=1,3)
         endif
-        if (ctrl%laser_b .or. ctrl%laser_egrad) then 
+        if (ctrl%laser_b)  then 
           write(key,'(6(F9.6))') (ctrl%laserfield_b_tp(i,j),j=1,3)
-        !endif
-        !if (ctrl%laser_egrad .EQV. .true.) then
+        endif
+        if (ctrl%laser_egrad) then
           do j=1,3
             do k=1,3
               write(key,'(6(F9.6))') ctrl%laserfield_egrad_tpd(i,j,k)

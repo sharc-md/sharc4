@@ -91,6 +91,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
+        &ctrl%laser_e,&
+        &ctrl%laser_b,&
+        &ctrl%laser_egrad,&
         &local_laser_efield_tp(:,:),&
         &local_laser_bfield_tp(:,:),&
         &local_laser_egrad_tpd(:,:,:),&
@@ -113,6 +116,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
+        &ctrl%laser_e,&
+        &ctrl%laser_b,&
+        &ctrl%laser_egrad,&
         &local_laser_efield_tp(:,:),&
         &local_laser_bfield_tp(:,:),&
         &local_laser_egrad_tpd(:,:,:),&
@@ -129,6 +135,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
+        &ctrl%laser_e,&
+        &ctrl%laser_b,&
+        &ctrl%laser_egrad,&         
         &local_laser_efield_tp(:,:),&
         &local_laser_bfield_tp(:,:),&
         &local_laser_egrad_tpd(:,:,:),&
@@ -143,6 +152,9 @@ subroutine propagate_laser(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
+        &ctrl%laser_e,&
+        &ctrl%laser_b,&
+        &ctrl%laser_egrad,&
         &local_laser_efield_tp(:,:),&
         &local_laser_bfield_tp(:,:),&
         &local_laser_egrad_tpd(:,:,:),&
@@ -278,7 +290,7 @@ endsubroutine
 !> calculates the propagator matrix in substeps, see SHARC manual for the equations.
 !> \param interp 0=linear interpolation of non-adiabatic coupling matrix, 1=constant non-adiabatic coupling matrix (NACMold not used)
 subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DMold, MDM, MDMold, EQM, EQMold,& 
-        &laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, interp, Rtotal)
+        &laser_e, laser_b, laser_egrad, laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, interp, Rtotal)
   use definitions, only: u_log
   use matrix
 ! calculates the propagator matrix for a timestep
@@ -293,7 +305,10 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
 
   integer, intent(in) :: n, nsubsteps, interp
   complex*16, intent(in) :: U(n,n), SO(n,n), SOold(n,n), NACM(n,n), NACMold(n,n),&
-                            &DM(n,n,3),DMold(n,n,3), MDM(n,n,3), MDMold(n,n,3),EQM(n,n,3,3), EQMold(n,n,3,3)
+                            &DM(n,n,3), DMold(n,n,3), MDM(n,n,3), MDMold(n,n,3), EQM(n,n,3,3), EQMold(n,n,3,3)
+  logical :: laser_e
+  logical :: laser_b
+  logical :: laser_egrad
   complex*16, intent(in) :: laserfield_e(nsubsteps,3)
   complex*16, intent(in) :: laserfield_b(nsubsteps,3)
   complex*16, intent(in) :: laserfield_egrad(nsubsteps,3,3)
@@ -318,21 +333,26 @@ subroutine unitary_propagator_laser(n, SO, SOold, NACM, NACMold, U, Uold, DM, DM
     H=SOold + (SO-SOold)*istep/nsubsteps
 
     ! here the laser field is added to the Hamiltonian (1st order Light-Matter interaction)
-    do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) 
-    enddo
-    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (B-field))
-    do ixyz=1,3
-      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz)) 
-    enddo 
-    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (E-field))
-    do ixyz=1,3
-      do jxyz=1,3
-        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsubsteps ) *&
-                    &real(laserfield_egrad(istep,ixyz,jxyz))
+    if (laser_e) then
+      do ixyz=1,3
+        H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) 
       enddo
-    enddo
-
+    endif
+    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (B-field))
+    if (laser_b) then
+      do ixyz=1,3
+        H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz)) 
+      enddo 
+    endif
+    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (E-field))
+    if (laser_egrad) then
+      do ixyz=1,3
+        do jxyz=1,3
+          H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsubsteps ) *&
+                      &real(laserfield_egrad(istep,ixyz,jxyz))
+        enddo
+      enddo
+    endif
     ! second ingredient, T
     if (interp==1) then
       T=NACM
@@ -366,7 +386,7 @@ endsubroutine
 !> calculates the propagator matrix in substeps, see SHARC manual for the equations.
 !> Uses the local diabatization procedure
 subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, MDMin, MDMold, EQMin, EQMold,&
-                                &laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, Rtotal)
+                                &laser_e, laser_b, laser_egrad, laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, Rtotal)
   use definitions, only: u_log
   use matrix
   ! calculates the propagator matrix for a timestep
@@ -382,6 +402,9 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, MD
   real*8, intent(in) :: dt
   complex*16, intent(in) :: U(n,n), Uold(n,n),SOin(n,n),SOold(n,n),& 
                             &DMin(n,n,3),DMold(n,n,3), MDMin(n,n,3), MDMold(n,n,3), EQMin(n,n,3,3), EQMold(n,n,3,3)
+  logical :: laser_e
+  logical :: laser_b
+  logical :: laser_egrad
   complex*16, intent(in) :: laserfield_e(nsubsteps,3)
   complex*16, intent(in) :: laserfield_b(nsubsteps,3)
   complex*16, intent(in) :: laserfield_egrad(nsubsteps,3,3)
@@ -427,40 +450,52 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, MD
   ! Transform SO into old basis
   SO=SOin
   call transform(n,SO,overlap,'uaut')
-  DM=DMin
-  do ixyz=1,3
-    call transform(n,DM(:,:,ixyz),overlap,'uaut')
-  enddo
-  MDM=MDMin
-  do ixyz=1,3
-    call transform(n,MDM(:,:,ixyz),overlap,'uaut')
-  enddo
-  EQM=EQMin
-  do ixyz=1,3
-    do jxyz=1,3
-      call transform(n,EQM(:,:,ixyz,jxyz),overlap,'uaut')
+  if (laser_e) then
+    DM=DMin
+    do ixyz=1,3
+      call transform(n,DM(:,:,ixyz),overlap,'uaut')
     enddo
-  enddo 
-  
+  endif
+  if (laser_b) then
+    MDM=MDMin
+    do ixyz=1,3
+      call transform(n,MDM(:,:,ixyz),overlap,'uaut')
+    enddo
+  endif
+  if (laser_egrad) then
+    EQM=EQMin
+    do ixyz=1,3
+      do jxyz=1,3
+        call transform(n,EQM(:,:,ixyz,jxyz),overlap,'uaut')
+      enddo
+    enddo 
+  endif 
+
   !Evolve in the diabatic basis in substeps
   dtsubstep=dt/nsubsteps
   do k=1,nsubsteps
     H=SOold + (SO-SOold)*k/nsubsteps
     ! here the laser field is added to the Hamiltonian (1st order Light-Matter interaction)
-    do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_e(k,ixyz)) 
-    enddo
-    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (B-field))
-    do ixyz=1,3
-      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_b(k,ixyz)) 
-    enddo 
-    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (E-field))
-    do ixyz=1,3
-      do jxyz=1,3
-        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*k/nsubsteps ) *&
-                    &real(laserfield_egrad(k,ixyz,jxyz))
+    if (laser_e) then
+      do ixyz=1,3
+        H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_e(k,ixyz)) 
       enddo
-    enddo 
+    endif
+      ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (B-field))
+    if (laser_b) then
+      do ixyz=1,3
+        H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*k/nsubsteps ) * real(laserfield_b(k,ixyz)) 
+      enddo 
+    endif
+      ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (E-field))
+    if (laser_egrad) then
+      do ixyz=1,3
+        do jxyz=1,3
+          H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*k/nsubsteps ) *&
+                      &real(laserfield_egrad(k,ixyz,jxyz))
+        enddo
+      enddo 
+    endif
     H=dtsubstep*H
 
     call exponentiate(n,H,-ii)
@@ -482,7 +517,7 @@ endsubroutine
 !> calculates the propagator matrix in substeps, see SHARC manual for th equations.
 !> Uses the norm perserving interpolation
 subroutine NPI_propagator_laser(n, SO, SOold, U, Uold, overlap, DM, DMold, MDM, MDMold, EQM, EQMold,&
-                                &laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, Rtotal)
+                                &laser_e, laser_b, laser_egrad, laserfield_e, laserfield_b, laserfield_egrad, dt, nsubsteps, Rtotal)
   use definitions, only: u_log
   use matrix
   ! calculates the propagator matrix for a timestep
@@ -499,6 +534,9 @@ subroutine NPI_propagator_laser(n, SO, SOold, U, Uold, overlap, DM, DMold, MDM, 
   real*8, intent(in) :: dt
   complex*16, intent(in) :: U(n,n), Uold(n,n),SO(n,n),SOold(n,n),& 
                             &DM(n,n,3),DMold(n,n,3), MDM(n,n,3), MDMold(n,n,3), EQM(n,n,3,3), EQMold(n,n,3,3)
+  logical :: laser_e
+  logical :: laser_b
+  logical :: laser_egrad
   complex*16, intent(in) :: laserfield_e(nsubsteps,3)
   complex*16, intent(in) :: laserfield_b(nsubsteps,3)
   complex*16, intent(in) :: laserfield_egrad(nsubsteps,3,3)
@@ -527,21 +565,27 @@ subroutine NPI_propagator_laser(n, SO, SOold, U, Uold, overlap, DM, DMold, MDM, 
     H=SOold + (SO-SOold)*istep/nsubsteps
 
     ! here the laser field is added to the Hamiltonian (1st order Light-Matter interaction)
-    do ixyz=1,3
-      H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) 
-    enddo
-    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (B-field))
-    do ixyz=1,3
-      H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz)) 
-    enddo 
-    ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (E-field))
-    do ixyz=1,3
-      do jxyz=1,3
-        H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsubsteps ) *&
-                    &real(laserfield_egrad(istep,ixyz,jxyz))
+    if (laser_e) then
+      do ixyz=1,3
+        H=H - ( DMold(:,:,ixyz) + (DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_e(istep,ixyz)) 
       enddo
-    enddo
-    
+    endif
+      ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (B-field))
+    if (laser_b) then
+      do ixyz=1,3
+        H=H - ( MDMold(:,:,ixyz) + (MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsubsteps ) * real(laserfield_b(istep,ixyz)) 
+      enddo 
+    endif
+      ! here the laser field is added to the Hamiltonian (2nd order Light-Matter interaction (E-field))
+    if (laser_egrad) then
+      do ixyz=1,3
+        do jxyz=1,3
+          H=H - ( EQMold(:,:,ixyz,jxyz) + (EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsubsteps ) *&
+                      &real(laserfield_egrad(istep,ixyz,jxyz))
+        enddo
+      enddo 
+    endif
+
     ! second ingredient, T
     ! compute NPI rotation matrix W
     do istate=1,n

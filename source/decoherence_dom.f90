@@ -295,6 +295,9 @@ subroutine DoM_step_MCH(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
+        &ctrl%laser_e,&
+        &ctrl%laser_b,&
+        &ctrl%laser_egrad,&
         &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&
@@ -310,6 +313,9 @@ subroutine DoM_step_MCH(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
+        &ctrl%laser_e,&
+        &ctrl%laser_b,&
+        &ctrl%laser_egrad,&
         &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),& 
@@ -325,6 +331,9 @@ subroutine DoM_step_MCH(traj,ctrl)
         &traj%DM_ssd,traj%DM_old_ssd,&
         &traj%MDM_ssd,traj%MDM_old_ssd,&
         &traj%EQM_ssdd,traj%EQM_old_ssdd,&
+        &ctrl%laser_e,&
+        &ctrl%laser_b,&
+        &ctrl%laser_egrad,&
         &ctrl%laserfield_e_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laserfield_b_tp( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:),&
         &ctrl%laserfield_egrad_tpd( (traj%step-1)*ctrl%nsubsteps+2:traj%step*ctrl%nsubsteps+1 ,:,:),&  
@@ -579,9 +588,13 @@ subroutine compute_svec_tau_control(traj,ctrl)
         H_ss=H_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
       enddo
     endif
-    if (ctrl%laser_b .or. ctrl%laser_egrad) then
+    if (ctrl%laser_b) then
       do idir=1,3
         H_ss=H_ss-traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+      enddo
+    endif
+    if (ctrl%laser_egrad) then
+      do idir=1,3
         do jdir=1,3
             H_ss=H_ss-traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
         enddo
@@ -1941,7 +1954,7 @@ endsubroutine
 !> In this subroutine, we need to locally propagate C from t to t+0.5dt 
 subroutine repropagate_coeff_laser(&
         &ns, dt, nsub, interp, tau, tauold, k, C, Cold, U, Uold, SO, SOold, NACM, NACMold, DM, DMold,&
-        &MDM, MDMold, EQM, EQMold, laserfield_e, laserfield_b, laserfield_egrad, RD, Dtotal)
+        &MDM, MDMold, EQM, EQMold, laser_e, laser_b, laser_egrad, laserfield_e, laserfield_b, laserfield_egrad, RD, Dtotal)
 !use electronic
   use definitions, only: u_log
   use matrix
@@ -1959,6 +1972,9 @@ subroutine repropagate_coeff_laser(&
   complex*16, intent(in) :: DM(ns,ns,3),DMold(ns,ns,3)
   complex*16, intent(in) :: MDM(ns,ns,3),MDMold(ns,ns,3)
   complex*16, intent(in) :: EQM(ns,ns,3,3),EQMold(ns,ns,3,3)
+  logical :: laser_e 
+  logical :: laser_b 
+  logical :: laser_egrad 
   complex*16, intent(in) :: laserfield_e(nsub,3)
   complex*16, intent(in) :: laserfield_b(nsub,3)
   complex*16, intent(in) :: laserfield_egrad(nsub,3,3)
@@ -1980,6 +1996,7 @@ subroutine repropagate_coeff_laser(&
 
 
   integer :: istate, jstate, ixyz, jxyz
+
 
   !initialize Ctmp1
   call matvecmultiply(ns, Uold, Cold, Ctmp1, 'n')
@@ -2003,18 +2020,24 @@ subroutine repropagate_coeff_laser(&
 
     H=SOold+(SO-SOold)*istep/nsub
     ! here the laser field is added to the Hamiltonian
-    do ixyz=1,3
-      H=H-(DMold(:,:,ixyz)+(DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsub)*real(laserfield_e(istep,ixyz))
-    enddo
-    do ixyz=1,3
-      H=H-(MDMold(:,:,ixyz)+(MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsub)*real(laserfield_b(istep,ixyz))
-    enddo
-    do ixyz=1,3
-      do jxyz=1,3
-        H=H-(EQMold(:,:,ixyz,jxyz)+(EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsub)*real(laserfield_egrad(istep,ixyz,jxyz))
+    if (laser_e) then
+      do ixyz=1,3
+        H=H-(DMold(:,:,ixyz)+(DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsub)*real(laserfield_e(istep,ixyz))
       enddo
-    enddo
- 
+    endif
+    if (laser_b) then
+      do ixyz=1,3
+        H=H-(MDMold(:,:,ixyz)+(MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsub)*real(laserfield_b(istep,ixyz))
+      enddo
+    endif
+    if (laser_egrad) then
+      do ixyz=1,3
+        do jxyz=1,3
+          H=H-(EQMold(:,:,ixyz,jxyz)+(EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsub)*real(laserfield_egrad(istep,ixyz,jxyz))
+        enddo
+      enddo
+    endif
+
     if (interp==1) then
       T=NACM
     else 
@@ -2078,7 +2101,7 @@ endsubroutine
 !> In this subroutine, we need to locally propagate C from t to t+0.5dt 
 subroutine repropagate_coeff_NPI_laser(&
         &ns, dt, nsub, coup, tau, tauold, k, C, Cold, U, Uold, SO, SOold, overlap, DM, DMold,&
-        &MDM, MDMold, EQM, EQMold, laserfield_e, laserfield_b, laserfield_egrad, RD, Dtotal)
+        &MDM, MDMold, EQM, EQMold, laser_e, laser_b, laser_egrad, laserfield_e, laserfield_b, laserfield_egrad, RD, Dtotal)
 !use electronic
   use definitions, only: u_log
   use matrix
@@ -2096,6 +2119,9 @@ subroutine repropagate_coeff_NPI_laser(&
   complex*16, intent(in) :: DM(ns,ns,3),DMold(ns,ns,3)
   complex*16, intent(in) :: MDM(ns,ns,3),MDMold(ns,ns,3)
   complex*16, intent(in) :: EQM(ns,ns,3,3),EQMold(ns,ns,3,3)
+  logical :: laser_e
+  logical :: laser_b
+  logical :: laser_egrad
   complex*16, intent(in) :: laserfield_e(nsub,3), laserfield_b(nsub,3), laserfield_egrad(nsub,3,3)
   complex*16, intent(inout) :: C(ns)
   complex*16, intent(out) :: RD(ns,ns)
@@ -2141,18 +2167,24 @@ subroutine repropagate_coeff_NPI_laser(&
 
     H=SOold+ (SO-SOold)*istep/nsub
     ! here the laser field is added to the Hamiltonian
-    do ixyz=1,3
-      H=H-(DMold(:,:,ixyz)+(DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsub)*real(laserfield_e(istep,ixyz))
-    enddo
-    do ixyz=1,3
-      H=H-(MDMold(:,:,ixyz)+(MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsub)*real(laserfield_b(istep,ixyz))
-    enddo
-    do ixyz=1,3
-      do jxyz=1,3
-        H=H-(EQMold(:,:,ixyz,jxyz)+(EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsub)*real(laserfield_egrad(istep,ixyz,jxyz))
+    if (laser_e) then
+      do ixyz=1,3
+        H=H-(DMold(:,:,ixyz)+(DM(:,:,ixyz)-DMold(:,:,ixyz))*istep/nsub)*real(laserfield_e(istep,ixyz))
       enddo
-    enddo
-
+    endif 
+    if (laser_b) then
+      do ixyz=1,3
+        H=H-(MDMold(:,:,ixyz)+(MDM(:,:,ixyz)-MDMold(:,:,ixyz))*istep/nsub)*real(laserfield_b(istep,ixyz))
+      enddo
+    endif
+    if (laser_egrad) then
+      do ixyz=1,3
+        do jxyz=1,3
+          H=H-(EQMold(:,:,ixyz,jxyz)+(EQM(:,:,ixyz,jxyz)-EQMold(:,:,ixyz,jxyz))*istep/nsub)*real(laserfield_egrad(istep,ixyz,jxyz))
+        enddo
+      enddo
+    endif
+    
     taumid=tauold+ (tau-tauold)*istep/nsub
 
     ! compute decoherence propagator DP

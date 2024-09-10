@@ -498,6 +498,7 @@ contains
     call matwrite(ctrl%nstates, traj%NACdt_ss,     u, 'NACdt_ss','ES24.16E3')
     call matwrite(ctrl%nstates, traj%NACdt_old_ss, u, 'NACdt_old_ss','ES24.16E3')
     call matwrite(ctrl%nstates, traj%overlaps_ss,  u, 'overlaps_ss','ES24.16E3')
+    if (ctrl%laser_e) then
     call matwrite(ctrl%nstates, traj%DM_ssd(:,:,1),  u, 'DM_ssd(x)','ES24.16E3')
     call matwrite(ctrl%nstates, traj%DM_ssd(:,:,2),  u, 'DM_ssd(y)','ES24.16E3')
     call matwrite(ctrl%nstates, traj%DM_ssd(:,:,3),  u, 'DM_ssd(z)','ES24.16E3')
@@ -507,8 +508,8 @@ contains
     call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u, 'DM_print_ssd(x)','ES24.16E3')
     call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u, 'DM_print_ssd(y)','ES24.16E3')
     call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u, 'DM_print_ssd(z)','ES24.16E3')
-    if (ctrl%laser_b .or. ctrl%laser_egrad) then 
-      call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,3),  u, 'MDM_print_ssd(z)','ES24.16E3')
+    endif
+    if (ctrl%laser_b) then 
       call matwrite(ctrl%nstates, traj%MDM_ssd(:,:,1),  u, 'MDM_ssd(x)','ES24.16E3')
       call matwrite(ctrl%nstates, traj%MDM_ssd(:,:,2),  u, 'MDM_ssd(y)','ES24.16E3')
       call matwrite(ctrl%nstates, traj%MDM_ssd(:,:,3),  u, 'MDM_ssd(z)','ES24.16E3')
@@ -518,8 +519,8 @@ contains
       call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,1),  u, 'MDM_print_ssd(x)','ES24.16E3')
       call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,2),  u, 'MDM_print_ssd(y)','ES24.16E3')
       call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,3),  u, 'MDM_print_ssd(z)','ES24.16E3')
-    ! endif
-    ! if (ctrl%laser_egrad==.true.) then
+    endif
+    if (ctrl%laser_egrad) then
       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,1,1),  u, 'EQM_ssdd(xx)','ES24.16E3')
       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,1,2),  u, 'EQM_ssdd(xy)','ES24.16E3')
       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,1,3),  u, 'EQM_ssdd(xz)','ES24.16E3')
@@ -964,6 +965,7 @@ contains
     call matread(ctrl%nstates, traj%NACdt_ss,     u_traj,   string)
     call matread(ctrl%nstates, traj%NACdt_old_ss, u_traj,   string)
     call matread(ctrl%nstates, traj%overlaps_ss,  u_traj,   string)
+    if (ctrl%laser_e) then
     call matread(ctrl%nstates, traj%DM_ssd(:,:,1),  u_traj, string)
     call matread(ctrl%nstates, traj%DM_ssd(:,:,2),  u_traj, string)
     call matread(ctrl%nstates, traj%DM_ssd(:,:,3),  u_traj, string)
@@ -973,7 +975,8 @@ contains
     call matread(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u_traj, string)
     call matread(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u_traj, string)
     call matread(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u_traj, string)
-    if (ctrl%laser_b .or. ctrl%laser_egrad) then
+    endif
+    if (ctrl%laser_b) then
       call matread(ctrl%nstates, traj%MDM_ssd(:,:,1),  u_traj, string)
       call matread(ctrl%nstates, traj%MDM_ssd(:,:,2),  u_traj, string)
       call matread(ctrl%nstates, traj%MDM_ssd(:,:,3),  u_traj, string)
@@ -983,8 +986,8 @@ contains
       call matread(ctrl%nstates, traj%MDM_print_ssd(:,:,1),  u_traj, string)
       call matread(ctrl%nstates, traj%MDM_print_ssd(:,:,2),  u_traj, string)
       call matread(ctrl%nstates, traj%MDM_print_ssd(:,:,3),  u_traj, string)
-    ! endif
-    ! if (ctrl%laser_egrad==.true.) then
+    endif
+    if (ctrl%laser_egrad) then
       call matread(ctrl%nstates, traj%EQM_ssdd(:,:,1,1),  u_traj, string)
       call matread(ctrl%nstates, traj%EQM_ssdd(:,:,1,2),  u_traj, string)
       call matread(ctrl%nstates, traj%EQM_ssdd(:,:,1,3),  u_traj, string)

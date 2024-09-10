@@ -599,8 +599,8 @@ program data_extractor
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
-    allocate( expec_mdm(nstates),expec_mdm_mch(nstates),expec_mdm_act(nstates) )
-    allocate( expec_eqm(nstates),expec_eqm_mch(nstates),expec_eqm_act(nstates) )
+    ! allocate( expec_mdm(nstates),expec_mdm_mch(nstates),expec_mdm_act(nstates) )
+    ! allocate( expec_eqm(nstates),expec_eqm_mch(nstates),expec_eqm_act(nstates) )
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
     allocate( spin0_s(nstates) )
     if (.not. skip_geom_vel_grad_nac) then
@@ -693,17 +693,12 @@ program data_extractor
     allocate( U_ss(nstates,nstates) )
     allocate( Prop2d_xss(n_property2d,nstates,nstates), Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
-    allocate( DM_MCH_ssd(nstates,nstates,3) )
-    allocate( DM_diag_ssd(nstates,nstates,3) )
-    allocate( dm_proj_sp(nstates,nprojections) )
     allocate( proj_vec_pd(nprojections,3) )
     allocate( norm_proj_vec_p(nprojections) )
     allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
-    allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
-    allocate( expec_mdm(nstates),expec_mdm_mch(nstates),expec_mdm_act(nstates) )
-    allocate( expec_eqm(nstates),expec_eqm_mch(nstates),expec_eqm_act(nstates) )
+    allocate( expec_s(nstates) )
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
     allocate( spin0_s(nstates) )
     if (.not. skip_geom_vel_grad_nac) then
@@ -778,10 +773,6 @@ program data_extractor
       line=get_value_from_key('laser_b',io)
       if (io==0) then
         read(line,*) laser_b
-        if (laser_b==.true.) then
-          write_mag_dip = .true.
-          write_mag_dipact = .true.
-        endif
       else
         laser_b=.false.
       endif
@@ -790,12 +781,17 @@ program data_extractor
       line=get_value_from_key('laser_egrad',io)
       if (io==0) then
         read(line,*) laser_egrad
-        if (laser_egrad==.true.) then
-          write_el_quad = .true.
-          write_el_quadact = .true.
-        endif
       else
         laser_egrad=.false.! look up laser e-field gradient keyword
+      endif
+      
+      if (laser_b) then
+        write_mag_dip = .true.
+        write_mag_dipact = .true.
+      endif
+      if (laser_egrad) then
+        write_el_quad = .true.
+        write_el_quadact = .true.
       endif
             !for laser file without explicit definition of laser_x variables
             ! look up laser e-field keyword
@@ -857,9 +853,11 @@ program data_extractor
         allocate( laserfield_e_tp(nsteps*nsubsteps+1,3) )
         call vec3read(nsteps*nsubsteps+1,laserfield_e_tp,u_dat,string1)
       endif
-      if (laser_b .or. laser_egrad) then
+      if (laser_b) then 
         allocate( laserfield_b_tp(nsteps*nsubsteps+1,3) )
         call vec3read(nsteps*nsubsteps+1,laserfield_b_tp,u_dat,string1) 
+      endif
+      if (laser_egrad) then
         allocate( laserfield_egrad_tpd(nsteps*nsubsteps+1,3,3) )
         do idir=1,3 
           call vec3read(nsteps*nsubsteps+1,laserfield_egrad_tpd(:,:,idir),u_dat,string1)
@@ -868,16 +866,24 @@ program data_extractor
       write(*,*) "Reading of fields"
     endif
 
-    if (write_mag_dip==.true.) then
+    if (write_dip) then
+      allocate( DM_MCH_ssd(nstates,nstates,3) )
+      allocate( DM_diag_ssd(nstates,nstates,3) )
+      allocate( dm_proj_sp(nstates,nprojections) )
+      allocate( expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
+    endif
+    if (write_mag_dip) then
       allocate( MDM_MCH_ssd(nstates,nstates,3) )
       allocate( MDM_diag_ssd(nstates,nstates,3) )
       allocate( mdm_proj_sp(nstates,nprojections) ) 
+      allocate( expec_mdm(nstates),expec_mdm_mch(nstates),expec_mdm_act(nstates) )
       !MDM_MCH_ssd=dcmplx(0.d0,0.d0)
     endif
-    if (write_el_quad==.true.) then
+    if (write_el_quad) then
       allocate( EQM_MCH_ssdd(nstates,nstates,3,3) )
       allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
       allocate( eqm_proj_sp(nstates,nprojections) )  
+      allocate( expec_eqm(nstates),expec_eqm_mch(nstates),expec_eqm_act(nstates) )
       !EQM_MCH_ssdd=dcmplx(0.d0,0.d0)
     endif
     ! skip the "End of header array data" separator line
@@ -1219,7 +1225,7 @@ program data_extractor
       write(*,*) have_NAC, have_grad
       write(6,*) 'Running...'
       do
-        ! read everything: H, U, DM, overlap, coeff_diag, hopprob, Ekin, active states
+        ! read everything: H, U, DM, MDM, EQM, overlap, coeff_diag, hopprob, Ekin, active states
         ! random number, runtime for the timestep, geometry, velocity, property matrix
         read(u_dat,*,iostat=io) string1
         if (io/=0) exit
@@ -1231,15 +1237,18 @@ program data_extractor
         endif
         call matread(nstates,H_MCH_ss,u_dat,string1)
         call matread(nstates,U_ss,u_dat,string1)
-        do idir=1,3
-          call matread(nstates,DM_MCH_ssd(:,:,idir),u_dat,string1)
-        enddo
-        if (write_mag_dip==.true.) then 
+        write(*,*) "U_ss_data_extractor.f90", U_ss
+        if (write_dip) then
+          do idir=1,3
+            call matread(nstates,DM_MCH_ssd(:,:,idir),u_dat,string1)
+          enddo
+        endif 
+        if (write_mag_dip) then 
           do idir=1,3
             call matread(nstates,MDM_MCH_ssd(:,:,idir),u_dat,string1)
           enddo
         endif
-        if (write_el_quad==.true.) then 
+        if (write_el_quad) then 
           do idir=1,3
             do jdir=1,3
               call matread(nstates,EQM_MCH_ssdd(:,:,idir,jdir),u_dat,string1)
@@ -1320,9 +1329,13 @@ program data_extractor
           H_diag_ss=H_diag_ss - DM_MCH_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
         enddo
       endif
-      if (laser_b .or. laser_egrad) then
+      if (laser_b) then
         do idir=1,3
           H_diag_ss=H_diag_ss - MDM_MCH_ssd(:,:,idir)*real(laserfield_b_tp(step*nsubsteps+1,idir))
+        enddo 
+      endif 
+      if (laser_egrad) then
+        do idir=1,3
           do jdir=1,3
             H_diag_ss=H_diag_ss - EQM_MCH_ssdd(:,:,idir,jdir)*real(laserfield_egrad_tpd(step*nsubsteps+1,idir,jdir))
           enddo
@@ -1337,7 +1350,10 @@ program data_extractor
     !call matwrite(nstates,H_diag_ss,6,'Hafter','F12.9')
     sum = (0.0,0.)
     do idir=1,nstates
-        do jdir=1,nstates
+        do jdir=1,nstates 
+            ! write(*,*) "HDIAG", H_diag_ss(idir, jdir), idir, jdir
+            ! write(*,*) "EQM", EQM_MCH_ssdd(idir, jdir, :, :)
+            ! write(*,*) "LASER", real(laserfield_egrad_tpd(step*nsubsteps+1,:,:)) 
             if (idir /= jdir) then
                 sum = sum + H_diag_ss(idir, jdir)
             endif

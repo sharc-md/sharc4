@@ -705,10 +705,6 @@ contains
         line=get_value_from_key('laser_b',io)
         if (io==0) then
           read(line,*) general_infos%laser_b
-          if (general_infos%laser_b==.true.) then
-            write_options%write_mag_dip = .true.
-            write_options%write_mag_dipact = .true.
-          endif
         else
           general_infos%laser_b=.false.
         endif
@@ -717,12 +713,17 @@ contains
         line=get_value_from_key('laser_egrad',io)
         if (io==0) then
           read(line,*) general_infos%laser_egrad
-          if (general_infos%laser_egrad==.true.) then
-            write_options%write_el_quad = .true.
-            write_options%write_el_quadact = .true.
-          endif
         else
           general_infos%laser_egrad=.false.! look up laser e-field gradient keyword
+        endif
+
+        if (general_infos%laser_b) then
+          write_options%write_mag_dip = .true.
+          write_options%write_mag_dipact = .true.
+        endif
+        if (general_infos%laser_egrad) then
+          write_options%write_el_quad = .true.
+          write_options%write_el_quadact = .true.
         endif
               !for laser file without explicit definition of laser_x variables
               ! look up laser e-field keyword
@@ -785,9 +786,11 @@ contains
         allocate( shdata%laser_efield_tp(general_infos%nsteps*general_infos%nsubsteps+1,3) )
         call vec3read(general_infos%nsteps*general_infos%nsubsteps+1,shdata%laser_efield_tp,u_dat,string1)
       endif
-      if (general_infos%laser_b .or. general_infos%laser_egrad) then
+      if (general_infos%laser_b) then 
         allocate( shdata%laser_bfield_tp(general_infos%nsteps*general_infos%nsubsteps+1,3) )
         call vec3read(general_infos%nsteps*general_infos%nsubsteps+1,shdata%laser_bfield_tp,u_dat,string1) 
+      endif
+      if (general_infos%laser_egrad) then
         allocate( shdata%laser_egrad_tpd(general_infos%nsteps*general_infos%nsubsteps+1,3,3) )
         do idir=1,3
           call vec3read(general_infos%nsteps*general_infos%nsubsteps+1,shdata%laser_egrad_tpd(:,:,idir),u_dat,string1) 
@@ -1184,6 +1187,7 @@ contains
     read(u_dat,*) step
     call matread(nstates,shdata%H_MCH_ss,u_dat,string1)
     call matread(nstates,shdata%U_ss,u_dat,string1)
+    write(*,*) "U_ss data_extractor_netcdfmodule", shdata%U_ss
     do idir=1,3
       call matread(nstates,shdata%DM_ssd(:,:,idir),u_dat,string1)
     enddo
@@ -1497,7 +1501,8 @@ contains
   type(Twrite_options), intent(in) :: write_options
   type(Tshdata), intent(inout)     :: shdata
   integer :: i, idir, jdir, istate, jstate, time_step
-  
+  complex*16 :: sum 
+
     time_step=shdata%time_step
     ! calculate Hamiltonian including laser field
     shdata%H_diag_ss=shdata%H_MCH_ss
@@ -1505,14 +1510,21 @@ contains
       if (general_infos%laser_e) then
         do idir=1,3
           shdata%H_diag_ss=shdata%H_diag_ss - shdata%DM_ssd(:,:,idir)*real(shdata%laser_efield_tp(time_step*general_infos%nsubsteps+1,idir))
+          write(*,*) "laser_e", real(shdata%laser_efield_tp(time_step*general_infos%nsubsteps+1,idir))
         enddo
       endif
-      if (general_infos%laser_b .or. general_infos%laser_egrad) then
+      if (general_infos%laser_b) then
         do idir=1,3
-            shdata%H_diag_ss=shdata%H_diag_ss - shdata%MDM_ssd(:,:,idir)*real(shdata%laser_bfield_tp(time_step*general_infos%nsubsteps+1,idir)) 
-            do jdir=1,3
-                shdata%H_diag_ss=shdata%H_diag_ss - shdata%EQM_ssdd(:,:,idir,jdir)*real(shdata%laser_egrad_tpd(time_step*general_infos%nsubsteps+1,idir,jdir))
-            enddo
+          shdata%H_diag_ss=shdata%H_diag_ss - shdata%MDM_ssd(:,:,idir)*real(shdata%laser_bfield_tp(time_step*general_infos%nsubsteps+1,idir)) 
+          write(*,*) "laser_b", real(shdata%laser_bfield_tp(time_step*general_infos%nsubsteps+1,idir))
+        enddo
+      endif
+      if (general_infos%laser_egrad) then
+        do idir=1,3
+          do jdir=1,3
+            shdata%H_diag_ss=shdata%H_diag_ss - shdata%EQM_ssdd(:,:,idir,jdir)*real(shdata%laser_egrad_tpd(time_step*general_infos%nsubsteps+1,idir,jdir))
+            write(*,*) "laser_egrad", real(shdata%laser_egrad_tpd(time_step*general_infos%nsubsteps+1,idir,jdir))
+          enddo
         enddo
       endif
     endif
@@ -1520,6 +1532,21 @@ contains
 !     call matwrite(nstates,U_ss,0,'U','F12.9')
     call transform(nstates,shdata%H_diag_ss,shdata%U_ss,'utau')
 !     call matwrite(nstates,H_diag_ss,0,'Hafter','F12.9')
+    sum = (0.0,0.)
+    do idir=1,nstates                             
+       do jdir=1,nstates 
+          ! write(*,*) "EQM", shdata%EQM_ssdd(idir, jdir,1,1), idir, jdir
+          if (idir /= jdir) then                
+            sum = sum + shdata%H_diag_ss(idir, jdir) 
+          !    !if (idir==23 .and. jdir==47) then
+          !    !  write(*,*) "laser_egrad", shdata%laser_egrad_tpd(time_step*general_infos%nsubsteps+1,:,:)
+          !    !  write(*,*) "laser_eqm", shdata%EQM_ssdd(idir, jdir, :,:)
+          !    !  write(*,*) "data_ext_net", shdata%H_diag_ss(idir, jdir), idir, jdir, time_step 
+          !    !endif
+          endif                                 
+       enddo                                     
+    enddo                                         
+    write(*,*) "SUM", sum
 
     ! calculate MCH coefficients and potential energy
     call matvecmultiply(nstates,shdata%U_ss,shdata%coeff_diag_s,shdata%coeff_MCH_s,'n')

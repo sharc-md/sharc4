@@ -540,7 +540,8 @@ QMout_set_el_quadrupolemoment(QMout * self, PyObject * args)
                     } else {
                         complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
                     }
-                    *(self->el_quad_mom + (is * 3*3 * self->NStates) + (js *3*3) + (i*3) + j) = complex_value;
+                    //*(self->el_quad_mom + (is * 3*3 * self->NStates) + (js *3*3) + (i*3) + j) = complex_value;
+                    *(self->el_quad_mom + (i * 3 * self->NStates * self->NStates) + (j * self->NStates * self->NStates) + (js * self->NStates) + is) = complex_value;
                 }
             }
         }
