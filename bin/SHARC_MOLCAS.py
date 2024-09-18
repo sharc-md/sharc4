@@ -620,7 +620,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if (code := self.run_program(workdir, f"{qmin.resources['driver']} MOLCAS.input", "MOLCAS.out", "MOLCAS.err")) != 96:
                 break
             qmin.template["gradaccudefault"] *= 10
-        endtime = datetime.datetime.now()
 
         return code, datetime.datetime.now() - starttime
 
@@ -743,13 +742,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.requests["theodore"] or qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]:
             if self._hdf5:
                 tasks.append(["link", "MOLCAS.rassi.h5", "MOLCAS.rassi.h5.bak"])
-            for mult, states in enumerate((all_states := qmin.molecule["states"][:]), 1):
+            all_states = qmin.molecule["states"][:] # Copy of states, to modify in loop
+            for mult, states in enumerate(qmin.molecule["states"], 1):
                 if states > 0:
-                    if len(qmin.molecule["states"]) >= mult + 2 and all_states[mult + 1] > 0:
+                    if len(all_states) >= mult + 2 and all_states[mult + 1] > 0:
                         tasks.append(["link", f"MOLCAS.{mult}.JobIph", "JOB001"])
                         tasks.append(["link", f"MOLCAS.{mult+2}.JobIph", "JOB002"])
-                        tasks.append(["rassi", "theodore", [states, all_states[mult + 1]]])
-                        all_states[mult + 1] = 1
+                        tasks.append(["rassi", "theodore", [states, qmin.molecule["states"][mult + 1]]])
+                        all_states[mult + 1] = 1 # Do not do rassi for same mult twice
                         if qmin.requests["theodore"]:
                             tasks.append(["theodore"])
                         if qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]:
@@ -931,13 +931,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str += "MEIN\n"
         if qmin.template["method"] != "casscf":
             input_str += "EJOB\n"
-        if task[1] == "dm" and qmin.requests["multipolar_fit"]:
+        if task[1] == "dm" and (qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]):
             input_str += "TRD1\n"
         if task[1] == "soc":
             input_str += "SPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n"
         if task[1] == "overlap":
             input_str += "STOVERLAPS\nOVERLAPS\n"
-            if qmin.control["master"] and qmin.requests["multipolar_fit"]:
+            if qmin.control["master"] and (qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]) :
                 input_str += "TRD1\n"
         if task[1] == "theodore":
             input_str += "TRD1\n"
