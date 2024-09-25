@@ -128,7 +128,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             
             self.read_template(self.template_file)
 
-        child_features = self.child_interface.get_features()
+        child_features = self.child_interface.get_features(KEYSTROKES=KEYSTROKES)
         self.log.debug(child_features)
         return set(child_features)
     
@@ -227,6 +227,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         self.child_interface: SHARC_INTERFACE = factory(self.QMin.template["child-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['child-program']}", loglevel=self.log.level
         )
+        self.child_interface.QMin.molecule['states'] = self.QMin.molecule['states']
 
         if not self.QMin.template["child-dir"]:
             self.QMin.template["child-dir"] = self.child_interface.name()
@@ -344,8 +345,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             for i, restraint in enumerate(self.restraints):
                 t, _, _, indices = restraint
                 if t == "de":
-                    gradrequests.add(indices[0])
-                    gradrequests.add(indices[1])
+                    gradrequests.add(indices[0]+1)
+                    gradrequests.add(indices[1]+1)
             self.child_interface.QMin.requests["grad"] = sorted(gradrequests)
             
 
@@ -357,6 +358,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
     def getQMout(self):
         self.QMout = self.child_interface.QMout
+        self.log.info(self.QMout)
 
         # compute restraint energy and gradient
         E = []
@@ -473,8 +475,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                             grad[indices[2],:] = g1 * dcosphi_k
                             grad[indices[3],:] = g1 * dcosphi_l
                 case 'de':
-                    Ei = self.child_interface.QMout.h[indices[0],indices[0]]
-                    Ej = self.child_interface.QMout.h[indices[1],indices[1]]
+                    Ei = self.child_interface.QMout.h[indices[0],indices[0]].real
+                    Ej = self.child_interface.QMout.h[indices[1],indices[1]].real
                     dE = Ei - Ej
                     e = k/2. * (dE - v0)**2
                     if self.QMin.requests["grad"]:

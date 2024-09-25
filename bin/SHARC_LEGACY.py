@@ -46,6 +46,9 @@ from utils import (ATOM, InDir, expand_path, itnmstates, mkdir, question,
                    readfile, writefile)
 from logger import log
 
+
+# TODO: define __all__
+
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 24)
 
@@ -1200,7 +1203,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         features = set(Interfaces[self.legacy_interface]['features'])
 
         self.log.debug(features)
-        return set(features)
+        return features
     
 
 
