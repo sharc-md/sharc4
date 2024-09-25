@@ -622,6 +622,48 @@ class SHARC_INTERFACE(ABC):
 
         self._read_resources = True
 
+    def _preprocess_lines(self, lines: list[str]) -> list[str]:
+        "takes a file as a list of strings, removes comments and empty lines, and processes 'start'/'select' blocks"
+        # replaces all comments with white space. filters all empty lines
+        filtered = filter(lambda x: not re.match(r"^\s*$", x), map(lambda x: re.sub(r"#.*$", "", x).strip(), lines))
+        lines = list(filtered)
+        if len(lines) == 0:  # check if there is only whitespace left!
+            return {}
+
+        # concat all lines for select keyword:
+        # 1 join lines to full file string,
+        # 2 match all select/start ... end blocks,
+        # 3 replace all \n with ',' in the matches,
+        # 4 return matches between [' and ']
+
+        formatted_lines = []
+        n_lines = len(lines)
+        i = 0
+        while i < n_lines:
+            lst = lines[i].lower().split()
+            if len(lst) > 1 and (lst[1] == 'start' or lst[1] == 'select'):
+                key = lst[0]
+                block = []
+                i += 1
+                end_found = False
+                while i < n_lines:
+                    if lines[i].strip() == 'end':
+                        end_found = True
+                        break
+                    block.append(lines[i].strip())
+                    i += 1
+                if not end_found:
+                    self.log.error(f"{key} with 'select'/'start' block not ended with 'end' keyword!")
+                    raise RuntimeError(f"{key} with 'select'/'start' block not ended with 'end' keyword!")
+                formatted_lines.append(f"{key} {block}")
+                i += 1
+                continue
+
+            formatted_lines.append(lines[i])
+            i += 1
+
+        return formatted_lines
+
     def _parse_raw(self, file: str, types_dict: dict, kw_whitelist=None) -> dict:
         """
         parse the content of a keyword-argument file (.resources, .template)
@@ -640,21 +682,7 @@ class SHARC_INTERFACE(ABC):
         kw_whitelist = [] if not kw_whitelist else kw_whitelist
 
         lines = readfile(file)
-        # replaces all comments with white space. filters all empty lines
-        filtered = filter(lambda x: not re.match(r"^\s*$", x), map(lambda x: re.sub(r"#.*$", "", x).strip(), lines))
-        file_str = "\n".join(filtered)
-        if not file_str or file_str.isspace():  # check if there is only whitespace left!
-            return {}
-
-        # concat all lines for select keyword:
-        # 1 join lines to full file string,
-        # 2 match all select/start ... end blocks,
-        # 3 replace all \n with ',' in the matches,
-        # 4 return matches between [' and ']
-        def format_match(x: re.Match) -> str:
-            return x.group(3) + " " + re.sub(r"\n+", "','", "['{}']".format(x.group(4)))
-
-        lines = re.sub(r"(s(elect|tart)\s+)(.+)\n([\w\d\s\n]*)(\nend)", format_match, file_str).split("\n")
+        lines = self._preprocess_lines(lines)
         # Store all encountered keywords to warn for duplicates
         keyword_list = set()
         out_dict = {}
@@ -750,21 +778,7 @@ class SHARC_INTERFACE(ABC):
 
         # read file and skip geometry
         lines = readfile(requests_file)[self.QMin.molecule["natom"] + 2 :]
-        # replaces all comments with white space. filters all empty lines
-        filtered = filter(lambda x: not re.match(r"^\s*$", x), map(lambda x: re.sub(r"#.*$", "", x).strip(), lines))
-        file_str = "\n".join(filtered)
-        if not file_str or file_str.isspace():  # check if there is only whitespace left!
-            return {}
-
-        # concat all lines for select keyword:
-        # 1 join lines to full file string,
-        # 2 match all select/start ... end blocks,
-        # 3 replace all \n with ',' in the matches,
-        # 4 return matches between [' and ']
-        def format_match(x: re.Match) -> str:
-            return x.group(3) + " " + re.sub(r"\n+", "','", "['{}']".format(x.group(4)))
-
-        lines = re.sub(r"(s(elect|tart)\s+)(.+)\n([\w\d\s\n]*)(\nend)", format_match, file_str).split("\n")
+        lines = self._preprocess_lines(lines)
 
         for line in lines:
             match line.lower().split(maxsplit=1):
