@@ -920,7 +920,8 @@ class SHARC_INTERFACE(ABC):
                     self.QMin.requests[req] = value
                 case ["soc", None]:
                     if len(self.QMin.molecule["states"]) < 2:
-                        self.log.warning("SOCs requested but only singlets given! Disable SOCs")
+                        self.log.warning("SOCs requested but only singlets given! Disabled SOCs but added H request")
+                        self.QMin.requests["h"] = True    # if SOCs were requested, H is implicitly also requested
                         return
                     self.QMin.requests["soc"] = True
                     self.QMin.requests["h"] = True
