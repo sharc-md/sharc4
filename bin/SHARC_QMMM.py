@@ -290,15 +290,18 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.qm_interface: SHARC_INTERFACE = factory(self.QMin.template["qm-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['qm-program']}", loglevel=self.log.level
         )
+        self.qm_interface.QMin.molecule['states'] = self.QMin.molecule['states']
 
         self.mml_interface: SHARC_INTERFACE = factory(self.QMin.template["mm-program"])(
             persistent=self.persistent, logname=f"MML {self.QMin.template['mm-program']}", loglevel=self.log.level
         )
+        self.mml_interface.QMin.molecule['states'] = [1]
 
         if self.QMin.template["embedding"] == "subtractive":
             self.mms_interface: SHARC_INTERFACE = factory(self.QMin.template["mm-program"])(
                 persistent=self.persistent, logname=f"MMS {self.QMin.template['mm-program']}", loglevel=self.log.level
             )
+            self.mms_interface.QMin.molecule['states'] = [1]
 
         if not self.QMin.template["qm-dir"]:
             self.QMin.template["qm-dir"] = self.qm_interface.name()
