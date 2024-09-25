@@ -471,7 +471,7 @@ def analyze_initconds(initlist, INFOS):
         if INFOS["show_content"]:
             log.info(display)
     log.info("Number of excited states and selections:")
-    log.info("State    #InitCalc       #Selected")#
+    log.info("State    #InitCalc       #Selected")
     for i in range(len(n_hasexc)):
         s = "% 5i        % 5i           % 5i" % (i + 1, n_hasexc[i], n_issel[i])
         if not INFOS["isactive"][i]:
@@ -643,6 +643,8 @@ def check_laserfile(filename, nsteps, dt):
 # ======================================================================================================================
 
 
+# ======================================================================================================================
+# ======================================================================================================================
 # ======================================================================================================================
 
 
@@ -1772,9 +1774,9 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     velocf.close()
 
     # laser file
-    if INFOS['laser']:
-        laserfname = iconddir + '/laser'
-        shutil.copy(INFOS['laserfile'], laserfname)
+    if INFOS["laser"]:
+        laserfname = iconddir + "/laser"
+        shutil.copy(INFOS["laserfile"], laserfname)
 
     # atommask file
     if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:
@@ -1942,6 +1944,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     string += "||" + f"{'Setting up directories...':^80}" + "||\n"
     string += "  " + "=" * 80 + "\n\n"
     log.info(string)
+
     all_run = open("all_run_traj.sh", "w")
     string = "#!/bin/bash\n\nCWD=%s\n\n" % (INFOS["cwd"])
     all_run.write(string)
@@ -1994,7 +1997,8 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             if not INFOS["pysharc"]:
                 run_qm = open(dirname + "/QM/runQM.sh", "w")
                 string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)                
-                run_qm.write(string)                               
+                run_qm.write(string)      
+                run_qm.close() 
 
             writeRunscript(INFOS, dirname, interface)
             if INFOS["rattle"]:

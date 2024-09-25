@@ -13,7 +13,7 @@ from typing import Any
 
 import h5py
 import numpy as np
-from constants import au2a, lande_g_factor, alpha, MASSES
+from constants import au2a
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -22,7 +22,7 @@ from utils import convert_list, expand_path, link, mkdir, question, writefile
 
 __all__ = ["SHARC_MOLCAS"]
 
-AUTHORS = "Sascha Mausenberger, Sebastian Mai"
+AUTHORS = "Sascha Mausenberger, Lorenz Grünewald, Sebastian Mai"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "MOLCAS"
@@ -632,6 +632,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if (code := self.run_program(workdir, f"{qmin.resources['driver']} MOLCAS.input", "MOLCAS.out", "MOLCAS.err")) != 96:
                 break
             qmin.template["gradaccudefault"] *= 10
+        endtime = datetime.datetime.now()
+
         return code, datetime.datetime.now() - starttime
 
     def _copy_run_files(self, workdir: str) -> None:

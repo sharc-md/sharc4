@@ -60,6 +60,7 @@ class QMOUT:
         self._QMout.set_gradient(grad, icall)
 
     def set_dipolemoment(self, dip: list[list[list[Union[complex, float]]]]):
+        log.debug(f"{type(dip)}")
         self._QMout.set_dipolemoment(dip)
 
     def set_mag_dipolemoment(self, mag_dip: list[list[list[Union[complex, float]]]]):
@@ -86,9 +87,9 @@ class QMOUT:
         """set QMout"""
         # set hamiltonian, dm only in first call
         if icall == 1:
+            log.debug("setting h and dm")
             if "h" in data:
-                self._QMout.set_hamiltonian(data["h"].tolist())
-                log.debug("setting h")
+                self._QMout.set_hamiltonian(data["h"])
             if "dm" in data:
                 self._QMout.set_dipolemoment(data["dm"].tolist())
                 log.debug("setting dm")
@@ -108,16 +109,23 @@ class QMOUT:
                 self._QMout.set_gradient(list2dict(data["grad"]), icall)
             elif data["grad"] is None:
                 self._QMout.set_gradient({}, icall)
+            elif isinstance(data["grad"], np.ndarray):
+                self._QMout.set_gradient_full_array(data["grad"])
             else:
-                self._QMout.set_gradient(list2dict(data["grad"].tolist()), icall)
+                raise RuntimeError
         if "nacdr" in data:
             if isinstance(data["nacdr"], dict):
                 self._QMout.set_nacdr(data["nacdr"], icall)
-            else:
+            elif isinstance(data["nacdr"], list):
                 nacdr = {}
-                for i, ele in enumerate(data["nacdr"].tolist()):
+                for i, ele in enumerate(data["nacdr"]):
                     nacdr[i] = list2dict(ele)
                 self._QMout.set_nacdr(nacdr, icall)
+            elif isinstance(data["nacdr"], np.ndarray):
+                self._QMout.set_nacdr_full_array(data["nacdr"])
+            else:
+                raise RuntimeError
+
         return
 
 
@@ -193,13 +201,20 @@ def safe(func: callable):
 
 def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     icall = 1
+    log.debug(f"\tset_requ")
     i.read_requests(get_all_tasks(icall))
+    log.debug(f"\tcoords")
     i.set_coords(get_crd())
+    log.debug(f"\trun")
     with InDir("QM"):
+        log.debug(f"\trun")
         safe(i.run)
+        log.debug(f"\twrite Stepfile")
         i.write_step_file()
+    log.debug(f"\tset_props")
     qmout.set_props(i.getQMout(), icall)
     i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
+
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
         icall = 2
@@ -272,25 +287,32 @@ def main():
         do_qm_calc(derived_int, QMout)
         initial_qm_post()
         initial_step(IRestart)
-         
         derived_int.update_step()
     lvc_time = 0.0
     all_time = 0.0
-
     for istep in range(basic_info["istep"] + 1, basic_info["NSteps"] + 1):
+        log.debug(f"{istep} starting step")
         all_s1 = time.perf_counter_ns()
+        log.debug(f"{istep} verlet_xstep")
         verlet_xstep(istep)
+        log.debug(f"{istep} done")
         s1 = time.perf_counter_ns()
+        log.debug(f"{istep} do_qm_calc")
         count = do_qm_calc(derived_int, QMout)
+        log.debug(f"{istep} done")
         s2 = time.perf_counter_ns()
         # print(" do_qm_calc: ", (s2 - s1) * 1e-6)
         lvc_time += s2 - s1
+        log.debug(f"{istep} done")
+        log.debug(f"{istep} verlet_vstep")
         IRedo = verlet_vstep()
+        log.debug(f"{istep} done")
 
         if IRedo == 2:
-            derived_int.read_requests(get_all_tasks(count))
-            safe(derived_int.run)
-            QMout.set_props(derived_int.getQMout(), 3)
+            with(InDir("QM")):
+                derived_int.read_requests(get_all_tasks(count))
+                safe(derived_int.run)
+                QMout.set_props(derived_int.getQMout(), 3)
         iexit = verlet_finalize(1)
         all_s2 = time.perf_counter_ns()
         all_time += all_s2 - all_s1

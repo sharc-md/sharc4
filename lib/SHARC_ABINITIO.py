@@ -75,6 +75,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "theodore_fragment": [],
                 "wfoverlap": "$SHARC/wfoverlap.x",
                 "wfthres": 0.998,
+                "wfnumocc": None,
                 "resp_shells": [],  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": {},
                 "resp_vdw_radii": [],
@@ -97,6 +98,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "theodore_fragment": list,
                 "wfoverlap": str,
                 "wfthres": float,
+                "wfnumocc": int,
                 "resp_shells": list,  # default calculated from other values = [1.4, 1.6, 1.8, 2.0]
                 "resp_vdw_radii_symbol": dict,
                 "resp_vdw_radii": list,
@@ -836,7 +838,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         dets = np.char.replace(dets, old="b", new="1,")
         dets = np.char.replace(dets, old="e", new="-1,")
         dets = np.array([np.fromstring(i, dtype=int, sep=",") for i in dets])
-        return nst, dets, ci, mos
+        return nst, dets, CI, mos
 
     # DYSON ORBITAL WITH OTHER INSTANCE (MAINLY FOR ECI)
     @staticmethod
@@ -950,26 +952,29 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             all_done = all(do in phi for do in dyson_orbitals_from_wigner_eckart)
         return phi
 
-    def _run_wfoverlap(self) -> None:
+    def _run_wfoverlap(self, mo_read: int = 0, left: bool = False) -> None:
         """
         Prepare files and folders for wfoverlap and execute wfoverlap
+
+        mo_read:    Specify file format of mo files
+        left:       Use left determinant if bra and ket are different
         """
 
         # Content of wfoverlap input file
         wf_input = dedent(
-            """\
+            f"""\
         mix_aoovl=aoovl
         a_mo=mo.a
         b_mo=mo.b
         a_det=det.a
         b_det=det.b
-        a_mo_read=0
-        b_mo_read=0
+        a_mo_read={mo_read}
+        b_mo_read={mo_read}
         ao_read=0
         """
         )
-        if "numocc" in self.QMin.resources:
-            wf_input += f"\nndocc={self.QMin.resources['numocc']}"
+        if self.QMin.resources["wfnumocc"]:
+            wf_input += f"\nndocc={self.QMin.resources['wfnumocc']}"
 
         if self.QMin.resources["ncpu"] >= 8:
             wf_input += "\nforce_direct_dets"
@@ -982,7 +987,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         step = self.QMin.save["step"]
 
         # Dyson calculations
-        # self.dyson_orbitals_with_other(self,self)
         if self.QMin.requests["ion"]:
             for ion_pair in self.QMin.maps["ionmap"]:
                 workdir = os.path.join(self.QMin.resources["scratchdir"], "Dyson_" + "_".join(str(ion) for ion in ion_pair))
@@ -992,15 +996,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Link files
                 link(os.path.join(savedir, "AO_overl"), os.path.join(workdir, "aoovl"))
-                link(os.path.join(savedir, f"dets.{ion_pair[0]}.{step}"), os.path.join(workdir, "det.a"))
+                link(os.path.join(savedir, f"dets{'_left' if left else ''}.{ion_pair[0]}.{step}"), os.path.join(workdir, "det.a"))
                 link(os.path.join(savedir, f"dets.{ion_pair[2]}.{step}"), os.path.join(workdir, "det.b"))
                 link(os.path.join(savedir, f"mos.{ion_pair[1]}.{step}"), os.path.join(workdir, "mo.a"))
                 link(os.path.join(savedir, f"mos.{ion_pair[3]}.{step}"), os.path.join(workdir, "mo.b"))
 
                 # Execute wfoverlap
                 starttime = datetime.datetime.now()
-                # setting the env variable will influence subsequent numpy calls etc.
-                # os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
                 code = self.run_program(workdir, wf_cmd, "wfovl.out", "wfovl.err")
                 self.log.info(
                     f"Finished wfoverlap job: {str(ion_pair):<10s} code: {code:<4d} runtime: {datetime.datetime.now()-starttime}"
@@ -1023,7 +1025,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
                 # Link files
                 link(os.path.join(savedir, "AO_overl.mixed"), os.path.join(workdir, "aoovl"))
-                link(os.path.join(savedir, f"dets.{m}.{step-1}"), os.path.join(workdir, "det.a"))
+                link(os.path.join(savedir, f"dets{'_left' if left else ''}.{m}.{step-1}"), os.path.join(workdir, "det.a"))
                 link(os.path.join(savedir, f"dets.{m}.{step}"), os.path.join(workdir, "det.b"))
                 link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step-1}"), os.path.join(workdir, "mo.a"))
                 link(os.path.join(savedir, f"mos.{self.QMin.maps['multmap'][m]}.{step}"), os.path.join(workdir, "mo.b"))
@@ -1070,20 +1072,18 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         wfovl:  Path to wfovlp.out
         """
         with open(wfovl, "r", encoding="utf-8") as file:
-            raw_matrix = re.search(r"Dyson norm matrix(.*)", file.read(), re.DOTALL)
+            raw_matrix = re.search(r"Dyson norm matrix(.*)", wfout := file.read(), re.DOTALL)
 
             if not raw_matrix:
                 self.log.error(f"No Dyson matrix found in {wfovl}")
                 raise ValueError()
+            bra = int(re.findall(r"<bra\| states:\s+(\d+)", wfout)[0])
+            ket = int(re.findall(r"\|ket> states:\s+(\d+)", wfout)[0])
 
             # Extract values and create numpy matrix
             value_list = list(map(float, re.findall(r"\d+\.\d{10}", raw_matrix.group(1))))
 
-            dim = 1 if len(value_list) == 1 else math.sqrt(len(value_list))
-            if dim > 1 and dim**2 != len(value_list):
-                self.log.error(f"{wfovl} does not contain a square matrix!")
-                raise ValueError()
-            return np.asarray(value_list).reshape(-1, int(dim))
+            return np.asarray(value_list).reshape(bra, ket)
 
     @staticmethod
     def format_ci_vectors(ci_vectors: list[dict[tuple[int, ...], float]]) -> str:
@@ -1100,9 +1100,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             string += "".join(str(x) for x in det).translate(trans_table)
             for ci_vec in ci_vectors:
                 if det in ci_vec:
-                    string += f" {ci_vec[det]: 11.7f} "
+                    string += f" {ci_vec[det]: 11.15f} "
                 else:
-                    string += f" {0: 11.7f} "
+                    string += f" {0: 11.15f} "
             string += "\n"
         return string
 
@@ -1367,12 +1367,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         norm = 0.0
         cnt = 0
         for k, v in sorted(civec.items(), key=lambda x: x[1] ** 2, reverse=True):
-            if norm > self.QMin.resources["wfthres"]:
+            if norm**0.5 > self.QMin.resources["wfthres"]:
                 del civec[k]
                 continue
             cnt += 1
             norm += v**2
-        self.log.debug(f"Filter dets: norm {norm:.5f} after {cnt} entries, threshold {self.QMin.resources['wfthres']}")
+        self.log.debug(f"Filter dets: norm {norm**0.5:.5f} after {cnt} entries, threshold {self.QMin.resources['wfthres']}")
 
     @abstractmethod
     def run(self) -> None:

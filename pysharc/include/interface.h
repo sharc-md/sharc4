@@ -57,14 +57,14 @@ void get_current_coordinates_(int * NAtoms,double * Crd, int * Ang);
 void get_element_name_(int * NAtoms, char * value); 
 void get_ian_(int * NAtoms, int * IAn);
 // set pointer
-void setPointers(void ** H, void ** dm, 
-                 void ** mdm,
-                 void ** eqm,
-                 void ** overlap, 
-                 void ** grad,
-                 void ** nacs 
+void setPointers(double complex ** H, double complex ** dm, 
+                 double complex ** overlap, 
+                 double complex ** mdm,
+                 double complex ** eqm,
+                 double ** grad,
+                 double ** nacs 
                  );
-void setQMinPointers(void ** Crd);
+void setQMinPointers(double ** Crd);
 void postprocess_qmout_data_(int * IH, int * IDM,
                              int * IMDM,
                              int * IEQM,

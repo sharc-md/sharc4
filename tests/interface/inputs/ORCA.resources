@@ -65,7 +65,7 @@ numfrozcore 7
 
     ## Number of doubly occupied orbitals for Dyson calculations.
     ## These orbitals are counted from the first nonfrozen orbital.
-numocc 0
+wfnumocc 0
 
     ## Do not store determinant and MO coefficient files in savedir.
     ## Must not be used for dynamics runs.

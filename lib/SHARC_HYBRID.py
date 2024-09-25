@@ -84,8 +84,9 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         for label, child in children_dict.items():
             children_dict[label].QMin = QMins[label]
             children_dict[label].QMout = QMouts[label]
-            if children_dict[label].QMout.mol is not None: children_dict[label].QMout.mol = Mole.unpack(children_dict[label].QMout.mol)
-            children_dict[label].QMout.mol.build()
+            if children_dict[label].QMout.mol is not None: 
+                children_dict[label].QMout.mol = Mole.unpack(children_dict[label].QMout.mol)
+                children_dict[label].QMout.mol.build()
         return
             
     def instantiate_children(self, child_dict: dict[str, tuple[str, list, dict] | str]) -> None:

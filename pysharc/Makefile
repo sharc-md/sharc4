@@ -40,8 +40,8 @@ install: lib/libsharc.so lib/libsharcnc.so build_ext
 	\cp sharc/*.so ~/miniconda3/envs/smilei_env/sharc_develop/lib/sharc.so 
 clean:
 	python sharc_setup clean --all
-	rm lib/*.so
-	rm sharc/*.so
+	rm -f lib/libsharc.so lib/libsharcnc.so
+	rm -f sharc/sharc.so
 
 lib/libsharc.so: lib/libsharcnc.so
 	cd ../source; make libsharc

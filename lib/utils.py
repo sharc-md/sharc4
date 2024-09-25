@@ -843,14 +843,14 @@ class electronic_state:
         return self.Z == other.Z and self.S == other.S and self.N == other.N
 
     def __gt__(self, other):
-        ord1 = self.S * 100_000 + self.N * 100 + self.M
-        ord2 = other.S * 100_000 + other.N * 100 + other.M
+        ord1 = self.S * 1_000_000 + self.M * 1000 + self.N
+        ord2 = other.S * 1_000_000 + other.M * 1000 + other.N
 
         return ord1 > ord2
 
     def __lt__(self, other):
-        ord1 = self.S * 100_000 + self.N * 100 + self.M
-        ord2 = other.S * 100_000 + other.N * 100 + other.M
+        ord1 = self.S * 1_000_000 + self.M * 1000 + self.N
+        ord2 = other.S * 1_000_000 + other.M * 1000 + other.N
         return ord1 < ord2
 
     def __hash__(self):
@@ -888,3 +888,26 @@ def density_representation(d):  # To pring the density tuple. Can also be used f
     s1, s2, spin = d
     return f"[ {s1.symbol():<12s} {spin:-^6}> {s2.symbol():<12s} ]"
     #  return "[ " + s1.symbol() + " " + middle + " " + s2.symbol() + " ]"
+
+
+def loewdin_atomic_charge_transfer_numbers(mol, dm: np.ndarray, s_root: np.ndarray):
+    """Analysis of charge transfer numbers from loewdin analysis
+
+    Args:
+        mol (): gto.Mole object
+        dm: density matrix in AO basis
+        s_root: S^(1/2) where S is the AO overlap matrix
+    """
+    from pyscf.gto import Mole as mole
+
+    pop = np.einsum("mi,ij,jn->mn", s_root, dm, s_root, optimize=True, casting="no") ** 2
+    # pop = s_root @ dm @ s_root
+    aorange = mole.aoslice_by_atom(mol)
+
+    chrg = np.zeros((mol.natm, mol.natm))
+
+    for i, (_, _, ao_start_i, ao_stop_i) in enumerate(aorange):
+        for j, (_, _, ao_start_j, ao_stop_j) in enumerate(aorange):
+            chrg[i, j] += np.sum(np.sum(pop[ao_start_i:ao_stop_i, :], axis=0)[ao_start_j:ao_stop_j])
+
+    return chrg

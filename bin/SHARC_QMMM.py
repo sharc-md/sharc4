@@ -218,25 +218,26 @@ class SHARC_QMMM(SHARC_HYBRID):
             self.template_file = question(
                 "Please specify the path to your QMMM.template file", str, KEYSTROKES=KEYSTROKES, default="QMMM.template"
             )
-            
+
             self.read_template(self.template_file)
 
         qm_features = self.qm_interface.get_features()
         mm_features = self.mml_interface.get_features()
 
-        if "point_charges" in qm_features:
-            qm_features.remove("point_charges")
+        qmmm_features = {feat for feat in qm_features}
+        if "point_charges" in qmmm_features:
+            qmmm_features.remove("point_charges")
         else:
             self.log.error("Your QM interface needs to be able to include point charges in its calculations")
 
-        if "grad" in qm_features and "grad" not in mm_features:
-            qm_features.remove("grad")
+        if "grad" in qmmm_features and "grad" not in mm_features:
+            qmmm_features.remove("grad")
 
-        if "h" in qm_features and "h" not in mm_features:
-            qm_features.remove("h")
-        self.log.debug(qm_features)
+        if "h" in qmmm_features and "h" not in mm_features:
+            qmmm_features.remove("h")
+        self.log.debug(qmmm_features)
 
-        return set(qm_features)
+        return set(qmmm_features)
 
     def _step_logic(self):
         super()._step_logic()
@@ -289,15 +290,18 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.qm_interface: SHARC_INTERFACE = factory(self.QMin.template["qm-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['qm-program']}", loglevel=self.log.level
         )
+        self.qm_interface.QMin.molecule['states'] = self.QMin.molecule['states']
 
         self.mml_interface: SHARC_INTERFACE = factory(self.QMin.template["mm-program"])(
             persistent=self.persistent, logname=f"MML {self.QMin.template['mm-program']}", loglevel=self.log.level
         )
+        self.mml_interface.QMin.molecule['states'] = [1]
 
         if self.QMin.template["embedding"] == "subtractive":
             self.mms_interface: SHARC_INTERFACE = factory(self.QMin.template["mm-program"])(
                 persistent=self.persistent, logname=f"MMS {self.QMin.template['mm-program']}", loglevel=self.log.level
             )
+            self.mms_interface.QMin.molecule['states'] = [1]
 
         if not self.QMin.template["qm-dir"]:
             self.QMin.template["qm-dir"] = self.qm_interface.name()
