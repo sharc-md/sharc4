@@ -66,8 +66,10 @@ class SHARC_ECI(SHARC_HYBRID):
                     "tQ": 1e-4,
                     "tO": 0.95,
                     "ri": False,
-                    "Kscreen": False,
-                    "auxbasis": 'def2svpjkfit',
+                    "Jauxbasis": 'def2svpjfit',
+                    "Kauxbasis": 'def2svpjkfit',
+                    "tS": 1e-12,
+                    "tL": 1e-5,
                     "manage_children": 'w',
                     "excitonic_basis": None,
                     "active_integrals": None
@@ -81,10 +83,12 @@ class SHARC_ECI(SHARC_HYBRID):
             "tQ": (float, int),
             "tO": (float, int),
             "ri": bool,
-            "auxbasis": str,
-            "Kscreen": bool,
+            "Jauxbasis": str,
+            "Kauxbasis": str,
             "excitonic_basis": dict,
             "manage_children": str,
+            "tS": (float, int),
+            "tL": (float, int),
             "active_integrals": (dict,str)
         }
 
@@ -717,16 +721,19 @@ class SHARC_ECI(SHARC_HYBRID):
             else:
                 # Read guesses for embedding charges
                 for label, child in egarden.items():
-                    estate = QMin.template['fragments'][label]['embedding_site_state'][C] # This should already be electronic_state instance
                     try:
-                        child.QMout = QMout( filepath=os.path.join( child.QMin.save['pwd'], 'QM.out' ) )
+                        charges = child.QMin.template['charge'] 
+                        estate = QMin.template['fragments'][label]['embedding_site_state'][C] # This should already be electronic_state instance
+                        print(os.path.join( child.QMin.resources['cwd'], 'QM.out'))
+                        child.QMout = QMout( filepath=os.path.join( child.QMin.resources['pwd'], 'QM.out' ), charges=charges )
                         APCs[label] = child.QMout['multipolar_fit'][(estates[label],estates[label])][:,0]
                     except: 
                         APCs[label] = np.zeros(child.QMin.molecule["natom"])
                 frozen = { label:child for label, child in egarden.items() if QMin.template['fragments'][label]['frozen'] }
                 relaxed = { label:child for label, child in egarden.items() if not QMin.template['fragments'][label]['frozen'] }
                 EHFjob = self.EHFjobs[C]
-                EHFjob = EHF.EHF(APCs=APCs,
+                EHFjob = EHF.EHF(nproc=self.QMin.resources['ncpu'],
+                                 APCs=APCs,
                                  estates=estates,
                                  frozen=frozen,
                                  relaxed=relaxed,
@@ -771,7 +778,7 @@ class SHARC_ECI(SHARC_HYBRID):
                         if c1 ==  c2 - 1:
                             if not 'r' in QMin.template['calculation']['manage_children']:
                                 self.log.print(' Calculating the Dyson orbitals of fragment '+label+' between charges '+str(c1)+' and '+str(c2))
-                                DOs[C][label][(c1,c2)] = child1.dyson_orbitals_with_other(child2,QMin.resources['scratchdir'],QMin.resources['ncpu'],QMin.resources['mem'])
+                                DOs[C][label][(c1,c2)] = child1.dyson_orbitals_with_other(child2,QMin.resources['scratchdir'],QMin.resources['ncpu'],"64000")
                             else:
                                 f = open( os.path.join( QMin.resources['cwd'], label+'_C'+str(C)+'_c'+str(c1)+'_c'+str(c2)+'.dyson'), 'r')
                                 lines = f.readlines()
@@ -887,8 +894,10 @@ class SHARC_ECI(SHARC_HYBRID):
                                    ct_level=QMin.template['calculation']['excitonic_basis']['CT'],
                                    active_integrals=QMin.template['calculation']['active_integrals'], 
                                    ri=QMin.template['calculation']['ri'],
-                                   auxbasis=QMin.template['calculation']['auxbasis'],
-                                   Kscreen=QMin.template['calculation']['Kscreen'],
+                                   Jauxbasis=QMin.template['calculation']['Jauxbasis'],
+                                   Kauxbasis=QMin.template['calculation']['Kauxbasis'],
+                                   tS=QMin.template['calculation']['tS'],
+                                   tL=QMin.template['calculation']['tL'],
                                    properties=properties
                                   )
             # Initialize ECI instance
