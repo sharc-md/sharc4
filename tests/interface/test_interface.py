@@ -212,17 +212,17 @@ def test_driver_requests():
     tests = [
         (
             os.path.join(expand_path(PATH), "inputs/QM5.in"),
-            {"tasks": " init SOC DM", "grad": "all", "nacdr": ""},
+            {"tasks": "step  0 SOC DM", "grad": "all", "nacdr": ""},
             {"h": True, "soc": True, "dm": True, "grad": [1, 2, 3, 4, 5, 6], "nacdr": None, "overlap": False, "phases": False},
         ),
         (
             os.path.join(expand_path(PATH), "inputs/QM5.in"),
-            {"tasks": " SOC DM OVERLAP PHASES", "grad": "all", "nacdr": ""},
+            {"tasks": "step  1 SOC DM OVERLAP PHASES", "grad": "all", "nacdr": ""},
             {"h": True, "soc": True, "dm": True, "grad": [1, 2, 3, 4, 5, 6], "nacdr": None, "overlap": True, "phases": True},
         ),
         (
             os.path.join(expand_path(PATH), "inputs/QM5.in"),
-            {"tasks": " init SOC DM", "grad": "all", "nacdr": "NACDR"},
+            {"tasks": "step  0 SOC DM", "grad": "all", "nacdr": "NACDR"},
             {
                 "h": True,
                 "soc": True,

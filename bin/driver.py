@@ -263,7 +263,7 @@ def main():
     with InDir("QM"):
         derived_int.read_resources()
         derived_int.read_template()
-        derived_int.update_step(basic_info["step"])
+        # derived_int.update_step(basic_info["step"])
         derived_int.setup_interface()
     if IRestart == 0:
         initial_qm_pre()
