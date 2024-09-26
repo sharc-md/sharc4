@@ -2246,13 +2246,18 @@ module qm
     ! 3. projection variables
     real*8 :: NACtmp_MCH(3*ctrl%natom), pNACtmp_MCH(3*ctrl%natom)
     complex*16 :: NACtmp_diag(3*ctrl%natom), pNACtmp_diag(3*ctrl%natom)
-    complex*16 :: ctrans_rot_P(3*ctrl%natom,3*ctrl%natom)
+    complex*16, allocatable :: ctrans_rot_P(:,:)  ! only allocate sometimes
     ! 5. Patch gmatrix
     complex*16 :: Gmatrix_ss(ctrl%nstates,ctrl%nstates)
     ! 6. hopping direction and frustared hop velocity reflection vector variables
     real*8 :: hopping_tmp(3*ctrl%natom), phopping_tmp(3*ctrl%natom)
 
     character(255) :: string
+
+    ! allocate only if needed for projection
+    if (allocated(traj%trans_rot_P)) then 
+      allocate(ctrans_rot_P(3*ctrl%natom,3*ctrl%natom))
+    endif
 
     if (printlevel>3) then
       write(u_log,*) '============================================================='
