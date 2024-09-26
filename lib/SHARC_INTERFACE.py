@@ -647,7 +647,7 @@ class SHARC_INTERFACE(ABC):
                 i += 1
                 end_found = False
                 while i < n_lines:
-                    if lines[i].strip() == 'end':
+                    if lines[i].strip().lower() == 'end':
                         end_found = True
                         break
                     block.append(lines[i].strip())
