@@ -1218,7 +1218,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         for i in INFOS['needed_requests']:
             INFOS['needed'].update(Interfaces[self.legacy_interface]['features'][i])
         
-        self.log.info(INFOS)
+        #self.log.info(INFOS)
 
         ## call get routine
         INFOS = globals()[Interfaces[self.legacy_interface]['get_routine']](INFOS, KEYSTROKES=KEYSTROKES)
