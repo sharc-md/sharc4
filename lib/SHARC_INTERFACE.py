@@ -862,15 +862,25 @@ class SHARC_INTERFACE(ABC):
     def _set_driver_requests(self, requests: dict) -> None:
         # delete all old requests
         self.QMin.requests = QMin().requests
-        self.log.debug(f"getting requests {requests} step: {self.QMin.save['step']}")
+        self.log.debug(f"getting requests {requests}")
         # logic for raw tasks object from pysharc interface
         if "tasks" in requests and isinstance(requests["tasks"], str):
-            for k in requests["tasks"].split():
-                if k.lower() not in ["init", "samestep", "newstep", "restart"]:
-                    requests[k.lower()] = True
-            if "soc" in requests:
-                requests["h"] = True
+            # task is 'step n <keywords+space'
+            task_list = requests['tasks'].split()
+            if task_list[0] != 'step' or not task_list[1].isdigit():
+                self.log.error(f"task string does not contain steps! {requests['tasks']}")
+                raise ValueError(f"task string does not contain steps! {requests['tasks']}")
+            self.QMin.save['step'] = int(task_list[1])
+            self.log.debug(f"Setting step: {self.QMin.save['step']}")
+            kw_requests = task_list[2:]
+            for k in kw_requests:
+                if k.lower() in ["init", "samestep", "newstep", "restart"]:
+                    self.log.warning(f"{k.lower()} is deprecated and will be ignored!")
+                    continue
+                requests[k.lower()] = True
             del requests["tasks"]
+        if "soc" in requests:
+            requests["h"] = True
         for task in ["nacdr", "overlap", "grad", "ion"]:
             if task in requests and isinstance(requests[task], str):
                 if requests[task] == "":  # removes task from dict if {'task': ''}
@@ -896,6 +906,7 @@ class SHARC_INTERFACE(ABC):
                     requests[req] = False
         self.log.debug(f"setting requests {requests}")
         self.QMin.requests.update(requests)
+        self.log.debug(f"Finished setting requests:\n{self.QMin.requests}")
         self._step_logic()
         self._request_logic()
 
