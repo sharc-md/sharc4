@@ -425,7 +425,7 @@ def write_QMin(INFOS):
     elif INFOS['opt_mode'] in [1, 2, 3]:
         string += 'grad %i %i\n' % (INFOS['opt'][1], INFOS['opt'][2])
     if INFOS['opt_mode'] == 1:
-        string += 'select nacdr\n%i %i\nend\n' % (INFOS['opt'][1], INFOS['opt'][2])
+        string += 'nacdr select\n%i %i\nend\n' % (INFOS['opt'][1], INFOS['opt'][2])
     # done
     # print 'Input:'
     # print string

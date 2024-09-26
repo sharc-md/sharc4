@@ -224,16 +224,19 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             )
             raise RuntimeError()
 
+        # make the child
         self.child_interface: SHARC_INTERFACE = factory(self.QMin.template["child-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['child-program']}", loglevel=self.log.level
         )
         self.child_interface.QMin.molecule['states'] = self.QMin.molecule['states']
+        
 
+        # check directory
         if not self.QMin.template["child-dir"]:
             self.QMin.template["child-dir"] = self.child_interface.name()
             self.log.info(f"'child-dir not set in template setting to name of program: {self.QMin.template['child-dir']}")
 
-        # check is restraint_file is relative or absolute path
+        # check if restraint_file is relative or absolute path
         if not os.path.isabs(self.QMin.template["restraint_file"]):
             #  path from location of template
             self.QMin.template["restraint_file"] = os.path.join(os.path.dirname(template_file), self.QMin.template["restraint_file"])
@@ -358,7 +361,6 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
     def getQMout(self):
         self.QMout = self.child_interface.QMout
-        self.log.info(self.QMout)
 
         # compute restraint energy and gradient
         E = []
@@ -368,7 +370,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         for i, restraint in enumerate(self.restraints):
             t, k, v0, indices = restraint
             e = 0.
-            grad = np.zeros_like(self.QMout['grad'][0])
+            if self.QMin.requests["grad"]:
+                grad = np.zeros_like(self.QMout['grad'][0])
             match t:
                 case 'r':
                     if self.pytorch:
