@@ -1690,12 +1690,15 @@ module input
           case (3)
             write(u_log,'(a)') 'Using norm perserving interpolation of TDC for wavefunction propagation.'
         endselect
-        select case (ctrl%neom)
-          case (0)
-            write(u_log,'(a)') 'Using NAC for nuclear equation of motion.'
-          case (1)
-            write(u_log,'(a)') 'Using effective NAC for nuclear equation of motion.'
-        endselect
+        ! NEOM keyword is only for Ehrenfest
+        if (ctrl%method==1) then
+          select case (ctrl%neom)
+            case (0)
+              write(u_log,'(a)') 'Using NAC for nuclear equation of motion.'
+            case (1)
+              write(u_log,'(a)') 'Using effective NAC for nuclear equation of motion.'
+          endselect
+        endif 
         if (ctrl%gradcorrect==1) then
           write(u_log,'(a)') 'Including non-adiabatic coupling vectors in the gradient transformation.'
         elseif (ctrl%gradcorrect==2) then
