@@ -1458,6 +1458,7 @@ module qm
     integer :: istate, jstate, ixyz
     complex*16:: scalarProd(ctrl%nstates,ctrl%nstates)
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
+    logical :: all_unit_norm
 
     ! if phases were not found in the QM output, try to obtain it
     if (traj%phases_found.eqv..false.) then
@@ -1549,6 +1550,16 @@ module qm
         traj%phases_s=scalarProd(:,1)
       
       endif ! if (ctrl%calc_overlap==1) then
+    endif
+
+    ! check if phases have all norm 1
+    all_unit_norm = .true.
+    do istate=1,ctrl%nstates
+      if (abs(traj%phases_s(istate) /= 1.d0)) all_unit_norm = .false.
+    enddo
+    if (.not.all_unit_norm) then
+      write(u_log,*) 'Not all phases have unit norm. Abort.'
+      stop 1
     endif
 
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
