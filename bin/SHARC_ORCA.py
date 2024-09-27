@@ -1033,6 +1033,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
         self.QMin.requests["h"] = True
+        if self.QMin.requests["phases"]:
+            self.QMin.requests["overlaps"] = True
 
     def read_template(self, template_file: str = "ORCA.template", kw_whitelist: Optional[list[str]] = None) -> None:
         kw_whitelist = ["basis_per_element", "basis_per_atom", "ecp_per_element"]
