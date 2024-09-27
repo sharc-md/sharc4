@@ -176,7 +176,7 @@ def test_requests1():
                 "h": True,
                 "soc": True,
                 "dm": True,
-                "grad": [1,2,3],
+                "grad": [1, 2, 3],
                 "nacdr": [[1, 10]],
                 "overlap": False,
                 "phases": False,
@@ -214,11 +214,13 @@ def test_driver_requests():
             os.path.join(expand_path(PATH), "inputs/QM5.in"),
             {"tasks": "step  0 SOC DM", "grad": "all", "nacdr": ""},
             {"h": True, "soc": True, "dm": True, "grad": [1, 2, 3, 4, 5, 6], "nacdr": None, "overlap": False, "phases": False},
+            0,
         ),
         (
             os.path.join(expand_path(PATH), "inputs/QM5.in"),
             {"tasks": "step  1 SOC DM OVERLAP PHASES", "grad": "all", "nacdr": ""},
             {"h": True, "soc": True, "dm": True, "grad": [1, 2, 3, 4, 5, 6], "nacdr": None, "overlap": True, "phases": True},
+            1,
         ),
         (
             os.path.join(expand_path(PATH), "inputs/QM5.in"),
@@ -377,11 +379,12 @@ def test_driver_requests():
                 "overlap": False,
                 "phases": False,
             },
+            0,
         ),
     ]
-    with open("SAVE/STEP", "w", encoding="utf-8") as file:
-        file.write("1")
-    for qmin, tasks, ref in tests:
+    for qmin, tasks, ref, step in tests:
+        with open("SAVE/STEP", "w", encoding="utf-8") as file:
+            file.write(str(step))
         test_interface = SHARC_INTERFACE()
         test_interface.setup_mol(qmin)
         # test_interface.QMin.save["step"] = 1
