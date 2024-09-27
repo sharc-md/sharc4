@@ -191,7 +191,7 @@ class QMinRequests(QMinBase):
         "theodore": bool,
         "cleanup": bool,
         "backup": str,
-        "retain": str,
+        "retain": int,
         "molden": bool,
         "savestuff": bool,
         "nooverlap": bool,

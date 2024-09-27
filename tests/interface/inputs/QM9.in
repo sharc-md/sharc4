@@ -32,7 +32,7 @@ states 3 0 3
 h
 soc
 dm
-select nacdr
+nacdr select
 1 10
 end
 #grad

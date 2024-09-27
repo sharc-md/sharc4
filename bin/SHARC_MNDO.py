@@ -215,6 +215,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
         self.make_resources = False
         # Resources
+        # TODO: either ask for resource file at the top of this routine or not at all...
         if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
             while True:
                 resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MNDO.resources")

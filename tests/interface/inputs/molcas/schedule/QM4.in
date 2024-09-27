@@ -10,7 +10,7 @@ Unit Angstrom           # in which units to interpret the above geometry
 #H
 SOC
 DM
-select NACDR
+NACDR select
 1 2
 end
 GRAD 1 5

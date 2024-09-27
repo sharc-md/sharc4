@@ -24,7 +24,7 @@ init
     ## ===============================================
     # Settings:
 unit angstrom
-states 3 1 5
+states 3 0 3
 #savedir ./SAVE         # overrides the savedir in the resources file
 
     ## ===============================================
@@ -33,15 +33,13 @@ h
 soc
 dm
 nacdr select
-1 5
+1 10
 end
-grad
+grad start
+1
+2
+3
+end
+#grad
 ion
 theodore
-
-    # note that the "soc" keyword does not work with the Gaussian interface
-
-
-
-
-# kate: syntax python
