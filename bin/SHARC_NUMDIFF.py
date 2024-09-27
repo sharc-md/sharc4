@@ -40,7 +40,7 @@ from constants import ATOMCHARGE, FROZENS
 from factory import factory
 from SHARC_HYBRID import SHARC_HYBRID
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import ATOM, InDir, itnmstates, mkdir, question, readfile, expand_path, cleandir
+from utils import ATOM, InDir, itnmstates, mkdir, question, readfile, expand_path, cleandir, writefile
 from qmout import formatcomplexmatrix
 
 version = '1.0'
@@ -164,7 +164,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             {
                 "qm-program"            :   None,
                 "qm-dir"                :   None,             # NEEDED? Yes, that's where the QM template/resource are
-                "numdiff_method"        :   "central-diff",   # no other options
+                "numdiff_method"        :   "central-diff",   # pr "central-quad"
                 'numdiff_representation':   "adiabatic",      # or "diabatic"
                 "numdiff_stepsize"      :   0.01,             # should be per-DOF
                 "coord_type"            :   "cartesian",      # or 'displacement' -> 'normal_modes'
@@ -295,6 +295,15 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # TODO: add options
         if question("Do you have an NUMDIFF.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
             self.resources_file = question("Specify path to NUMDIFF.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        else:
+            self.log.info(f"{'ORCA Ressource usage':-^60}\n")
+            self.log.info(
+                """Please specify the number of CPUs to be used by EACH trajectory.
+        """
+            )
+            INFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
+
+            # TODO: could use schedule scaling and Amdahl, but SHARC_HYBRID does not have it
 
         # Get the infos from the child
         self.log.info(f"{' Setting up QM-interface ':=^80s}\n")
@@ -317,7 +326,11 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         """
         # Copy files to the nummdiff dir
         shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
-        shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".resources"))
+        # shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".resources"))
+
+        # write resource file
+        string = 'ncpu %i\n' % (INFOS['ncpu_numdiff'])
+        writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
         # Setup sub-dir for the QM calcs
         qmdir = dir_path + f"/{self.QMin.template['qm-dir']}"
@@ -332,13 +345,13 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         ref_savedir = os.path.join(dir_path, self.QMin.save["savedir"], 'QM_' + self.QMin.template["qm-program"].upper())
         self.log.debug(f"ref_savedir {ref_savedir}")
-        if not os.path.isdir(ref_savedir):
-            mkdir(ref_savedir)
+        # if not os.path.isdir(ref_savedir):
+        #     mkdir(ref_savedir)
         
         ref_scratchdir = os.path.join(self.QMin.resources["scratchdir"],   'QM_' + self.QMin.template["qm-program"].upper())
         self.log.debug(f"ref_scratchdir {ref_scratchdir}")
-        if not os.path.isdir(ref_scratchdir):
-            mkdir(ref_scratchdir)
+        # if not os.path.isdir(ref_scratchdir):
+        #     mkdir(ref_scratchdir)
 
         self.ref_interface.QMin.save["savedir"] = ref_savedir
         self.ref_interface.QMin.resources["scratchdir"] = ref_scratchdir
@@ -446,6 +459,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         # do setup molecule
         self.ref_interface.QMin.molecule = deepcopy(self.QMin.molecule)
+        self.ref_interface.QMin.maps['statemap'] = deepcopy(self.QMin.maps['statemap'])
         self.ref_interface._setup_mol = True
         
         ## then do setup_mol/template/resources
@@ -456,7 +470,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             scratchdir = os.path.join(self.QMin.resources["scratchdir"],'SCRA','reference')
             savedir = os.path.join(self.QMin.save["savedir"],'children','reference')
             mkdir(scratchdir)
-            mkdir(savedir)
+            if not os.path.isdir(savedir):
+                mkdir(savedir)
             self.ref_interface.QMin.resources['scratchdir'] = scratchdir
             self.ref_interface.QMin.save['savedir'] = savedir
             self.ref_interface.QMin.resources['pwd'] = pwd
@@ -480,14 +495,15 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 raise RuntimeError(f"Input 'coord_type': {self.QMin.template['coord_type']} is not valid.")
         match self.QMin.template["numdiff_method"]:
             case 'central-diff':
-                #factor = 2
                 labels.append( ['p', 'n'] )
+            case 'central-quad':
+                labels.append( ['pp', 'p', 'n', 'nn'] )
             case _:
                 raise RuntimeError(f"Input 'numdiff_method': {self.QMin.template['numdiff_method']} is not valid.") 
-        self.log.info(labels) 
+        # self.log.info(labels) 
         # make full labels as direct product of the labels:
         full_labels = list(itertools.product(*labels))
-        self.log.info(full_labels)
+        # self.log.info(full_labels)
 
 
         # make child_dict: define logfiles
@@ -506,9 +522,10 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # do full setup for all children
         for label in self._kindergarden:
             child = self._kindergarden[label]
-            self.log.info(label)
+            # self.log.info(label)
             name = '_'.join(str(i) for i in label)
             child.QMin.molecule = deepcopy(self.QMin.molecule)
+            child.QMin.maps['statemap'] = deepcopy(self.QMin.maps['statemap'])
             child._setup_mol = True
             with InDir(self.qmdir):
                 child.read_resources()
@@ -526,7 +543,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 child.QMin.resources['pwd'] = pwd
                 child.QMin.resources['cwd'] = pwd
                 child.setup_interface()
-        # TODO: check if children even need a savedir or pwd...
 
         # --- feature setup ---
 
@@ -567,6 +583,11 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         super().update_step(step)
         self.ref_interface.update_step(step)
 
+    # # TODO: should this be implemented? But it is a static method, so we can't call it for children...
+    # def clean_savedir(savedir, retain, step):
+    #     super().clean_savedir(savedir, retain, step)
+    #     self.ref_interface.clean_savedir(savedir, retain, step)
+
 # ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------
@@ -595,6 +616,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         
         # mandatory requests
         self.ref_interface.QMin.requests['nooverlap'] = False
+        self.ref_interface.QMin.requests['cleanup'] = False
 
         # run the child
         self.ref_interface.run()
@@ -613,7 +635,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
             # set coordinates of all kindergardners, based on their labels
             cart_directions = {"x": 0, "y": 1, "z": 2}
-            displacements = {"p": +1., "n": -1.}          # for other differentiation than central, new labels are needed, e.g., "pp" or "nn"
+            displacements = {"pp": +2., "p": +1., "n": -1., "nn": -2.}          # for other differentiation than central, new labels are needed, e.g., "pp" or "nn"
             for label in self._kindergarden:
                 match label[0]:
                     case "cartesian":
@@ -624,7 +646,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                         coords[iatom,idir] += idisp * self.QMin.template["numdiff_stepsize"]
                     case "normal_modes":
                         raise NotImplementedError
-                        # # Normal coordinates
+                        # # Normal coordinates => This is old code from Nikolai for whenever we implement normal mode displacements
                         # elif self.QMin.template["coord_type"] == "normal_modes":
                         #     dispmat = self.QMin.disp_coords[displacement_index]
                         #     if numdiff_debug:
@@ -707,6 +729,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # Set QMout with stuff from the reference calculation
         for key,val in self.ref_interface.QMout.items():
             self.QMout[key] = deepcopy(val)
+        self.QMout.charges = [0 for i in self.QMin.molecule["states"]]  # TODO: remove later
 
         # do all the numerical requests
         do_numerically = bool(self.num_requests)
@@ -719,12 +742,14 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 for label in self._kindergarden:
                     self._kindergarden[label].QMout['overlap'], phases = post_process_overlap_matrix(self._kindergarden[label].QMout['overlap'])
                     phases2 = phases[:,None] * phases[None,:]
-                    self._kindergarden[label].QMout['h'] *= phases2
-                    self._kindergarden[label].QMout['dm'] *= phases2[None,:,:]
+                    if self._kindergarden[label].QMout['h'] is not None:
+                        self._kindergarden[label].QMout['h'] *= phases2
+                    if self._kindergarden[label].QMout['dm'] is not None:
+                        self._kindergarden[label].QMout['dm'] *= phases2[None,:,:]
             
             # preparation 
             cart_directions = {"x": 0, "y": 1, "z": 2}
-            displacements = {"p": +1., "n": -1.}
+            displacements = {"pp": +2., "p": +1., "n": -1., "nn": -2.} 
             stepsize = self.QMin.template["numdiff_stepsize"]
             nstates = self.QMin.molecule['nmstates']
 
@@ -734,7 +759,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                     for iatom in range(self.QMin.molecule["natom"]):
                         for idir in ["x","y","z"]:
 
-                            # the involved children for this direction
+                            # pick the involved children for this direction
                             # the run() function would decide how many children per direction, depending on numdiff_method
                             # and here we only pick those that correspond to the current direction
                             children = {}
@@ -789,6 +814,10 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                                         numerator = S['p'].T@A['p']@S['p'] - S['n'].T@A['n']@S['n']
                                         denomimator = stepsize * (displacements['p'] - displacements['n'])
                                         result = numerator / denomimator
+                                    case "central-quad":
+                                        numerator = -S['pp'].T@A['pp']@S['pp'] + 8.*S['p'].T@A['p']@S['p'] - 8.*S['n'].T@A['n']@S['n'] + S['nn'].T@A['nn']@S['nn']
+                                        denomimator = 6. * stepsize * (displacements['p'] - displacements['n'])
+                                        result = numerator / denomimator
                                     case _:
                                         raise NotImplementedError("Only central differences implemented")
                                     
@@ -811,6 +840,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                                                 E = np.diag(self.QMout['h'])
                                                 denominator = E[:, None] - E[None, :]
                                                 denominator[np.diag_indices_from(denominator)] = np.inf
+                                                denominator[denominator == 0.] = np.inf
                                                 self.QMout['nacdr'][:,:,iatom,cart_directions[idir]] = result / denominator
                 case "normal_modes":
                     raise NotImplementedError("Normal mode displacements not allowed")
