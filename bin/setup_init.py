@@ -691,8 +691,8 @@ def writeQMin(INFOS, iconddir):
         string += "theodore\n"
     if "mdeqm" in INFOS and INFOS["mdeqm"]:
         string += "MDEQM\n"
-    # if "origin" in INFOS and INFOS["origin"]:
-    #     string += "ORIGIN\n"    
+    if "origin" in INFOS and INFOS["origin"]:
+        string += "ORIGIN\n"    
     qmin.write(string)
     qmin.close()
     return
