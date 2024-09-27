@@ -122,7 +122,8 @@ class SHARC_QCHEM(SHARC_ABINITIO):
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
-        self.execute_from_qmin(self.QMin.resources["scratchdir"], self.QMin)
+        if not self.QMin.resources["dry_run"]:
+            self.execute_from_qmin(self.QMin.resources["scratchdir"], self.QMin)
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _generate_input(self) -> str:
@@ -151,7 +152,7 @@ class SHARC_QCHEM(SHARC_ABINITIO):
         )
         return input_str
 
-    def _get_dyson_norms(self, output: str) -> list[float]:
+    def _get_dyson_norms(self, output: str) -> np.ndarray:
         # GS -> D norms
         # S1 -> D1, S1 -> D2, S2 -> D1, S2 -> D2
         if not (gs := re.findall(r"Reference -- EOM-IP-CCSD state  \d+.*?Right\D+(\d\.\d+)", output, re.DOTALL)):
@@ -162,7 +163,7 @@ class SHARC_QCHEM(SHARC_ABINITIO):
         if not (es := re.findall(r"EOM-EE-CCSD state \d+\/A -- EOM-IP-CCSD state \d+.*?Right\D+(\d\.\d+)", output, re.DOTALL)):
             self.log.error("No excited state Dyson norms found!")
             raise ValueError
-        return convert_list(gs + es, float)
+        return np.asarray(gs + es, dtype=float)
 
     def _get_dets(self, output: str) -> list[dict[tuple[int, int], float]]:
         # Get orbital numbers
@@ -193,7 +194,7 @@ class SHARC_QCHEM(SHARC_ABINITIO):
             for trans in det:
                 key = occ_str[:]
                 key[trans[1] - 1], key[trans[2] - 1] = (2, 1) if trans[3] == "A" else (1, 2)
-                tmp[tuple(key)] = trans[0] if trans[3] == "A" else -trans[0] # Weird symmetry problem in QCHEM
+                tmp[tuple(key)] = trans[0] if trans[3] == "A" else -trans[0]  # Weird symmetry problem in QCHEM
                 self.log.debug(f"Amp {trans[0]:8.4f} {trans[1]:3d} -> {trans[2]:3d} {trans[3]}")
             eigenvectors.append(tmp)
             self.log.debug(f"Norm: {sum(x[0]**2 for x in det)**0.5}\n")
@@ -269,19 +270,16 @@ class SHARC_QCHEM(SHARC_ABINITIO):
 
         # Get Dyson norms
         if self.QMin.requests["ion"]:
-            norms = self._get_dyson_norms(output)
+            norms = self._get_dyson_norms(output).reshape(-1, self.QMin.molecule["states"][1])
             dyson_mat = np.zeros((self.QMin.molecule["nstates"], self.QMin.molecule["nstates"]))
             for i in range(self.QMin.molecule["states"][0]):
-                for j in range(self.QMin.molecule["states"][1]):
-                    dyson_mat[i, self.QMin.molecule["states"][0] + j] = dyson_mat[self.QMin.molecule["states"][0] + j, i] = norms[
-                        i
-                    ]
-            buff = sum(self.QMin.molecule["states"][:2])
+                dyson_mat[i, self.QMin.molecule["states"][0] : sum(self.QMin.molecule["states"][:2])] = norms[i, :]
             for i in range(self.QMin.molecule["states"][2]):
-                for j in range(self.QMin.molecule["states"][1]):
-                    dyson_mat[buff + i, self.QMin.molecule["states"][0] + j] = dyson_mat[
-                        self.QMin.molecule["states"][0] + j, buff + i
-                    ] = norms[i]
+                dyson_mat[
+                    i + sum(self.QMin.molecule["states"][:2]),
+                    self.QMin.molecule["states"][0] : sum(self.QMin.molecule["states"][:2]),
+                ] = norms[i + self.QMin.molecule["states"][0], :]
+            dyson_mat += dyson_mat.T
 
             dyson_nmat = np.zeros((self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
             for i in range(dyson_nmat.shape[0]):
