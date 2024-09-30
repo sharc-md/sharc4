@@ -1553,14 +1553,14 @@ module qm
     endif
 
     ! check if phases have all norm 1
-    all_unit_norm = .true.
+    ! all_unit_norm = .true.
     do istate=1,ctrl%nstates
-      if (abs(traj%phases_s(istate) /= 1.d0)) all_unit_norm = .false.
+      if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) traj%phases_s(istate) = dcmplx(1.d0,0.d0)
     enddo
-    if (.not.all_unit_norm) then
-      write(u_log,*) 'Not all phases have unit norm. Abort.'
-      stop 1
-    endif
+    ! if (.not.all_unit_norm) then
+    !   write(u_log,*) 'Not all phases have unit norm. Abort.'
+    !   stop 1
+    ! endif
 
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
     ! Bra
