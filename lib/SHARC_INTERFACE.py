@@ -316,48 +316,17 @@ class SHARC_INTERFACE(ABC):
 
         self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types, kw_whitelist))
 
-        self._read_template = True
 
         # Check if charge in template and autoexpand if needed
         if self.QMin.template["charge"]:
-            self.QMin.template["charge"] = convert_list(self.QMin.template["charge"])
+            self.log.error(f"Specify 'charge' keyword in QM.in!")
+            raise ValueError(f"Specify 'charge' keyword in QM.in!")
 
-            if len(self.QMin.template["charge"]) == 1:
-                charge = int(self.QMin.template["charge"][0])
-                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
-                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
-                    charge -= 1
-                self.QMin.template["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
-                self.log.info(
-                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.template["charge"]}).'
-                )
-                self.log.info('You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")')
-            elif len(self.QMin.template["charge"]) >= len(self.QMin.molecule["states"]):
-                self.QMin.template["charge"] = [
-                    int(self.QMin.template["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
-                ]
-
-                for imult, cha in enumerate(self.QMin.template["charge"]):
-                    if not (self.QMin.molecule["Atomcharge"] + cha + imult) % 2 == 0:
-                        self.log.warning(
-                            "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
-                        )
-                        break
-            else:
-                raise ValueError('Length of "charge" does not match length of "states"!')
-        else:
-            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
         if self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
-        self.QMout.charges = self.QMin.template["charge"]
 
-        for s, nstates in enumerate(self.QMin.molecule["states"]):
-            c = self.QMin.template["charge"][s]
-            for m in range(-s, s + 1, 2):
-                for n in range(nstates):
-                    self.states.append(
-                        electronic_state(Z=c, S=s, M=m, N=n + 1, C={})
-                    )  # This is the moment in which states get their pointers
+        self._read_template = True
+
 
     @staticmethod
     def clean_savedir(path: str, retain: int, step: int) -> None:
@@ -414,9 +383,9 @@ class SHARC_INTERFACE(ABC):
         else:
             raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
 
-    def setup_mol(self, qmin_file: str) -> None:
+    def setup_mol(self, qmin_file: str|dict) -> None:
         """
-        Sets up the molecular system from a `QM.in` file.
+        Sets up the molecular system from a `QM.in` file or from a dictionary with entries (elements, states, charge)
         parses the elements, states, and savedir and prepare the QMin object accordingly.
 
         qmin_file:  Path to QM.in file.
@@ -427,82 +396,98 @@ class SHARC_INTERFACE(ABC):
             self.log.warning(
                 f"setup_mol() was already called! Continue setup with {qmin_file}",
             )
+        if isinstance(qmin_file, str):
 
-        qmin_lines = readfile(qmin_file)
-        self.QMin.molecule["comment"] = qmin_lines[1]
+            self.QMin.molecule["unit"] = "angstrom"  # default 
+            self.QMin.molecule["factor"] = 1.0 / BOHR_TO_ANG
+            qmin_lines = readfile(qmin_file) 
+            self.QMin.molecule["comment"] = qmin_lines[1]
 
-        try:
-            natom = int(qmin_lines[0])
-        except ValueError as err:
-            raise ValueError("first line must contain the number of atoms!") from err
+            try:
+                natom = int(qmin_lines[0])
+            except ValueError as err:
+                raise ValueError("first line must contain the number of atoms!") from err
 
-        self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
+            self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
+            self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
+
+            # replaces all comments with white space. filters all empty lines
+            filtered = filter(
+                lambda x: not re.match(r"^\s*$", x),
+                map(
+                    lambda x: re.sub(r"#.*$", "", x),
+                    qmin_lines[self.QMin.molecule["natom"] + 2 :],
+                ),
+            )
+
+            # naively parse all key argument pairs from QM.in
+            for line in filtered:
+                llist = line.split(None, 1)
+                key = llist[0].lower()
+                if key == "states":
+                    # also does update nmstates, nstates, statemap
+                    states_dict = self.parseStates(llist[1])
+                    if len(states_dict["states"]) < 1:
+                        self.log.error("Number of states must be > 0!")
+                        raise ValueError()
+                    self.QMin.maps["statemap"] = states_dict["statemap"]
+                    self.QMin.molecule["nstates"] = states_dict["nstates"]
+                    self.QMin.molecule["nmstates"] = states_dict["nmstates"]
+                    self.QMin.molecule["states"] = states_dict["states"]
+                if key == "charge":
+                    self.QMin.molecule["charge"] = convert_list(llist[1].split())
+
+                elif key == "unit":
+                    self.QMin.molecule["unit"] = llist[1].strip().lower()
+                    if self.QMin.molecule["unit"] not in ["bohr", "angstrom"]:
+                        raise ValueError("unknown unit specified")
+                    # set factor
+                    self.QMin.molecule["factor"] = 1.0 if self.QMin.molecule["unit"] == "bohr" else 1.0 / BOHR_TO_ANG
+
+                elif key == "savedir":
+                    self._setsave = True
+                    self.QMin.save["savedir"] = llist[1].strip()
+                    self.log.debug(f"SAVEDIR set to {self.QMin.save['savedir']}")
+                elif key == "point_charges":
+                    self.QMin.molecule["point_charges"] = True
+                    pcfile = expand_path(llist[1].strip())
+                    self.log.debug(f"Reading point charges from {pcfile}")
+
+                    # Read pcfile and assign charges and coordinates
+                    pccharge = []
+                    pccoords = []
+                    for pcharges in map(lambda x: x.split(), readfile(pcfile)):
+                        pccoords.append(
+                            [
+                                float(pcharges[0]) * self.QMin.molecule["factor"],
+                                float(pcharges[1]) * self.QMin.molecule["factor"],
+                                float(pcharges[2]) * self.QMin.molecule["factor"],
+                            ]
+                        )
+                        pccharge.append(float(pcharges[3]))
+
+                    self.QMin.coords["pccoords"] = pccoords
+                    self.QMin.coords["pccharge"] = pccharge
+                    self.QMin.molecule["npc"] = len(pccharge)
+
+        elif isinstance(qmin_file, dict):
+            self.QMin.molecule["unit"] = "bohr"
+            self.QMin.molecule["factor"] = 1.0
+            qmin_file.update(self.parseStates(qmin_file["states"]))
+            derived_int.QMin.molecule.update({k.lower(): v for k, v in qmin_file.items()})
+            derived_int.QMin.molecule["natom"] = qmin_file["NAtoms"]
+            derived_int.QMin.molecule["elements"] = [IAn2AName[x] for x in qmin_file["IAn"]]
+            derived_int.QMin.maps["statemap"] = basic_info["statemap"]
+            self.QMin.template["charge"] = convert_list(qmin_file["charge"])
+
+        else:
+            self.log.error(f"qmin_file has to be str or dict, but is {type(qmin_file)}")
+            raise TypeError(f"qmin_file has to be str or dict, but is {type(qmin_file)}")
+
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
         # self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
         self.QMin.molecule["frozcore"] = 0
-        self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
 
-        # replaces all comments with white space. filters all empty lines
-        filtered = filter(
-            lambda x: not re.match(r"^\s*$", x),
-            map(
-                lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2 :],
-            ),
-        )
-
-        # naively parse all key argument pairs from QM.in
-        for line in filtered:
-            llist = line.split(None, 1)
-            key = llist[0].lower()
-            if key == "states":
-                # also does update nmstates, nstates, statemap
-                states_dict = self.parseStates(llist[1])
-                if len(states_dict["states"]) < 1:
-                    self.log.error("Number of states must be > 0!")
-                    raise ValueError()
-                self.QMin.maps["statemap"] = states_dict["statemap"]
-                self.QMin.molecule["nstates"] = states_dict["nstates"]
-                self.QMin.molecule["nmstates"] = states_dict["nmstates"]
-                self.QMin.molecule["states"] = states_dict["states"]
-
-            elif key == "unit":
-                unit = llist[1].strip().lower()
-                if unit in ["bohr", "angstrom"]:
-                    self.QMin.molecule["unit"] = unit
-                    self.QMin.molecule["factor"] = 1.0 if unit == "bohr" else 1.0 / BOHR_TO_ANG
-                else:
-                    raise ValueError("unknown unit specified")
-            elif key == "savedir":
-                self._setsave = True
-                self.QMin.save["savedir"] = llist[1].strip()
-                self.log.debug(f"SAVEDIR set to {self.QMin.save['savedir']}")
-            elif key == "point_charges":
-                self.QMin.molecule["point_charges"] = True
-                pcfile = expand_path(llist[1].strip())
-                self.log.debug(f"Reading point charges from {pcfile}")
-
-                # Read pcfile and assign charges and coordinates
-                pccharge = []
-                pccoords = []
-                for pcharges in map(lambda x: x.split(), readfile(pcfile)):
-                    pccoords.append(
-                        [
-                            float(pcharges[0]) * self.QMin.molecule["factor"],
-                            float(pcharges[1]) * self.QMin.molecule["factor"],
-                            float(pcharges[2]) * self.QMin.molecule["factor"],
-                        ]
-                    )
-                    pccharge.append(float(pcharges[3]))
-
-                self.QMin.coords["pccoords"] = pccoords
-                self.QMin.coords["pccharge"] = pccharge
-                self.QMin.molecule["npc"] = len(pccharge)
-
-        if self.QMin.molecule["factor"] is None:
-            self.log.warning("No Unit specified assuming Angstrom!")
-            self.QMin.molecule["factor"] = 1.0 / BOHR_TO_ANG
-            self.QMin.molecule["unit"] = "angstrom"
 
         if not isinstance(self.QMin.save["savedir"], str):
             self.QMin.save["savedir"] = "./SAVEDIR/"
@@ -510,9 +495,48 @@ class SHARC_INTERFACE(ABC):
 
         self.QMin.save["savedir"] = expand_path(self.QMin.save["savedir"])
 
-        if not isinstance(self.QMin.molecule["unit"], str):
-            self.log.warning('No "unit" specified in QMin! Assuming Bohr')
-            self.QMin.molecule["unit"] = "bohr"
+        if not self.QMin.molecule["charge"]:
+            self.QMin.molecule["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
+            self.log.warning(f"charge not specified setting default, {self.QMin.molecule['charge']}")
+        else:
+            # sanity check
+            if len(self.QMin.molecule["charge"]) == 1:
+                charge = int(self.QMin.molecule["charge"][0])
+                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
+                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
+                    charge -= 1
+                self.QMin.molecule["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
+                self.log.info(
+                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.molecule["charge"]}).'
+                )
+                self.log.info('You can set the charge in the QMin or input files manually for each multiplicity ("charge 0 +1 0 ...")')
+            elif len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
+                self.QMin.molecule["charge"] = [
+                    int(self.QMin.molecule["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
+                ]
+
+                for mult, c in enumerate(self.QMin.molecule["charge"]):
+                    if mult % 2 != (self.QMin.molecule["Atomcharge"] - c) % 2:
+                        self.log.error(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
+                        raise ValueError(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
+            else:
+                raise ValueError('Length of "charge" does not match length of "states"!')
+
+
+        self.QMout.charges = self.QMin.template["charge"]
+
+        for s, nstates in enumerate(self.QMin.molecule["states"]):
+            c = self.QMin.molecule["charge"][s]
+            for m in range(-s, s + 1, 2):
+                for n in range(nstates):
+                    self.states.append(
+                        electronic_state(Z=c, S=s, M=m, N=n + 1, C={})
+                    )  # This is the moment in which states get their pointers
+
+        # Setup chargemap
+        self.log.debug("Building chargemap")
+        self.QMin.maps["chargemap"] = {idx + 1: int(chrg) for (idx, chrg) in enumerate(self.QMin.molecule["charge"][:self.QMin.molecule["nstates"]])}
+            
 
         if all((val is None for val in self.QMin.molecule.values())):
             raise ValueError(
@@ -521,6 +545,7 @@ class SHARC_INTERFACE(ABC):
                 comment
                 geometry
                 keyword "states"
+                keyword "charges"
                 at least one task"""
             )
 

@@ -235,7 +235,7 @@ def test_buildjobs1():
 
 def test_buildjobs2():
     tests = [
-        ("inputs/orca5.in", "inputs/job_template3", {}),
+        ("inputs/orca9.in", "inputs/job_template3", {}),
         ("inputs/orca8.in", "inputs/job_template2", {}),
     ]
 
@@ -324,7 +324,6 @@ def test_template():
         (
             "inputs/orca_templatetest1",
             {
-                "charge": [0, 1, 0],
                 "paddingstates": None,
                 "no_tda": False,
                 "picture_change": False,
@@ -349,7 +348,6 @@ def test_template():
         (
             "inputs/orca_templatetest2",
             {
-                "charge": [0, 1, 0],
                 "paddingstates": None,
                 "no_tda": False,
                 "picture_change": False,
@@ -374,7 +372,6 @@ def test_template():
         (
             "inputs/orca_templatetest3",
             {
-                "charge": [0, 1, 0],
                 "paddingstates": None,
                 "no_tda": False,
                 "picture_change": True,

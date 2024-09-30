@@ -39,7 +39,7 @@ from factory import factory
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
 from error import Error
-from utils import list2dict, InDir
+from utils import list2dict, InDir, convert_list
 from logger import log, loglevel as loglevel_env
 
 
@@ -247,19 +247,10 @@ def main():
     IRestart = setup_sharc(inp_file)
 
     basic_info = get_basic_info()
-    basic_info.update(derived_int.parseStates(basic_info["states"]))
     QMout = QMOUT(derived_int.__class__.__name__, basic_info["NAtoms"], basic_info["nmstates"])
 
-    basic_info["step"] = basic_info["istep"]
+    derived_int.setup_mol(basic_info)
 
-    derived_int.QMin.molecule.update({k.lower(): v for k, v in basic_info.items()})
-    derived_int.QMin.molecule["natom"] = basic_info["NAtoms"]
-    derived_int.QMin.molecule["elements"] = [IAn2AName[x] for x in basic_info["IAn"]]
-    derived_int.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], derived_int.QMin.molecule["elements"]))
-    derived_int.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], derived_int.QMin.molecule["elements"]))
-    derived_int.QMin.maps["statemap"] = basic_info["statemap"]
-
-    derived_int._setup_mol = True
     with InDir("QM"):
         derived_int.read_resources()
         derived_int.read_template()

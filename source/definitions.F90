@@ -373,7 +373,8 @@ module definitions
     logical,allocatable :: atommask_a(:)      !< atoms which are considered for decoherence, rescaling, ...
   logical,allocatable :: atommask_b(:)      !< atoms which are considered for verlocity verlet (-> use to freeze atoms)
     integer :: maxmult                        !< highest spin quantum number (determines length of nstates_m)
-    integer,allocatable :: nstates_m(:)       !< numer of states considered in each multiplicy
+    integer,allocatable :: nstates_m(:)       !< number of states considered in each multiplicy
+    integer,allocatable :: charges_m(:)       !< charge in each multiplicy 
     integer :: nstates                        !< total number of states
     integer :: nsteps                         !< total number of simulation steps
     integer :: nsubsteps                      !< number of steps for the electron propagation
@@ -1084,6 +1085,7 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
         type(ctrl_type), intent(inout) :: ctrl
   
         if (allocated(ctrl%nstates_m))                  deallocate(ctrl%nstates_m)
+        if (allocated(ctrl%charges_m))                  deallocate(ctrl%charges_m)
         if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
         if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
       if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
@@ -1356,6 +1358,7 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'lpzpe_ke_ah',      allocated(traj%lpzpe_ke_ah      )
       write(u,'(A20,1X,L1)') 'lpzpe_ke_bc',      allocated(traj%lpzpe_ke_bc      )
       write(u,'(A20,1X,L1)') 'nstates_m',        allocated(ctrl%nstates_m        )
+      write(u,'(A20,1X,L1)') 'charges_m',        allocated(ctrl%charges_m        )
       write(u,'(A20,1X,L1)') 'actstates_s',      allocated(ctrl%actstates_s      )
   
       write(u,*) '_______________________ CHECKING NaNs _______________________'

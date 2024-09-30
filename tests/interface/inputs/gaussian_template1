@@ -1,6 +1,6 @@
 basis def2svp
 functional PBE
-charge 0 -1 0 -1 0
+#charge 0 -1 0 -1 0
 paddingstates 0 0 0 0 0
 grid ultrafine
 scf Conver=10

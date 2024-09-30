@@ -1055,7 +1055,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         # Check if unrestricted triplets needed
         if not self.QMin.template["unrestricted_triplets"]:
-            if len(self.QMin.template["charge"]) >= 3 and self.QMin.template["charge"][0] != self.QMin.template["charge"][2]:
+            if len(self.QMin.molecule["charge"]) >= 3 and self.QMin.molecule["charge"][0] != self.QMin.molecule["charge"][2]:
                 self.log.error("Charges of singlets and triplets differ. Please enable the unrestricted_triplets option!")
                 raise ValueError()
 

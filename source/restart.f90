@@ -84,6 +84,7 @@ module restart
      write(u,*) ctrl%natom, '! natom'
      write(u,*) ctrl%maxmult
      write(u,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
+     write(u,*) (ctrl%charges_m(imult),imult=1,ctrl%maxmult)
      write(u,*) ctrl%nstates
      write(u,*) ctrl%nsteps
      write(u,*) ctrl%nsubsteps
@@ -679,6 +680,8 @@ module restart
      read(u_ctrl,*) ctrl%maxmult
      allocate( ctrl%nstates_m(ctrl%maxmult) )
      read(u_ctrl,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
+     allocate( ctrl%charges_m(ctrl%maxmult) )
+     read(u_ctrl,*) (ctrl%charges_m(imult),imult=1,ctrl%maxmult)
      read(u_ctrl,*) ctrl%nstates
      read(u_ctrl,*) ctrl%nsteps
      read(u_ctrl,*) ctrl%nsubsteps

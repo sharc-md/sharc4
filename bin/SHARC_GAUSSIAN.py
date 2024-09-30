@@ -492,7 +492,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.QMin.template["paste_input_file"] = readfile(self.QMin.template["paste_input_file"])
         # do logic checks
         if not self.QMin.template["unrestricted_triplets"]:
-            if len(self.QMin.template["charge"]) >= 3 and self.QMin.template["charge"][0] != self.QMin.template["charge"][2]:
+            if len(self.QMin.molecule["charge"]) >= 3 and self.QMin.molecule["charge"][0] != self.QMin.molecule["charge"][2]:
                 raise RuntimeError('Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!')
 
         for s in self.states:
@@ -529,7 +529,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     def setup_interface(self):
         super().setup_interface()
         # make the chargemap
-        self.QMin.maps["chargemap"] = {i + 1: c for i, c in enumerate(self.QMin.template["charge"])}
+        self.QMin.maps["chargemap"] = {i + 1: c for i, c in enumerate(self.QMin.molecule["charge"])}
         self._states_to_do()  # can be different in interface -> general method here with possibility to overwrite
         # make the jobs
         self._jobs()

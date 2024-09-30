@@ -437,7 +437,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.log.error("nactel must contain either 1 or 3 numbers!")
                 raise ValueError()
 
-        for idx, charge in enumerate(self.QMin.template["charge"], 1):
+        for idx, charge in enumerate(self.QMin.molecule["charge"], 1):
             if (
                 ((nactel := self.QMin.template["nactel"][0]) - idx - charge) % 2 == 0
                 or nactel - charge < 1
@@ -978,7 +978,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Write RASSCF part of MOLCAS input string
         """
         nactel = qmin.template["nactel"][:]
-        nactel[0] -= qmin.template["charge"][task[1] - 1]
+        nactel[0] -= qmin.molecule["charge"][task[1] - 1]
         input_str = f"&RASSCF\nSPIN={task[1]}\nNACTEL={' '.join(str(n) for n in nactel)}\n"
         input_str += f"INACTIVE={qmin.template['inactive']}\nRAS2={qmin.template['ras2']}\n"
         input_str += f"ITERATIONS={qmin.template['iterations'][0]},{qmin.template['iterations'][1]}\n"

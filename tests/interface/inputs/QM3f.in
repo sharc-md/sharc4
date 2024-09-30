@@ -24,14 +24,16 @@ init
     ## ===============================================
     # Settings:
 unit angstrom
-states 0 2 3
-charge 0 1 0
+states 0 0 0 0 9 9
+charge 0 +1 0 +1 0
 #savedir ./SAVE         # overrides the savedir in the resources file
 
     ## ===============================================
     # Quantity requests:
 h
-soc
+dm
+nacdr
+socdr
 dm
 grad
 #overlap

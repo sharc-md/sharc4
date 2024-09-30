@@ -151,9 +151,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     @abstractmethod
     def setup_interface(self) -> None:
         # Setup charge and paddingstates
-        if not self.QMin.template["charge"]:
-            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
-            self.log.info(f"charge not specified setting default, {self.QMin.template['charge']}")
 
         if not self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = [0 for _ in self.QMin.molecule["states"]]
@@ -161,9 +158,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 f"paddingstates not specified setting default, {self.QMin.template['paddingstates']}",
             )
 
-        # Setup chargemap
-        self.log.debug("Building chargemap")
-        self.QMin.maps["chargemap"] = {idx + 1: int(chrg) for (idx, chrg) in enumerate(self.QMin.template["charge"])}
 
         # Setup jobs
         self.QMin.control["states_to_do"] = [
