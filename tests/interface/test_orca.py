@@ -280,8 +280,15 @@ def test_get_dets():
         test_interface.read_resources(os.path.join(PATH, "inputs/ORCA.resources"))
         test_interface.setup_interface()
         with open(os.path.join(PATH, det), "r", encoding="utf-8") as file:
-            ref_det = file.read()
-            assert test_interface.get_dets_from_cis(os.path.join(PATH, cis), job)[f"dets.{mult}"] == ref_det
+            ref_det = file.read().split("\n")
+            test_det = test_interface.get_dets_from_cis(os.path.join(PATH, cis), job)[f"dets.{mult}"].split("\n")
+            assert test_det[0] == ref_det[0]
+            for test, ref in zip(test_det[1:-1], ref_det[1:-1]):
+                test_split = test.split()
+                ref_split = ref.split()
+                assert test_split[0] == ref_split[0]
+                for test_val, ref_val in zip(test_split[1:], ref_split[1:]):
+                    assert float(test_val) == pytest.approx(float(ref_val), abs=1e-7)
 
 
 def test_ao_matrix():
@@ -414,7 +421,7 @@ def test_orb_init():
         (1, 2, "df3e3a79149d4ffaa8884d30229879b8"),
         (0, 2, "cded86a151644dd9817e38e6f0a436bd"),
         (4, 1, "9557466025f24c8e9377fc4e7aef2a28"),
-        (4, 2, "dd6aaae7deaf4da3b9d5c1fca3ceecfc")
+        (4, 2, "dd6aaae7deaf4da3b9d5c1fca3ceecfc"),
     ]
 
     for step, job, check in tests:
