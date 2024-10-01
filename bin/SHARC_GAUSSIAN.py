@@ -202,7 +202,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     @staticmethod
     def check_template(template_file):
 
-        necessary = {"basis", "functional", "charge"}
+        necessary = {"basis", "functional"}
         with open(template_file, "r") as f:
             for line in f:
                 if len(necessary) == 0:
@@ -261,7 +261,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     basis <basis>
     functional <type> <name>
-    charge <x> [ <x2> [ <x3> ...] ]
 
     The GAUSSIAN interface will generate the appropriate GAUSSIAN input automatically.
     ''')

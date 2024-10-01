@@ -379,6 +379,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         qm_QMin.molecule["states"] = self.QMin.molecule["states"]
         qm_QMin.molecule["nstates"] = self.QMin.molecule["nstates"]
         qm_QMin.maps["statemap"] = self.QMin.maps["statemap"]
+        qm_QMin.maps["chargemap"] = self.QMin.maps["chargemap"]
         qm_QMin.molecule["nmstates"] = self.QMin.molecule["nmstates"]
         qm_QMin.molecule["unit"] = self.QMin.molecule["unit"]
         qm_QMin.molecule["point_charges"] = True
@@ -392,6 +393,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         mml_QMin.molecule["frozcore"] = self.QMin.molecule["frozcore"]
         mml_QMin.molecule["natom"] = self.QMin.molecule["natom"]
         mml_QMin.molecule["states"] = [1]
+        # TODO: statemap, chargemap
         mml_QMin.molecule["nmstates"] = 1
         mml_QMin.molecule["unit"] = self.QMin.molecule["unit"]
         self.mml_interface._setup_mol = True
@@ -431,6 +433,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             mms_QMin.molecule["frozcore"] = sum((FROZENS[x] for x in mms_el))
             mms_QMin.molecule["natom"] = self._num_qm + n_link
             mms_QMin.molecule["states"] = [1]
+            # TODO: statemap, chargemap
             mms_QMin.molecule["nmstates"] = 1
             mms_QMin.molecule["unit"] = self.QMin.molecule["unit"]
             self.mms_interface._setup_mol = True

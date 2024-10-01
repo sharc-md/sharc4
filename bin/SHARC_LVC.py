@@ -136,6 +136,7 @@ class SHARC_LVC(SHARC_FAST):
         line = f.readline()
         if line.startswith("charge"):
             self.QMin.molecule["charge"] = [int(x) for x in line.split()[1:]]
+            # TODO: maybe better to have a check whether QMin charges and template charges are the same?
             self.QMout.charges = self.QMin.molecule["charge"]
             line = f.readline()
         # NOTE: possibly assign whole array with index accessor (numpy)

@@ -40,7 +40,7 @@ from typing import Any
 import numpy as np
 
 # internal
-from constants import ATOMCHARGE, BOHR_TO_ANG
+from constants import ATOMCHARGE, BOHR_TO_ANG, IAn2AName
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
@@ -319,8 +319,8 @@ class SHARC_INTERFACE(ABC):
 
         # Check if charge in template and autoexpand if needed
         if self.QMin.template["charge"]:
-            self.log.error(f"Specify 'charge' keyword in QM.in!")
-            raise ValueError(f"Specify 'charge' keyword in QM.in!")
+            self.log.error(f"The 'charge' keyword must be specified in QM.in (or sharc.x' input)!")
+            raise ValueError(f"The 'charge' keyword must be specified in QM.in (or sharc.x' input)!")
 
         if self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
@@ -474,10 +474,11 @@ class SHARC_INTERFACE(ABC):
             self.QMin.molecule["unit"] = "bohr"
             self.QMin.molecule["factor"] = 1.0
             qmin_file.update(self.parseStates(qmin_file["states"]))
-            derived_int.QMin.molecule.update({k.lower(): v for k, v in qmin_file.items()})
-            derived_int.QMin.molecule["natom"] = qmin_file["NAtoms"]
-            derived_int.QMin.molecule["elements"] = [IAn2AName[x] for x in qmin_file["IAn"]]
-            derived_int.QMin.maps["statemap"] = basic_info["statemap"]
+            self.QMin.molecule.update({k.lower(): v for k, v in qmin_file.items()})
+            self.QMin.molecule["natom"] = qmin_file["NAtoms"]
+            self.QMin.molecule["elements"] = [IAn2AName[x] for x in qmin_file["IAn"]]
+            self.QMin.maps["statemap"] = qmin_file["statemap"]
+            self.QMin.molecule["charge"] = convert_list(qmin_file["charge"])
             self.QMin.template["charge"] = convert_list(qmin_file["charge"])
 
         else:

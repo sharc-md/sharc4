@@ -302,14 +302,15 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
 
     def setup_interface(self):
-        # obtain the statemap
-        self.QMin.maps["statemap"] = {i + 1: [*v] for i, v in enumerate(itnmstates(self.QMin.molecule["states"]))}
+        # obtain the statemap TODO: needed?
+        # self.QMin.maps["statemap"] = {i + 1: [*v] for i, v in enumerate(itnmstates(self.QMin.molecule["states"]))}
         # prepare info for child interface
         el = self.QMin.molecule["elements"]
         # setup mol for qm
         qm_QMin = self.child_interface.QMin
         qm_QMin.molecule = self.QMin.molecule
         qm_QMin.maps["statemap"] = self.QMin.maps["statemap"]
+        qm_QMin.maps["chargemap"] = self.QMin.maps["chargemap"]
         self.child_interface._setup_mol = True
 
         qm_savedir = os.path.join(self.QMin.save["savedir"], "QM_" + self.QMin.template["child-program"].upper())
