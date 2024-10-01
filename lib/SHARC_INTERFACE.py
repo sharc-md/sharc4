@@ -530,7 +530,7 @@ class SHARC_INTERFACE(ABC):
                 raise ValueError('Length of "charge" does not match length of "states"!')
 
 
-        self.QMout.charges = self.QMin.template["charge"]
+        self.QMout.charges = self.QMin.molecule["charge"][:]
 
         for s, nstates in enumerate(self.QMin.molecule["states"]):
             c = self.QMin.molecule["charge"][s]
