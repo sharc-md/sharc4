@@ -302,16 +302,10 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
 
     def setup_interface(self):
-        # obtain the statemap TODO: needed?
-        # self.QMin.maps["statemap"] = {i + 1: [*v] for i, v in enumerate(itnmstates(self.QMin.molecule["states"]))}
         # prepare info for child interface
         el = self.QMin.molecule["elements"]
         # setup mol for qm
-        qm_QMin = self.child_interface.QMin
-        qm_QMin.molecule = self.QMin.molecule
-        qm_QMin.maps["statemap"] = self.QMin.maps["statemap"]
-        qm_QMin.maps["chargemap"] = self.QMin.maps["chargemap"]
-        self.child_interface._setup_mol = True
+        self.child_interface.setup_mol(self.QMin)
 
         qm_savedir = os.path.join(self.QMin.save["savedir"], "QM_" + self.QMin.template["child-program"].upper())
         if not os.path.isdir(qm_savedir):
@@ -319,7 +313,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         # read template and resources
         with InDir(self.QMin.template["child-dir"]) as _:
             self.child_interface.read_resources()
-            qm_QMin.save["savedir"] = qm_savedir  # overwrite savedir
+            self.child_interface.QMin.save["savedir"] = qm_savedir  # overwrite savedir
             self.child_interface.read_template()
             self.child_interface.setup_interface()
 

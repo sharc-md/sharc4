@@ -458,10 +458,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         self.ref_interface = self._load_interface(NAME)(logfile = ref_logfile, logname=ref_logname, loglevel = self.log.level, persistent = False)
 
         # do setup molecule
-        self.ref_interface.QMin.molecule = deepcopy(self.QMin.molecule)
-        self.ref_interface.QMin.maps['statemap'] = deepcopy(self.QMin.maps['statemap'])
-        self.ref_interface.QMin.maps["chargemap"] = deepcopy(self.QMin.maps['chargemap'])
-        self.ref_interface._setup_mol = True
+        self.ref_interface.setup_mol(self.QMin)
         
         ## then do setup_mol/template/resources
         with InDir(self.qmdir):
@@ -525,10 +522,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             child = self._kindergarden[label]
             # self.log.info(label)
             name = '_'.join(str(i) for i in label)
-            child.QMin.molecule = deepcopy(self.QMin.molecule)
-            child.QMin.maps['statemap'] = deepcopy(self.QMin.maps['statemap'])
-            child.QMin.maps["chargemap"] = deepcopy(self.QMin.maps['chargemap'])
-            child._setup_mol = True
+            child.setup_mol(self.QMin)
             with InDir(self.qmdir):
                 child.read_resources()
                 child.read_template()

@@ -36,6 +36,7 @@ from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
 from typing import Any
+from copy import deepcopy
 
 import numpy as np
 
@@ -383,7 +384,7 @@ class SHARC_INTERFACE(ABC):
         else:
             raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
 
-    def setup_mol(self, qmin_file: str|dict) -> None:
+    def setup_mol(self, qmin_file: str|dict|QMin) -> None:
         """
         Sets up the molecular system from a `QM.in` file or from a dictionary with entries (elements, states, charge)
         parses the elements, states, and savedir and prepare the QMin object accordingly.
@@ -481,9 +482,14 @@ class SHARC_INTERFACE(ABC):
             self.QMin.molecule["charge"] = convert_list(qmin_file["charge"])
             self.QMin.template["charge"] = convert_list(qmin_file["charge"])
 
+        elif isinstance(qmin_file, QMin):
+            self.QMin.molecule = deepcopy(qmin_file.molecule)
+            self.QMin.maps["statemap"] = deepcopy(qmin_file.maps["statemap"])
+            self.QMin.maps["chargemap"] = deepcopy(qmin_file.maps["chargemap"])
+
         else:
-            self.log.error(f"qmin_file has to be str or dict, but is {type(qmin_file)}")
-            raise TypeError(f"qmin_file has to be str or dict, but is {type(qmin_file)}")
+            self.log.error(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
+            raise TypeError(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
 
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
         # self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
