@@ -557,6 +557,11 @@ module qm
       write(u_qm_qmin,'(I3)', advance='no') ctrl%nstates_m(i)
     enddo
     write(u_qm_qmin,*) 
+    write(u_qm_qmin,'(A)', advance='no') 'charge '
+    do i=1,ctrl%maxmult
+      write(u_qm_qmin,'(I3)', advance='no') ctrl%charges_m(i)
+    enddo
+    write(u_qm_qmin,*) 
     write(u_qm_qmin,'(a,1x,F12.6)') 'dt',ctrl%dtstep
     write(u_qm_qmin,'(a,1x,I7)') 'step',traj%step
     write(u_qm_qmin,'(a,1x,a)') 'savedir',trim(cwd)//'/restart'

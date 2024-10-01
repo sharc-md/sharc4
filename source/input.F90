@@ -441,7 +441,7 @@ module input
       ! value needs to be split into values (each one is a string)
       call split(line,' ',values,n)
       if (n.lt.ctrl%maxmult) then
-       write(u_log,*) 'Keyword CHARGES needs to specify a charge for all ',ctrl%maxmult, ' multiplicities!'
+       write(u_log,*) 'Keyword CHARGE needs to specify a charge for all ',ctrl%maxmult, ' multiplicities!'
        stop 1
       endif
       allocate(ctrl%charges_m(ctrl%maxmult))
@@ -451,7 +451,7 @@ module input
       enddo
       deallocate(values)
     else
-       write(u_log,*) 'Keyword CHARGES not found.'
+       write(u_log,*) 'Keyword CHARGE not found.'
        stop 1
     endif
 
