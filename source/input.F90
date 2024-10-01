@@ -435,6 +435,26 @@ module input
       ctrl%nstates=1
     endif
 
+    ! look up charges keyword
+    line=get_value_from_key('charge',io)
+    if (io==0) then
+      ! value needs to be split into values (each one is a string)
+      call split(line,' ',values,n)
+      if (n.lt.ctrl%maxmult) then
+       write(u_log,*) 'Keyword CHARGES needs to specify a charge for all ',ctrl%maxmult, ' multiplicities!'
+       stop 1
+      endif
+      allocate(ctrl%charges_m(ctrl%maxmult))
+      ! read number of states per multiplicity
+      do i=1,ctrl%maxmult
+        read(values(i),*) ctrl%charges_m(i)
+      enddo
+      deallocate(values)
+    else
+       write(u_log,*) 'Keyword CHARGES not found.'
+       stop 1
+    endif
+
     if (printlevel>0) then
       write(u_log,*) '============================================================='
       write(u_log,*) '                 Number of States and Atoms'
@@ -455,6 +475,11 @@ module input
           write(u_log,*) 'Doing dynamics on a single singlet surface.'
         endif
       endif
+      write(u_log,*)
+      write(u_log,'(a)', advance='no') 'charges set to: '
+      do i=1,ctrl%maxmult
+         write(u_log, '(I4,X)', advance='no') ctrl%charges_m(i)
+      enddo
       write(u_log,*)
     endif
 

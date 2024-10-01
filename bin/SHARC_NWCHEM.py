@@ -702,7 +702,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
             mol = gto.Mole()
             mol.basis = self._basis
             mol.unit = "Bohr"
-            mol.charge = 0 if not self.QMin.template["charge"] else self.QMin.template["charge"][0]
+            mol.charge = 0 if not self.QMin.molecule["charge"] else self.QMin.molecule["charge"][0]
             mol.atom = [[e, c] for e, c in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"].tolist())]
             mol.cart = not self.QMin.template["spherical"]
             mol.build()

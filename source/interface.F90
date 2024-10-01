@@ -286,6 +286,25 @@ endsubroutine
 
 ! ------------------------------------------------------
 
+subroutine get_Charges(string)
+    use memory_module, only: traj, ctrl
+    implicit none
+    integer :: i
+    __C_OUT_STRING_S_ :: string
+
+
+    string = ""
+    do i=1,ctrl%maxmult
+      write(string,'(A, I3)') trim(string) // ' ', ctrl%charges_m(i)
+    enddo
+    write(string,'(A)') trim(string) // CHAR(0)
+    
+   
+    return 
+endsubroutine
+
+! ------------------------------------------------------
+
 subroutine get_dt(string)
     use memory_module, only: traj, ctrl
     implicit none
