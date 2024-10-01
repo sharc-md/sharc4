@@ -239,8 +239,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 default="NUMDIFF.template"
             )
             self.read_template(self.template_file)
-            NAME = self.QMin.template['qm-program']
-            self.ref_interface = self._load_interface(NAME)()
+            qm_program = self.QMin.template['qm-program']
+            self.ref_interface = self._load_interface(qm_program)()
             self.ref_interface.QMin.molecule['states'] = self.QMin.molecule['states']
         
 
@@ -448,14 +448,14 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # paths
         self.QMin.resources["scratchdir"] = os.path.abspath(os.path.expanduser(os.path.expandvars(self.QMin.resources["scratchdir"])))
         self.qmdir = os.path.abspath(os.path.expanduser(os.path.expandvars(self.QMin.template['qm-dir'])))
-        NAME = self.QMin.template['qm-program']
+        qm_program = self.QMin.template['qm-program']
 
         # Create reference child
-        ref_logname = "Reference:%s" % NAME
+        ref_logname = "Reference:%s" % qm_program
         pwd = os.path.join(self.QMin.resources["scratchdir"],'PWD','reference')
         mkdir(pwd)
         ref_logfile = os.path.join(pwd,'QM.log')
-        self.ref_interface = self._load_interface(NAME)(logfile = ref_logfile, logname=ref_logname, loglevel = self.log.level, persistent = False)
+        self.ref_interface = self._load_interface(qm_program)(logfile = ref_logfile, logname=ref_logname, loglevel = self.log.level, persistent = False)
 
         # do setup molecule
         self.ref_interface.setup_mol(self.QMin)
@@ -512,7 +512,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             mkdir(pwd)
             logfile = os.path.join(pwd,'QM.log')
             logname = 'Displacement:%s:%s' % (NAME,name)
-            child_dict[label] = (NAME, [], {"logfile": logfile, "logname": logname, 'loglevel': self.log.level, 'persistent': False})
+            child_dict[label] = (qm_program, [], {"logfile": logfile, "logname": logname, 'loglevel': self.log.level, 'persistent': False})
         #self.log.info(child_dict)
         self.instantiate_children(child_dict)
         
