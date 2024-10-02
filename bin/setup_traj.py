@@ -635,10 +635,23 @@ from the initconds.excited files as provided by excite.py.
     nstates = 0
     for mult, i in enumerate(states):
         nstates += (mult + 1) * i
+
+    print("\nPlease enter the molecular charge for each chosen multiplicity\ne.g. 0 +1 0 for neutral singlets and triplets and cationic doublets.")
+    default = [i % 2 for i in range(len(states))]
+    while True:
+        charges = question("Molecular charges per multiplicity:", int, default)
+        if not states:
+            continue
+        if len(charges) != len(states):
+            print("Charges array must have same length as states array")
+            continue
+        break
+
     log.info("Number of states: " + str(states))
     log.info("Total number of states: %i\n" % (nstates))
     INFOS["states"] = states
     INFOS["nstates"] = nstates
+    INFOS["charge"] = charges
     # obtain the statemap
     statemap = {}
     i = 1
@@ -1460,6 +1473,9 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         s += "%i " % nst
     s += "\nactstates "
     for nst in INFOS["actstates"]:
+        s += "%i " % nst
+    s += "\ncharge "
+    for nst in INFOS["charge"]:
         s += "%i " % nst
     s += "\nstate %i %s\n" % (istate, ["mch", "diag"][INFOS["diag"]])
     s += "coeff auto\n"

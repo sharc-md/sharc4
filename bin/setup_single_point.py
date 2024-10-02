@@ -205,6 +205,18 @@ def get_general(INFOS) -> dict:
             continue
         break
     log.info("")
+
+    print("\nPlease enter the molecular charge for each chosen multiplicity\ne.g. 0 +1 0 for neutral singlets and triplets and cationic doublets.")
+    default = [i % 2 for i in range(len(states))]
+    while True:
+        charges = question("Molecular charges per multiplicity:", int, default)
+        if not states:
+            continue
+        if len(charges) != len(states):
+            print("Charges array must have same length as states array")
+            continue
+        break
+
     nstates = 0
     for mult, i in enumerate(states):
         nstates += (mult + 1) * i
@@ -212,6 +224,7 @@ def get_general(INFOS) -> dict:
     log.info("Total number of states: %i\n" % (nstates))
     INFOS["states"] = states
     INFOS["nstates"] = nstates
+    INFOS["charge"] = charges
     # obtain the statemap
     statemap = {}
     i = 1
@@ -366,6 +379,11 @@ states %s
 """ % (
         " ".join([str(i) for i in INFOS["states"]])
     )
+    string += "\n"
+    string += "charge "
+    for i in INFOS["charge"]:
+        string += "%i " % (i)
+    string += "\n"
     string += "\n".join(INFOS["needed_requests"])
 
     runscript.write(string)

@@ -488,6 +488,18 @@ def get_general():
             continue
         break
     print('')
+
+    print("\nPlease enter the molecular charge for each chosen multiplicity\ne.g. 0 +1 0 for neutral singlets and triplets and cationic doublets.")
+    default = [i % 2 for i in range(len(states))]
+    while True:
+        charges = question("Molecular charges per multiplicity:", int, default)
+        if not states:
+            continue
+        if len(charges) != len(states):
+            print("Charges array must have same length as states array")
+            continue
+        break
+
     nstates = 0
     for mult, i in enumerate(states):
         nstates += (mult + 1) * i
@@ -495,6 +507,7 @@ def get_general():
     print('Total number of states: %i\n' % (nstates))
     INFOS['states'] = states
     INFOS['nstates'] = nstates
+    INFOS["charge"] = charges
     # obtain the statemap
     statemap = {}
     i = 1
@@ -3259,8 +3272,10 @@ def writeOrcascript(INFOS, iconddir):
 
     string = '''#
 #SHARC: states %s
+#SHARC: charge %s
 #SHARC: interface %s
 #SHARC: opt %s %i''' % (' '.join([str(i) for i in INFOS['states']]),
+                       ' '.join([str(i) for i in INFOS['charge']]),
                         Interfaces[INFOS['interface']]['name'],
                         INFOS['opttype'],
                         INFOS['cas.root1'])
@@ -3288,8 +3303,10 @@ end
     filename = '%s/otool_external.inp' % (iconddir)
     string = '''#
 SHARC: states %s
+SHARC: charge %s
 SHARC: interface %s
 SHARC: opt %s %i''' % (' '.join([str(i) for i in INFOS['states']]),
+                       ' '.join([str(i) for i in INFOS['charge']]),
                         Interfaces[INFOS['interface']]['name'],
                         INFOS['opttype'],
                         INFOS['cas.root1'])

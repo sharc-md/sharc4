@@ -302,6 +302,8 @@ def read_infos(ext_in):
                 arg = s[2:]
                 if 'states' in key.lower():
                     INFOS['states'] = [int(i) for i in arg]
+                if 'charge' in key.lower():
+                    INFOS['charge'] = [int(i) for i in arg]
                 if 'opt' in key.lower():
                     INFOS['opt'] = [arg[0].lower()] + [int(i) for i in arg[1:]]
                 if 'interface' in key.lower():
@@ -324,6 +326,8 @@ def read_infos(ext_in):
             sys.exit(1)
     if not 'states' in INFOS:
         INFOS['states'] = [1]
+    if not 'charge' in INFOS:
+        INFOS['charge'] = [1]
     if not 'opt' in INFOS:
         INFOS['opt'] = ['min', 1]
     if not 'sigma' in INFOS:
@@ -414,6 +418,9 @@ def write_QMin(INFOS):
         string += 'init\n'
     string += 'states '
     for i in INFOS['states']:
+        string += '%i ' % (i)
+    string += 'charge '
+    for i in INFOS['charge']:
         string += '%i ' % (i)
     string += '\n'
     string += 'unit angstrom\n'
