@@ -407,6 +407,7 @@ def write_QMin(INFOS):
     string += 'states '
     for i in INFOS['states']:
         string += '%i ' % (i)
+    string += '\n'
     string += 'charge '
     for i in INFOS['charge']:
         string += '%i ' % (i)
