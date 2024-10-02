@@ -1171,12 +1171,21 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin, self.QMin.molecule['Ubasis'])
             mofile = os.path.join(qmin.save["savedir"], f"mos.{job}.{step}")
             writefile(mofile, string)
+            if True:
+                string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin, self.QMin.molecule['Ubasis'], ignorefrozcore=True)
+                mofile = os.path.join(qmin.save["savedir"], f"mos_allelec.{job}.{step}")
+                writefile(mofile, string)
             self.log.info(shorten_DIR(mofile))
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
             strings = SHARC_GAUSSIAN.get_dets_from_chk(f, qmin)
             for f in strings:
                 writefile(f, strings[f])
                 self.log.print(shorten_DIR(f))
+            if True:
+                f = os.path.join(WORKDIR, "GAUSSIAN.chk")
+                strings = SHARC_GAUSSIAN.get_dets_from_chk(f, qmin, ignorefrozcore=True, filelabel='_allelec')
+                for f in strings:
+                    writefile(f, strings[f])
 
     # ======================================================================= #
 
@@ -1199,9 +1208,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
     @staticmethod
-    def get_MO_from_chk(filename, qmin: QMin_class, U: np.ndarray) -> str:
+    def get_MO_from_chk(filename, qmin: QMin_class, U: np.ndarray, ignorefrozcore: bool = False) -> str:
         job = qmin.control["jobid"]
         restr = qmin.control["jobs"][job]["restr"]
+        if ignorefrozcore:
+            frozcore = 0
+        else:
+            frozcore = qmin.molecule["frozcore"]
         MO_A = SHARC_GAUSSIAN.parse_fchk(filename, ['Alpha MO coefficients'])['Alpha MO coefficients']
         nao = int(np.sqrt(len(MO_A)))
         MO_A = np.reshape( MO_A, [nao,nao] ).T
@@ -1212,9 +1225,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             MO_B = SHARC_GAUSSIAN.parse_fchk(filename, ['Beta MO coefficients'])['Beta MO coefficients']
             MO_B = np.reshape( MO_B, [nao,nao] ).T 
             MO_B = U @ MO_B 
-        MO_A = MO_A[:,qmin.molecule["frozcore"]:]
+        MO_A = MO_A[:,frozcore:]
         if not restr:
-            MO_B = MO_B[:,qmin.molecule["frozcore"]:]
+            MO_B = MO_B[:,frozcore:]
 
         if restr: 
             NMO = MO_A.shape[1]
@@ -1274,11 +1287,15 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # ======================================================================= #
 
     @staticmethod
-    def get_dets_from_chk(filename, QMin):
+    def get_dets_from_chk(filename, QMin, ignorefrozcore: bool = True, filelabel: str = ''):
         # get general infos
         job = QMin.control["jobid"]
         restr = QMin.control["jobs"][job]["restr"]
         mults = QMin.control["jobs"][job]["mults"]
+        if ignorefrozcore:
+            frozcore = 0
+        else:
+            frozcore = QMin.molecule["frozcore"]
         if 3 in mults:
             mults = [3]
         gsmult = QMin.maps["multmap"][-job][0]
@@ -1358,9 +1375,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             if mult == gsmult:
                 # add ground state
                 if restr:
-                    key = tuple(occ_A[QMin.molecule["frozcore"] :])
+                    key = tuple(occ_A[frozcore :])
                 else:
-                    key = tuple(occ_A[QMin.molecule["frozcore"] :] + occ_B[QMin.molecule["frozcore"] :])
+                    key = tuple(occ_A[frozcore :] + occ_B[frozcore :])
                 eigenvectors[mult].append({key: 1.0})
             for istate in range(nstates_to_extract[mult - 1]):
                 # get X+Y vector
@@ -1450,16 +1467,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 for key in dets2:
                     problem = False
                     if restr:
-                        if any([key[i] != 3 for i in range(QMin.molecule["frozcore"])]):
+                        if any([key[i] != 3 for i in range(frozcore)]):
                             problem = True
                     else:
-                        if any([key[i] != 1 for i in range(QMin.molecule["frozcore"])]):
+                        if any([key[i] != 1 for i in range(frozcore)]):
                             problem = True
                         if any(
                             [
                                 key[i] != 2
                                 for i in range(
-                                    nocc_A + nvir_A + QMin.molecule["frozcore"], nocc_A + nvir_A + 2 * QMin.molecule["frozcore"]
+                                    nocc_A + nvir_A + frozcore, nocc_A + nvir_A + 2 * frozcore
                                 )
                             ]
                         ):
@@ -1469,11 +1486,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         continue
                         # sys.exit(70)
                     if restr:
-                        key2 = key[QMin.molecule["frozcore"] :]
+                        key2 = key[frozcore :]
                     else:
                         key2 = (
-                            key[QMin.molecule["frozcore"] : QMin.molecule["frozcore"] + nocc_A + nvir_A]
-                            + key[nocc_A + nvir_A + 2 * QMin.molecule["frozcore"] :]
+                            key[frozcore : frozcore + nocc_A + nvir_A]
+                            + key[nocc_A + nvir_A + 2 * frozcore :]
                         )
                     dets3[key2] = dets2[key]
                 # append
@@ -1482,7 +1499,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         strings = {}
         step = QMin.save["step"]
         for mult in mults:
-            filename = os.path.join(QMin.save["savedir"], f"dets.{mult}.{step}")
+            filename = os.path.join(QMin.save["savedir"], f"dets{filelabel}.{mult}.{step}")
             strings[filename] = SHARC_GAUSSIAN.format_ci_vectors(eigenvectors[mult])
 
         return strings
@@ -1865,12 +1882,15 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # TheoDORE
         if self.QMin.requests["theodore"]:
-            theodore_arr = np.zeros(
-                (
-                    self.QMin.molecule["nmstates"],
-                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
-                )
-            )
+            # theodore_arr = np.zeros(
+            #     (
+            #         self.QMin.molecule["nmstates"],
+            #         len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
+            #     )
+            # )
+            nprop = len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2
+            labels = self.QMin.resources["theodore_prop"][:] + [ 'Om_%i_%i' % (i,j) for i in range(len(self.QMin.resources["theodore_fragment"])) for j in range(len(self.QMin.resources["theodore_fragment"])) ]
+            theodore_arr = [ [labels[j], np.zeros(self.QMin.molecule["nmstates"])] for j in range(nprop)]
             for job in joblist:
                 if not self.QMin.control["jobs"][job]["restr"]:
                     continue
@@ -1890,15 +1910,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                     if (m1, s1) in props:
-                        for j in range(
-                            len(self.QMin.resources["theodore_prop"])
-                            + len(self.QMin.resources["theodore_fragment"]) ** 2
-                        ):
+                        for j in range(nprop):
                             self.log.debug(f"{m1} {s1}: {i} {j} {len(props[(m1,s1)])}")
-                            theodore_arr[i, j] = props[(m1, s1)][j]
-
-        if self.QMin.requests["theodore"]:
-            self.QMout["prop2d"].append(("theodore", theodore_arr))
+                            theodore_arr[j][1][i] = props[(m1,s1)][j]
+                            # theodore_arr[i, j] = props[(m1, s1)][j]
+            self.log.info(self.QMout["prop1d"])
 
         endtime = datetime.datetime.now()
         self.log.print(f"Readout Runtime: {endtime - starttime}")

@@ -399,6 +399,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         endtime = datetime.datetime.now()
 
         if exit_code == 0:
+            # make molden files
+            exec_str = "orca_2mkl ORCA -molden"
+            molden_out = os.path.join(workdir, "orca_2mkl.out")
+            molden_err = os.path.join(workdir, "orca_2mkl.err")
+            self.run_program(workdir, exec_str, molden_out, molden_err)
             # Save files
             if not qmin.save["samestep"]:
                 self._save_files(workdir, qmin.control["jobid"])
@@ -513,10 +518,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Generate molden file
         if self.QMin.requests["molden"] or self.QMin.requests["theodore"]:
             self.log.debug("Save molden file to savedir")
-            exec_str = "orca_2mkl ORCA -molden"
-            molden_out = os.path.join(workdir, "orca_2mkl.out")
-            molden_err = os.path.join(workdir, "orca_2mkl.err")
-            self.run_program(workdir, exec_str, molden_out, molden_err)
             shutil.copy(
                 os.path.join(workdir, "ORCA.molden.input"),
                 os.path.join(savedir, f"ORCA.molden.{jobid}.{step}"),
@@ -526,11 +527,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.requests["ion"] or not self.QMin.requests["nooverlap"]:
             self.log.debug("Write MO coefficients to savedir")
             writefile(os.path.join(savedir, f"mos.{jobid}.{step}"), self._get_mos(workdir, jobid))
+            if True:
+                writefile(os.path.join(savedir, f"mos_allelec.{jobid}.{step}"), self._get_mos(workdir, jobid, ignore_frozcore=True))
             if os.path.isfile(os.path.join(workdir, "ORCA.cis")):
                 self.log.debug("Write CIS determinants to savedir")
                 cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
                 for det_file, cis_det in cis_dets.items():
                     writefile(os.path.join(savedir, f"{det_file}.{step}"), cis_det)
+                if True:
+                    cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid, ignore_frozencore=True, filelabel="_allelec")
+                    for det_file, cis_det in cis_dets.items():
+                        writefile(os.path.join(savedir, f"{det_file}.{step}"), cis_det)
             else:
                 with open(os.path.join(workdir, "ORCA.log"), "r", encoding="utf-8") as orca_log:
                     # Extract list of orbital energies and filter occupation numbers
@@ -548,10 +555,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         ]
                     # Convert to string and save file
                     writefile(os.path.join(savedir, f"dets.{jobid}.{step}"), self.format_ci_vectors([{tuple(occ_list): 1.0}]))
+                    # TODO: also save dets_allelec files for this else
 
         shutil.copy(os.path.join(workdir, "ORCA.gbw"), os.path.join(savedir, f"ORCA.gbw.{jobid}.{step}"))
 
-    def _get_mos(self, workdir: str, jobid: int) -> str:
+    def _get_mos(self, workdir: str, jobid: int, ignore_frozcore: bool = False) -> str:
         """
         Extract MO coefficients from ORCA gbw file
 
@@ -559,6 +567,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
         jobid:     ID number of job
         """
         restr = self.QMin.control["jobs"][jobid]["restr"]
+        if ignore_frozcore:
+            frozcore = 0
+        else:
+            frozcore = self.QMin.molecule["frozcore"]
 
         # run orca_fragovl
         string = "orca_fragovl ORCA.gbw ORCA.gbw"
@@ -583,11 +595,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 ao_mat_a = self._matrix_from_output(ao_mat, n_ao)
                 ao_mat_b = np.empty((0, 0))
 
-            ao_mat_a = ao_mat_a[:, self.QMin.molecule["frozcore"] :]
-            ao_mat_b = ao_mat_b[:, self.QMin.molecule["frozcore"] :]
+            ao_mat_a = ao_mat_a[:, frozcore :]
+            ao_mat_b = ao_mat_b[:, frozcore :]
 
         # make string
-        n_mo = n_ao - self.QMin.molecule["frozcore"]
+        n_mo = n_ao - frozcore
         if not restr:
             n_mo *= 2
 
@@ -628,12 +640,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
             requests=requests,
         )
         if self.QMin.requests["theodore"]:
-            theodore_arr = np.zeros(
-                (
-                    self.QMin.molecule["nmstates"],
-                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
-                )
-            )
+            # theodore_arr = np.zeros(
+            #     (
+            #         self.QMin.molecule["nmstates"],
+            #         len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
+            #     )
+            # )
+            nprop = len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2
+            labels = self.QMin.resources["theodore_prop"][:] + [ 'Om_%i_%i' % (i,j) for i in range(len(self.QMin.resources["theodore_fragment"])) for j in range(len(self.QMin.resources["theodore_fragment"])) ]
+            theodore_arr = [ [labels[j], np.zeros(self.QMin.molecule["nmstates"])] for j in range(nprop)]
 
         scratchdir = self.QMin.resources["scratchdir"]
 
@@ -728,10 +743,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                         len(self.QMin.resources["theodore_prop"])
                                         + len(self.QMin.resources["theodore_fragment"]) ** 2
                                     ):
-                                        theodore_arr[i, j] = props[(m1, s1)][j]
+                                        # theodore_arr[i, j] = props[(m1, s1)][j]
+                                        theodore_arr[j][1][i] = props[(m1, s1)][j]
 
         if self.QMin.requests["theodore"]:
-            self.QMout["prop2d"].append(("theodore", theodore_arr))
+            self.QMout["prop1d"].extend(theodore_arr)
 
         # Populate gradients
         if self.QMin.requests["grad"]:
@@ -1194,7 +1210,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.control["jobs"] = jobs
         self.QMin.control["joblist"] = sorted(set(jobs))
 
-    def get_dets_from_cis(self, cis_path: str, jobid: int) -> dict[str, str]:
+    def get_dets_from_cis(self, cis_path: str, jobid: int, ignore_frozencore: bool = False, filelabel: str = "") -> dict[str, str]:
         """
         Parse ORCA.cis file from WORKDIR
         """
@@ -1203,7 +1219,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
         restricted = self.QMin.control["jobs"][jobid]["restr"]
         mults = self.QMin.control["jobs"][jobid]["mults"]
         gsmult = self.QMin.maps["multmap"][-int(jobid)][0]
-        frozcore = self.QMin.molecule["frozcore"]
+        if ignore_frozencore:
+            frozcore = 0
+        else:
+            frozcore = self.QMin.molecule["frozcore"]
         states_extract = deepcopy(self.QMin.molecule["states"])
         states_skip = [self.QMin.control["states_to_do"][i] - states_extract[i] for i in range(len(states_extract))]
 
@@ -1340,7 +1359,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             # Convert determinant lists to strings
             strings = {}
             for mult in mults:
-                filename = f"dets.{mult}"
+                filename = f"dets{filelabel}.{mult}"
                 strings[filename] = self.format_ci_vectors(eigenvectors[mult])
             return strings
 

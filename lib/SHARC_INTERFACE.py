@@ -41,7 +41,7 @@ from copy import deepcopy
 import numpy as np
 
 # internal
-from constants import ATOMCHARGE, BOHR_TO_ANG, IAn2AName
+from constants import ATOMCHARGE, BOHR_TO_ANG, IAn2AName, FROZENS
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
@@ -508,8 +508,8 @@ class SHARC_INTERFACE(ABC):
             raise TypeError(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
 
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
-        # self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
-        self.QMin.molecule["frozcore"] = 0
+        self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
+        # self.QMin.molecule["frozcore"] = 0
 
 
         if not isinstance(self.QMin.save["savedir"], str):
