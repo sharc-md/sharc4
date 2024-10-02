@@ -93,7 +93,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.template.update(
             {
                 "no_tda": False,
-                "picture_change": False,
+                # "picture_change": False,
                 "basis": "6-31G",
                 "auxbasis": None,
                 "functional": "PBE",
@@ -111,10 +111,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "basis_per_element": None,
                 "basis_per_atom": None,
                 "ecp_per_element": None,
-                "range_sep_settings": None,
-                "grid": None,
-                "gridx": None,
-                "gridxc": None,
+                # "range_sep_settings": None,
+                # "grid": None,
+                # "gridx": None,
+                # "gridxc": None,
             }
         )
         self.QMin.template.types.update(
@@ -237,7 +237,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 """Please specify the number of CPUs to be used by EACH calculation.
         """
             )
-            INFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
+            INFOS["ncpu"] = abs(question("Number of CPUs:", int, default=[1], KEYSTROKES=KEYSTROKES)[0])
 
             if INFOS["ncpu"] > 1:
                 self.log.info(
@@ -311,10 +311,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 self.log.info("")
 
                 self.log.info("Please give a list of the fragments used for TheoDORE analysis.")
-                self.log.info("You can use the list-of-lists from dens_ana.in")
+                #self.log.info("You can use the list-of-lists from dens_ana.in")
                 self.log.info(
-                    'Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
+                    'Enter all atom numbers for one fragment in one line. After defining all fragments, type "end".'
                 )
+                self.log.info("Atom numbering starts at 1 for TheoDORE.")
                 INFOS["theodore_frag"] = []
                 while True:
                     line = question("TheoDORE fragment:", str, default="end", KEYSTROKES=KEYSTROKES)
@@ -322,7 +323,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         break
                     f = [int(i) for i in line.split()]
                     INFOS["theodore_frag"].append(f)
-                INFOS["theodore.count"] = len(INFOS["theodore.prop"]) + len(INFOS["theodore.frag"]) ** 2
+                INFOS["theodore_count"] = len(INFOS["theodore_prop"]) + len(INFOS["theodore_frag"]) ** 2
 
         return INFOS
 
