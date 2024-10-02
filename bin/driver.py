@@ -247,13 +247,16 @@ def main():
     IRestart = setup_sharc(inp_file)
 
     basic_info = get_basic_info()
+    basic_info.update(derived_int.parseStates(basic_info["states"]))
     QMout = QMOUT(derived_int.__class__.__name__, basic_info["NAtoms"], basic_info["nmstates"])
 
+    print(basic_info)
     derived_int.setup_mol(basic_info)
 
     with InDir("QM"):
         derived_int.read_resources()
         derived_int.read_template()
+        # derived_int.QMin.save['savedir'] = basic_info['savedir']
         # derived_int.update_step(basic_info["step"])
         derived_int.setup_interface()
     if IRestart == 0:

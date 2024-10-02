@@ -320,8 +320,8 @@ class SHARC_INTERFACE(ABC):
 
         # Check if charge in template and autoexpand if needed
         if self.QMin.template["charge"]:
-            self.log.error(f"The 'charge' keyword must be specified in QM.in (or sharc.x' input)!")
-            raise ValueError(f"The 'charge' keyword must be specified in QM.in (or sharc.x' input)!")
+            self.log.warning(f"The 'charge' keyword must be specified in QM.in (or input)! Charge from template is ignored!")
+            #raise ValueError(f"The 'charge' keyword must be specified in QM.in (or sharc.x' input)!")
 
         if self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
@@ -437,6 +437,7 @@ class SHARC_INTERFACE(ABC):
                     self.QMin.molecule["states"] = states_dict["states"]
                 if key == "charge":
                     self.QMin.molecule["charge"] = convert_list(llist[1].split())
+                    self.QMin.template["charge"] = self.QMin.molecule["charge"]
 
                 elif key == "unit":
                     self.QMin.molecule["unit"] = llist[1].strip().lower()
@@ -448,7 +449,7 @@ class SHARC_INTERFACE(ABC):
                 elif key == "savedir":
                     self._setsave = True
                     self.QMin.save["savedir"] = llist[1].strip()
-                    self.log.debug(f"SAVEDIR set to {self.QMin.save['savedir']}")
+                    self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
                 elif key == "point_charges":
                     self.QMin.molecule["point_charges"] = True
                     pcfile = expand_path(llist[1].strip())
@@ -472,20 +473,35 @@ class SHARC_INTERFACE(ABC):
                     self.QMin.molecule["npc"] = len(pccharge)
 
         elif isinstance(qmin_file, dict):
+            # fixed settings
             self.QMin.molecule["unit"] = "bohr"
             self.QMin.molecule["factor"] = 1.0
+            # parse states and make statemap within qmin_file dict
             qmin_file.update(self.parseStates(qmin_file["states"]))
+            # copy statemap
+            self.QMin.maps["statemap"] = qmin_file["statemap"]
+            # take care of charge
+            if isinstance(qmin_file["charge"], str):
+                qmin_file["charge"] = qmin_file["charge"].split()
+            qmin_file["charge"] = convert_list(qmin_file["charge"])
+            # update everything in molecule
             self.QMin.molecule.update({k.lower(): v for k, v in qmin_file.items()})
+            # update stuff that has different names
             self.QMin.molecule["natom"] = qmin_file["NAtoms"]
             self.QMin.molecule["elements"] = [IAn2AName[x] for x in qmin_file["IAn"]]
-            self.QMin.maps["statemap"] = qmin_file["statemap"]
-            self.QMin.molecule["charge"] = convert_list(qmin_file["charge"])
-            self.QMin.template["charge"] = convert_list(qmin_file["charge"])
+            # set charges in template (TODO: maybe unnecessary)
+            self.QMin.template["charge"] = self.QMin.molecule["charge"]
+            # savedir
+            if "savedir" in qmin_file:
+                self._setsave = True
+                self.QMin.save["savedir"] = qmin_file["savedir"]
+                self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
 
         elif isinstance(qmin_file, QMin):
             self.QMin.molecule = deepcopy(qmin_file.molecule)
             self.QMin.maps["statemap"] = deepcopy(qmin_file.maps["statemap"])
             self.QMin.maps["chargemap"] = deepcopy(qmin_file.maps["chargemap"])
+            self.QMin.template["charge"] = self.QMin.molecule["charge"]
 
         else:
             self.log.error(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
@@ -565,10 +581,13 @@ class SHARC_INTERFACE(ABC):
         Setup states, statemap and everything related
         """
         res = {}
-        try:
-            res["states"] = list(map(int, states.split()))
-        except (ValueError, IndexError) as err:
-            raise ValueError('Keyword "states" has to be followed by integers!', 37) from err
+        if isinstance(states, str):
+            try:
+                res["states"] = list(map(int, states.split()))
+            except (ValueError, IndexError) as err:
+                raise ValueError('Keyword "states" has to be followed by integers!', 37) from err
+        elif isinstance(states, list):
+            res["states"] = states
         reduc = 0
         for i in reversed(res["states"]):
             if i == 0:
