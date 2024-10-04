@@ -815,15 +815,16 @@ from the initconds.excited files as provided by excite.py.
 def get_interface() -> SHARC_INTERFACE:
     "asks for interface and instantiates it"
     Interfaces = factory.get_available_interfaces()
+    log.info("")
     log.info("{:-^60}".format("Choose the quantum chemistry interface"))
     log.info("\nPlease specify the quantum chemistry interface (enter any of the following numbers):")
     possible_numbers = []
-    for i, (name, interface) in enumerate(Interfaces):
-        if type(interface) == str:
-            log.info("%i\t%s: %s" % (i, name, interface))
+    for i, (name, interface, possible) in enumerate(Interfaces):
+        if not possible:
+            log.info("% 3i %-20s %s" % (i+1, name, interface))
         else:
-            log.info("%i\t%s: %s" % (i, name, interface.description()))
-            possible_numbers.append(i)
+            log.info("% 3i %-20s %s" % (i+1, name, interface.description()))
+            possible_numbers.append(i+1)
     log.info("")
     while True:
         num = question("Interface number:", int)[0]
@@ -832,7 +833,9 @@ def get_interface() -> SHARC_INTERFACE:
         else:
             log.info("Please input one of the following: %s!" % (possible_numbers))
     log.info("")
-    return Interfaces[num][1]
+    log.info("The following interface was selected:")
+    log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
+    return Interfaces[num-1][1]
 
 
 def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
