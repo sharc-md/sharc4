@@ -1281,6 +1281,11 @@ Laser files can be created using $SHARC/laser.x
         if INFOS["theodore"]:
             INFOS["needed_requests"].append("theodore")
 
+    string = "\n  " + "=" * 80 + "\n"
+    string += "||" + f"{'Interface setup':^80}" + "||\n"
+    string += "  " + "=" * 80 + "\n\n"
+    log.info(string)
+
     return INFOS
 
 

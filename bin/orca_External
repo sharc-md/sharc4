@@ -96,11 +96,11 @@ INTERFACE = {
               'dipolegrad': False,
               'files': ['RICC2.template', 'RICC2.resources']
               },
-    'ams-adf': {'script': 'SHARC_AMS-ADF.py',
-            'description': 'AMS-ADF (DFT, TD-DFT)',
+    'AMS_ADF': {'script': 'SHARC_AMS_ADF.py',
+            'description': 'AMS_ADF (DFT, TD-DFT)',
             'couplings': [3],
             'dipolegrad': False,
-            'files': ['AMS-ADF.template', 'AMS-ADF.resources']
+            'files': ['AMS_ADF.template', 'AMS_ADF.resources']
             },
     'gaussian': {'script': 'SHARC_GAUSSIAN.py',
                  'description': 'GAUSSIAN (DFT, TD-DFT)',

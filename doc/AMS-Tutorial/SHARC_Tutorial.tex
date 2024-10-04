@@ -423,7 +423,7 @@ The \ttt{ams.results/} folder contains all fragment calculations as well as the 
 We will generate the \ttt{AMS.freq.molden} from the \ttt{adf.rkf} file with the help of another \sharc\ script and copy it as \ttt{AMS.freq.molden} into the Tutorial folder and change to it for the next steps.
 
 \begin{Verbatim}[commandchars=\\\{\}]
-  user@host> \textbf{\textcolor{red}{$SHARC/AMS-ADF_freq.py ams.results/adf.rkf}}
+  user@host> \textbf{\textcolor{red}{$SHARC/AMS_ADF_freq.py ams.results/adf.rkf}}
   user@host> \textbf{\textcolor{red}{cp ams.results/adf.rkf.molden ../AMS.freq.molden}}
 \end{Verbatim}
 Go back up to the \ttt{Tutorial} folder to continue.
@@ -523,15 +523,15 @@ The computations which are setup by \ttt{setup\_init.py} utilize the \sharc\ int
 The \sharc-\textsc{AMS} interface requires a template file which specifies the level of theory.
 Thus, before proceeding to setup the initial calculations, we need to prepare the \textsc{AMS} template file.
 
-Again, open a file called \ttt{AMS-ADF.template}:
+Again, open a file called \ttt{AMS_ADF.template}:
 \begin{Verbatim}[commandchars=\\\{\}]
-user@host> \textbf{\textcolor{red}{vi AMS-ADF.template}}
+user@host> \textbf{\textcolor{red}{vi AMS_ADF.template}}
 \end{Verbatim}
-You can find a \ttt{AMS-ADF.template} file in the examples (\ttt{\$SHARC/../examples/SHARC\_AMS-ADF/AMS-ADF.template}), where we wrote every possible option that you could put in there with explanatory comments (see below).
+You can find a \ttt{AMS_ADF.template} file in the examples (\ttt{\$SHARC/../examples/SHARC\_AMS_ADF/AMS_ADF.template}), where we wrote every possible option that you could put in there with explanatory comments (see below).
 \begin{oframed}
 \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
-  ## This is a commented version of the AMS-ADF.template file 
-  ## for version 2.1 of the SHARC_AMS-ADF.py interface.
+  ## This is a commented version of the AMS_ADF.template file 
+  ## for version 2.1 of the SHARC_AMS_ADF.py interface.
 
   ## ======== BASIS SETS ============
 
@@ -791,7 +791,7 @@ dvd_residu 1e-3
 \end{Verbatim}
 \end{oframed}
 
-However, you only need to type the following into your \ttt{AMS-ADF.template} file.
+However, you only need to type the following into your \ttt{AMS_ADF.template} file.
 \begin{oframed}
   \begin{Verbatim}[commandchars=\\\{\}]
 relativistic scalar zora 
@@ -815,7 +815,7 @@ Save the file and continue to the next section.
 \subsection{Setup of initial calculations}
 \refermanual{m-sec:molcas_input.py}
 
-With the necessary files (\ttt{initconds}, \ttt{AMS-ADF.template}) available, the script \ttt{setup\_init.py} can be launched.
+With the necessary files (\ttt{initconds}, \ttt{AMS_ADF.template}) available, the script \ttt{setup\_init.py} can be launched.
 Note that this script creates a large number of subdirectories in the directory where the script is run, so it is advisable to run the setup in a dedicated directory:
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{mkdir init/}}
@@ -878,7 +878,7 @@ Please specify the quantum chemistry interface (enter any of the following numbe
 2	COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals
 3	Analytical PESs
 4	MOLCAS (CASSCF, CASPT2, MS-CASPT2)
-5	AMS-ADF (DFT, TD-DFT)
+5	AMS_ADF (DFT, TD-DFT)
 6	TURBOMOLE (ricc2 with CC2 and ADC(2))
 7	LVC Hamiltonian
 8	GAUSSIAN (DFT, TD-DFT)
@@ -886,7 +886,7 @@ Please specify the quantum chemistry interface (enter any of the following numbe
 10	BAGEL (CASSCF, CASPT2, (X)MS-CASPT2)
 
 Interface number: \textbf{\textcolor{red}{5}}
-The used interface will be: AMS-ADF (DFT, TD-DFT)
+The used interface will be: AMS_ADF (DFT, TD-DFT)
 
 -----------------Spin-orbit couplings (SOCs)----------------
 
@@ -931,7 +931,7 @@ Path to scratch directory: (autocomplete enabled) \textbf{\textcolor{red}{$TMPDI
 
 -------------------AMS input template file------------------
 
-Please specify the path to the AMS-ADF.template file. This file must contain the following keywords:
+Please specify the path to the AMS_ADF.template file. This file must contain the following keywords:
 
 basis <basis>
 functional <type> <name>
@@ -939,7 +939,7 @@ charge <x> [ <x2> [ <x3> ...] ]
 
 The AMS interface will generate the appropriate AMS input automatically.
 
-Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../AMS-ADF.template}}
+Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../AMS_ADF.template}}
 
 ------------------Initial restart: MO Guess-----------------
 
@@ -1013,7 +1013,7 @@ amsbashrc                  /usr/license/adf/ams2020.102/amsbashrc.sh
 ams                        $AMSHOME
 scmlicense                 $SCMLICENSE
 scratchdir                 $TMPDIR/Tutorial/Init
-AMS-ADF.template               ../AMS-ADF.template
+AMS_ADF.template               ../AMS_ADF.template
 ams.guess                  \{\}
 ams.ncpu                   1
 ams.scaling                0.9
@@ -1332,7 +1332,7 @@ For this, create a new directory:
 user@host> \textbf{\textcolor{red}{mkdir traj}}
 user@host> \textbf{\textcolor{red}{cd traj}}
 \end{Verbatim}
-Make sure that you have all required files (\ttt{initconds.excited}, \ttt{AMS-ADF.template}) in this directory.
+Make sure that you have all required files (\ttt{initconds.excited}, \ttt{AMS_ADF.template}) in this directory.
 Then start the setup script:
 \begin{Verbatim}[commandchars=\\\{\}]
 user@host> \textbf{\textcolor{red}{$SHARC/setup_traj.py}}
@@ -1650,7 +1650,7 @@ Path to scratch directory: (autocomplete enabled) \textbf{\textcolor{red}{$TMPDI
 
 -------------------AMS input template file------------------
 
-Please specify the path to the AMS-ADF.template file. This file must contain the following keywords:
+Please specify the path to the AMS_ADF.template file. This file must contain the following keywords:
 
 basis <basis>
 functional <type> <name>
@@ -1658,7 +1658,7 @@ charge <x> [ <x2> [ <x3> ...] ]
 
 The AMS interface will generate the appropriate AMS input automatically.
 
-Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../AMS-ADF.template}}
+Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../AMS_ADF.template}}
 
 ------------------Initial restart: MO Guess-----------------
 
@@ -1795,7 +1795,7 @@ amsbashrc                  /usr/license/adf/ams2020.102/amsbashrc.sh
 ams                        $AMSHOME
 scmlicense                 $SCMLICENSE
 scratchdir                 $TMPDIR/Tutorial/Traj_WORK/
-AMS-ADF.template               ../AMS-ADF.template
+AMS_ADF.template               ../AMS_ADF.template
 ams.guess                  \{\}
 ams.ncpu                   1
 ams.scaling                0.9
@@ -3495,7 +3495,7 @@ Path to scratch directory: (autocomplete enabled) \textbf{\textcolor{red}{$TMPDI
 
 ------------------AMS input template file-------------------
 
-Please specify the path to the AMS-ADF.template file. This file must contain the following keywords:
+Please specify the path to the AMS_ADF.template file. This file must contain the following keywords:
 
 basis <basis>
 functional <type> <name>
@@ -3503,7 +3503,7 @@ charge <x> [ <x2> [ <x3> ...] ]
 
 The AMS interface will generate the appropriate AMS input automatically.
 
-Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../AMS-ADF.template}}
+Template filename: (autocomplete enabled) \textbf{\textcolor{red}{../AMS_ADF.template}}
 
 -----------------Initial restart: MO Guess------------------
 
@@ -3567,7 +3567,7 @@ amsbashrc                  /usr/license/adf/ams2020.102/amsbashrc.sh
 ams                        $AMSHOME
 scmlicense                 $SCMLICENSE
 scratchdir                 $TMPDIR
-AMS-ADF.template               ../AMS-ADF.template
+AMS_ADF.template               ../AMS_ADF.template
 ams.guess                  \{\}
 ams.ncpu                   1
 ams.scaling                0.9
@@ -3916,8 +3916,8 @@ List of files common to the trajectory directories:
      2                    6   ./nma_nma_av.txt
      3                    6   ./nma_nma_std.txt
      4                    6   ./output.lis
-     5                    6   QM/AMS-ADF.resources
-     6                    6   QM/AMS-ADF.template
+     5                    6   QM/AMS_ADF.resources
+     6                    6   QM/AMS_ADF.template
      7                    6   output_data/coeff_MCH.out
      8                    6   output_data/coeff_class_MCH.out
      9                    6   output_data/coeff_class_diab.out
@@ -4352,9 +4352,9 @@ In order to setup an LVC model, one has to perform three main steps:
 \end{enumerate}
 Here, we parametrize an LVC model for \ce{SO2}, using the settings and files from before.
 Note that a harmonic LVC model is not a very good model for all molecular systems, but for the goals of this tutorial, it is sufficient.
-To continue, we need the \ttt{AMS.freq.molden} and the \ttt{AMS-ADF.template} files obtained in Chapter~\ref{chap:full}. 
+To continue, we need the \ttt{AMS.freq.molden} and the \ttt{AMS_ADF.template} files obtained in Chapter~\ref{chap:full}. 
 Copy both of them into the directory, where you want to perform your LVC calculations.
-As we want to really tightly converge the calculation on which the LVC will be parametrized on, edit the following lines in your \ttt{AMS-ADF.template}.
+As we want to really tightly converge the calculation on which the LVC will be parametrized on, edit the following lines in your \ttt{AMS_ADF.template}.
 \begin{oframed}
   \footnotesize\begin{Verbatim}[commandchars=\\\{\}]
     \vdots      \vdots
@@ -4427,7 +4427,7 @@ Please specify the quantum chemistry interface (enter any of the following numbe
 2	COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD integrals
 3	Analytical PESs
 4	MOLCAS (CASSCF, CASPT2, MS-CASPT2)
-5	AMS-ADF (DFT, TD-DFT)
+5	AMS_ADF (DFT, TD-DFT)
 6	TURBOMOLE (ricc2 with CC2 and ADC(2))
 7	LVC Hamiltonian
 8	GAUSSIAN (DFT, TD-DFT)
@@ -4435,7 +4435,7 @@ Please specify the quantum chemistry interface (enter any of the following numbe
 10	BAGEL (CASSCF, CASPT2, (X)MS-CASPT2)
 
 Interface number: \textbf{\textcolor{red}{5}}
-The used interface will be: AMS-ADF (DFT, TD-DFT)
+The used interface will be: AMS_ADF (DFT, TD-DFT)
 
 -----------------Spin-orbit couplings (SOCs)----------------
 
@@ -4511,7 +4511,7 @@ Path to scratch directory: (autocomplete enabled) \textbf{\textcolor{red}{$TMPDI
 
 ------------------AMS input template file-------------------
 
-Please specify the path to the AMS-ADF.template file. This file must contain the following keywords:
+Please specify the path to the AMS_ADF.template file. This file must contain the following keywords:
 
 basis <basis>
 functional <type> <name>
@@ -4519,7 +4519,7 @@ charge <x> [ <x2> [ <x3> ...] ]
 
 The AMS interface will generate the appropriate AMS input automatically.
 
-Valid file "AMS-ADF.template" detected. 
+Valid file "AMS_ADF.template" detected. 
 Use this template file? [True] \textbf{\textcolor{red}{<ENTER>}}
 
 -----------------Initial restart: MO Guess------------------
@@ -4626,7 +4626,7 @@ amsbashrc                 /usr/license/adf/ams2020.102/amsbashrc.sh
 ams                       $AMSHOME
 scmlicense                $SCMLICENSE
 scratchdir                $TMPDIR
-AMS-ADF.template              AMS-ADF.template
+AMS_ADF.template              AMS_ADF.template
 ams.ncpu                  1
 ams.scaling               0.9
 ams.wfoverlap             $SHARC/wfoverlap.x
