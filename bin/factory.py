@@ -27,6 +27,7 @@ from utils import expand_path
 from typing import Union
 from logger import log
 import glob
+import time
 from SHARC_INTERFACE import SHARC_INTERFACE
 from SHARC_OLD import SHARC_OLD
 
@@ -50,6 +51,7 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
     sharc_bin = expand_path('$SHARC')
     log.debug(f"factory interface collection: {sharc_bin}")
     interfaces = []
+    start = time.time_ns()
     for path in sorted(glob.glob(sharc_bin + '/SHARC_*.py')):
         filename = path.split('/')[-1]
         interface_name = filename.split('.')[0]
@@ -82,6 +84,8 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
             continue
 
         interfaces.append((interface_name, interface, True))
+    stop = time.time_ns()
+    log.debug("Timing for finding interfaces: %.1f sec" % ((stop - start) * 1e-9) )
     log.debug(interfaces)
     AVAILABLE_INTERFACES = interfaces[:]
     return interfaces
