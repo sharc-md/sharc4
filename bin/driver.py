@@ -214,6 +214,7 @@ def main():
     parser = OptionParser()
 
     parser.add_option("-i", "--interface", dest="name", help="Name of the Interface you want to use.")
+    parser.add_option("-P", "--nonpersistent", dest="persistent", action="store_false", default=True, help="to turn off interface persistency")
     parser.add_option(
         "-v", "--verbose", dest="verbose", action="store_true", default=False, help="sets verbosity, i.e. print and debug option"
     )
@@ -239,7 +240,7 @@ def main():
     # param = args[0:-1]
     interface = factory(options.name)
 
-    derived_int: SHARC_INTERFACE = interface(persistent=True, loglevel=loglevel)
+    derived_int: SHARC_INTERFACE = interface(persistent=options.persistent, loglevel=loglevel)
     derived_int.QMin.molecule["unit"] = "bohr"
     derived_int.QMin.molecule["factor"] = 1.0
     if options.print:
@@ -250,7 +251,6 @@ def main():
     basic_info.update(derived_int.parseStates(basic_info["states"]))
     QMout = QMOUT(derived_int.__class__.__name__, basic_info["NAtoms"], basic_info["nmstates"])
 
-    print(basic_info)
     derived_int.setup_mol(basic_info)
 
     with InDir("QM"):
