@@ -76,3 +76,11 @@ class SHARC_FAST(SHARC_INTERFACE):
         if "extra_files" in self.__dict__:
             for file in self.extra_files:
                 shutil.copy(expand_path(file), os.path.join(dir_path, os.path.split(file)[1]))
+
+
+    def clean_savedir(self) -> None:
+        if not self.persistent:
+            super().clean_savedir()
+
+
+

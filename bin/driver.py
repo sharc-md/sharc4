@@ -196,7 +196,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         i.write_step_file()
     log.debug(f"\tset_props")
     qmout.set_props(i.getQMout(), icall)
-    i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
+    i.clean_savedir()
 
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:

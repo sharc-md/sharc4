@@ -194,18 +194,6 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
 
 
-    def _step_logic(self):
-        super()._step_logic()
-        self.child_interface._step_logic()
-
-    def write_step_file(self):
-        super().write_step_file()
-        self.child_interface.write_step_file()
-        
-    def update_step(self, step: int = None):
-        super().update_step(step)
-        self.child_interface.update_step(step)
-
 
 
 
@@ -512,11 +500,29 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
 
 
+    # savedir handling
 
+    def _step_logic(self):
+        super()._step_logic()
+        self.child_interface._step_logic()
 
+    def write_step_file(self):
+        super().write_step_file()
+        self.child_interface.write_step_file()
+        
+    def update_step(self, step: int = None):
+        super().update_step(step)
+        self.child_interface.update_step(step)
 
     def create_restart_files(self):
         self.child_interface.create_restart_files()
+
+    def clean_savedir(self):
+        super().clean_savedir()
+        self.child_interface.clean_savedir()
+
+
+
 
 
 if __name__ == "__main__":

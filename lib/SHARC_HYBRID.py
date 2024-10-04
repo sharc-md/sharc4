@@ -141,3 +141,12 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             raise AttributeError from exc
 
         return interface
+
+
+    def clean_savedir(self) -> None:
+        super().clean_savedir()
+        for child in self._kindergarden.values():
+            child.clean_savedir()
+
+
+

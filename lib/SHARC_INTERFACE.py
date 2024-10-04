@@ -197,6 +197,8 @@ class SHARC_INTERFACE(ABC):
         """
         return "This is the changelog string"
 
+    # ----- setup routines -----
+
     @abstractmethod
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
         """return availble features
@@ -243,11 +245,15 @@ class SHARC_INTERFACE(ABC):
         """
         return
 
+    # ----- print routines -----
+
     def print_qmin(self) -> None:
         """
         Print contents of QMin object
         """
         self.log.info(f"{self.QMin}")
+
+    # ----- main routine -----
 
     def main(self) -> None:
         """
@@ -290,7 +296,7 @@ class SHARC_INTERFACE(ABC):
         self.getQMout()
 
         # Remove old data
-        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
+        self.clean_savedir()
 
         # writes a STEP file in the SAVEDIR (marks this step as succesfull)
         self.write_step_file()
@@ -299,6 +305,8 @@ class SHARC_INTERFACE(ABC):
         self.log.info(self.formatQMout())
         self.QMout["runtime"] = self.clock.measuretime(log=self.log.info)
         self.writeQMout(filename=QMinfilename)
+
+    # ----- initialization routine -----
 
     @abstractmethod
     def read_template(self, template_file: str, kw_whitelist: list[str] | None = None) -> None:
@@ -329,8 +337,9 @@ class SHARC_INTERFACE(ABC):
         self._read_template = True
 
 
-    @staticmethod
-    def clean_savedir(path: str, retain: int, step: int) -> None:
+    # ----- save routine -----
+
+    def clean_savedir(self) -> None:
         """
         Remove older files than step-retain
 
@@ -338,6 +347,21 @@ class SHARC_INTERFACE(ABC):
         retain:     Number of timesteps to keep (-1 = all)
         step:       Current step
         """
+        path = self.QMin.save["savedir"]
+        retain = self.QMin.requests["retain"]
+        step = self.QMin.save["step"]
+        if retain < 0:
+            return
+        if not os.path.isdir(path):
+            raise FileNotFoundError(f"{path} is not a directory!")
+        for file in os.listdir(path):
+            ext = os.path.splitext(file)[1].replace(".", "")
+            if not re.match(r"^\d+$", ext):  # Skip if extension is not a number
+                continue
+            if int(ext) < step - retain:
+                os.remove(os.path.join(path, file))
+
+    # ----- runtime routine -----
 
     @abstractmethod
     def run(self) -> None:
@@ -357,11 +381,15 @@ class SHARC_INTERFACE(ABC):
         Return QMout object
         """
 
+    # ----- save routine -----
+
     @abstractmethod
     def create_restart_files(self) -> None:
         """
         Create restart files
         """
+
+    # ----- runtime routine -----
 
     def set_coords(self, xyz: str | list | np.ndarray, pc: bool = False) -> None:
         """
@@ -383,6 +411,8 @@ class SHARC_INTERFACE(ABC):
             self.QMin.coords[key] = np.asarray(xyz) * self.QMin.molecule["factor"]
         else:
             raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
+
+    # ----- initialization routine -----
 
     def setup_mol(self, qmin_file: str|dict|QMin) -> None:
         """
@@ -804,6 +834,8 @@ class SHARC_INTERFACE(ABC):
 
         return out_dict
 
+    # ----- runtime routine -----
+
     def read_requests(self, requests_file: str | dict = "QM.in") -> None:
         """
         Reads QM.in file and parses requests
@@ -870,7 +902,7 @@ class SHARC_INTERFACE(ABC):
         self.QMin.save["init"] = False
         self.QMin.save["samestep"] = False
         self.QMin.save["newstep"] = False
-        self.QMin.save["restart"] = False
+        # self.QMin.save["restart"] = False
 
         # TODO: implement previous_step from driver
         self.QMin.save.update({"newstep": False, "init": False, "samestep": False})
@@ -930,7 +962,7 @@ class SHARC_INTERFACE(ABC):
                     continue
                 requests[k.lower()] = True
             del requests["tasks"]
-        if "soc" in requests:
+        if "soc" in requests and requests["soc"]:
             requests["h"] = True
         for task in ["nacdr", "overlap", "grad", "ion"]:
             if task in requests and isinstance(requests[task], str):
@@ -1036,6 +1068,8 @@ class SHARC_INTERFACE(ABC):
                 self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
                 raise ValueError()
 
+    # ----- save routine -----
+
     def write_step_file(self) -> None:
         """
         Write current step into stepfile (only if cleanup not requested)
@@ -1054,6 +1088,8 @@ class SHARC_INTERFACE(ABC):
             self.QMin.save["step"] += 1
         else:
             self.QMin.save["step"] = step
+
+    # ----- print routine -----
 
     def writeQMout(self, filename: str = "QM.out") -> None:
         """

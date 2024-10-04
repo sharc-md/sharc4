@@ -471,26 +471,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             nslots = ncpu // ncores
         return nrounds, nslots, cpu_per_run
 
-    @staticmethod
-    def clean_savedir(path: str, retain: int, step: int) -> None:
-        """
-        Remove files older than step-retain
 
-        path:       Path to savedir
-        retain:     Number of timesteps to keep (-1 = all)
-        step:       Current step
-        """
-        if retain < 0:
-            return
 
-        if not os.path.isdir(path):
-            raise FileNotFoundError(f"{path} is not a directory!")
-
-        for file in os.listdir(path):
-            if not re.match(r"^\d+$", (ext := os.path.splitext(file)[1].replace(".", ""))):  # Skip if extension is not a number
-                continue
-            if int(ext) < step - retain:
-                os.remove(os.path.join(path, file))
 
     # Start TOMI
     def get_density_recipes(self):
@@ -1450,3 +1432,5 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             chrg[i] -= sum(pop[ao_start:ao_stop])
 
         return chrg
+
+

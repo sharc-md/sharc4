@@ -867,7 +867,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.get_mole()
         # Create restart files and garbage collection
         self.create_restart_files()
-        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
+        self.clean_savedir()    # TODO: why done here? Is in main function and in driver...
 
         # do all necessary overlap and Dyson calculations
         self._run_wfoverlap()

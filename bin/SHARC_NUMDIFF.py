@@ -579,10 +579,9 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         super().update_step(step)
         self.ref_interface.update_step(step)
 
-    # # TODO: should this be implemented? But it is a static method, so we can't call it for children...
-    # def clean_savedir(savedir, retain, step):
-    #     super().clean_savedir(savedir, retain, step)
-    #     self.ref_interface.clean_savedir(savedir, retain, step)
+    def clean_savedir(self):
+        super().clean_savedir()
+        self.ref_interface.clean_savedir()
 
 # ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------

@@ -239,29 +239,7 @@ class SHARC_QMMM(SHARC_HYBRID):
 
         return set(qmmm_features)
 
-    def _step_logic(self):
-        super()._step_logic()
-        self.qm_interface._step_logic()
-        self.mml_interface._step_logic()
 
-        if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface._step_logic()
-
-    def write_step_file(self):
-        super().write_step_file()
-        self.qm_interface.write_step_file()
-        self.mml_interface.write_step_file()
-
-        if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface.write_step_file()
-        
-    def update_step(self, step: int = None):
-        super().update_step(step)
-        self.qm_interface.update_step(step)
-        self.mml_interface.update_step(step)
-
-        if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface.update_step(step)
 
     def read_template(self, template_file="QMMM.template", kw_whitelist: list[str] | None = None) -> None:
         super().read_template(template_file, kw_whitelist)
@@ -594,11 +572,44 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.QMout.runtime = self.clock.measuretime()
         return self.QMout
 
+
+
+
     def create_restart_files(self):
         self.qm_interface.create_restart_files()
         self.mml_interface.create_restart_files()
         if self.QMin.template["embedding"] == "subtractive":
             self.mms_interface.create_restart_files()
+
+    def clean_savedir(self):
+        super().clean_savedir()
+        self.qm_interface.clean_savedir()
+        self.mml_interface.clean_savedir()
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface.clean_savedir()
+
+    def _step_logic(self):
+        super()._step_logic()
+        self.qm_interface._step_logic()
+        self.mml_interface._step_logic()
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface._step_logic()
+
+    def write_step_file(self):
+        super().write_step_file()
+        self.qm_interface.write_step_file()
+        self.mml_interface.write_step_file()
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface.write_step_file()
+        
+    def update_step(self, step: int = None):
+        super().update_step(step)
+        self.qm_interface.update_step(step)
+        self.mml_interface.update_step(step)
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface.update_step(step)
+
+
 
 
 if __name__ == "__main__":
