@@ -398,7 +398,6 @@ class SHARC_INTERFACE(ABC):
                 f"setup_mol() was already called! Continue setup with {qmin_file}",
             )
         if isinstance(qmin_file, str):
-            self.log.info(f'Setup molecule from file {qmin_file}')
             self.QMin.molecule["unit"] = "angstrom"  # default 
             self.QMin.molecule["factor"] = 1.0 / BOHR_TO_ANG
             qmin_lines = readfile(qmin_file) 
@@ -473,7 +472,6 @@ class SHARC_INTERFACE(ABC):
                     self.QMin.molecule["npc"] = len(pccharge)
 
         elif isinstance(qmin_file, dict):
-            self.log.info(f'Setup molecule from dictionary {qmin_file}')
             # fixed settings
             self.QMin.molecule["unit"] = "bohr"
             self.QMin.molecule["factor"] = 1.0
@@ -499,7 +497,6 @@ class SHARC_INTERFACE(ABC):
                 self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
 
         elif isinstance(qmin_file, QMin):
-            self.log.info(f'Setup molecule from QMin object.')
             self.QMin.molecule = deepcopy(qmin_file.molecule)
             self.QMin.maps["statemap"] = deepcopy(qmin_file.maps["statemap"])
             self.QMin.maps["chargemap"] = deepcopy(qmin_file.maps["chargemap"])
