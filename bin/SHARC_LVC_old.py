@@ -47,7 +47,7 @@ except ImportError:
     import subprocess as sp
     NONUMPY = True
 
-print("Import: CPU time: % .3f s, wall time: %.3f s" % (time.clock() - tc, time.time() - tt))
+# print("Import: CPU time: % .3f s, wall time: %.3f s" % (time.clock() - tc, time.time() - tt))
 
 # =========================================================
 # some constants
