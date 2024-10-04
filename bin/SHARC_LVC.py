@@ -38,7 +38,7 @@ import numpy as np
 
 # internal
 from SHARC_FAST import SHARC_FAST
-from utils import readfile, question, expand_path
+from utils import readfile, writefile, question, expand_path
 from io import TextIOWrapper
 from constants import U_TO_AMU
 from kabsch import kabsch_w as kabsch, kabsch_w_with_deriv
@@ -135,10 +135,17 @@ class SHARC_LVC(SHARC_FAST):
         dipole_real = True
         line = f.readline()
         if line.startswith("charge"):
-            self.QMin.molecule["charge"] = [int(x) for x in line.split()[1:]]
-            # TODO: maybe better to have a check whether QMin charges and template charges are the same?
-            self.QMout.charges = self.QMin.molecule["charge"]
+            charges = [int(x) for x in line.split()[1:]]
+            c1 = np.array(charges)
+            c2 = np.array(self.QMin.molecule["charge"])
+            mask = np.array(states) != 0
+            c1 = c1[mask]
+            c2 = c2[mask]
+            if not np.array_equal(c1,c2):
+                self.log.error('Charges from request and in template are not consistent!')
+                raise RuntimeError()
             line = f.readline()
+        self.QMout.charges = self.QMin.molecule["charge"]
         # NOTE: possibly assign whole array with index accessor (numpy)
         if line == "epsilon\n":
             z = int(f.readline()[:-1])
@@ -814,7 +821,11 @@ class SHARC_LVC(SHARC_FAST):
         self.log.info("=" * 80)
         self.log.info("\n")
 
-        self.template_file = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        if os.path.isfile('LVC.template'):
+            default = 'LVC.template'
+        else:
+            default = None
+        self.template_file = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True, default=default)
         while not os.path.isfile(self.template_file):
             self.template_file = question(
                 f"'{self.template_file}' not found!\nSpecify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True
@@ -848,12 +859,19 @@ class SHARC_LVC(SHARC_FAST):
 
         if question("Do you have an LVC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
             self.resources_file = question("Specify path to LVC.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        else:
+            self.wants_kabsch = question("Do you want to use the Kabsch algorithm?", bool, KEYSTROKES=KEYSTROKES, default=True)
 
         return INFOS
 
     def dyson_orbitals_with_other(self, other):
-        pass
+        raise NotImplementedError()
 
+    def prepare(self, INFOS: dict, dir_path: str):
+        super().prepare(INFOS, dir_path)
+        if not "resources_file" in self.__dict__ and "wants_kabsch" in self.__dict__ and self.wants_kabsch:
+            string = 'do_kabsch true\n'
+            writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
 if __name__ == "__main__":
     from logger import loglevel
