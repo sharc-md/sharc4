@@ -313,15 +313,17 @@ class SHARC_LVC(SHARC_FAST):
             self._diagonalize = self.QMin.resources["diagonalize"]
 
     def setup_interface(self):
-        if self.QMin.requests["overlap"]:
-            if self.QMin.save["step"] == 0:
-                self.QMout.overlap = np.identity(self.parsed_states["nmstates"], dtype=float)
+        if self.persistent:
+            stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
+            if os.path.isfile(stepfile):
+                last_step = int(readfile(stepfile)[0])
             else:
-                self.log.debug(f'restarting: getting overlap from file {self.QMin.save["step"]-1}.npy')
-                self.QMout.overlap = (
-                    np.load(os.path.join(self.QMin.save["savedir"], f'U_{self.QMin.save["step"]-1}')).reshape(self._U.shape).T
-                    @ self._U
-                )
+                last_step = None
+            if last_step is None:
+                self._Uold = np.identity(self.QMin.molecule["nmstates"], dtype = float)
+            else:
+                ufile = os.path.join(self.QMin.save["savedir"], f'U.{last_step}.out.npy')
+                self._Uold = np.load(ufile)
 
     def getQMout(self):
         return self.QMout
@@ -715,21 +717,21 @@ class SHARC_LVC(SHARC_FAST):
                 overlap = self._Uold.T @ self._U
             else:
                 overlap = (
-                    np.load(os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']-1}.npy")).reshape(self._U.shape).T
+                    np.load(os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']-1}.out.npy")).reshape(self._U.shape).T
                     @ self._U
                 )
 
         # OVERLAP
-        if self.persistent:
+        if not self.QMin.save["samestep"]:
             self._Uold = np.copy(self._U)
-        else:
-            np.save(
-                os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']}"), self._U
-            )  # writes a binary file (can be read with numpy.load())
-        if self.QMin.resources["keep_U"]:
-            if "all_U" not in self.__dict__:
-                self.all_U = []
-            self.all_U.append(self._U)
+            if not self.persistent:
+                np.save(
+                    os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']}.out.npy"), self._U
+                )  # writes a binary file (can be read with numpy.load())
+            if self.QMin.resources["keep_U"]:
+                if "all_U" not in self.__dict__:
+                    self.all_U = []
+                self.all_U.append(self._U)
 
         # ========================== Prepare results ========================================
         if self.QMin.requests["soc"]:
@@ -795,12 +797,12 @@ class SHARC_LVC(SHARC_FAST):
 
     def create_restart_files(self):
         np.save(
-            os.path.join(self.QMin.save["savedir"], f'U.{self.QMin.save["step"]}.out'), self._U
+            os.path.join(self.QMin.save["savedir"], f'U.{self.QMin.save["step"]-1}.out.npy'), self._U
         )  # writes a binary file (can be read with numpy.load())
 
         if self.QMin.resources["keep_U"]:
             all_U = np.array(self.all_U)
-            np.save(os.path.join(self.QMin.save["savedir"], f"U_0-{self.QMin.save['step']}.npy"), all_U)
+            np.save(os.path.join(self.QMin.save["savedir"], f"U_0-{self.QMin.save['step']-1}.npy"), all_U)
 
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         return {
