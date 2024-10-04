@@ -137,7 +137,7 @@ module input
 
     ! default is no restart
     ctrl%restart=.false.
-    ctrl%restart_rerun_last_qm_step=.false.
+    ! ctrl%restart_rerun_last_qm_step=.false.
     ! look for restart keyword
     line=get_value_from_key('restart',io)
     if (io==0) then
@@ -300,22 +300,22 @@ module input
           write(u_log,*)
         endif
       endif
-      line=get_value_from_key('restart_rerun_last_qm_step',io)
-      if (io==0) then
-        ctrl%restart_rerun_last_qm_step=.true.
-        write(u_log,'(a)') 'Assuming that restart/ directory corresponds to upcoming time step)'
-        write(u_log,'(a)') '(e.g., after a crash or job kill).'
-      else
-        line=get_value_from_key('restart_goto_new_qm_step',io)
-        if (io==0) then
-          ctrl%restart_rerun_last_qm_step=.false.
-          write(u_log,'(a)') 'Assuming that restart/ directory corresponds to time step in restart files'
-          write(u_log,'(a)') '(e.g., after using STOP file, killafter mechanism, or reaching time step limit).'
-        else
-          write(0,*) 'Please add "restart_rerun_last_qm_step" or "restart_goto_new_qm_step" keyword!'
-          stop
-        endif
-      endif
+      ! line=get_value_from_key('restart_rerun_last_qm_step',io)
+      ! if (io==0) then
+      !   ctrl%restart_rerun_last_qm_step=.true.
+      !   write(u_log,'(a)') 'Assuming that restart/ directory corresponds to upcoming time step)'
+      !   write(u_log,'(a)') '(e.g., after a crash or job kill).'
+      ! else
+      !   line=get_value_from_key('restart_goto_new_qm_step',io)
+      !   if (io==0) then
+      !     ctrl%restart_rerun_last_qm_step=.false.
+      !     write(u_log,'(a)') 'Assuming that restart/ directory corresponds to time step in restart files'
+      !     write(u_log,'(a)') '(e.g., after using STOP file, killafter mechanism, or reaching time step limit).'
+      !   else
+      !     write(0,*) 'Please add "restart_rerun_last_qm_step" or "restart_goto_new_qm_step" keyword!'
+      !     stop 1
+      !   endif
+      ! endif
 
       ! convert tmax to atomic unit 
       ctrl%tmax=ctrl%tmax/au2fs
@@ -852,6 +852,24 @@ module input
     else
       ctrl%coupling=2
     endif
+
+    ! retain restart data
+    line=get_value_from_key('retain_restart_files',io)
+    if (io==0) then
+      read(line,*) ctrl%retain_restart_files
+    else
+      if (ctrl%coupling==2) then
+        ctrl%retain_restart_files = 3
+      else
+        ctrl%retain_restart_files = 2
+      endif      
+    endif
+    if (ctrl%coupling==2) then
+      if (ctrl%retain_restart_files<1) then
+        ctrl%retain_restart_files=1
+      endif
+    endif
+
 
     ! turn program off if adaptive is used for overlap
     if (ctrl%integrator==0 .or. ctrl%integrator==1) then

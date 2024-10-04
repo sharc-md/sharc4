@@ -104,14 +104,16 @@ module restart
      write(u,*) ctrl%decoherence_alpha
      write(u,*) ctrl%force_hop_to_gs
      write(u,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
+     write(u,*) ctrl%output_format, '! output_format'
      write(u,*) (ctrl%output_steps_stride(istate),istate=1,3)
      write(u,*) (ctrl%output_steps_limits(istate),istate=1,3)
      if (ctrl%output_format == 2) then
        write(u,*) (ctrl%output_steps_stride_nuc(istate),istate=1,3)
        write(u,*) (ctrl%output_steps_limits_nuc(istate),istate=1,3)
-    endif
+     endif
      write(u,*) ctrl%restart
-     write(u,*) ctrl%restart_rerun_last_qm_step
+     !  write(u,*) ctrl%restart_rerun_last_qm_step
+     write(u,*) ctrl%retain_restart_files
      write(u,*) ctrl%method
      write(u,*) ctrl%integrator
      write(u,*) ctrl%write_restart_files
@@ -131,6 +133,7 @@ module restart
      write(u,*) ctrl%time_uncertainty
      write(u,*) ctrl%gradcorrect
      write(u,*) ctrl%dipolegrad, '! dipolegrad'
+
      write(u,*) ctrl%nac_projection
      write(u,*) ctrl%zpe_correction
      write(u,*) ctrl%lpzpe_scheme
@@ -147,6 +150,7 @@ module restart
      write(u,*) ctrl%t_check
      write(u,*) ctrl%pointer_basis
      write(u,*) ctrl%pointer_maxiter
+
      write(u,*) ctrl%calc_soc
      write(u,*) ctrl%calc_grad
      write(u,*) ctrl%calc_overlap
@@ -164,7 +168,6 @@ module restart
      write(u,*) ctrl%hopping_procedure
      write(u,*) ctrl%switching_procedure
      write(u,*) ctrl%army_ants
-     write(u,*) ctrl%output_format, '! output_format'
  
      ! thermostat
      write(u,*) ctrl%thermostat
@@ -708,9 +711,10 @@ module restart
      if (ctrl%output_format == 2) then
        read(u_ctrl,*) (ctrl%output_steps_stride_nuc(istate),istate=1,3)
        read(u_ctrl,*) (ctrl%output_steps_limits_nuc(istate),istate=1,3)
-    endif
+     endif
      read(u_ctrl,*) ctrl%restart
-     read(u_ctrl,*) ctrl%restart_rerun_last_qm_step
+     !  read(u_ctrl,*) ctrl%restart_rerun_last_qm_step
+     read(u_ctrl,*) ctrl%retain_restart_files
      read(u_ctrl,*) ctrl%method
      read(u_ctrl,*) ctrl%integrator
      read(u_ctrl,*) ctrl%write_restart_files
@@ -730,6 +734,7 @@ module restart
      read(u_ctrl,*) ctrl%time_uncertainty
      read(u_ctrl,*) ctrl%gradcorrect
      read(u_ctrl,*) ctrl%dipolegrad
+
      read(u_ctrl,*) ctrl%nac_projection
      read(u_ctrl,*) ctrl%zpe_correction
      read(u_ctrl,*) ctrl%lpzpe_scheme
@@ -750,6 +755,7 @@ module restart
      read(u_ctrl,*) ctrl%t_check
      read(u_ctrl,*) ctrl%pointer_basis
      read(u_ctrl,*) ctrl%pointer_maxiter
+
      read(u_ctrl,*) ctrl%calc_soc
      read(u_ctrl,*) ctrl%calc_grad
      read(u_ctrl,*) ctrl%calc_overlap
@@ -767,6 +773,7 @@ module restart
      read(u_ctrl,*) ctrl%hopping_procedure
      read(u_ctrl,*) ctrl%switching_procedure
      read(u_ctrl,*) ctrl%army_ants
+     
      ! thermostat
      read(u_ctrl,*) ctrl%thermostat
      if (ctrl%thermostat/=0) then

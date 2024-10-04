@@ -400,10 +400,11 @@ module definitions
     integer :: output_steps_limits(3)         !< switches stride for output.dat writing
     integer :: output_steps_stride_nuc(3)     !< how often sharc_traj_xyz.nc is written
     integer :: output_steps_limits_nuc(3)     !< switches stride for sharc_traj_xyz.nc writing
+    integer :: retain_restart_files           !< how many previous time steps should be kept
   
   ! methods and switches
     logical :: restart                        !< restart yes or no
-    logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
+    ! logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
     logical :: write_restart_files            !< if false skips the generation of all restart files and logic
     integer :: method                         !< 0=trajectory surface hopping(tsh), 1=self-consistent potential(scp)
     integer :: integrator                     !< integrator used, 0=Bulirsch-Stoer, 1=adaptive Velocity Verlet, 2=fixed stepzie Velocity Verlet

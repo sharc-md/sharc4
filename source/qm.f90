@@ -565,6 +565,7 @@ module qm
     write(u_qm_qmin,'(a,1x,F12.6)') 'dt',ctrl%dtstep
     write(u_qm_qmin,'(a,1x,I7)') 'step',traj%step
     write(u_qm_qmin,'(a,1x,a)') 'savedir',trim(cwd)//'/restart'
+    write(u_qm_qmin,'(a,1x,I7)') 'retain',ctrl%retain_restart_files
 
   endsubroutine
 
@@ -580,13 +581,13 @@ module qm
     type(ctrl_type) :: ctrl
     integer :: i,j
 
-    if ((traj%step==0).and..not.(ctrl%track_phase_at_zero==1)) then
-      write(u_qm_qmin,'(A)') 'init'
-    endif
-    if (ctrl%restart_rerun_last_qm_step) then
-      write(u_qm_qmin,'(A)') 'restart'
-      ctrl%restart_rerun_last_qm_step=.false.
-    endif
+    ! if ((traj%step==0).and..not.(ctrl%track_phase_at_zero==1)) then
+    !   write(u_qm_qmin,'(A)') 'init'
+    ! endif
+    ! if (ctrl%restart_rerun_last_qm_step) then
+    !   write(u_qm_qmin,'(A)') 'restart'
+    !   ctrl%restart_rerun_last_qm_step=.false.
+    ! endif
     if (ctrl%calc_soc==1) then
       write(u_qm_qmin,'(A)') 'SOC'
     else
@@ -676,7 +677,7 @@ module qm
     type(ctrl_type) :: ctrl
     integer :: i,j
 
-    write(u_qm_qmin,'(A)') 'samestep'
+    ! write(u_qm_qmin,'(A)') 'samestep'
 
     if (ctrl%calc_grad==2) then
       write(u_qm_qmin,'(A)',advance='no') 'GRAD'
@@ -718,7 +719,7 @@ module qm
     type(ctrl_type) :: ctrl
     integer :: i
 
-    write(u_qm_qmin,'(A)') 'samestep'
+    ! write(u_qm_qmin,'(A)') 'samestep'
 
 !     if (ctrl%calc_grad==2) then
       write(u_qm_qmin,'(A)',advance='no') 'GRAD'
@@ -2143,6 +2144,7 @@ module qm
         endif
         traj%overlaps_ss(istate,istate)=sqrt(1.d0-overlap_sum)
       enddo
+      call lowdin(ctrl%nstates, traj%overlaps_ss)
 
       if (printlevel>3) then
         call matwrite(ctrl%nstates,traj%overlaps_ss,u_log,'Approximated overlap matrix from TDC (MCH basis)','F12.9')
