@@ -23,6 +23,11 @@
 #
 # ******************************************
 
+from SHARC_OLD import SHARC_OLD
+class SHARC_AMS_ADF(SHARC_OLD):
+    pass
+
+
 
 # Modules:
 # Operating system, isfile and related routines, move files, create directories
@@ -1140,13 +1145,13 @@ def get_sh2AMS_environ(sh2AMS, key, environ=True, crucial=True):
             LINE = os.getenv(key.upper())
             if not LINE:
                 if crucial:
-                    print('Either set $%s or give path to %s in AMS-ADF.resources!' % (key.upper(), key.upper()))
+                    print('Either set $%s or give path to %s in AMS_ADF.resources!' % (key.upper(), key.upper()))
                     sys.exit(19)
                 else:
                     return None
         else:
             if crucial:
-                print('Give path to %s in AMS-ADF.resources!' % (key.upper()))
+                print('Give path to %s in AMS_ADF.resources!' % (key.upper()))
                 sys.exit(20)
             else:
                 return None
@@ -1368,12 +1373,12 @@ def readQMin(QMinfilename):
                     sys.exit(38)
 
 
-# --------------------------------------------- AMS-ADF.resources ----------------------------------
+# --------------------------------------------- AMS_ADF.resources ----------------------------------
 
     QMin['pwd'] = os.getcwd()
 
-    # open AMS-ADF.resources
-    filename = 'AMS-ADF.resources'
+    # open AMS_ADF.resources
+    filename = 'AMS_ADF.resources'
     if os.path.isfile(filename):
         sh2AMS = readfile(filename)
     else:
@@ -1549,7 +1554,7 @@ def readQMin(QMinfilename):
             if os.path.isfile(ciopath):
                 QMin['wfoverlap'] = ciopath
             else:
-                print('Give path to wfoverlap.x in AMS-ADF.resources!')
+                print('Give path to wfoverlap.x in AMS_ADF.resources!')
                 sys.exit(45)
 
     # memory
@@ -1573,7 +1578,7 @@ def readQMin(QMinfilename):
     if 'theodore' in QMin:
         QMin['theodir'] = get_sh2AMS_environ(sh2AMS, 'theodir', False, False)
         if QMin['theodir'] is None or not os.path.isdir(QMin['theodir']):
-            print('Give path to the TheoDORE installation directory in AMS-ADF.resources!')
+            print('Give path to the TheoDORE installation directory in AMS_ADF.resources!')
             sys.exit(46)
         os.environ['THEODIR'] = QMin['theodir']
         if 'PYTHONPATH' in os.environ:
@@ -1647,7 +1652,7 @@ def readQMin(QMinfilename):
     QMin['template'] = {**bools, **strings, **integers, **floats, **special}
 
     # open template
-    template = readfile('AMS-ADF.template')
+    template = readfile('AMS_ADF.template')
 
     # go through template
     for line in template:

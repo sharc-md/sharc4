@@ -68,6 +68,12 @@
 #       - redotasks
 #       - printtasks
 
+
+from SHARC_OLD import SHARC_OLD
+class SHARC_COLUMBUS(SHARC_OLD):
+    pass
+
+
 # ======================================================================= #
 # Modules:
 # Operating system, isfile and related routines, move files, create directories

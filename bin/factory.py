@@ -28,6 +28,7 @@ from typing import Union
 from logger import log
 import glob
 from SHARC_INTERFACE import SHARC_INTERFACE
+from SHARC_OLD import SHARC_OLD
 
 global AVAILABLE_INTERFACES
 AVAILABLE_INTERFACES = None
@@ -68,6 +69,11 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
         except AttributeError as e:
             log.debug(f"class {interface_name} not found in {mod}\n\t{e}")
             interfaces.append((interface_name, "(Not Available!)"))
+            continue
+
+        if issubclass(interface, SHARC_OLD):
+            log.debug(f"class {interface_name} in {mod} is a legacy class")
+            interfaces.append((interface_name, "(Not Available! Use SHARC_LEGACY to work with this interface)"))
             continue
 
         if type(interface) == str or not issubclass(interface, SHARC_INTERFACE):

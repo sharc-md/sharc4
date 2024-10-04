@@ -23,6 +23,10 @@
 #
 # ******************************************
 
+from SHARC_OLD import SHARC_OLD
+class SHARC_BAGEL(SHARC_OLD):
+    pass
+
 import traceback
 from socket import gethostname
 import time
