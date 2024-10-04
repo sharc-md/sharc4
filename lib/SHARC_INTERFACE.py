@@ -398,7 +398,7 @@ class SHARC_INTERFACE(ABC):
                 f"setup_mol() was already called! Continue setup with {qmin_file}",
             )
         if isinstance(qmin_file, str):
-
+            self.log.info(f'Setup molecule from file {qmin_file}')
             self.QMin.molecule["unit"] = "angstrom"  # default 
             self.QMin.molecule["factor"] = 1.0 / BOHR_TO_ANG
             qmin_lines = readfile(qmin_file) 
@@ -473,6 +473,7 @@ class SHARC_INTERFACE(ABC):
                     self.QMin.molecule["npc"] = len(pccharge)
 
         elif isinstance(qmin_file, dict):
+            self.log.info(f'Setup molecule from dictionary {qmin_file}')
             # fixed settings
             self.QMin.molecule["unit"] = "bohr"
             self.QMin.molecule["factor"] = 1.0
@@ -498,6 +499,7 @@ class SHARC_INTERFACE(ABC):
                 self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
 
         elif isinstance(qmin_file, QMin):
+            self.log.info(f'Setup molecule from QMin object.')
             self.QMin.molecule = deepcopy(qmin_file.molecule)
             self.QMin.maps["statemap"] = deepcopy(qmin_file.maps["statemap"])
             self.QMin.maps["chargemap"] = deepcopy(qmin_file.maps["chargemap"])
@@ -831,6 +833,7 @@ class SHARC_INTERFACE(ABC):
         lines = readfile(requests_file)[self.QMin.molecule["natom"] + 2 :]
         lines = self._preprocess_lines(lines)
 
+        self.log.debug(lines)
         for line in lines:
             match line.lower().split(maxsplit=1):
                 case [key] if key in (*self.QMin.requests.keys(), "step"):
@@ -853,8 +856,8 @@ class SHARC_INTERFACE(ABC):
                 case ["backup"]:
                     self.log.warning("'backup' request is deprecated, use 'retain <number of steps>' instead!")
                 case ["init" | "newstep" | "samestep" | "restart"]:
-                    self.log.warning(f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored!")
-                case ["unit" | "states", _]:
+                    self.log.warning(f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored! Calculation control via STEP file and 'step' keyword.")
+                case ["unit" | "states" | "charge" | "savedir", _]:
                     pass
                 case _:
                     self.log.warning(f"request '{line}' not specified! Will not be applied!")

@@ -51,7 +51,6 @@ class SHARC_FAST(SHARC_INTERFACE):
     def getQMout(self):
         return self.QMout
 
-    # TODO: WTF is self.template_file???
     def prepare(self, INFOS: dict, dir_path: str):
         if "link_files" in INFOS and INFOS["link_files"]:
             os.symlink(

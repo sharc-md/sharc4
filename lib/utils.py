@@ -133,7 +133,7 @@ def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=Tru
                 continue
 
         if typefunc == bool:
-            posresponse = ["y", "yes", "true", "t", "ja", "si", "yea", "yeah", "aye", "sure", "definitely"]
+            posresponse = ["y", "yes", "true", "t", "ja", "si", "yea", "yeah", "aye", "sure", "definitely", "ok"]
             negresponse = ["n", "no", "false", "f", "nein", "nope"]
             if line in posresponse:
                 KEYSTROKES.write(line + " " * (40 - len(line)) + " #" + s + "\n")
