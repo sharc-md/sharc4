@@ -1284,15 +1284,9 @@ class SHARC_LEGACY(SHARC_INTERFACE):
 
 
     def setup_interface(self):
-        # obtain the statemap
-        self.QMin.maps["statemap"] = {i + 1: [*v] for i, v in enumerate(itnmstates(self.QMin.molecule["states"]))}
-
         self.qm_savedir = os.path.join(self.QMin.save["savedir"], Interfaces[self.legacy_interface]['name'].upper())
         if not os.path.isdir(self.qm_savedir):
             mkdir(self.qm_savedir)
-        
-        # check all the things that this interface cannot do (features, point charges, ...)
-
         return
 
 
@@ -1313,10 +1307,9 @@ class SHARC_LEGACY(SHARC_INTERFACE):
             string += 'init\n'
         elif self.QMin.save['samestep']:
             string += 'samestep\n'
-        elif self.QMin.save['restart']:
-            string += 'restart\n'
         elif self.QMin.save['newstep']:
             pass
+        string += 'retain %i\n' % self.QMin.requests['retain']
 
         # requests
         for key, value in self.QMin.requests.items():
@@ -1344,7 +1337,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         starttime = datetime.datetime.now()
         self.log.info('START:\t%s\t%s\t"%s"\n' % (WORKDIR, starttime, string))
 
-        # with InDir(WORKDIR):
+        # No InDir() because runQM.sh contains the cd command
         stdoutfile = open(os.path.join(WORKDIR, 'runQM.out'), 'w')
         stderrfile = open(os.path.join(WORKDIR, 'runQM.err'), 'w')
         try:
