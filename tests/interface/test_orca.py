@@ -32,7 +32,7 @@ def build_jobs(path: str, template: str, maps: dict):
         assert test_interface.QMin.control[k] == v, test_interface.QMin.control[k]
 
 
-def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: dict):
+def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: dict, orcaver: tuple = (5,0,4)):
     test_interface = SHARC_ORCA()
     test_interface.setup_mol(qmin)
     test_interface._read_resources = True
@@ -40,6 +40,7 @@ def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: di
     test_interface.read_template(template)
     test_interface.setup_interface()
     test_interface.read_requests(qmin)
+    test_interface.QMin.resources["orcaversion"] = orcaver
     with open(outfile, "r", encoding="utf-8") as file:
         parsed = test_interface._get_energy(file.read(), mults)
         for k, v in parsed.items():
@@ -326,7 +327,6 @@ def test_template():
             {
                 "paddingstates": None,
                 "no_tda": False,
-                "picture_change": False,
                 "basis": "6-31G",
                 "auxbasis": None,
                 "functional": "b3lyp",
@@ -350,7 +350,6 @@ def test_template():
             {
                 "paddingstates": None,
                 "no_tda": False,
-                "picture_change": False,
                 "basis": "6-31G",
                 "auxbasis": None,
                 "functional": "b3lyp",
@@ -374,13 +373,9 @@ def test_template():
             {
                 "paddingstates": None,
                 "no_tda": False,
-                "picture_change": True,
                 "basis": "cc-pvdz",
                 "auxbasis": "cc-pvdz/j",
                 "functional": "b3lyp",
-                "grid": None,
-                "gridx": None,
-                "gridxc": None,
                 "dispersion": "D3",
                 "ri": "rijcosx",
                 "scf": None,
