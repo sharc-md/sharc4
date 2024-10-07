@@ -328,8 +328,7 @@ class SHARC_INTERFACE(ABC):
 
         # Check if charge in template and autoexpand if needed
         if self.QMin.template["charge"]:
-            self.log.warning(f"The 'charge' keyword must be specified in QM.in (or input)! Charge from template is ignored!")
-            #raise ValueError(f"The 'charge' keyword must be specified in QM.in (or sharc.x' input)!")
+            self.log.warning("The 'charge' keyword must be specified in QM.in (or input)! Charge from template is ignored!")
 
         if self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
@@ -466,7 +465,6 @@ class SHARC_INTERFACE(ABC):
                     self.QMin.molecule["states"] = states_dict["states"]
                 if key == "charge":
                     self.QMin.molecule["charge"] = convert_list(llist[1].split())
-                    self.QMin.template["charge"] = self.QMin.molecule["charge"]
 
                 elif key == "unit":
                     self.QMin.molecule["unit"] = llist[1].strip().lower()
@@ -518,8 +516,6 @@ class SHARC_INTERFACE(ABC):
             # update stuff that has different names
             self.QMin.molecule["natom"] = qmin_file["NAtoms"]
             self.QMin.molecule["elements"] = [IAn2AName[x] for x in qmin_file["IAn"]]
-            # set charges in template (TODO: maybe unnecessary)
-            self.QMin.template["charge"] = self.QMin.molecule["charge"]
             # savedir
             if "savedir" in qmin_file:
                 self._setsave = True
@@ -530,7 +526,6 @@ class SHARC_INTERFACE(ABC):
             self.QMin.molecule = deepcopy(qmin_file.molecule)
             self.QMin.maps["statemap"] = deepcopy(qmin_file.maps["statemap"])
             self.QMin.maps["chargemap"] = deepcopy(qmin_file.maps["chargemap"])
-            self.QMin.template["charge"] = self.QMin.molecule["charge"]
 
         else:
             self.log.error(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
