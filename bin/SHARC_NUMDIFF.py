@@ -608,6 +608,9 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 self.ref_requests[key] = value
         for key, value in self.ref_requests.items():
             self.ref_interface.QMin.requests[key] = value
+
+        # inherit current step
+        self.ref_interface.QMin.save["step"] = self.QMin.save["step"]
         
         # mandatory requests
         self.ref_interface.QMin.requests['nooverlap'] = False
@@ -690,6 +693,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 ls = os.listdir(self.ref_interface.QMin.save['savedir'])
                 for f in ls:
                     fromfile = os.path.join(self.ref_interface.QMin.save['savedir'],f)
+                    # TODO: only copy files pertaining to current step!
+                    # if os.path.splitext()
                     tofile = os.path.join(self._kindergarden[label].QMin.save['savedir'],f)
                     shutil.copy(fromfile,tofile)
                 # set step for displaced child
