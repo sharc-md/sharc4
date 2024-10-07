@@ -1157,7 +1157,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         string = "\ntitle: SHARC-TURBOMOLE run\na coord\n*\nno\n"
         if self.QMin.template["basislib"]:
             string += "lib\n3"
-        string += f"b\nall {self.QMin.template['basis']}\n*\neht\ny\n{self.QMin.template['charge'][mult-1]}\n"
+        string += f"b\nall {self.QMin.template['basis']}\n*\neht\ny\n{self.QMin.molecule['charge'][mult-1]}\n"
         if mult - 1 % 2 == 0:
             string += "y\n"
         else:
