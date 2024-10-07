@@ -688,26 +688,41 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                 # Populate dipole moments
                 if self.QMin.requests["dm"]:
-                    # Diagonal elements
-                    dipoles_gs = self._get_dipole_moment(log_file, True)
-                    dipoles_es = self._get_dipole_moment(log_file, False)
-                    for mult in mults:
-                        for dim in range(3):
-                            np.fill_diagonal(
-                                self.QMout["dm"][
-                                    dim,
-                                    sum(nm_states[:mult]) : sum(nm_states[: mult + 1]),
-                                    sum(nm_states[:mult]) : sum(nm_states[: mult + 1]),
-                                ],
-                                dipoles_es[dim],
-                            )
-                        if mult == gs_mult[0]:
-                            for m in range(mult):
-                                self.QMout["dm"][
-                                    :,
-                                    sum(nm_states[:mult]) + m * states[mult],
-                                    sum(nm_states[:mult]) + m * states[mult],
-                                ] = dipoles_gs
+                    if self.QMin.resources["orcaversion"] >= (6, 0):
+                        dipoles = self._get_dipole_moment(log_file, True)
+                        s_cnt = 0
+                        for mult in mults:
+                            for dim in range(3):
+                                np.fill_diagonal(
+                                    self.QMout["dm"][
+                                        dim,
+                                        sum(nm_states[:mult]) : sum(nm_states[: mult + 1]),
+                                        sum(nm_states[:mult]) : sum(nm_states[: mult + 1]),
+                                    ],
+                                    np.tile(dipoles[s_cnt : s_cnt + states[mult], dim], mult),
+                                )
+                            s_cnt += states[mult]
+                    else:
+                        # Diagonal elements
+                        dipoles_gs = self._get_dipole_moment(log_file, True)
+                        dipoles_es = self._get_dipole_moment(log_file, False)
+                        for mult in mults:
+                            for dim in range(3):
+                                np.fill_diagonal(
+                                    self.QMout["dm"][
+                                        dim,
+                                        sum(nm_states[:mult]) : sum(nm_states[: mult + 1]),
+                                        sum(nm_states[:mult]) : sum(nm_states[: mult + 1]),
+                                    ],
+                                    dipoles_es[dim],
+                                )
+                            if mult == gs_mult[0]:
+                                for m in range(mult):
+                                    self.QMout["dm"][
+                                        :,
+                                        sum(nm_states[:mult]) + m * states[mult],
+                                        sum(nm_states[:mult]) + m * states[mult],
+                                    ] = dipoles_gs
 
                     # Offdiagonals
                     if states[mults[0]] > 1:
@@ -865,6 +880,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             self.log.error("Cannot find dipole moment in ORCA outfile!")
             raise ValueError()
         find_dipole = [list(map(float, x.split())) for x in find_dipole]
+        if self.QMin.resources["orcaversion"] >= (6, 0):
+            return np.asarray(find_dipole)
         if len(find_dipole) == 1 and not ground_state:
             return np.zeros(3)
         return np.asarray(find_dipole[0] if ground_state else find_dipole[-1])
@@ -899,7 +916,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         # Extract transition dipole table from output
         find_transition_dipoles = re.search(
-            r"ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS([^ABCDFGH]*)", output, re.DOTALL
+            r"ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS(.*?)ABS", output, re.DOTALL
         )
         if not find_transition_dipoles:
             self.log.error("Cannot find transition dipoles in ORCA output!")
@@ -986,7 +1003,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             raise ValueError()
 
         gs_energy = float(find_energy.group(1))
-        dispersion = re.search(r"Dispersion correction\s+([-\d\.]+)", output)
+        dispersion = re.search(r"Dispersion correction\s+(-?\d+\.\d+)", output)
         if dispersion:
             gs_energy += float(dispersion.group(1))
 
@@ -996,12 +1013,19 @@ class SHARC_ORCA(SHARC_ABINITIO):
         exc_states = re.findall(r"STATE\s+(\d+):[A-Z\s=]+([-\d\.]+)\s+au", output)
 
         iter_states = iter(exc_states)
+        sub_states = 0
+        if self.QMin.resources["orcaversion"] >= (6, 0):
+            sub_states = self.QMin.molecule["states"][gsmult - 1] - 1
         for imult in mults:
             nstates = states_extract[imult - 1]
             for state, energy in iter_states:
-                if int(state) <= self.QMin.molecule["states"][imult - 1]:  # Skip extra states
-                    energies[(imult, int(state) + (gsmult == imult))] = gs_energy + float(energy)
-                if int(state) == nstates:
+                if (int(state) - (sub_states * (gsmult != imult))) <= self.QMin.molecule["states"][
+                    imult - 1
+                ]:  # Skip extra states
+                    energies[(imult, int(state) - (sub_states * (gsmult != imult)) + (gsmult == imult))] = gs_energy + float(
+                        energy
+                    )
+                if (int(state) - (sub_states * (gsmult != imult))) == nstates:
                     break
 
         return energies
