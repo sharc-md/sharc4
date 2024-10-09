@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2024 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -23,13 +23,13 @@
 #
 # ******************************************
 
-import asyncio
 import inspect
-from collections.abc import Callable
+import os
+import sys
 from importlib import import_module
-from multiprocessing import Process, Semaphore, Manager, Pool, get_context, current_process
-from threading import Thread
-from qmout import QMout
+from multiprocessing import Manager, Process
+from time import sleep
+
 from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
 
@@ -46,49 +46,80 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         self._kindergarden = {}
 
     @staticmethod
-    def run_children(logger, children_dict, ncpu):
+    def run_children(
+        logger, children_dict: dict[str, SHARC_INTERFACE], ncpu: int, delay: float = 0.1, exit_on_failure: bool = True
+    ) -> None:
+        """
+        Run all children in a parallel queue
+
+        logger:             Logger object
+        children_dict:      Dictionary of children that will be executed
+        ncpu:               Maximal amount of CPUs used at once
+        delay:              Delay time to check if a child can be added to queue, setting it to 0.0 will result
+                            in high CPU ussage of the main Python process, but might be desired for very fast children
+        exit_on_failure:    Kill all currently running jobs if one job in queue raises exception
+        """
         global children
 
         children = children_dict
         manager = Manager()
-        n_used_cpu = manager.Value('i',0)
+        n_used_cpu = manager.Value("i", 0)
         QMins = manager.dict()
         QMouts = manager.dict()
 
-        def run_a_child(label,children,n_used_cpu,QMins,QMouts):
-            children[label]._step_logic()
-            children[label].QMout.mol = None
-            children[label].run()
-            children[label].getQMout()
-            if children[label].QMout.mol is not None: children[label].QMout.mol = Mole.pack(children[label].QMout.mol) 
-            children[label].clean_savedir( children[label].QMin.save['savedir'], children[label].QMin.requests['retain'], children[label].QMin.save['step'])
-            children[label].write_step_file()
-            QMins[label] = children[label].QMin
-            QMouts[label] = children[label].QMout
-            n_used_cpu.value -= children[label].QMin.resources['ncpu']
-            return
+        def run_a_child(label, children, n_used_cpu, QMins, QMouts):
+            logger.info(f"Run child {label} on {os.uname()[1]} with pid: {os.getpid()}")
+            try:
+                children[label]._step_logic()
+                children[label].QMout.mol = None
+                children[label].run()
+                children[label].getQMout()
+                if children[label].QMout.mol is not None:
+                    children[label].QMout.mol = Mole.pack(children[label].QMout.mol)
+                children[label].clean_savedir()
+                children[label].write_step_file()
+                QMins[label] = children[label].QMin
+                QMouts[label] = children[label].QMout
+            except:  # pylint: disable=bare-except
+                logger.error(f"Some exception occured while running child {label}")
+                sys.exit(1)  # Indicate failure of child process
+            finally:
+                n_used_cpu.value -= children[label].QMin.resources["ncpu"]
 
         processes = []
         for label in children.keys():
             while True:
-                #  print(ncpu - n_used_cpu.value, n_used_cpu.value)
-                if ncpu - n_used_cpu.value >= children[label].QMin.resources['ncpu']:
-                    logger.info(' Running child '+str(label))
-                    processes.append( Process( target=run_a_child, args=(label,children,n_used_cpu, QMins, QMouts) ) )
-                    n_used_cpu.value += children[label].QMin.resources['ncpu'] 
+                if ncpu - n_used_cpu.value >= children[label].QMin.resources["ncpu"]:
+                    processes.append(Process(target=run_a_child, args=(label, children, n_used_cpu, QMins, QMouts)))
+                    n_used_cpu.value += children[label].QMin.resources["ncpu"]
                     processes[-1].start()
                     break
+                sleep(delay)
+
+        # Kill all processes if one fails
+        while exit_on_failure:
+            exit_on_failure = False
+            for process in processes:
+                if process.exitcode == 1:
+                    for p in processes:
+                        p.kill()
+                    logger.error("A child process did not finish successfuly")
+                    raise RuntimeError
+                if process.is_alive():
+                    exit_on_failure = True
+            sleep(0.1)
+
         for process in processes:
             process.join()
 
-        for label, child in children_dict.items():
+        for label, _ in children_dict.items():
             children_dict[label].QMin = QMins[label]
             children_dict[label].QMout = QMouts[label]
-            if children_dict[label].QMout.mol is not None: 
+            if children_dict[label].QMout.mol is not None:
                 children_dict[label].QMout.mol = Mole.unpack(children_dict[label].QMout.mol)
                 children_dict[label].QMout.mol.build()
         return
-            
+
     def instantiate_children(self, child_dict: dict[str, tuple[str, list, dict] | str]) -> None:
         """
         Populate kindergarden with instantiated child interfaces
@@ -142,11 +173,11 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
         return interface
 
-
     def clean_savedir(self) -> None:
+        """
+        Clean save directory of all children in kindergarden
+        """
         super().clean_savedir()
-        for child in self._kindergarden.values():
+        for label, child in self._kindergarden.items():
+            self.log.debug(f"Clean savedir from child {label}")
             child.clean_savedir()
-
-
-
