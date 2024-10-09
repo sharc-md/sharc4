@@ -59,39 +59,37 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                             in high CPU ussage of the main Python process, but might be desired for very fast children
         exit_on_failure:    Kill all currently running jobs if one job in queue raises exception
         """
-        global children
-
-        children = children_dict
         manager = Manager()
         n_used_cpu = manager.Value("i", 0)
-        QMins = manager.dict()
-        QMouts = manager.dict()
+        qmins = manager.dict()
+        qmouts = manager.dict()
 
-        def run_a_child(label, children, n_used_cpu, QMins, QMouts):
+        def run_a_child(label, n_used_cpu, QMins, QMouts):
             logger.info(f"Run child {label} on {os.uname()[1]} with pid: {os.getpid()}")
             try:
-                children[label]._step_logic()
-                children[label].QMout.mol = None
-                children[label].run()
-                children[label].getQMout()
-                if children[label].QMout.mol is not None:
-                    children[label].QMout.mol = Mole.pack(children[label].QMout.mol)
-                children[label].clean_savedir()
-                children[label].write_step_file()
-                QMins[label] = children[label].QMin
-                QMouts[label] = children[label].QMout
+                children_dict[label]._step_logic()
+                children_dict[label].QMout.mol = None
+                children_dict[label].run()
+                children_dict[label].getQMout()
+                if children_dict[label].QMout.mol is not None:
+                    children_dict[label].QMout.mol = Mole.pack(children_dict[label].QMout.mol)
+                children_dict[label].clean_savedir()
+                children_dict[label].write_step_file()
+                QMins[label] = children_dict[label].QMin
+                QMouts[label] = children_dict[label].QMout
             except:  # pylint: disable=bare-except
                 logger.error(f"Some exception occured while running child {label}")
                 sys.exit(1)  # Indicate failure of child process
             finally:
-                n_used_cpu.value -= children[label].QMin.resources["ncpu"]
+                n_used_cpu.value -= children_dict[label].QMin.resources["ncpu"]
 
+        # Add jobs to queue until finished
         processes = []
-        for label in children.keys():
+        for label, child in children_dict.items():
             while True:
-                if ncpu - n_used_cpu.value >= children[label].QMin.resources["ncpu"]:
-                    processes.append(Process(target=run_a_child, args=(label, children, n_used_cpu, QMins, QMouts)))
-                    n_used_cpu.value += children[label].QMin.resources["ncpu"]
+                if ncpu - n_used_cpu.value >= child.QMin.resources["ncpu"]:
+                    processes.append(Process(target=run_a_child, args=(label, n_used_cpu, qmins, qmouts)))
+                    n_used_cpu.value += child.QMin.resources["ncpu"]
                     processes[-1].start()
                     break
                 sleep(delay)
@@ -112,13 +110,13 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         for process in processes:
             process.join()
 
-        for label, _ in children_dict.items():
-            children_dict[label].QMin = QMins[label]
-            children_dict[label].QMout = QMouts[label]
-            if children_dict[label].QMout.mol is not None:
-                children_dict[label].QMout.mol = Mole.unpack(children_dict[label].QMout.mol)
-                children_dict[label].QMout.mol.build()
-        return
+        # Build mol objects if requested
+        for label, child in children_dict.items():
+            child.QMin = qmins[label]
+            child.QMout = qmouts[label]
+            if child.QMout.mol is not None:
+                child.QMout.mol = Mole.unpack(child.QMout.mol)
+                child.QMout.mol.build()
 
     def instantiate_children(self, child_dict: dict[str, tuple[str, list, dict] | str]) -> None:
         """
