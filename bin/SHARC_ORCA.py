@@ -1015,7 +1015,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         iter_states = iter(exc_states)
         sub_states = 0
         if self.QMin.resources["orcaversion"] >= (6, 0):
-            sub_states = self.QMin.molecule["states"][gsmult - 1] - 1
+            sub_states = self.QMin.molecule["states"][gsmult - 1]
         for imult in mults:
             nstates = states_extract[imult - 1]
             for state, energy in iter_states:
@@ -1027,7 +1027,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     )
                 if (int(state) - (sub_states * (gsmult != imult))) == nstates:
                     break
-
         return energies
 
     def printQMout(self) -> None:
