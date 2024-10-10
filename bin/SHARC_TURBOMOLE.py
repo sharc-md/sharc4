@@ -253,6 +253,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         super().read_template(template_file, kw_whitelist)
 
         # Check if basis available and correct casing
+        if not isinstance(self.QMin.template["basis"], str):
+            self.log.error("No basis set defined in template!")
+            raise ValueError()
         for i in BASISSETS:
             if self.QMin.template["basis"].casefold() == i.casefold():
                 self.QMin.template["basis"] = i
@@ -686,7 +689,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         n_ao = mol.nao if dyson else (mol.nao // 2)
         # Sort functions from pySCF to Turbomole order
         self._ao_labels = [i.split()[::2] for i in mol.ao_labels()[:n_ao]]
-        self.log.debug(f"PySCF AO order:{self._print_ao(self._ao_labels)}")
+        self.log.debug(f"PySCF AO order:\n{self._print_ao(self._ao_labels)}")
         ovlp = mol.intor("int1e_ovlp")
         if not dyson:
             ovlp = ovlp[:n_ao, n_ao:]
