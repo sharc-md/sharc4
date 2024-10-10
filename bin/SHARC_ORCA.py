@@ -521,9 +521,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.requests["ion"] or not self.QMin.requests["nooverlap"]:
             self.log.debug("Write MO coefficients to savedir")
             writefile(os.path.join(savedir, f"mos.{jobid}.{step}"), self._get_mos(workdir, jobid))
-            writefile(
-                os.path.join(savedir, f"mos_allelec.{jobid}.{step}"), self._get_mos(workdir, jobid, ignore_frozcore=True)
-            )
+            writefile(os.path.join(savedir, f"mos_allelec.{jobid}.{step}"), self._get_mos(workdir, jobid, ignore_frozcore=True))
             if os.path.isfile(os.path.join(workdir, "ORCA.cis")):
                 self.log.debug("Write CIS determinants to savedir")
                 cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
@@ -538,7 +536,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 _, _, _, occ_list, _, _ = tools.molden.load(os.path.join(workdir, "ORCA.molden.input"))
                 froz = self.QMin.molecule["frozcore"]
                 if isinstance(occ_list, tuple):
-                    occ_list = convert_list(list(occ_list[0])[froz:] + list(occ_list[1]*2)[froz:])
+                    occ_list = convert_list(list(occ_list[0])[froz:] + list(occ_list[1] * 2)[froz:])
                 else:
                     occ_list = [3 if x == 2.0 else 0 for x in occ_list[froz:]]
                 # Convert to string and save file
@@ -628,12 +626,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
             requests=requests,
         )
         if self.QMin.requests["theodore"]:
-            nprop = len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2
-            labels = self.QMin.resources["theodore_prop"][:] + [
-                "Om_%i_%i" % (i, j)
-                for i in range(len(self.QMin.resources["theodore_fragment"]))
-                for j in range(len(self.QMin.resources["theodore_fragment"]))
-            ]
+            nprop = len(self.QMin.resources["theodore_prop"]) + (nfrag := len(self.QMin.resources["theodore_fragment"])) ** 2
+            labels = self.QMin.resources["theodore_prop"][:] + [f"Om_{i}_{j}" for i in range(nfrag) for j in range(nfrag)]
             theodore_arr = [[labels[j], np.zeros(self.QMin.molecule["nmstates"])] for j in range(nprop)]
 
         scratchdir = self.QMin.resources["scratchdir"]
@@ -1566,7 +1560,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             with open(qmin.template["paste_input_file"], "r", encoding="utf-8") as paste:
                 string += f"{paste.read()}\n"
         return string
-
 
     @staticmethod
     def get_pyscf_order_from_orca(atom_symbols: list[str], basis_dict: dict[str, list[int, tuple]]) -> list[int]:
