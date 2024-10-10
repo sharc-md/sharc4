@@ -516,7 +516,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             # self._modify_file(control, None, None, [("$excitations", "static relaxed operators=diplen\n")])
             # self._modify_file(control, None, None, [("$excitations", "spectrum states=all operators=diplen\n")])
 
-            codes.append(self._run_ricc2(workdir))
+            codes.append(self._run_ricc2(workdir, qmin.resources["ncpu"]))
 
             # Generate molden file
             self._generate_molden(workdir)
@@ -563,7 +563,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             else:
                 exgrad = f"xgrad states=(a{{{grad[0] if grad[0] == 3 else 1}}} {grad[1] - (grad[0] != 3)})"
                 self._modify_file(os.path.join(workdir, "control"), None, None, [("$excitations", f"{exgrad}\n")])
-            codes.append(self._run_ricc2(workdir))
+            codes.append(self._run_ricc2(workdir, qmin.resources["ncpu"]))
         return max(codes), datetime.datetime.now() - starttime
 
     def _get_dets(self, workdir: str, mult: int, side: str = "R") -> list[dict[tuple[int, int], float]]:
@@ -630,7 +630,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 self.log.debug(f"Determinant {mult} {state} norm {norm:.5f}")
 
                 # Renormalize (needed for SOCs)
-                tmp = {k: v/norm for k, v in tmp.items()}
+                tmp = {k: v / norm for k, v in tmp.items()}
 
                 # Filter out dets with lowest contribution
                 self.trim_civecs(tmp)
@@ -663,7 +663,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         Calculate overlap matrix between previous and current geom
         """
         # Load molden file
-        mol2, _, _, _, _, _ = tools.molden.load(os.path.join(self.QMin.resources["scratchdir"], f"master_{self.QMin.control['joblist'][0]}/molden.input"))
+        mol2, _, _, _, _, _ = tools.molden.load(
+            os.path.join(self.QMin.resources["scratchdir"], f"master_{self.QMin.control['joblist'][0]}/molden.input")
+        )
 
         # Create Mole object, assign basis from molden
         mol = gto.Mole()
@@ -767,14 +769,30 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         f.read(4)  # Skip padding
         return vals
 
-    def _run_ricc2(self, workdir: str) -> int:
+    @staticmethod
+    def _setup_env(ncpu: int) -> dict[str, str]:
+        """
+        Generate an env dict for given number of CPUs
+        """
+        ricc2_env = deepcopy(os.environ)
+        if hasattr(ricc2_env, "PARA_ARCH"):
+            del ricc2_env["PARA_ARCH"]
+        if hasattr(ricc2_env, "PARANODES"):
+            del ricc2_env["PARANODES"]
+        if ncpu > 1:
+            ricc2_env["PARA_ARCH"] = "SMP"
+            ricc2_env["PARANODES"] = str(ncpu)
+        ricc2_env["OMP_NUM_THREADS"] = str(ncpu)
+        return ricc2_env
+
+    def _run_ricc2(self, workdir: str, ncpu: int = 1) -> int:
         """
         Run RICC2 module
         """
         shift_mask = iter([(+1, +1), (-2, -1), (+1, +1), (+1, +1), (+1, +1), (+1, +1)])
 
         # Do first ricc2 call
-        ricc2_bin = "ricc2" if self.QMin.resources["ncpu"] < 2 else "ricc2_omp"
+        ricc2_bin = "ricc2" if ncpu < 2 else "ricc2_omp"
         if (code := self.run_program(workdir, ricc2_bin, "ricc2.out", "ricc2.err")) != 0:
             return code
 
@@ -799,7 +817,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 )
             self._modify_file(os.path.join(workdir, "control"), None, ["irrep=a"], excitations)
             # Run RICC2 again
-            if (code := self.run_program(workdir, ricc2_bin, "ricc2.out", "ricc2.err")) != 0:
+            if (code := self.run_program(workdir, ricc2_bin, "ricc2.out", "ricc2.err", self._setup_env(ncpu))) != 0:
                 return code
         return code
 
@@ -841,7 +859,13 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             ],
             ["$maxcor"],
         )
-        code = self.run_program(workdir, "ridft_omp" if qmin.resources["ncpu"] > 1 else "ridft", "ridft.out", "ridft.err")
+        code = self.run_program(
+            workdir,
+            "ridft_omp" if (ncpu := qmin.resources["ncpu"]) > 1 else "ridft",
+            "ridft.out",
+            "ridft.err",
+            self._setup_env(ncpu),
+        )
         shutil.copy(os.path.join(workdir, "control.bak"), os.path.join(workdir, "control"))
         return code
 
@@ -903,7 +927,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     self.log.error(f"No iteration count found for job {mult}")
 
             # SOCs, only possible between S1-T
-            if  mult == 1 and self.QMin.requests["soc"]:
+            if mult == 1 and self.QMin.requests["soc"]:
                 socs = self._get_socs(ricc2_out)[: states[0] - 1, states[0] - 1 :, :]
 
                 skip = states[0] + 2 * states[1]
@@ -1050,7 +1074,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Generate schedule
         self.log.debug("Generate schedule")
         self._generate_schedule()
-        self.log.info(self.QMin.scheduling)
+        for idx, job in enumerate(self.QMin.scheduling["schedule"], 1):
+            self.log.info(f"Schedule {idx}: {list(job.keys())}")
 
         self.log.debug("Execute schedule")
         if not self.QMin.resources["dry_run"]:
@@ -1092,6 +1117,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self.QMin.resources["ncpu"], len(self.QMin.control["jobs"]), self.QMin.resources["schedule_scaling"]
         )
         master = {}
+        self.log.debug(f"Master jobs executed in {nslots} slots.")
         for idx, job in enumerate(self.QMin.control["jobs"]):
             master_job = deepcopy(self.QMin)
             master_job.resources["ncpu"] = cpu_per_run[idx]
@@ -1101,6 +1127,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             if job != 1:
                 master_job.requests["soc"] = False
             master[f"master_{job}"] = master_job
+            self.log.debug(f"Job master_{job} CPU: {cpu_per_run[idx]}")
         self.QMin.control["nslots_pool"].append(nslots)
         schedule = [master]
 
@@ -1111,14 +1138,15 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             _, nslots, cpu_per_run = self.divide_slots(
                 self.QMin.resources["ncpu"], len(self.QMin.requests["grad"]), self.QMin.resources["schedule_scaling"]
             )
+            self.log.debug(f"Gradient jobs executed in {nslots} slots.")
             self.QMin.control["nslots_pool"].append(nslots)
-            self.log.debug(f"Schedule with {nslots} slots, cpu distribution {cpu_per_run}")
             # Add job for each gradient
             for idx, grad in enumerate(self.QMin.maps["gradmap"]):
                 job = deepcopy(self.QMin)
                 job.resources["ncpu"] = cpu_per_run[idx]
                 job.maps["gradmap"] = {(grad)}
                 gradjobs[f"grad_{'_'.join(str(g) for g in grad)}"] = job
+                self.log.debug(f"Job grad_{'_'.join(str(g) for g in grad)} CPU: {cpu_per_run[idx]}")
             schedule.append(gradjobs)
 
         self.QMin.scheduling["schedule"] = schedule
