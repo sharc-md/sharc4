@@ -324,12 +324,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             os.environ["PARANODES"] = str(ncpu)
         os.environ["OMP_NUM_THREADS"] = str(ncpu)
 
-        arch = (
-            sp.Popen([os.path.join(turbodir, "scripts", "sysname")], stdout=sp.PIPE)
-            .communicate()[0]
-            .decode()
-            .strip()
-        )
+        arch = sp.Popen([os.path.join(turbodir, "scripts", "sysname")], stdout=sp.PIPE).communicate()[0].decode().strip()
         os.environ["PATH"] = f"{turbodir}/scripts:{turbodir}/bin/{arch}:" + os.environ["PATH"]
 
     def setup_interface(self) -> None:
