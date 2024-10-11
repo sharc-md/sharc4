@@ -1053,22 +1053,18 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
         energies = ["0.0"]
         # Get energy table
-        if sum(self.QMin.molecule["states"]) > 1:
-            if not (
-                raw_energies := re.findall(
-                    r"excitation energies\s+\|\s+\%t1\s+\|\s+\%t2(.*)?=\+\n\n\s+Energy", ricc2_out, re.DOTALL
-                )
-            ):
-                self.log.error("No energies found in ricc2.out")
-                raise ValueError()
+        if not (
+            raw_energies := re.findall(r"excitation energies\s+\|\s+\%t1\s+\|\s+\%t2(.*)?=\+\n\n\s+Energy", ricc2_out, re.DOTALL)
+        ):
+            # No excitation energies found
+            return np.asarray([gs_energy[-1]], dtype=float), np.zeros(1)
 
-            # Extract energy values
-            energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
-            return (
-                np.asarray(energies, dtype=np.complex128) + float(gs_energy[-1]),
-                re.findall(r"(\d+\.\d{2})\s", raw_energies[0])[1::2],
-            )
-        return np.asarray([gs_energy[-1]], dtype=float), np.zeros(1)
+        # Extract energy values
+        energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
+        return (
+            np.asarray(energies, dtype=np.complex128) + float(gs_energy[-1]),
+            re.findall(r"(\d+\.\d{2})\s", raw_energies[0])[1::2],
+        )
 
     def run(self) -> None:
         starttime = datetime.datetime.now()
