@@ -102,7 +102,6 @@ def test_lvc():
         raise ValueError("Gradient is not correct")
 
 
-@pytest.mark.slow
 def test_lvc_pc():
     lvc: SHARC_INTERFACE = SHARC_LVC(loglevel=10)
     lvc.setup_mol(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
