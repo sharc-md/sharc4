@@ -1085,9 +1085,9 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
                 log.info("Please enter a positive real number!")
                 continue
             break
-        INFOS["scaling"] = fscal
+        INFOS["scaling_for_sharc"] = fscal
     else:
-        INFOS["scaling"] = False
+        INFOS["scaling_for_sharc"] = False
 
     # Damping
     log.info("\nDo you want to damp the dynamics (Kinetic energy is reduced at each timestep by a factor)?")
@@ -1509,8 +1509,8 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     s += "hopping_procedure %s\n" % (INFOS["hopping"])
     if INFOS["force_hops"]:
         s += "force_hop_to_gs %f\n" % (INFOS["force_hops_dE"])
-    if INFOS["scaling"]:
-        s += "scaling %f\n" % (INFOS["scaling"])
+    if INFOS["scaling_for_sharc"]:
+        s += "scaling %f\n" % (INFOS["scaling_for_sharc"])
     if INFOS["damping"] is not False:
         s += "dampeddyn %f\n" % (INFOS["damping"])
     if INFOS["phases_from_interface"]:
