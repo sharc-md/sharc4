@@ -336,6 +336,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
     def setup_interface(self) -> None:
         super().setup_interface()
 
+        if len(self.QMin.molecule["states"]) > 2 and self.QMin.molecule["states"][0] < 1:
+            self.log.error("Due to a TURBOMOLE bug at least two singlets are required if triplet states are requested!")
+            raise ValueError
+
         if self.QMin.resources["ncpu"] > 1 and self.QMin.template["spin-scaling"] == "lt-sos":
             self.log.warning("lt-sos is not fully SMP parallelized.")
 
