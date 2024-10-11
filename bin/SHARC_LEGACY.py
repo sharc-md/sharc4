@@ -1309,8 +1309,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
             string += 'samestep\n'
         elif self.QMin.save['newstep']:
             pass
-        string += 'retain %i\n' % self.QMin.requests['retain']
-
+        
         # requests
         for key, value in self.QMin.requests.items():
             match key:

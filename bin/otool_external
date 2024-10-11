@@ -129,6 +129,12 @@ INTERFACE = {
               'couplings': [1],
               'dipolegrad': False,
               'files': ['MNDO.template', 'MNDO.resources']
+              },
+    'turbomole': {'script': 'SHARC_TURBOMOLE.py',
+              'description': 'Turbomole (ADC(2), CC2)',
+              'couplings': [3],
+              'dipolegrad': False,
+              'files': ['TURBOMOLE.template', 'TURBOMOLE.resources']
               }
 }
 

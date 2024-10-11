@@ -2468,8 +2468,11 @@ def writeAMSinput(QMin, WORKDIR):
         string += 'BASIS\n  type %s\n  core None\n  createoutput False\n' % (QMin['template']['basis'])
         if QMin['template']['basis_path']:
             string += '  path %s\n' % (QMin['template']['basis_path'])
-        for i in QMin['template']['basis_per_element']:
-            string += '  %s %s\n' % (i, QMin['template']['basis_per_element'][i])
+        if QMin['template']['basis_per_element']:
+            string += 'peratomtype\n'
+            for i in QMin['template']['basis_per_element']:
+                string += '  symbol %s\nfile %s\n' % (i, QMin['template']['basis_per_element'][i])
+            string += 'end\n'
         string += 'END\n\n'
 
     if 'AOoverlap' not in QMin:
