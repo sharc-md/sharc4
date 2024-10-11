@@ -66,7 +66,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 0,
+                    "frozcore": 7,
                 },
                 "resources": {
                     "pwd": os.getcwd(),
@@ -156,7 +156,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 0,
+                    "frozcore": 7,
                 },
                 "resources": {
                     "pwd": os.getcwd(),
@@ -248,7 +248,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 0,
+                    "frozcore": 7,
                 },
                 "resources": {
                     "pwd": os.getcwd(),
@@ -338,7 +338,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 0,
+                    "frozcore": 7,
                 },
                 "resources": {
                     "pwd": os.getcwd(),
@@ -428,7 +428,7 @@ def test_schedule():
                     "point_charges": False,
                     "npc": 0,
                     "Atomcharge": 32,
-                    "frozcore": 0,
+                    "frozcore": 7,
                 },
                 "resources": {
                     "pwd": os.getcwd(),

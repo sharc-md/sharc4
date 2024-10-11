@@ -32,7 +32,7 @@ def build_jobs(path: str, template: str, maps: dict):
         assert test_interface.QMin.control[k] == v, test_interface.QMin.control[k]
 
 
-def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: dict):
+def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: dict, orcaver: tuple = (5, 0, 4)):
     test_interface = SHARC_ORCA()
     test_interface.setup_mol(qmin)
     test_interface._read_resources = True
@@ -40,6 +40,7 @@ def get_energy(outfile: str, template: str, qmin: str, mults: list, energies: di
     test_interface.read_template(template)
     test_interface.setup_interface()
     test_interface.read_requests(qmin)
+    test_interface.QMin.resources["orcaversion"] = orcaver
     with open(outfile, "r", encoding="utf-8") as file:
         parsed = test_interface._get_energy(file.read(), mults)
         for k, v in parsed.items():
@@ -151,14 +152,29 @@ def test_energies():
                 (3, 4): -549.942447079,
                 (3, 5): -549.936124079,
             },
+            (5, 0, 4),
         ),
         (
-            "inputs/orca1-2.out",
+            "inputs/orca6_1.out",
             "inputs/orca_template",
             "inputs/QM1.in",
-            [2],
-            {(2, 1): -549.725632289},
+            [1, 3],
+            {
+                (1, 1): -550.164846079,
+                (1, 2): -550.065349079,
+                (1, 3): -550.051038079,
+                (1, 4): -549.960953079,
+                (1, 5): -549.902495079,
+                (3, 1): -550.096449079,
+                (3, 2): -550.090568079,
+                (3, 3): -550.074080079,
+                (3, 4): -549.942447079,
+                (3, 5): -549.936124079,
+            },
+            (6, 0, 0),
         ),
+        ("inputs/orca1-2.out", "inputs/orca_template", "inputs/QM1.in", [2], {(2, 1): -549.725632289}, (5, 0, 4)),
+        ("inputs/orca6_1-2.out", "inputs/orca_template", "inputs/QM1.in", [2], {(2, 1): -549.725632289}, (6, 0, 0)),
         (
             "inputs/orca3.out",
             "inputs/orca_template",
@@ -171,16 +187,47 @@ def test_energies():
                 (2, 4): -549.639773289,
                 (2, 5): -549.631470289,
             },
+            (5, 0, 4),
         ),
-        ("inputs/orca4.out", "inputs/orca_template", "inputs/orca4.in", [4], {(4, 1): -549.649784479, (4, 2): -549.641911479}),
+        (
+            "inputs/orca6_3.out",
+            "inputs/orca_template",
+            "inputs/orca3.in",
+            [2],
+            {
+                (2, 1): -549.725632289,
+                (2, 2): -549.691766289,
+                (2, 3): -549.690712289,
+                (2, 4): -549.639773289,
+                (2, 5): -549.631470289,
+            },
+            (6, 0, 0),
+        ),
+        (
+            "inputs/orca4.out",
+            "inputs/orca_template",
+            "inputs/orca4.in",
+            [4],
+            {(4, 1): -549.649784479, (4, 2): -549.641911479},
+            (5, 0, 4),
+        ),
+        (
+            "inputs/orca6_4.out",
+            "inputs/orca_template",
+            "inputs/orca4.in",
+            [4],
+            {(4, 1): -549.649784479, (4, 2): -549.641911479},
+            (6, 0, 0),
+        ),
     ]
-    for outfile, template, qmin, mults, energies in tests:
+    for outfile, template, qmin, mults, energies, orca in tests:
         get_energy(
             os.path.join(PATH, outfile),
             os.path.join(PATH, template),
             os.path.join(PATH, qmin),
             mults,
             energies,
+            orca,
         )
 
 
@@ -326,7 +373,6 @@ def test_template():
             {
                 "paddingstates": None,
                 "no_tda": False,
-                "picture_change": False,
                 "basis": "6-31G",
                 "auxbasis": None,
                 "functional": "b3lyp",
@@ -350,7 +396,6 @@ def test_template():
             {
                 "paddingstates": None,
                 "no_tda": False,
-                "picture_change": False,
                 "basis": "6-31G",
                 "auxbasis": None,
                 "functional": "b3lyp",
@@ -374,13 +419,9 @@ def test_template():
             {
                 "paddingstates": None,
                 "no_tda": False,
-                "picture_change": True,
                 "basis": "cc-pvdz",
                 "auxbasis": "cc-pvdz/j",
                 "functional": "b3lyp",
-                "grid": None,
-                "gridx": None,
-                "gridxc": None,
                 "dispersion": "D3",
                 "ri": "rijcosx",
                 "scf": None,
