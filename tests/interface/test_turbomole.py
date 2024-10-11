@@ -68,7 +68,6 @@ def test_energies():
     tests = [
         (
             "inputs/turbomole/energies/304adc",
-            [3, 0, 4],
             np.array(
                 [
                     -4.366312570031e002,
@@ -83,7 +82,6 @@ def test_energies():
         ),
         (
             "inputs/turbomole/energies/304cc2",
-            [3, 0, 4],
             np.array(
                 [
                     -4.366358520442e002,
@@ -98,23 +96,26 @@ def test_energies():
         ),
         (
             "inputs/turbomole/energies/100adc",  # ridft
-            [1, 0, 0],
             np.array(
                 [-4.366312571305e002],
             ),
         ),
         (
             "inputs/turbomole/energies/100cc2",  # ridft
-            [1, 0, 0],
             np.array(
                 [-4.366358525546e002],
             ),
         ),
+        (
+            "inputs/turbomole/energies/211adc",  # parse duplet
+            np.array(
+                [-436.2913400094],
+            ),
+        ),
     ]
 
-    for out, states, ref in tests:
+    for out, ref in tests:
         test_interface = SHARC_TURBOMOLE()
-        test_interface.QMin.molecule["states"] = states
         with open(expand_path(os.path.join(PATH, out)), "r", encoding="utf-8") as f:
             energy, _ = test_interface._get_energies(f.read())
             assert np.allclose(energy.real, ref)
