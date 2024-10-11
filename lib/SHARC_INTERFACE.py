@@ -582,7 +582,7 @@ class SHARC_INTERFACE(ABC):
 
         # Setup chargemap
         self.log.debug("Building chargemap")
-        self.QMin.maps["chargemap"] = {idx + 1: int(chrg) for (idx, chrg) in enumerate(self.QMin.molecule["charge"][:self.QMin.molecule["nstates"]])}
+        self.QMin.maps["chargemap"] = {idx: int(chrg) for (idx, chrg) in enumerate(self.QMin.molecule["charge"], 1)}
             
 
         if all((val is None for val in self.QMin.molecule.values())):
