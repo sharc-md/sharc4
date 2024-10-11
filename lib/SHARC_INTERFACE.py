@@ -121,8 +121,8 @@ class SHARC_INTERFACE(ABC):
         self.log.trace = self.trace
 
         # Define template keys
-        self.QMin.template.update({"charge": None, "paddingstates": None})
-        self.QMin.template.types.update({"charge": list, "paddingstates": list})
+        self.QMin.template.update({"paddingstates": None})
+        self.QMin.template.types.update({"paddingstates": list})
 
         # Define if interface can be run inside a sub process
         self._threadsafe = False
@@ -327,7 +327,7 @@ class SHARC_INTERFACE(ABC):
 
 
         # Check if charge in template and autoexpand if needed
-        if self.QMin.template["charge"]:
+        if hasattr(self.QMin.template, "charge"):
             self.log.warning("The 'charge' keyword must be specified in QM.in (or input)! Charge from template is ignored!")
 
         if self.QMin.template["paddingstates"]:
