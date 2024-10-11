@@ -319,14 +319,13 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Setup environment
         os.environ["TURBODIR"] = (turbodir := self.QMin.resources["turbodir"])
 
-        # TODO: grad jobs need different values
         if (ncpu := self.QMin.resources["ncpu"]) > 1:
             os.environ["PARA_ARCH"] = "SMP"
             os.environ["PARANODES"] = str(ncpu)
         os.environ["OMP_NUM_THREADS"] = str(ncpu)
 
         arch = (
-            sp.Popen([os.path.join(self.QMin.resources["turbodir"], "scripts", "sysname")], stdout=sp.PIPE)
+            sp.Popen([os.path.join(turbodir, "scripts", "sysname")], stdout=sp.PIPE)
             .communicate()[0]
             .decode()
             .strip()
