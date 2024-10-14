@@ -9,7 +9,7 @@ from functools import cmp_to_key
 from io import TextIOWrapper
 
 import numpy as np
-from constants import NUMBERS, rcm_to_Eh
+from constants import NUMBERS, rcm_to_Eh, au2a
 from pyscf import gto, tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -1045,6 +1045,15 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     for key, val in self.QMin.maps["statemap"].items():
                         if (val[0], val[1]) == grad:
                             self.QMout["grad"][key - 1] = grads
+                            if self.QMin.molecule["point_charges"]:
+                                with open(
+                                    os.path.join(scratchdir, f"grad_{grad[0]}_{grad[1]}/pc_grad"), "r", encoding="utf-8"
+                                ) as pc:
+                                    point_charges = pc.read()
+                                    point_charges = point_charges.replace("D", "E")
+                                    point_charges = point_charges.split("\n")[1:-2]
+                                    point_charges = [c.split() for c in point_charges]
+                                    self.QMout["grad_pc"][key - 1] = np.asarray(point_charges, dtype=float)
 
         return self.QMout
 
@@ -1212,8 +1221,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self.log.debug("Write point charge file")
             pc_str = "$point_charges nocheck\n"
             for charge, coord in zip(self.QMin.coords["pccharge"], self.QMin.coords["pccoords"]):
-                coord += self.QMin.molecule["factor"]
-                pc_str += f"{coord[0]:16.12f} {coord[1]:16.12f} {coord[2]:16.12f} {charge:12.9f}\n"
+                pc_str += f"{coord[0]/au2a:16.12f} {coord[1]/au2a:16.12f} {coord[2]/au2a:16.12f} {charge:12.9f}\n"
             pc_str += "$end\n"
             writefile(os.path.join(workdir, "pc"), pc_str)
 
