@@ -119,3 +119,48 @@ def test_energies():
         with open(expand_path(os.path.join(PATH, out)), "r", encoding="utf-8") as f:
             energy, _ = test_interface._get_energies(f.read())
             assert np.allclose(energy.real, ref)
+
+
+def test_gradients():
+    tests = [
+        (
+            "inputs/turbomole/gradients/s0",
+            np.array(
+                [
+                    [4.298753000000e-014, -1.216747000000e-002, -8.055414000000e-003],
+                    [-3.970423000000e-014, 4.080066000000e-003, 9.145334000000e-003],
+                    [-7.876405000000e-005, 4.043700000000e-003, -5.449601000000e-004],
+                    [7.876405000000e-005, 4.043700000000e-003, -5.449601000000e-004],
+                ]
+            ),
+        ),
+        (
+            "inputs/turbomole/gradients/s1",
+            np.array(
+                [
+                    [3.146312000000e-014, 6.244453000000e-003, 6.299790000000e-002],
+                    [-3.288020000000e-014, -6.964426000000e-003, -5.831745000000e-002],
+                    [-1.026207000000e-003, 3.599866000000e-004, -2.340226000000e-003],
+                    [1.026207000000e-003, 3.599866000000e-004, -2.340226000000e-003],
+                ]
+            ),
+        ),
+        (
+            "inputs/turbomole/gradients/t1",
+            np.array(
+                [
+                    [-3.964673000000e-014, 6.371940000000e-003, 5.471832000000e-002],
+                    [3.969259000000e-014, -5.940791000000e-003, -4.667507000000e-002],
+                    [-2.460028000000e-004, -2.155748000000e-004, -4.021624000000e-003],
+                    [2.460028000000e-004, -2.155748000000e-004, -4.021624000000e-003],
+                ]
+            ),
+        ),
+    ]
+
+    for out, ref in tests:
+        test_interface = SHARC_TURBOMOLE()
+        with open(expand_path(os.path.join(PATH, out)), "r", encoding="utf-8") as f:
+            grads = test_interface._get_gradients(f.read())
+            print(grads)
+            assert np.allclose(grads, ref, atol=5e-6)
