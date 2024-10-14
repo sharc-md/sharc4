@@ -8,7 +8,7 @@ from abc import abstractmethod
 from itertools import starmap
 from multiprocessing import Pool, set_start_method
 from textwrap import dedent
-from typing import Optional, Callable
+from typing import Callable
 
 import numpy as np
 import sympy
@@ -127,7 +127,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
 
     @abstractmethod
-    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+    def read_resources(self, resources_file: str, kw_whitelist: list[str] | None = None) -> None:
         kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
@@ -157,7 +157,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.log.info(
                 f"paddingstates not specified setting default, {self.QMin.template['paddingstates']}",
             )
-
 
         # Setup jobs
         self.QMin.control["states_to_do"] = [
@@ -470,9 +469,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 cpu_per_run[itask] = ncores
             nslots = ncpu // ncores
         return nrounds, nslots, cpu_per_run
-
-
-
 
     # Start TOMI
     def get_density_recipes(self):
@@ -1208,13 +1204,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 x += nuclear_moment
             self.log.debug(f"{s1.symbol():14s} ---> {s2.symbol():14s}: {' '.join([f'{x[c]: 8.5f}' for c in range(3)])} a.u.")
 
-
-
     @staticmethod
     def parse_label(label: str) -> tuple[int, int]:
         n = 0
         m = 0
-        if '(' in label:
+        if "(" in label:
             # ORCA labels are like "1(3)A"
             s = label.replace("(", " ").replace(")", " ").split()
             n = int(s[0])
@@ -1233,7 +1227,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         return n, m
 
     @staticmethod
-    def get_theodore(sumfile: str, omffile: str, parse_function: Callable[[str], tuple[int, int]] = parse_label) -> dict[tuple[int], list[float]]:
+    def get_theodore(
+        sumfile: str, omffile: str, parse_function: Callable[[str], tuple[int, int]] = parse_label
+    ) -> dict[tuple[int], list[float]]:
         """
         Read and parse theodore output
         """
@@ -1264,10 +1260,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         for jobset in self.QMin.scheduling["schedule"]:
             for job, qmin in jobset.items():
                 # Skip unrestricted jobs
+                if qmin.control["gradonly"]:
+                    continue
                 if not self.QMin.control["jobs"][qmin.control["jobid"]]["restr"]:
                     self.log.debug(f"Skipping theodore run for unrestricted job {job}")
-                    continue
-                if qmin.control["gradonly"]:
                     continue
                 mults = self.QMin.control["jobs"][qmin.control["jobid"]]["mults"]
                 gsmult = mults[0]
@@ -1432,5 +1428,3 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             chrg[i] -= sum(pop[ao_start:ao_stop])
 
         return chrg
-
-
