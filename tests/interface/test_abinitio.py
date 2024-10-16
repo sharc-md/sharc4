@@ -194,13 +194,17 @@ def test_clean_savedir():
 
     for files, retain, step, res in tests:
         # Create temp files
-        os.mkdir(tmp_dir)
-        for file in files:
-            with open(os.path.join(tmp_dir, file), "a"):
-                os.utime(os.path.join(tmp_dir, file))
-
-        SHARC_ABINITIO.clean_savedir(tmp_dir, retain, step)
         try:
+            os.mkdir(tmp_dir)
+            for file in files:
+                with open(os.path.join(tmp_dir, file), "a"):
+                    os.utime(os.path.join(tmp_dir, file))
+
+            test_interface = SHARC_ABINITIO()
+            test_interface.QMin.save["savedir"] = tmp_dir
+            test_interface.QMin.save["step"] = step
+            test_interface.QMin.requests["retain"] = retain
+            test_interface.clean_savedir()
             assert os.listdir(tmp_dir) == res
         finally:
             shutil.rmtree(tmp_dir)

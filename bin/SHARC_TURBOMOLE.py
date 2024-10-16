@@ -9,7 +9,7 @@ from functools import cmp_to_key
 from io import TextIOWrapper
 
 import numpy as np
-from constants import NUMBERS, rcm_to_Eh
+from constants import NUMBERS, rcm_to_Eh, au2a
 from pyscf import gto, tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -163,6 +163,19 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
     _changelogstring = CHANGELOGSTRING
     _name = NAME
     _description = DESCRIPTION
+    _theodore_settings = {
+        "rtype": "ricc2",
+        "rfile": "ricc2.out",
+        "mo_file": "molden.input",
+        "read_binary": True,
+        "jmol_orbitals": False,
+        "molden_orbitals": True,
+        "Om_formula": 2,
+        "eh_pop": 1,
+        "comp_ntos": True,
+        "print_OmFrag": True,
+        "output_file": "tden_summ.txt",
+    }
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -319,22 +332,20 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Setup environment
         os.environ["TURBODIR"] = (turbodir := self.QMin.resources["turbodir"])
 
-        # TODO: grad jobs need different values
         if (ncpu := self.QMin.resources["ncpu"]) > 1:
             os.environ["PARA_ARCH"] = "SMP"
             os.environ["PARANODES"] = str(ncpu)
         os.environ["OMP_NUM_THREADS"] = str(ncpu)
 
-        arch = (
-            sp.Popen([os.path.join(self.QMin.resources["turbodir"], "scripts", "sysname")], stdout=sp.PIPE)
-            .communicate()[0]
-            .decode()
-            .strip()
-        )
+        arch = sp.Popen([os.path.join(turbodir, "scripts", "sysname")], stdout=sp.PIPE).communicate()[0].decode().strip()
         os.environ["PATH"] = f"{turbodir}/scripts:{turbodir}/bin/{arch}:" + os.environ["PATH"]
 
     def setup_interface(self) -> None:
         super().setup_interface()
+
+        if len(self.QMin.molecule["states"]) > 2 and self.QMin.molecule["states"][0] < 1:
+            self.log.error("Due to a TURBOMOLE bug at least two singlets are required if triplet states are requested!")
+            raise ValueError
 
         if self.QMin.resources["ncpu"] > 1 and self.QMin.template["spin-scaling"] == "lt-sos":
             self.log.warning("lt-sos is not fully SMP parallelized.")
@@ -907,8 +918,14 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             requests=requests,
         )
 
+        # Prepare theodore properties
+        if self.QMin.requests["theodore"]:
+            nprop = len(self.QMin.resources["theodore_prop"]) + (nfrag := len(self.QMin.resources["theodore_fragment"])) ** 2
+            labels = self.QMin.resources["theodore_prop"][:] + [f"Om_{i}_{j}" for i in range(nfrag) for j in range(nfrag)]
+            theodore_arr = [[labels[j], np.zeros(self.QMin.molecule["nmstates"])] for j in range(nprop)]
+
         # Open master output file
-        for mult in self.QMin.control["jobs"]:
+        for mult, job_dict in self.QMin.control["jobs"].items():
             with open(os.path.join(scratchdir, f"master_{mult}/ricc2.out"), "r", encoding="utf-8") as f:
                 ricc2_out = f.read()
 
@@ -950,6 +967,28 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                         sum(s * m for m, s in enumerate(states[: i - 1], 1)) : sum(s * m for m, s in enumerate(states[:i], 1))
                     ] = np.tile(energies[s_cnt : s_cnt + states[i - 1]], i)
                     s_cnt += states[i - 1]
+
+            # Theodore
+            if self.QMin.requests["theodore"]:
+                if self.QMin.control["jobs"][mult]["restr"]:
+                    ns = 0
+                    for i in job_dict["mults"]:
+                        ns += states[i - 2] - (i == job_dict["mults"][0])
+                    if ns != 0:
+                        props = self.get_theodore(
+                            os.path.join(scratchdir, f"master_{mult}", "tden_summ.txt"),
+                            os.path.join(scratchdir, f"master_{mult}", "OmFrag.txt"),
+                        )
+                        for i in range(self.QMin.molecule["nmstates"]):
+                            m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                            if (m1, s1) in props:
+                                for j in range(
+                                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2
+                                ):
+                                    theodore_arr[j][1][i] = props[(m1, s1)][j]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop1d"].extend(theodore_arr)
 
         # Overlaps
         if self.QMin.requests["overlap"]:
@@ -1006,6 +1045,15 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     for key, val in self.QMin.maps["statemap"].items():
                         if (val[0], val[1]) == grad:
                             self.QMout["grad"][key - 1] = grads
+                            if self.QMin.molecule["point_charges"]:
+                                with open(
+                                    os.path.join(scratchdir, f"grad_{grad[0]}_{grad[1]}/pc_grad"), "r", encoding="utf-8"
+                                ) as pc:
+                                    point_charges = pc.read()
+                                    point_charges = point_charges.replace("D", "E")
+                                    point_charges = point_charges.split("\n")[1:-2]
+                                    point_charges = [c.split() for c in point_charges]
+                                    self.QMout["grad_pc"][key - 1] = np.asarray(point_charges, dtype=float)
 
         return self.QMout
 
@@ -1055,19 +1103,16 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
         energies = ["0.0"]
         # Get energy table
-        if sum(self.QMin.molecule["states"]) > 1:
-            if not (
-                raw_energies := re.findall(
-                    r"excitation energies\s+\|\s+\%t1\s+\|\s+\%t2(.*)?=\+\n\n\s+Energy", ricc2_out, re.DOTALL
-                )
-            ):
-                self.log.error("No energies found in ricc2.out")
-                raise ValueError()
+        if not (
+            raw_energies := re.findall(r"excitation energies\s+\|\s+\%t1\s+\|\s+\%t2(.*)?=\+\n\n\s+Energy", ricc2_out, re.DOTALL)
+        ):
+            # No excitation energies found
+            return np.asarray([gs_energy[-1]], dtype=float), np.zeros(1)
 
-            # Extract energy values
-            energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
+        # Extract energy values
+        energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
         return (
-            np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]),
+            np.asarray(energies, dtype=np.complex128) + float(gs_energy[-1]),
             re.findall(r"(\d+\.\d{2})\s", raw_energies[0])[1::2],
         )
 
@@ -1109,6 +1154,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self._get_aoovl(True)
         self._run_wfoverlap(mo_read=2, left=self.QMin.template["method"] == "cc2")
 
+        # Run theodore
+        if self.QMin.requests["theodore"]:
+            self._run_theodore()
+
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _generate_schedule(self) -> None:
@@ -1148,6 +1197,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 job = deepcopy(self.QMin)
                 job.resources["ncpu"] = cpu_per_run[idx]
                 job.maps["gradmap"] = {(grad)}
+                job.control["gradonly"] = True
                 gradjobs[f"grad_{'_'.join(str(g) for g in grad)}"] = job
                 self.log.debug(f"Job grad_{'_'.join(str(g) for g in grad)} CPU: {cpu_per_run[idx]}")
             schedule.append(gradjobs)
@@ -1171,8 +1221,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self.log.debug("Write point charge file")
             pc_str = "$point_charges nocheck\n"
             for charge, coord in zip(self.QMin.coords["pccharge"], self.QMin.coords["pccoords"]):
-                coord += self.QMin.molecule["factor"]
-                pc_str += f"{coord[0]:16.12f} {coord[1]:16.12f} {coord[2]:16.12f} {charge:12.9f}\n"
+                pc_str += f"{coord[0]/au2a:16.12f} {coord[1]/au2a:16.12f} {coord[2]/au2a:16.12f} {charge:12.9f}\n"
             pc_str += "$end\n"
             writefile(os.path.join(workdir, "pc"), pc_str)
 

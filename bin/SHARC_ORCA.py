@@ -394,7 +394,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         if exit_code == 0:
             # make molden files
-            exec_str = "orca_2mkl ORCA -molden"
+            exec_str = f"{os.path.join(self.QMin.resources['orcadir'],'orca_2mkl')} ORCA -molden"
             molden_out = os.path.join(workdir, "orca_2mkl.out")
             molden_err = os.path.join(workdir, "orca_2mkl.err")
             self.run_program(workdir, exec_str, molden_out, molden_err)
@@ -757,18 +757,18 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                 # Point charges
                 point_charges = None
-                if self.QMin.molecule["point_charges"] and not point_charges:
+                if self.QMin.molecule["point_charges"]:
                     if ground_state:
-                        gradients = self._get_pc_grad(os.path.join(scratchdir, job_path, "ORCA.pcgrad"))
+                        point_charges = self._get_pc_grad(os.path.join(scratchdir, job_path, "ORCA.pcgrad"))
                     else:
-                        gradients = self._get_pc_grad(os.path.join(scratchdir, job_path, f"ORCA.pcgrad.{grad_ext}"))
+                        point_charges = self._get_pc_grad(os.path.join(scratchdir, job_path, f"ORCA.pcgrad.{grad_ext}"))
 
                 for key, val in self.QMin.maps["statemap"].items():
                     if (val[0], val[1]) == grad:
                         self.QMout["grad"][key - 1] = gradients
 
                         # Point charges
-                        if self.QMin.molecule["point_charges"]:
+                        if point_charges:
                             self.QMout["grad_pc"][key - 1] = point_charges
 
             # Populate neglected gradients
