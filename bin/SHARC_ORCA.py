@@ -394,7 +394,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         if exit_code == 0:
             # make molden files
-            exec_str = "orca_2mkl ORCA -molden"
+            exec_str = f"{os.path.join(self.QMin.resources['orcadir'],'orca_2mkl')} ORCA -molden"
             molden_out = os.path.join(workdir, "orca_2mkl.out")
             molden_err = os.path.join(workdir, "orca_2mkl.err")
             self.run_program(workdir, exec_str, molden_out, molden_err)
