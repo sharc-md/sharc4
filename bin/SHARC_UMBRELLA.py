@@ -463,7 +463,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                 case 'de':
                     Ei = self.child_interface.QMout.h[indices[0],indices[0]].real
                     Ej = self.child_interface.QMout.h[indices[1],indices[1]].real
-                    dE = Ei - Ej
+                    dE = Ej - Ei
                     e = k/2. * (dE - v0)**2
                     if self.QMin.requests["grad"]:
                         gi = self.child_interface.QMout.grad[indices[0]]
