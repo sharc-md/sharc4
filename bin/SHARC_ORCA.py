@@ -449,7 +449,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         gbw_second = os.path.join(workdir, gbw_second)
 
         # run orca_fragovl
-        string = f"orca_fragovl {gbw_first} {gbw_second}"
+        string = f"{os.path.join(self.QMin.resources['orcadir'],'orca_fragovl')} {gbw_first} {gbw_second}"
         self.run_program(workdir, string, "fragovlp.out", "fragovlp.err")
 
         with open(os.path.join(workdir, "fragovlp.out"), "r", encoding="utf-8") as file:
@@ -559,7 +559,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             frozcore = self.QMin.molecule["frozcore"]
 
         # run orca_fragovl
-        string = "orca_fragovl ORCA.gbw ORCA.gbw"
+        string = f"{os.path.join(self.QMin.resources['orcadir'],'orca_fragovl')} ORCA.gbw ORCA.gbw"
         self.run_program(workdir, string, "fragovlp.out", "fragovlp.err")
 
         with open(os.path.join(workdir, "fragovlp.out"), "r", encoding="utf-8") as file:
