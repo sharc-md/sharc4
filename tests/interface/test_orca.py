@@ -302,6 +302,7 @@ def test_read_mos():
         test_interface = SHARC_ORCA()
         test_interface.setup_mol(os.path.join(PATH, qmin))
         test_interface.read_template(os.path.join(PATH, template))
+        test_interface.QMin.resources["orcadir"] = expand_path("$ORCADIR")
         test_interface._read_resources = True
         test_interface.setup_interface()
         test_interface.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], test_interface.QMin.molecule["elements"]))
@@ -342,6 +343,8 @@ def test_ao_matrix():
     tests = [("inputs/aooverl1gbw", "inputs/aooverl1"), ("inputs/aooverl2gbw", "inputs/aooverl2")]
 
     test_interface = SHARC_ORCA()
+    test_interface.QMin.resources["orcadir"] = expand_path("$ORCADIR")
+
     for gbw, ovl in tests:
         ao_overl = test_interface._get_ao_matrix(os.path.join(PATH, gbw))
         os.remove(os.path.join(PATH, gbw, "fragovlp.out"))
@@ -358,6 +361,7 @@ def test_ao_matrix_overlap():
     ]
 
     test_interface = SHARC_ORCA()
+    test_interface.QMin.resources["orcadir"] = expand_path("$ORCADIR")
     for aooverl, gbw1, gbw2 in tests:
         ao_overl = test_interface._get_ao_matrix(os.path.join(PATH, "inputs/orca_overlap"), gbw1, gbw2, 15, True)
         os.remove(os.path.join(PATH, "inputs/orca_overlap", "fragovlp.out"))
