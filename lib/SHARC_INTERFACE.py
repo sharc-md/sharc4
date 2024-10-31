@@ -124,9 +124,6 @@ class SHARC_INTERFACE(ABC):
         self.QMin.template.update({"paddingstates": None})
         self.QMin.template.types.update({"paddingstates": list})
 
-        # Define if interface can be run inside a sub process
-        self._threadsafe = False
-
     def sharcprint(self, msg, *args, **kwargs):
         """
         Log 'msg % args' with severity 'SHARCPRINT'.
@@ -277,9 +274,9 @@ class SHARC_INTERFACE(ABC):
         # set up the system (i.e. molecule, states, unit...)
         self.setup_mol(QMinfilename)
         # read in the resources available for this computation (program path, cores, memory)
-        self.read_resources(f"{self.name()}.resources")
+        self.read_resources()
         # read in the specific template file for the interface with all keywords
-        self.read_template(f"{self.name()}.template")
+        self.read_template()
         # setup internal state for the computation
         self.setup_interface()
 
@@ -309,7 +306,7 @@ class SHARC_INTERFACE(ABC):
     # ----- initialization routine -----
 
     @abstractmethod
-    def read_template(self, template_file: str, kw_whitelist: list[str] | None = None) -> None:
+    def read_template(self, template_file: str = "INTERFACE.template", kw_whitelist: list[str] | None = None) -> None:
         """
         Reads a template file and assigns parameters to
         self.QMin.template. No sanity checks at all, has to be done
@@ -325,16 +322,14 @@ class SHARC_INTERFACE(ABC):
 
         self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types, kw_whitelist))
 
-
         # Check if charge in template and autoexpand if needed
-        if hasattr(self.QMin.template, "charge"):
+        if "charge" in self.QMin.template:
             self.log.warning("The 'charge' keyword must be specified in QM.in (or input)! Charge from template is ignored!")
 
         if self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
 
         self._read_template = True
-
 
     # ----- save routine -----
 
@@ -413,7 +408,7 @@ class SHARC_INTERFACE(ABC):
 
     # ----- initialization routine -----
 
-    def setup_mol(self, qmin_file: str|dict|QMin) -> None:
+    def setup_mol(self, qmin_file: str | dict | QMin) -> None:
         """
         Sets up the molecular system from a `QM.in` file or from a dictionary with entries (elements, states, charge)
         parses the elements, states, and savedir and prepare the QMin object accordingly.
@@ -427,9 +422,9 @@ class SHARC_INTERFACE(ABC):
                 f"setup_mol() was already called! Continue setup with {qmin_file}",
             )
         if isinstance(qmin_file, str):
-            self.QMin.molecule["unit"] = "angstrom"  # default 
+            self.QMin.molecule["unit"] = "angstrom"  # default
             self.QMin.molecule["factor"] = 1.0 / BOHR_TO_ANG
-            qmin_lines = readfile(qmin_file) 
+            qmin_lines = readfile(qmin_file)
             self.QMin.molecule["comment"] = qmin_lines[1]
 
             try:
@@ -535,7 +530,6 @@ class SHARC_INTERFACE(ABC):
         self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
         # self.QMin.molecule["frozcore"] = 0
 
-
         if not isinstance(self.QMin.save["savedir"], str):
             self.QMin.save["savedir"] = "./SAVEDIR/"
             self.log.debug("Setting default SAVEDIR")
@@ -556,7 +550,9 @@ class SHARC_INTERFACE(ABC):
                 self.log.info(
                     f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.molecule["charge"]}).'
                 )
-                self.log.info('You can set the charge in the QMin or input files manually for each multiplicity ("charge 0 +1 0 ...")')
+                self.log.info(
+                    'You can set the charge in the QMin or input files manually for each multiplicity ("charge 0 +1 0 ...")'
+                )
             elif len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
                 self.QMin.molecule["charge"] = [
                     int(self.QMin.molecule["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
@@ -568,7 +564,6 @@ class SHARC_INTERFACE(ABC):
                         raise ValueError(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
             else:
                 raise ValueError('Length of "charge" does not match length of "states"!')
-
 
         self.QMout.charges = self.QMin.molecule["charge"][:]
 
@@ -583,7 +578,6 @@ class SHARC_INTERFACE(ABC):
         # Setup chargemap
         self.log.debug("Building chargemap")
         self.QMin.maps["chargemap"] = {idx: int(chrg) for (idx, chrg) in enumerate(self.QMin.molecule["charge"], 1)}
-            
 
         if all((val is None for val in self.QMin.molecule.values())):
             raise ValueError(
@@ -635,7 +629,7 @@ class SHARC_INTERFACE(ABC):
         }
 
     @abstractmethod
-    def read_resources(self, resources_file: str, kw_whitelist: list[str] | None = None) -> None:
+    def read_resources(self, resources_file: str = "INTERFACE.resources", kw_whitelist: list[str] | None = None) -> None:
         """
         Reads a resource file and assigns parameters to
         self.QMin.resources. Parameters are only checked by type (if available),
@@ -716,13 +710,13 @@ class SHARC_INTERFACE(ABC):
         i = 0
         while i < n_lines:
             lst = lines[i].lower().split()
-            if len(lst) > 1 and (lst[1] == 'start' or lst[1] == 'select'):
+            if len(lst) > 1 and (lst[1] == "start" or lst[1] == "select"):
                 key = lst[0]
                 block = []
                 i += 1
                 end_found = False
                 while i < n_lines:
-                    if lines[i].strip().lower() == 'end':
+                    if lines[i].strip().lower() == "end":
                         end_found = True
                         break
                     block.append(lines[i].strip())
@@ -880,7 +874,9 @@ class SHARC_INTERFACE(ABC):
                 case ["backup"]:
                     self.log.warning("'backup' request is deprecated, use 'retain <number of steps>' instead!")
                 case ["init" | "newstep" | "samestep" | "restart"]:
-                    self.log.warning(f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored! Calculation control via STEP file and 'step' keyword.")
+                    self.log.warning(
+                        f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored! Calculation control via STEP file and 'step' keyword."
+                    )
                 case ["unit" | "states" | "charge" | "savedir", _]:
                     pass
                 case _:
@@ -944,11 +940,11 @@ class SHARC_INTERFACE(ABC):
         # logic for raw tasks object from pysharc interface
         if "tasks" in requests and isinstance(requests["tasks"], str):
             # task is 'step n <keywords+space'
-            task_list = requests['tasks'].split()
-            if task_list[0] != 'step' or not task_list[1].isdigit():
+            task_list = requests["tasks"].split()
+            if task_list[0] != "step" or not task_list[1].isdigit():
                 self.log.error(f"task string does not contain steps! {requests['tasks']}")
                 raise ValueError(f"task string does not contain steps! {requests['tasks']}")
-            self.QMin.save['step'] = int(task_list[1])
+            self.QMin.save["step"] = int(task_list[1])
             self.log.debug(f"Setting step: {self.QMin.save['step']}")
             kw_requests = task_list[2:]
             for k in kw_requests:
@@ -1024,7 +1020,7 @@ class SHARC_INTERFACE(ABC):
                 case ["soc", None]:
                     if len(self.QMin.molecule["states"]) < 2:
                         self.log.warning("SOCs requested but only singlets given! Disabled SOCs but added H request")
-                        self.QMin.requests["h"] = True    # if SOCs were requested, H is implicitly also requested
+                        self.QMin.requests["h"] = True  # if SOCs were requested, H is implicitly also requested
                         return
                     self.QMin.requests["soc"] = True
                     self.QMin.requests["h"] = True
