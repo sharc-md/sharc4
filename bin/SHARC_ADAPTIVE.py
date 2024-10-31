@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import datetime
 import os
+from importlib import import_module
 from io import TextIOWrapper
 
 import numpy as np
@@ -64,6 +65,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                 "write_geoms": True,  # Write current geometry to file if threshold exceeded
                 "geom_file": "geoms.xyz",  # Name of geom file
                 "interfaces": [],  # List of child parameters
+                "custom_error": {},  # Dictionary with custom loss function
             }
         )
         self.QMin.template.types.update(
@@ -74,6 +76,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                 "write_geoms": bool,
                 "geom_file": str,
                 "interfaces": list,
+                "custom_error": dict,
             }
         )
 
@@ -117,6 +120,19 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
     def _mae(a: np.ndarray, b: np.ndarray) -> float:
         return np.abs(a - b).mean()
 
+    def _import_loss(self, file: str, function: str) -> callable:
+        try:
+            module = import_module(file)
+        except (ModuleNotFoundError, ImportError, TypeError):
+            self.log.error(f"{file} could not be imported!")
+            raise
+        try:
+            loss = getattr(module, function)
+        except AttributeError as exc:
+            self.log.error(f"Function {function} not found in {module}")
+            raise AttributeError from exc
+        return loss
+
     def read_resources(self, resources_file="ADAPTIVE.resources", kw_whitelist=None):
         super().read_resources(resources_file, kw_whitelist)
 
@@ -145,6 +161,15 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
         for key in ("error_function", "exit_on_fail", "write_geoms", "geom_file"):
             if key in tmpl_dict:
                 self.QMin.template[key] = tmpl_dict[key]
+
+        # Check custom loss
+        if "custom_error" in tmpl_dict:
+            if tmpl_dict["custom_error"].keys() != {"name", "file", "function"}:
+                self.log.error("custom_error dictionary must contain keys name, file and function!")
+                raise ValueError
+            self._error_function[tmpl_dict["custom_error"]["name"]] = self._import_loss(
+                tmpl_dict["custom_error"]["file"], tmpl_dict["custom_error"]["function"]
+            )
 
         if self.QMin.template["error_function"].lower() not in self._error_function:
             self.log.error("Invalid error function!")
