@@ -121,6 +121,13 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
         return np.abs(a - b).mean()
 
     def _import_loss(self, file: str, function: str) -> callable:
+        """
+        Dynamically load error function from module in Python include path
+
+        file:       Name of the module, e.g. numpy
+        function:   Name of function to load
+        """
+        self.log.debug(f"Import {function} from {file}")
         try:
             module = import_module(file)
         except (ModuleNotFoundError, ImportError, TypeError):
@@ -146,7 +153,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
 
         # At least threshold must be included
         if "thresholds" not in tmpl_dict:
-            self.log.error("Teplate file must contain thresholds!")
+            self.log.error("Template file must contain thresholds!")
             raise ValueError
 
         for k, v in tmpl_dict["thresholds"].items():
@@ -158,7 +165,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
             except ValueError as exc:
                 self.log.error(f"Invalid threshold value {v} for {k}, value must be float!")
                 raise ValueError from exc
-        for key in ("error_function", "exit_on_fail", "write_geoms", "geom_file"):
+        for key in ("error_function", "exit_on_fail", "write_geoms", "geom_file", "custom_error"):
             if key in tmpl_dict:
                 self.QMin.template[key] = tmpl_dict[key]
 
@@ -167,7 +174,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
             if tmpl_dict["custom_error"].keys() != {"name", "file", "function"}:
                 self.log.error("custom_error dictionary must contain keys name, file and function!")
                 raise ValueError
-            self._error_function[tmpl_dict["custom_error"]["name"]] = self._import_loss(
+            self._error_function[tmpl_dict["custom_error"]["name"].lower()] = self._import_loss(
                 tmpl_dict["custom_error"]["file"], tmpl_dict["custom_error"]["function"]
             )
 
