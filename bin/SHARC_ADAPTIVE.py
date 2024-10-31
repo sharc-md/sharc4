@@ -186,9 +186,6 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
             self.log.error("Resources file does not contain interfaces list!")
             raise ValueError
 
-        if len(tmpl_dict["interfaces"]) != 2:  # TODO: more than two interfaces
-            self.log.error("Currently this interface only works with two childs!")
-            raise ValueError
         if len(tmpl_dict["interfaces"]) < 2:
             self.log.error("Interfaces list in resource file must contain at least two entries!")
             raise ValueError
@@ -254,25 +251,28 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
         Return QMout object of first child
         """
         for prop, thres in self.QMin.template["thresholds"].items():
-            child = iter(self._kindergarden.values())
             err_func = self._error_function[self.QMin.template["error_function"]]
-            match prop:
-                case "h":
-                    error = err_func(np.einsum("ii->i", next(child).QMout["h"]), np.einsum("ii->i", next(child).QMout["h"]))
-                case "soc":
-                    # Set diagonals to zero, then calculate error
-                    qmin1 = next(child).QMout["h"].copy()
-                    qmin2 = next(child).QMout["h"].copy()
-                    np.einsum("ii->i", qmin1)[:] = 0.0
-                    np.einsum("ii->i", qmin2)[:] = 0.0
-                    error = err_func(qmin1, qmin2)
-                case "nacdr" | "dm":
-                    reference = next(child).QMout
-                    error = err_func(reference[prop], self.phase_correct(reference[prop], next(child).QMout[prop]))
-                case _:
-                    error = err_func(next(child).QMout[prop], next(child).QMout[prop])
-            if error > thres:
-                self.log.info(f"Threshold for {prop} exceeded, error = {error}")
+            error = []
+            for idx, i in enumerate(self._kindergarden.values()):
+                for jdx, j in enumerate(self._kindergarden.values()):
+                    if jdx <= idx:
+                        continue
+                    match prop:
+                        case "h":
+                            error.append(err_func(np.einsum("ii->i", i.QMout["h"]), np.einsum("ii->i", j.QMout["h"])))
+                        case "soc":
+                            # Set diagonals to zero, then calculate error
+                            qmin1 = i.QMout["h"].copy()
+                            qmin2 = j.QMout["h"].copy()
+                            np.einsum("ii->i", qmin1)[:] = 0.0
+                            np.einsum("ii->i", qmin2)[:] = 0.0
+                            error.append(err_func(qmin1, qmin2))
+                        case "nacdr" | "dm":
+                            error.append(err_func(i.QMout[prop], self.phase_correct(i.QMout[prop], j.QMout[prop])))
+                        case _:
+                            error.append(err_func(i.QMout[prop], j.QMout[prop]))
+            if max(error) > thres:
+                self.log.info(f"Threshold for {prop} exceeded, error = {max(error)}")
                 if self.QMin.template["write_geoms"]:
                     with open(self.QMin.template["geom_file"], "a", encoding="utf-8") as geom:
                         geom.write(f"{self.QMin.molecule['natom']}\n\n")
@@ -281,7 +281,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                 if self.QMin.template["exit_on_fail"]:
                     raise ValueError
             else:
-                self.log.debug(f"Error of {prop} is {error}")
+                self.log.debug(f"Error of {prop} is {max(error)}")
 
         self.QMout = next(iter(self._kindergarden.values())).QMout
         return self.QMout
