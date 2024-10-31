@@ -2,11 +2,10 @@
 import datetime
 import os
 from io import TextIOWrapper
-from SHARC_HYBRID import SHARC_HYBRID
 
-
-from utils import InDir
 import yaml
+from SHARC_HYBRID import SHARC_HYBRID
+from utils import InDir
 
 __all__ = ["SHARC_FALLBACK"]
 
@@ -138,13 +137,15 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     def run(self):
         self._trial_failed = False
         try:
-            self._trial_interface.run()
-            self._trial_interface.getQMout()
+            with InDir(os.path.join(self.QMin.resources["pwd"], "trial_interface")):
+                self._trial_interface.run()
+                self._trial_interface.getQMout()
         except:  # pylint: disable=bare-except
             self.log.info("Trial interface failed, running fallback.")
             self._trial_failed = True
-            self._fallback_interface.run()
-            self._fallback_interface.getQMout()
+            with InDir(os.path.join(self.QMin.resources["pwd"], "fallback_interface")):
+                self._fallback_interface.run()
+                self._fallback_interface.getQMout()
 
     def create_restart_files(self):
         super().create_restart_files()
