@@ -2,6 +2,7 @@
 import datetime
 from io import TextIOWrapper
 
+import numpy as np
 from SHARC_FAST import SHARC_FAST
 from spainn.calculator import SPaiNNulator
 
@@ -105,7 +106,7 @@ class SHARC_SPAINN(SHARC_FAST):
     def setup_interface(self):
         super().setup_interface()
         self.spainnulator = SPaiNNulator(
-            atom_types="".join(self.QMin.molecule["elements"]),
+            atom_types=self.QMin.molecule["elements"],
             modelpath=self.QMin.resources["modelpath"],
             cutoff=self.QMin.template["cutoff"],
             nac_key=self.QMin.template["nac_key"],
@@ -136,16 +137,16 @@ class SHARC_SPAINN(SHARC_FAST):
 
         prediction = self.spainnulator.calculate(self.QMin.coords["coords"])
         if self.QMin.requests["h"]:
-            self.QMout["h"] = prediction["h"]
+            self.QMout["h"] = np.asarray(prediction["h"])
 
         if self.QMin.requests["grad"]:
-            self.QMout["grad"] = prediction["grad"]
+            self.QMout["grad"] = np.asarray(prediction["grad"])
 
         if self.QMin.requests["nacdr"]:
-            self.QMout["nacdr"] = prediction["nacdr"]
+            self.QMout["nacdr"] = np.asarray(prediction["nacdr"])
 
         if self.QMin.requests["dm"]:
-            self.QMout["dm"] = prediction["dm"]
+            self.QMout["dm"] = np.asarray(prediction["dm"])
 
         return self.QMout
 
