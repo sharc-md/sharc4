@@ -13,7 +13,7 @@ from typing import Any
 
 import h5py
 import numpy as np
-from constants import au2a
+from constants import au2a, lande_g_factor, alpha, MASSES
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -101,7 +101,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "ras3": None,
                 "inactive": None,
                 "roots": list(range(8)),
-                "origin": [0., 0., 0.],
+                "origin": "none",
+                "origin_pos": [0., 0., 0.],
                 "method": "casscf",
                 "functional": "t:pbe",
                 "ipea": 0.25,
@@ -128,7 +129,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "ras3": int,
                 "inactive": int,
                 "roots": list,
-                "origin": list,
+                "origin": str,
+                "origin_pos": list,
                 "method": str,
                 "functional": str,
                 "ipea": float,
@@ -390,14 +392,22 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 if val != 0:
                     self.QMin.template["roots"] = self.QMin.template["roots"][: -1 * idx]
                     break
-
-        self.QMin.template["origin"] = convert_list(self.QMin.template["origin"], float)
-        self.QMin.template["origin"] = [el/au2a for el in self.QMin.template["origin"]]
-        for idx, val in enumerate(self.QMin.template["origin"]):
-            if isinstance(val, float):
+        match self.QMin.template["origin"].lower():
+            case "none":
                 pass
-            else:
-                self.log.error("Template key \"origin\" not defined as list of floats")
+            case "com":
+                pass 
+            case "custom":
+                self.QMin.template["origin_pos"] = convert_list(self.QMin.template["origin_pos"], float)
+                self.QMin.template["origin_pos"] = [el/au2a for el in self.QMin.template["origin_pos"]]
+                for idx, val in enumerate(self.QMin.template["origin_pos"]):
+                    if isinstance(val, float):
+                        pass
+                    else:
+                        self.log.error("Template key \"origin_pos\" not defined as list of floats")
+                        raise ValueError()
+            case _ :
+                self.log.error("Template key \"origin\" not defined properly")
                 raise ValueError()
 
         # Check gradaccu
@@ -1036,8 +1046,27 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.template["method"] == "cms-pdft":
             input_str += "GRID INPUT\nNOSC\nEND OF GRID INPUT\n"
         input_str += "\n"
-        if qmin.template["origin"]:
-            center = [f"{el:.15f}" for el in qmin.template["origin"]]
+        if qmin.template["origin"].lower() == "none":
+            pass
+        elif qmin.template["origin"].lower() == "com":
+            geom_mol = qmin.coords["coords"]
+            el_mol = qmin.molecule["elements"]
+            tot_mass = 0. 
+            for el in el_mol:
+                tot_mass += MASSES[el]
+            com_dp = np.array([0., 0., 0.])
+            for idx, el in enumerate(el_mol):
+                com_dp += MASSES[el]/tot_mass*geom_mol[idx]
+            qmin.template["origin_pos"] = list(com_dp)    
+            center = [f"{el:.15f}" for el in qmin.template["origin_pos"]]
+            center =" ".join(center)
+            if qmin.requests["soc"] or qmin.requests["mdeqm"]:
+                input_str += f"CENTER\n3\n0 {center}\n1 {center}\n2 {center}\n"
+            else:
+                input_str += f"CENTER\n2\n\0 {center}\n\1 {center}\n"
+            input_str += "\n"
+        elif qmin.template["origin"].lower() == "custom":
+            center = [f"{el:.15f}" for el in qmin.template["origin_pos"]]
             center =" ".join(center)
             if qmin.requests["soc"] or qmin.requests["mdeqm"]:
                 input_str += f"CENTER\n3\n0 {center}\n1 {center}\n2 {center}\n"
@@ -1060,10 +1089,24 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if qmin.requests["soc"]:
             input_str += "AMFI\n"
-        if qmin.requests["soc"] or qmin.requests["mdeqm"]:
-            center = [f"{el:.15f}" for el in qmin.template["origin"]]
-            center =" ".join(center)                                
-            input_str += f"ANGMOM\n{center}\n"
+        if qmin.requests["soc"] or qmin.requests["mdeqm"]:  # Todo: Check if ANGMOM is necessary for SOC
+            if qmin.template["origin"] == "com":
+                geom_mol = qmin.coords["coords"]
+                el_mol = qmin.molecule["elements"]
+                tot_mass = 0. 
+                for el in el_mol:
+                    tot_mass += MASSES[el]
+                com_dp = np.array([0., 0., 0.])
+                for idx, el in enumerate(el_mol):
+                    com_dp += MASSES[el]/tot_mass*geom_mol[idx]
+                qmin.template["origin_pos"] = list(com_dp)    
+                center = [f"{el:.15f}" for el in qmin.template["origin_pos"]]
+                center =" ".join(center)                                
+                input_str += f"ANGMOM\n{center}\n"
+            elif qmin.template["origin"] == "custom":
+                center = [f"{el:.15f}" for el in qmin.template["origin_pos"]]
+                center =" ".join(center)                                
+                input_str += f"ANGMOM\n{center}\n"
         if qmin.template["baslib"]:
             input_str += f"BASLIB\n{qmin.template['baslib']}\n\n"
         input_str += "RICD\n"
@@ -1266,52 +1309,43 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if isinstance(master_out, str):
                 self.QMout["dm"] = self._get_dipoles(master_out)
             else:
-                print("HDF5")
                 s_cnt = 0
                 for m, s in enumerate(states, 1):
                     if s > 0:
                         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as dp:
-                            origin_dp = dp["MLTPL_ORIG"][1]
-                            geom_mol = self.QMin.coords["coords"]
-                            el_mol = self.QMin.molecule["elements"]
-                            electronic_charge = dp["CENTER_CHARGES"][:].sum()
-                            com_dp = np.array([0., 0., 0.]) 
-                            tot_mass = 0. 
-                            for el in el_mol:
-                                tot_mass += MASSES[el]
-                            for idx, el in enumerate(el_mol):
-                                print("geom_mol_idx", geom_mol[idx])
-                                print("tot_mass", tot_mass)
-                                print("MASSES_el", MASSES[el])
-                                com_dp += MASSES[el]/tot_mass*geom_mol[idx]
-                            print("com_dp", com_dp)
-                            print("origin_dp", origin_dp)
-                            disp_vector = com_dp - origin_dp
                             for _ in range(m):
-                                # en_diff = np.array(dp["SFS_ENERGIES"])[:, np.newaxis] - np.array(dp["SFS_ENERGIES"])
-                                # el_dip_mom = np.einsum("ijk, jk -> ijk", dp["SFS_EDIPMOM"][:], en_diff)
                                 self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
-                                print(electronic_charge, disp_vector, electronic_charge*disp_vector)
-                                #self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] -= electronic_charge*np.einsum("i,jk->ijk", disp_vector, np.eye(dp["SFS_ENERGIES"].shape[0]))
                                 s_cnt += s
-                #with h5py.File(os.path.join(scratchdir, "master/MOLCAS.rassi.h5"), "r") as dp:
-                #    origin_dp = dp["MLTPL_ORIG"][1]
-                #    geom_mol = self.QMin.coords["coords"]
-                #    el_mol = self.QMin.molecule["elements"]
-                #    overlaps = self._get_overlaps(dp)
-                #    electronic_charge = dp["CENTER_CHARGES"][:].sum()
-                #    com_dp = 0. 
-                #    tot_mass = 0. 
-                #    for el in el_mol:
-                #        tot_mass += MASSES[el]
-                #    for idx, el in enumerate(el_mol):
-                #        com_dp += MASSES[el]/tot_mass*geom_mol[idx]
-                #    disp_vector = com_dp - origin_dp
-                #    self.log.info(com_dp.shape)
-                #    self.log.info(origin_dp.shape)
-                #    self.log.info(overlaps.shape)
-                #self.QMout["dm"] -= electronic_charge*np.einsum("i,jk->ijk", disp_vector, overlaps)
-
+                # print("HDF5")
+                # s_cnt = 0
+                # for m, s in enumerate(states, 1):
+                #     if s > 0:
+                #         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as dp:
+                #             origin_dp = dp["MLTPL_ORIG"][1]
+                #             geom_mol = self.QMin.coords["coords"]
+                #             el_mol = self.QMin.molecule["elements"]
+                #             # electronic_charge = self.QMin.molecule["charge"][m] 
+                #             electronic_charge = dp["CENTER_CHARGES"][:].sum()
+                #             com_dp = np.array([0., 0., 0.]) 
+                #             tot_mass = 0. 
+                #             for el in el_mol:
+                #                 tot_mass += MASSES[el]
+                #             for idx, el in enumerate(el_mol):
+                #                 print("geom_mol_idx", geom_mol[idx])
+                #                 print("tot_mass", tot_mass)
+                #                 print("MASSES_el", MASSES[el])
+                #                 com_dp += MASSES[el]/tot_mass*geom_mol[idx]
+                #             print("com_dp", com_dp)
+                #             print("origin_dp", origin_dp)
+                #             disp_vector = com_dp - origin_dp
+                #             print(disp_vector)
+                #             for _ in range(m):
+                #                 # en_diff = np.array(dp["SFS_ENERGIES"])[:, np.newaxis] - np.array(dp["SFS_ENERGIES"])
+                #                 # el_dip_mom = np.einsum("ijk, jk -> ijk", dp["SFS_EDIPMOM"][:], en_diff)
+                #                 self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
+                #                 # print(electronic_charge, disp_vector, electronic_charge*disp_vector)
+                #                 self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] -= electronic_charge*np.einsum("i,jk->ijk", disp_vector, np.eye(dp["SFS_ENERGIES"].shape[0]))
+                #                 s_cnt += s
         if self.QMin.requests["mdeqm"]:
             # Full MDM matrix in ascii file, sub matrices of mult in h5 files
             if isinstance(master_out, str):
@@ -1665,6 +1699,129 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 s_cnt += state
         # dipole_mat -= electronic_charge*np.einsum("i,jk->ijk", disp_vector, overlaps)
         return dipole_mat
+
+    def get_full_tdm(self, workdir): 
+    # def dyson_orbitals_with_other(self, other, workdir, ncpu, mem):
+    #     if self.get_molcas_version(self.QMin.resources["molcas"]) < (23, 10):
+    #         self.log.error("Dyson orbital calculation requires MOLCAS version 23.10 or higher!")
+    #         raise ValueError()
+
+        mkdir(os.path.join(workdir, "dyson"))
+
+        qmin1 = self.QMin
+        qmin2 = other.QMin
+        save1 = qmin1.save["savedir"]
+        save2 = qmin2.save["savedir"]
+        step1 = qmin1.save["step"]
+        step2 = qmin2.save["step"]
+        nstates1 = qmin1.molecule["states"]
+        nstates2 = qmin2.molecule["states"]
+
+        # Getting all non-zero DOs
+        dyson_orbitals_from_rassi = {}
+        dyson_orbitals_from_wigner_eckart = []
+        for s1 in self.states:
+            for s2 in other.states:
+                for spin in ["a", "b"]:
+                    if self.dyson_logic(s1, s2, spin):
+                        if s1.M == s1.S and s2.M == s2.S:
+                            if (s1.S, s2.S) in dyson_orbitals_from_rassi:
+                                dyson_orbitals_from_rassi[(s1.S, s2.S)].append((s1, s2, spin))
+                            else:
+                                dyson_orbitals_from_rassi[(s1.S, s2.S)] = [(s1, s2, spin)]
+                        else:
+                            dyson_orbitals_from_wigner_eckart.append((s1, s2, spin))
+
+        phi = {}
+        # Calling RASSI for each pair of multiplicities
+        for (dyson_s1, dyson_s2), dos in dyson_orbitals_from_rassi.items():
+            phi_work = np.zeros(((n_s1 := nstates1[dyson_s1]), (n_s2 := nstates2[dyson_s2]), self.QMout["mol"].nao))
+            # Fetch JOBIPH files
+            shutil.copy(os.path.join(save1, f"MOLCAS.{dyson_s1+1}.JobIph.{step1}"), os.path.join(workdir, "dyson/JOB001"))
+            shutil.copy(os.path.join(save2, f"MOLCAS.{dyson_s2+1}.JobIph.{step2}"), os.path.join(workdir, "dyson/JOB002"))
+
+            # Make RASSI.input
+            input_str = self._write_gateway(self.QMin)
+            input_str += self._write_seward(self.QMin)
+            input_str += "&RASSI\n"
+            input_str += f"NROFJOBIPHS\n2 {n_s1} {n_s2}\n"
+            input_str += f"{' '.join([str(j) for j in range(1, n_s1 + 1)])}\n{' '.join([str(j) for j in range(1, n_s2 + 1)])}\n"
+            input_str += "MEIN\n"
+            input_str += "CIPR\nTHRS=0.000005d0\n"
+            input_str += "DYSON\n"
+            input_str += f"DYSEXPORT\n{n_s1 + n_s2} 0\n\n"
+            with open(os.path.join(workdir, "dyson/RASSI.input"), "w", encoding="utf-8") as f:
+                f.write(input_str)
+
+            writefile(
+                os.path.join(workdir, "dyson/MOLCAS.xyz"),
+                self._write_geom(self.QMin.molecule["elements"], self.QMin.coords["coords"]),
+            )
+            # Call pymolcas
+            if (
+                code := self.run_program(
+                    os.path.join(workdir, "dyson"),
+                    self.QMin.resources["driver"] + " RASSI.input",
+                    "RASSI.out",
+                    "RASSI.err",
+                    {"MOLCASMEM": str(mem), "MOLCAS_MEM": str(mem), "WorkDir": workdir},
+                )
+            ) != 0:
+                self.log.error(f"Dyson orbital calculation failed with exit code {code}")
+                raise ValueError()
+
+            with h5py.File(os.path.join(workdir, "dyson/RASSI.rassi.h5"), "r") as f:
+                ao_order = np.asarray(f["BASIS_FUNCTION_IDS"][:])
+
+            # MOLCAS orders by ml -> e.g. 2px, 3px, 4px, 2py, ...
+            def sort_ao(key1, key2):  # reorder to 2px, 2py, 2pz, 3py, ...
+                ao1 = ao_order[key1]
+                ao2 = ao_order[key2]
+                return (ao1[0] - ao2[0]) * 1000 + (ao1[2] - ao2[2]) * 100 + (ao1[1] * ao1[2] - ao2[1] * ao2[2])
+
+            ao_sorted = sorted(list(range(ao_order.shape[0])), key=cmp_to_key(sort_ao))
+            # Parse
+            for i in range(n_s1):
+                with open(os.path.join(workdir, f"dyson/RASSI.DysOrb.SF.{i+1}"), "r", encoding="utf-8") as f:
+                    orbitals = re.findall(r"ORBITAL\s+\d+\s+\d+\n([\s+-?\d+\.\d{14}E+|\-\d{2}]*)", f.read(), re.DOTALL)
+                    for j, orbital in enumerate(orbitals):
+                        phi_work[i, j, :] = np.asarray(re.findall(r"\-?\d+\.\d{14}E[\-|+]\d+", orbital), dtype=float)[
+                            np.ix_(ao_sorted)
+                        ]
+
+            for s1, s2, spin in dos:
+                phi[(s1, s2, spin)] = phi_work[s1.N - 1, s2.N - 1, :]
+
+        all_done = False
+        while not all_done:
+            for thes1, thes2, thespin in dyson_orbitals_from_wigner_eckart:
+                for (s1, s2, spin), phi_work in phi.items():
+                    to_append = {}
+                    if s1 // thes1 and s2 // thes2:
+                        if thespin == "a":
+                            numerator = wigner_3j(
+                                thes1.S / 2.0, 1.0 / 2.0, thes2.S / 2.0, thes1.M / 2.0, -1.0 / 2.0, -thes2.M / 2.0
+                            )
+                        elif thespin == "b":
+                            numerator = wigner_3j(
+                                thes1.S / 2.0, 1.0 / 2.0, thes2.S / 2.0, thes1.M / 2.0, 1.0 / 2.0, -thes2.M / 2.0
+                            )
+                        if spin == "a":
+                            denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, -1.0 / 2.0, -s2.M / 2.0)
+                        elif spin == "b":
+                            denominator = wigner_3j(s1.S / 2.0, 1.0 / 2.0, s2.S / 2.0, s1.M / 2.0, 1.0 / 2.0, -s2.M / 2.0)
+                        if denominator != 0:
+                            to_append[(thes1, thes2, thespin)] = (
+                                (-1.0) ** (thes2.M / 2.0 - s2.M / 2.0)
+                                * float(numerator.evalf())
+                                / float(denominator.evalf())
+                                * phi_work
+                            )
+                        break
+                for do, phi_work in to_append.items():
+                    phi[do] = phi_work
+            all_done = all(do in phi for do in dyson_orbitals_from_wigner_eckart)
+        return phi
 
     def _get_electric_quadrupoles(self, output_file: str) -> np.ndarray:
         """

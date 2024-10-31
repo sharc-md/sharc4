@@ -24,7 +24,7 @@
 
 import os
 import sys
-
+import numpy
 
 # py_setuptools applies some customization to the setuptools code
 # Therefore, we load all stuff from setuptools through py_setuptools

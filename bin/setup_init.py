@@ -430,7 +430,7 @@ def get_general(INFOS):
 
     # # Setup origin for calculation of multipole moment operators 
     # log.info("\n" + f"{'Definition of geometrical origin for Multipole Moment Operators:-^60'}" + "\n")
-    # if question("Shift origin from default position to new position?", bool, False):
+    # if question("Do you want to shift the multipole origin from default interface position to a new position?", bool, False):
     #     INFOS["origin"] = question("Define the new origin, e.g. 0 0 0: ", int)
     #     log.info(INFOS["origin"])
     # log.info("")

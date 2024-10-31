@@ -134,7 +134,8 @@ reopen_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
     // open sharc file
 //     printf("REOPENING!\n");
     ncdat->id      = open_ncfile("output.dat.nc", NC_WRITE);
-    fprintf("OPEN NCFILE", ncdat->id); 
+//     printf("REOPENED!\n");
+
     // init nsteps
     size_t nsteps = 0;
 
@@ -180,6 +181,8 @@ write_sharc_ncoutputdat_istep_(
         const double* H_MCH_ss,           // complex, (frame, 2*nstates, nstates)
         const double* U_ss,               // complex, (frame, 2*nstates, nstates)
         const double* DM_print_ssd,       // complex, (frame, 2*nstates, nstates, 3)
+        const double* MDM_print_ssd,      // complex, (frame, 2*nstates, nstates, 3)
+        const double* EQM_print_ssdd,     // complex, (frame, 2*nstates, nstates, 3 ,3)
         const double* overlaps_ss,        // complex, (frame, 2*nstates, nstates)
         const double* coeff_diag_s,       // complex, (frame, 2*nstates)
         const double* E,                  // real, contains Etot, Epot and Ekin, (frame, 3)
@@ -268,7 +271,7 @@ write_sharc_ncoutputdat_istep_(
 void
 read_sharc_ncoutputdat_istep_(
         // 
-        int* nsteps,
+        size_t* nsteps,
         const int* istep,
         const int* natoms,
         const int* nstates,
@@ -292,7 +295,6 @@ read_sharc_ncoutputdat_istep_(
 )
 {
    int iret = 0;
-   int pointer = 0;
 
    if (*istep == 0) {
         ncdat->id = open_ncfile("output.dat.nc", NC_NOWRITE);
@@ -310,7 +312,6 @@ read_sharc_ncoutputdat_istep_(
                 nc_inq_dimlen(ncdat->id, unlim_id, nsteps)
         );
 
-        printf("found %d steps\n", *nsteps);
         
         check_nccall(iret, 
                 nc_inq_varid(ncdat->id, "H_MCH", &ncdat->H_MCH_id)
