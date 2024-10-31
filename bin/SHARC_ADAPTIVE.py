@@ -80,7 +80,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
             }
         )
 
-        # Resources interface structure
+        # Template interface structure
         self._interface_templ = {
             "label": str,  # Label of the child
             "interface": str,  # Name of SHARC interface
