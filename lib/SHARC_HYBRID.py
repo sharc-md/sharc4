@@ -125,7 +125,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         child_dict:     dictionary containing name of child and name of the interface or
                         a tuple with name of the interface and *args **kwargs
         """
-        self.log.debug("Instantiace childs")
+        self.log.debug("Instantiate childs")
 
         for name, interface in child_dict.items():
             if name in self._kindergarden:
