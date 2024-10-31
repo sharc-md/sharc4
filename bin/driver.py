@@ -29,7 +29,6 @@ import time
 import numpy as np
 from typing import Any, Union
 from optparse import OptionParser
-from constants import IAn2AName, ATOMCHARGE, FROZENS
 
 # INTERNAL
 import sharc.sharc as sharc
@@ -39,7 +38,7 @@ from factory import factory
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
 from error import Error
-from utils import list2dict, InDir, convert_list
+from utils import list2dict, InDir
 from logger import log, loglevel as loglevel_env
 
 
