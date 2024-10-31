@@ -89,7 +89,25 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
         self._valid_props = ("h", "soc", "dm", "grad", "nacdr")
 
         # Loss functions
-        self._error_function = {"mae": SHARC_ADAPTIVE._mae, "mae_max": SHARC_ADAPTIVE._mae_max}
+        self._error_function = {
+            "mae": SHARC_ADAPTIVE._mae,
+            "mae_max": SHARC_ADAPTIVE._mae_max,
+            "mse": SHARC_ADAPTIVE._mse,
+            "mse_max": SHARC_ADAPTIVE._mse_max,
+            "rmse": SHARC_ADAPTIVE._rmse,
+        }
+
+    @staticmethod
+    def _rmse(a: np.ndarray, b: np.ndarray) -> float:
+        return np.sqrt(SHARC_ADAPTIVE._mse(a, b))
+
+    @staticmethod
+    def _mse_max(a: np.ndarray, b: np.ndarray) -> float:
+        return np.square(a - b).max()
+
+    @staticmethod
+    def _mse(a: np.ndarray, b: np.ndarray) -> float:
+        return np.square(a - b).mean()
 
     @staticmethod
     def _mae_max(a: np.ndarray, b: np.ndarray) -> float:
