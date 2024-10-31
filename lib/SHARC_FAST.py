@@ -29,7 +29,6 @@
 import os
 import shutil
 from io import TextIOWrapper
-from typing import Optional
 
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
@@ -40,9 +39,12 @@ class SHARC_FAST(SHARC_INTERFACE):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._threadsafe = True
 
-    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
+        self.template_file = None
+        self.resources_file = None
+        self.extra_files = None
+
+    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         return INFOS
 
     def setup_interface(self):
@@ -77,10 +79,6 @@ class SHARC_FAST(SHARC_INTERFACE):
             for file in self.extra_files:
                 shutil.copy(expand_path(file), os.path.join(dir_path, os.path.split(file)[1]))
 
-
     def clean_savedir(self) -> None:
         if not self.persistent:
             super().clean_savedir()
-
-
-
