@@ -292,10 +292,9 @@ class SHARC_INTERFACE(ABC):
         # get output as requested
         self.getQMout()
 
-        # Remove old data
+        # Remove old data from savedir, write new data, mark as successful
         self.clean_savedir()
-
-        # writes a STEP file in the SAVEDIR (marks this step as succesfull)
+        self.create_restart_files()
         self.write_step_file()
 
         # printing and output generation
@@ -1070,15 +1069,15 @@ class SHARC_INTERFACE(ABC):
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         writefile(stepfile, str(self.QMin.save["step"]))
 
-    def update_step(self, step: int = None) -> None:
-        """
-        sets the step variable im QMin object or increments the current step by +1
-        should be called after a successful step
-        """
-        if step is None:
-            self.QMin.save["step"] += 1
-        else:
-            self.QMin.save["step"] = step
+    # def update_step(self, step: int = None) -> None:
+    #     """
+    #     sets the step variable im QMin object or increments the current step by +1
+    #     should be called after a successful step
+    #     """
+    #     if step is None:
+    #         self.QMin.save["step"] += 1
+    #     else:
+    #         self.QMin.save["step"] = step
 
     # ----- print routine -----
 
