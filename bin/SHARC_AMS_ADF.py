@@ -57,8 +57,7 @@ from socket import gethostname
 import traceback
 # parse Python literals from input
 import ast
-
-
+from constants import au2a, D2au
 # =========================================================0
 # compatibility stuff
 
@@ -160,10 +159,6 @@ ATOMCHARGE = {'H': 1, 'He': 2,
               'Nh': 113, 'Fl': 114, 'Mc': 115, 'Lv': 116, 'Ts': 117, 'Og': 118
               }
 
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
-D2au = 0.393430307
 
 
 # =============================================================================================== #

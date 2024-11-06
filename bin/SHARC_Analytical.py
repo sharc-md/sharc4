@@ -38,6 +38,7 @@ import stat
 import shutil
 import datetime
 import pprint
+from constants import BOHR_TO_ANG
 try:
     import numpy
     NONUMPY = False
@@ -50,11 +51,6 @@ except ImportError:
 # some constants
 PRINT = True
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6
-HARTREE_TO_EV = 27.211396132
-U_TO_AMU = 1. / 5.4857990943e-4
-BOHR_TO_ANG = 0.529177211
-PI = math.pi
 
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)

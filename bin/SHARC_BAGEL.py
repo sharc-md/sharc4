@@ -40,6 +40,7 @@ import sys
 import subprocess as sp
 import shutil
 import os
+from constants import au2a
 global DEBUG
 global PRINT
 DEBUG = False
@@ -152,11 +153,6 @@ ATOMCHARGE = {'H': 1, 'He': 2,
               'Rf': 104, 'Db': 105, 'Sg': 106, 'Bh': 107, 'Hs': 108, 'Mt': 109, 'Ds': 110, 'Rg': 111, 'Cn': 112,
               'Nh': 113, 'Fl': 114, 'Mc': 115, 'Lv': 116, 'Ts': 117, 'Og': 118
               }
-
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
-D2au = 0.393430307
 
 
 

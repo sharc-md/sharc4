@@ -31,7 +31,7 @@ import math
 import sys
 import os
 from optparse import OptionParser
-
+from constants import HARTREE_TO_EV 
 try:
     import numpy
     NONUMPY = False
@@ -42,11 +42,6 @@ except ImportError:
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-ANG_TO_BOHR = 1. / 0.529177211  # 1.889725989      # conversion from Angstrom to bohr
-PI = math.pi
 
 # hash table for conversion of multiplicity to the keywords used in COLUMBUS
 IToMult = {

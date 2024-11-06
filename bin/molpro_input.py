@@ -43,11 +43,7 @@ import socket
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
 U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-BOHR_TO_ANG = 0.529177211
-PI = math.pi
 
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)

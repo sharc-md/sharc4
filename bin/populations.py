@@ -39,6 +39,7 @@ import datetime
 import random
 from optparse import OptionParser
 import readline
+from constants import au2fs
 import time
 import colorsys
 import pprint
@@ -52,12 +53,6 @@ except ImportError:
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-BOHR_TO_ANG = 0.529177211
-AU_TO_FS = 0.024188843
-PI = math.pi
 
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
@@ -764,9 +759,9 @@ def do_calc(INFOS):
             for line in lisf:
                 if 'dtstep' in line:
                     try:
-                        dt = float(line.split()[0]) * AU_TO_FS
+                        dt = float(line.split()[0]) * au2fs 
                     except ValueError:
-                        dt = float(line.split()[-1]) * AU_TO_FS
+                        dt = float(line.split()[-1]) * au2fs 
                     break
             else:
                 lisf.close()

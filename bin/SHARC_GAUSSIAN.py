@@ -1120,13 +1120,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         else:
             string += f"{charge} {gsmult}\n"
         for label, coords in zip(QMin.molecule["elements"], QMin.coords["coords"]):
-            string += f"{label:>4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}\n"
+            string += f"{label:>4s} {coords[0]:16.15f} {coords[1]:16.15f} {coords[2]:16.15f}\n"
         string += "\n"
         if QMin.molecule['point_charges']:
             for a in range(len(QMin.coords['pccharge'])):
                 pccoord = QMin.coords['pccoords'][a,:]
                 pccharge = QMin.coords['pccharge'][a]
-                string += f"{pccoord[0]:16.9f} {pccoord[1]:16.9f} {pccoord[2]:16.9f} {pccharge:16.9f}\n"
+                string += f"{pccoord[0]:16.15f} {pccoord[1]:16.15f} {pccoord[2]:16.15f} {pccharge:16.15f}\n"
             string += "\n"
         if QMin.template["functional"].lower() == "dftba":
             string += "@GAUSS_EXEDIR:dftba.prm\n"
@@ -1147,7 +1147,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     def saveGeometry(self, qmin: QMin_class) -> None:
         string = ""
         for label, atom in zip(qmin.molecule["elements"], qmin.coords["coords"]):
-            string += f"{label:4s} {atom[0]:16.9f} {atom[1]:16.9f} {atom[2]:16.9f}\n"
+            string += f"{label:4s} {atom[0]:16.15f} {atom[1]:16.15f} {atom[2]:16.15f}\n"
         filename = os.path.join(qmin.save["savedir"], f'geom.dat.{qmin.save["step"]}')
         writefile(filename, string)
         self.log.print(shorten_DIR(filename))
