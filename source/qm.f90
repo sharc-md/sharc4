@@ -2250,6 +2250,8 @@ module qm
     integer :: stat,i,j,istate,jstate,kstate,iatom,idir,ipol
     integer :: imult
 
+    ! TODO: these allocations can still lead to crashes, should be checked again what can be removed
+
     ! 0. compute rotation matrix variables.
     complex*16 :: U_temp(ctrl%nstates,ctrl%nstates), H_temp(ctrl%nstates,ctrl%nstates)
     ! 1. tdh variables
