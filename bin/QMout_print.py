@@ -293,7 +293,7 @@ excitation energies and oscillator strengths.
     parser.add_option('-S', dest='S', type=int, nargs=1, default=1, help="Initial state (Lowest=1)")
     parser.add_option('-t', dest='t', type=int, nargs=1, default=0, help="0 (default): for QM.out containing h,dm; 1: for QM.out containing only h")
     parser.add_option('-L', dest='L', action='store_true', help="Format in a single line")
-    parser.add_option('-I', dest='I', action='store_true', help="Use Dyson norms instead of oscillator strengths")
+    parser.add_option('-I', dest='I', action='store_true', default=False, help="Use Dyson norms instead of oscillator strengths")
 
     #parser.add_option('-n', dest='n', type=int, nargs=1, default=3, help="Number of geometries to be generated (integer, default=3)")
     #parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
