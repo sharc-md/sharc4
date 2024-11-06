@@ -152,6 +152,11 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._trial_interface.create_restart_files()
         self._fallback_interface.create_restart_files()
 
+    def clean_savedir(self):
+        super().clean_savedir()
+        self._trial_interface.clean_savedir()
+        self._fallback_interface.clean_savedir()
+
     def setup_interface(self):
         if not os.path.isdir(path := os.path.join(self.QMin.resources["pwd"], "fallback_interface")):
             self.log.error(f"{path} does not exist!")

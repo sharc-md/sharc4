@@ -179,3 +179,9 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         for label, child in self._kindergarden.items():
             self.log.debug(f"Clean savedir from child {label}")
             child.clean_savedir()
+
+    def write_step_file(self):
+        super().write_step_file()
+        for label, child in self._kindergarden.items():
+            self.log.debug(f"Write step file for child {label}")
+            child.write_step_file()

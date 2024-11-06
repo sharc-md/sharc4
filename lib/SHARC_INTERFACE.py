@@ -335,10 +335,6 @@ class SHARC_INTERFACE(ABC):
     def clean_savedir(self) -> None:
         """
         Remove older files than step-retain
-
-        path:       Path to savedir
-        retain:     Number of timesteps to keep (-1 = all)
-        step:       Current step
         """
         path = self.QMin.save["savedir"]
         retain = self.QMin.requests["retain"]
@@ -492,6 +488,8 @@ class SHARC_INTERFACE(ABC):
                     self.QMin.coords["pccoords"] = pccoords
                     self.QMin.coords["pccharge"] = pccharge
                     self.QMin.molecule["npc"] = len(pccharge)
+                elif key == "retain":
+                    self.QMin.requests["retain"] = int(llist[1])
 
         elif isinstance(qmin_file, dict):
             # fixed settings
@@ -515,11 +513,14 @@ class SHARC_INTERFACE(ABC):
                 self._setsave = True
                 self.QMin.save["savedir"] = qmin_file["savedir"]
                 self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
+            self.log.debug(f"retain {int(qmin_file['retain'].split()[1])}")
+            self.QMin.requests["retain"] = int(qmin_file["retain"].split()[1])
 
         elif isinstance(qmin_file, QMin):
             self.QMin.molecule = deepcopy(qmin_file.molecule)
             self.QMin.maps["statemap"] = deepcopy(qmin_file.maps["statemap"])
             self.QMin.maps["chargemap"] = deepcopy(qmin_file.maps["chargemap"])
+            self.QMin.requests["retain"] = qmin_file.requests["retain"]
 
         else:
             self.log.error(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
@@ -934,7 +935,9 @@ class SHARC_INTERFACE(ABC):
 
     def _set_driver_requests(self, requests: dict) -> None:
         # delete all old requests
+        retain = self.QMin.requests["retain"]
         self.QMin.requests = QMin().requests
+        self.QMin.requests["retain"] = retain
         self.log.debug(f"getting requests {requests}")
         # logic for raw tasks object from pysharc interface
         if "tasks" in requests and isinstance(requests["tasks"], str):

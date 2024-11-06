@@ -30,7 +30,7 @@ subroutine field_transform(laser_t,type_envelope,field_strength,fwhm, &
                          pulse_end,omega_0,phase,b_1, &
                          b_2,b_3,b_4,dt,t0,Nt,envelope,momentary_frequency)
   
-  use LASER_definitions
+  use definitions
   
   implicit none
       

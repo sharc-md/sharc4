@@ -1738,7 +1738,7 @@ module qm
   complex*16 :: soc1,soc2,dsoc       ! old soc, new soc
 
   complex*16 :: prod, diff
-  real*8,parameter :: threshold=(1.d0/219474.d0)**(2)
+  real*8,parameter :: threshold=(1.d0/219474.6313632d0)**(2)
 
   prod=conjg(soc1)*soc2
 

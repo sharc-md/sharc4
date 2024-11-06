@@ -303,6 +303,16 @@ subroutine get_Charges(string)
     return 
 endsubroutine
 
+subroutine get_retain(string)
+    use memory_module, only: traj, ctrl
+    implicit none
+    __C_OUT_STRING_S_ :: string
+
+    string = ""
+    write(string, '(a,1x,I7,a)') 'retain',ctrl%retain_restart_files, CHAR(0)
+endsubroutine
+
+
 ! ------------------------------------------------------
 
 subroutine get_dt(string)
@@ -369,6 +379,7 @@ subroutine get_tasks(string, ICALL)
     ! write step into tasks
     string = 'step'
     write(string,'(A,1X,I)') trim(string), traj%step
+    ! TODO: add retain
 
 
     if (ICALL .eq. 1) then

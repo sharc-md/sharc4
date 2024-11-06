@@ -193,10 +193,10 @@ endif
 DATA_EXTRACTOR =  qm_out.o \
 		  data_extractor.o
 
-LASER=  LASER_definitions.o \
-	LASER_calc_fftw.o \
-	LASER_input.o \
-	LASER_main.o 
+LASER =	definitions.o \
+		LASER_calc_fftw.o \
+		LASER_input.o \
+		LASER_main.o 
 
 
 DIAGONALIZER = string.o \
@@ -352,8 +352,8 @@ army_ants.o: $(TOOLS) definitions.o electronic.o
 pointer_basis.o: $(TOOLS) definitions.o
 restrictive_potential.o: $(TOOLS) definitions.o
 
-LASER_input.o: LASER_definitions.o 
-LASER_calc_fftw.o: LASER_definitions.o
+LASER_input.o: definitions.o 
+LASER_calc_fftw.o: definitions.o
 
 data_extractor_NetCDFmodule.o: $(TOOLS) qm_out.o
 data_extractor_NetCDF.o: data_extractor_NetCDFmodule.o definitions.o matrix.o definitions_NetCDF.o
