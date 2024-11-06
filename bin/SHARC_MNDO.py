@@ -241,8 +241,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         return INFOS
 
 
-    def create_restart_files(self):
-        pass
 
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:

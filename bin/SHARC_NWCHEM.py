@@ -193,8 +193,6 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
             create_file(expand_path(self._resource_file), os.path.join(dir_path, "NWCHEM.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "NWCHEM.template"))
 
-    def create_restart_files(self) -> None:
-        pass
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """

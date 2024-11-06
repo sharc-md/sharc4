@@ -290,8 +290,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             )
             create_file(val, dest)
 
-    def create_restart_files(self) -> None:
-        pass
 
     def read_resources(self, resources_file: str = "MOLCAS.resources", kw_whitelist: list[str] | None = None) -> None:
         super().read_resources(resources_file, ["theodore_fragment"])

@@ -232,8 +232,6 @@ class SHARC_QCHEM(SHARC_ABINITIO):
     def setup_interface(self) -> None:
         return super().setup_interface()
 
-    def create_restart_files(self) -> None:
-        return super().create_restart_files()
 
     def _create_aoovl(self) -> None:
         return super()._create_aoovl()

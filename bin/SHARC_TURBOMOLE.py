@@ -419,9 +419,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
     def _create_aoovl(self) -> None:
         pass
 
-    def create_restart_files(self) -> None:
-        pass
-
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         # Create workdir
         self.log.debug(f"Create workdir {workdir}")

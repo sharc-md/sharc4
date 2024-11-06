@@ -344,8 +344,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             create_file(expand_path(self.resources_file), os.path.join(dir_path, "ORCA.resources"))
         create_file(expand_path(self.template_file), os.path.join(dir_path, "ORCA.template"))
 
-    def create_restart_files(self):
-        pass
+
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
