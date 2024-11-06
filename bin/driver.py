@@ -263,7 +263,7 @@ def main():
         do_qm_calc(derived_int, QMout)
         initial_qm_post()
         initial_step(IRestart)
-        derived_int.update_step()
+        # derived_int.update_step()
     lvc_time = 0.0
     all_time = 0.0
     for istep in range(basic_info["istep"] + 1, basic_info["NSteps"] + 1):
@@ -294,7 +294,7 @@ def main():
         all_time += all_s2 - all_s1
         if iexit == 1:
             break
-        derived_int.update_step()
+        # derived_int.update_step()
 
     derived_int.create_restart_files()
     finalize_sharc()
