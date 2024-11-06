@@ -511,7 +511,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             pwd = os.path.join(self.QMin.resources["scratchdir"],'PWD',name)
             mkdir(pwd)
             logfile = os.path.join(pwd,'QM.log')
-            logname = 'Displacement:%s:%s' % (NAME,name)
+            logname = 'Displacement:%s:%s' % (qm_program,name)
             child_dict[label] = (qm_program, [], {"logfile": logfile, "logname": logname, 'loglevel': self.log.level, 'persistent': False})
         #self.log.info(child_dict)
         self.instantiate_children(child_dict)
