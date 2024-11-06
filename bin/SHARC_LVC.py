@@ -35,6 +35,7 @@ import os
 import sys
 import datetime
 import numpy as np
+import re
 
 # internal
 from SHARC_FAST import SHARC_FAST
@@ -313,17 +314,14 @@ class SHARC_LVC(SHARC_FAST):
             self._diagonalize = self.QMin.resources["diagonalize"]
 
     def setup_interface(self):
+        super().setup_interface()
         if self.persistent:
-            stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
-            if os.path.isfile(stepfile):
-                last_step = int(readfile(stepfile)[0])
-            else:
-                last_step = None
-            if last_step is None:
-                self._Uold = np.identity(self.QMin.molecule["nmstates"], dtype = float)
-            else:
-                ufile = os.path.join(self.QMin.save["savedir"], f'U.{last_step}.out.npy')
-                self._Uold = np.load(ufile)
+            for file in os.listdir(self.QMin.save["savedir"]):
+                if re.match(r"^U\.npy\.\d+$", file):
+                    step = int(file.split('.')[-1])
+                    ufile = os.path.join(self.QMin.save["savedir"], file)
+                    self.savedict[step] = {'U': np.load(ufile).reshape( (self.QMin.molecule['nmstates'], self.QMin.molecule['nmstates']) )}
+                
 
     def getQMout(self):
         return self.QMout
@@ -714,20 +712,22 @@ class SHARC_LVC(SHARC_FAST):
             if self.QMin.save["step"] == 0:
                 pass
             elif self.persistent:
-                overlap = self._Uold.T @ self._U
+                Uold = self.savedict[self.QMin.save['step']-1]["U"]
             else:
-                overlap = (
-                    np.load(os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']-1}.out.npy")).reshape(self._U.shape).T
-                    @ self._U
-                )
+                Uold = np.load(os.path.join(self.QMin.save["savedir"], f"U.npy.{self.QMin.save['step']-1}")).reshape(self._U.shape)
+            overlap = Uold.T @ self._U
 
         # OVERLAP
         if not self.QMin.save["samestep"]:
-            self._Uold = np.copy(self._U)
-            if not self.persistent:
-                np.save(
-                    os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']}.out.npy"), self._U
-                )  # writes a binary file (can be read with numpy.load())
+            # store U matrix
+            if self.persistent:
+                self.savedict[self.QMin.save['step']] = {'U': np.copy(self._U)}
+            else:
+                with open(os.path.join(self.QMin.save["savedir"], f"U.npy.{self.QMin.save['step']}"), 'wb') as f:
+                    np.save(f, self._U)  # writes a binary file (can be read with numpy.load())
+            
+            # keep all U matrices 
+            # TODO: could be removed because is done by retain mechanism
             if self.QMin.resources["keep_U"]:
                 if "all_U" not in self.__dict__:
                     self.all_U = []
@@ -796,13 +796,15 @@ class SHARC_LVC(SHARC_FAST):
         return
 
     def create_restart_files(self):
-        np.save(
-            os.path.join(self.QMin.save["savedir"], f'U.{self.QMin.save["step"]-1}.out.npy'), self._U
-        )  # writes a binary file (can be read with numpy.load())
+        if self.persistent:
+            for istep in self.savedict:
+                with open( os.path.join(self.QMin.save["savedir"], f'U.npy.{istep}'), 'wb') as f:
+                    np.save(f, self.savedict[istep]["U"])  # writes a binary file (can be read with numpy.load())
 
-        if self.QMin.resources["keep_U"]:
-            all_U = np.array(self.all_U)
-            np.save(os.path.join(self.QMin.save["savedir"], f"U_0-{self.QMin.save['step']-1}.npy"), all_U)
+            if self.QMin.resources["keep_U"]:
+                all_U = np.array(self.all_U)
+                np.save(os.path.join(self.QMin.save["savedir"], f"U_0-{self.QMin.save['step']}.npy"), all_U)
+        # else: nothing is done because run() has already saved the U matrix
 
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         return {

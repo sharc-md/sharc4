@@ -48,7 +48,8 @@ class SHARC_FAST(SHARC_INTERFACE):
         return INFOS
 
     def setup_interface(self):
-        pass
+        if self.persistent:
+            self.savedict = {}
 
     def getQMout(self):
         return self.QMout
@@ -79,6 +80,19 @@ class SHARC_FAST(SHARC_INTERFACE):
             for file in self.extra_files:
                 shutil.copy(expand_path(file), os.path.join(dir_path, os.path.split(file)[1]))
 
+
     def clean_savedir(self) -> None:
-        if not self.persistent:
+        if self.persistent:
+            retain = self.QMin.requests["retain"]
+            step = self.QMin.save["step"]
+            if retain < 0:
+                return
+            to_be_deleted = set()
+            for istep in self.savedict:
+                if istep < step - retain:
+                    to_be_deleted.add(istep)
+            for istep in to_be_deleted:
+                del self.savedict[istep]
+        else: 
             super().clean_savedir()
+
