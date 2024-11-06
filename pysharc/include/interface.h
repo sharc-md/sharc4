@@ -42,6 +42,7 @@ extern "C" {
 // GET INFO for QMIN etc.
 void get_states_(char * string);
 void get_charges_(char * string);
+void get_retain_(char *string);
 void get_dt_(char * string);
 void get_savedir_(char * string);
 void get_tasks_(char * string, int * icall);
