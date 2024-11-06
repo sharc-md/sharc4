@@ -41,6 +41,7 @@ clean:
 	python sharc_setup clean --all
 	rm -f lib/libsharc.so lib/libsharcnc.so
 	rm -f sharc/sharc.so
+	rm -f netcdf/*.o
 
 lib/libsharc.so: lib/libsharcnc.so
 	cd ../source; make libsharc
