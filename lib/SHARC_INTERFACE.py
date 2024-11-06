@@ -31,17 +31,17 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from datetime import date
 from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
 from typing import Any
-from copy import deepcopy
 
 import numpy as np
 
 # internal
-from constants import ATOMCHARGE, BOHR_TO_ANG, IAn2AName, FROZENS
+from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS, IAn2AName
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
@@ -994,13 +994,9 @@ class SHARC_INTERFACE(ABC):
         if req in self.QMin.requests.keys():
             self.log.debug(f"{request}")
             match request:
-                case ["grad", None]:
+                case ["grad", None | "all"]:
                     self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-                case ["grad", "all"]:
-                    self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-                case ["nacdr" | "multipolar_fit" | "density_matrices", None]:
-                    self.QMin.requests[req] = ["all"]
-                case ["nacdr" | "multipolar_fit" | "density_matrices", "all"]:
+                case ["nacdr" | "multipolar_fit" | "density_matrices", None | "all"]:
                     self.QMin.requests[req] = ["all"]
                 case ["grad", value]:
                     self.QMin.requests[req] = sorted(list(map(int, request[1]))) if isinstance(request[1], list) else [int(value)]
