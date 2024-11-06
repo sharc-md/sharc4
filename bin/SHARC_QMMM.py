@@ -30,6 +30,7 @@ import datetime
 import os
 import shutil
 from io import TextIOWrapper
+import copy
 
 import numpy as np
 # internal
@@ -268,7 +269,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.qm_interface: SHARC_INTERFACE = factory(self.QMin.template["qm-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['qm-program']}", loglevel=self.log.level
         )
-        self.qm_interface.QMin.molecule['states'] = self.QMin.molecule['states']
+        self.qm_interface.QMin.molecule['states'] = copy.copy(self.QMin.molecule['states'])
 
         self.mml_interface: SHARC_INTERFACE = factory(self.QMin.template["mm-program"])(
             persistent=self.persistent, logname=f"MML {self.QMin.template['mm-program']}", loglevel=self.log.level
@@ -348,6 +349,9 @@ class SHARC_QMMM(SHARC_HYBRID):
         el = self.QMin.molecule["elements"]
         n_link = len(self._linkatoms)
         qm_el = [self.atoms[i].symbol for i in self.qm_ids] + ["H"] * n_link
+
+        # TODO: Would be better to call setup_mol() in the following, but that is a bit difficult here
+
         # setup mol for qm
         qm_QMin = self.qm_interface.QMin
         qm_QMin.molecule["elements"] = qm_el
@@ -373,7 +377,8 @@ class SHARC_QMMM(SHARC_HYBRID):
         mml_QMin.molecule["natom"] = self.QMin.molecule["natom"]
         mml_QMin.molecule["states"] = [1]
         mml_QMin.molecule["charge"] = [0]
-        # TODO: statemap, chargemap
+        mml_QMin.maps["statemap"] = {1: [1,1,0]}
+        mml_QMin.maps["chargemap"] = {1: 0}
         mml_QMin.molecule["nmstates"] = 1
         mml_QMin.molecule["unit"] = self.QMin.molecule["unit"]
         self.mml_interface._setup_mol = True
@@ -414,7 +419,8 @@ class SHARC_QMMM(SHARC_HYBRID):
             mms_QMin.molecule["natom"] = self._num_qm + n_link
             mms_QMin.molecule["states"] = [1]
             mms_QMin.molecule["charge"] = [0]
-            # TODO: statemap, chargemap
+            mms_QMin.maps["statemap"] = {1: [1,1,0]}
+            mms_QMin.maps["chargemap"] = {1: 0}
             mms_QMin.molecule["nmstates"] = 1
             mms_QMin.molecule["unit"] = self.QMin.molecule["unit"]
             self.mms_interface._setup_mol = True
