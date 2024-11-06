@@ -103,6 +103,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "roots": list(range(8)),
                 "origin": "none",
                 "origin_pos": [0., 0., 0.],
+                "isotope_elements": [],
+                "isotope_masses": [],
                 "method": "casscf",
                 "functional": "t:pbe",
                 "ipea": 0.25,
@@ -131,6 +133,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "roots": list,
                 "origin": str,
                 "origin_pos": list,
+                "isotope_elements": list,
+                "isotope_masses": list,
                 "method": str,
                 "functional": str,
                 "ipea": float,
@@ -392,6 +396,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 if val != 0:
                     self.QMin.template["roots"] = self.QMin.template["roots"][: -1 * idx]
                     break
+        if self.QMin.template["isotope_elements"] != [] or self.QMin.template["isotope_masses"] != []:
+            try:
+                self.QMin.template["isotope_elements"] = convert_list(self.QMin.template["isotope_elements"], str)
+                self.QMin.template["isotope_masses"] = convert_list(self.QMin.template["isotope_masses"], float)
+            except: 
+                self.log.error("Could not convert isotope elements/masses to list!")
+                raise ValueError
         match self.QMin.template["origin"].lower():
             case "none":
                 pass
@@ -1056,8 +1067,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 tot_mass += MASSES[el]
             com_dp = np.array([0., 0., 0.])
             for idx, el in enumerate(el_mol):
+                print(f"MASS {MASSES[el]}")
+                print(f"geom {geom_mol[idx][0]}")
+                print(f"geom {geom_mol[idx][1]}")
+                print(f"geom {geom_mol[idx][2]}")
                 com_dp += MASSES[el]/tot_mass*geom_mol[idx]
-            qmin.template["origin_pos"] = list(com_dp)    
+            qmin.template["origin_pos"] = list(com_dp)
+            print(f"COM1 {com_dp[0]}")
+            print(f"COM1 {com_dp[1]}")
+            print(f"COM1 {com_dp[2]}")
             center = [f"{el:.15f}" for el in qmin.template["origin_pos"]]
             center =" ".join(center)
             if qmin.requests["soc"] or qmin.requests["mdeqm"]:
@@ -1089,6 +1107,18 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if qmin.requests["soc"]:
             input_str += "AMFI\n"
+        if len(qmin.template["isotope_elements"]) != len(qmin.template["isotope_masses"]):
+            self.log.error("Number of isotope elements do not match number of isotope masses!")
+            raise ValueError()
+        for element in qmin.template["isotope_elements"]:
+            if element not in MASSES.keys():
+                self.log.error("Element not found in SHARC MASSES!")
+                raise ValueError()
+        input_str += f"ISOT\n{len(qmin.template['isotope_elements'])}\n"
+        for idx, element in enumerate(qmin.template["isotope_elements"]):
+            MASSES[element] = qmin.template["isotope_masses"][idx]
+            input_str += f"{idx+1} {qmin.template['isotope_masses'][idx]} Dalton\n"
+        input_str += "\n"
         if qmin.requests["soc"] or qmin.requests["mdeqm"]:  # Todo: Check if ANGMOM is necessary for SOC
             if qmin.template["origin"] == "com":
                 geom_mol = qmin.coords["coords"]
@@ -1130,7 +1160,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         geom_str = f"{len(atoms)}\n\n"
         for idx, (at, crd) in enumerate(zip(atoms, coords)):
-            geom_str += f"{at}{idx+1}  {crd[0]*au2a:6f} {crd[1]*au2a:6f} {crd[2]*au2a:6f}\n"
+            geom_str += f"{at}{idx+1}  {crd[0]*au2a:.15f} {crd[1]*au2a:.15f} {crd[2]*au2a:.15f}\n"
         return geom_str
 
     def _create_aoovl(self) -> None:
