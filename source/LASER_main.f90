@@ -32,7 +32,7 @@ program create_laser
 !!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
-  use LASER_definitions
+  use definitions
   use LASER_input
   use LASER_calc
   

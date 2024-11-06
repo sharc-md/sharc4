@@ -46,7 +46,7 @@ module LASER_input
   contains
 subroutine read_params
   
-  use LASER_definitions
+  use definitions
   
   implicit none
   

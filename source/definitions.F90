@@ -526,17 +526,32 @@ module definitions
   !< -1=+ internal steps
   !< -2=+ input parsing infos
   !< -3 and higher=+ print various numerical values per timestep
+  !< numerical value of constants obtained from scipy.physical_constants (see lib/constants.py)
   ! =========================================================== !
   
-  real*8,parameter:: au2a=0.529177211d0             !< length
-  real*8,parameter:: au2fs=0.024188843d0            !< time
-  real*8,parameter:: au2u=5.4857990943d-4           !< mass
-  real*8,parameter:: au2rcm=219474.631370d0         !< energy
-  real*8,parameter:: au2eV=27.21138386d0            !< energy
-  real*8,parameter:: au2debye=2.5417469d0           !< dipole moment
+  real*8,parameter:: au2u = 5.485799088728282d-4           ! mass
+  real*8,parameter:: au2rcm = 219474.63136319697d0         ! energy
+  real*8,parameter:: au2debye = 2.541746473194078d0        ! dipole moment
+  real*8,parameter:: au2a = 0.529177210903d0               ! transforms length in a.u. to Angstrom
+  real*8,parameter:: cm2au = 4.556335252912d-6             ! transforms energy in wavenumbers to a.u.
+  real*8,parameter:: au2fs = 0.024188843265857d0           ! transforms time in a.u. to femtoseconds
+  real*8,parameter:: ram2au = 1822.8884862086923d0         ! transforms mass in relative atomic mass units to a.u.
+  real*8,parameter:: J2eV = 6.241509074d18                 ! transforms energy in J to eV
+  real*8,parameter:: D2au = 0.39343026951989946d0          ! transforms dipole moment in debye to a.u.
+  real*8,parameter:: au2V_m = 514220674763d0               ! transforms electric field in a.u. to V/m
+  real*8,parameter:: au2J = 4.3597447222071d-18            ! transforms energy in a.u. to J
+  real*8,parameter:: au2eV = 27.211386245988d0             ! transforms energy in a.u. to eV
+  real*8,parameter:: D2Cm = 3.33564095198152d-30           ! transforms dipole moment in d to C * m
+  real*8,parameter:: au2I = 3.50944552058977d16            ! transforms (intensity in a.u.)^2 to W/cm^2, attention: watch the square!!!
+  real*8,parameter:: au2GV_m = 514.220674763d0             ! transforms (field strength in a.u.) to GV/m
+  real*8,parameter:: speed_of_light_au = 137.0359990836958  
   
   complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
   real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
+  real*8,parameter:: alpha=7.2973525693d-3          !< fine-structure constant
+  
+  logical :: debug
+  integer :: allocatestatus
   
   character*20,parameter :: multnames(8)=(/'Singlet','Doublet','Triplet','Quartet','Quintet',' Sextet',' Septet','  Octet'/)
   !< strings used to represent the multiplicities
