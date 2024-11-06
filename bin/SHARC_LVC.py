@@ -796,6 +796,7 @@ class SHARC_LVC(SHARC_FAST):
         return
 
     def create_restart_files(self):
+        super().create_restart_files()
         if self.persistent:
             for istep in self.savedict:
                 with open( os.path.join(self.QMin.save["savedir"], f'U.npy.{istep}'), 'wb') as f:

@@ -96,3 +96,14 @@ class SHARC_FAST(SHARC_INTERFACE):
         else: 
             super().clean_savedir()
 
+    def write_step_file(self) -> None:
+        # write step file in every step only in non-persistent mode
+        if not self.persistent:
+            super().write_step_file()
+
+    def create_restart_files(self):
+        # write step file in persistent mode only at the very end
+        if self.persistent:
+            super().write_step_file()
+
+

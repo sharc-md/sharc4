@@ -1428,3 +1428,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             chrg[i] -= sum(pop[ao_start:ao_stop])
 
         return chrg
+
+
+    def create_restart_files(self) -> None:
+        # Ab initio interfaces will do this every time step anyways, so can be empty
+        pass
+
