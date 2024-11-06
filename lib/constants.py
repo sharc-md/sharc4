@@ -20,10 +20,10 @@ au2I = 1/2.*const.epsilon_0*const.c*const.physical_constants["atomic unit of ele
 au2GV_m = au2V_m*1E-9
 # Additional constants
 kcal_to_Eh = const.calorie*1E3/const.Avogadro/const.physical_constants["Hartree energy"][0]  # kcal/mol -> Hartree
-speed_of_light_au = 1./const.alpha
+alpha = const.alpha 
+speed_of_light_au = 1./alpha
 kJpermol_to_Eh = kj2Eh = const.Avogadro*const.physical_constants["Hartree energy"][0]*1E-3  # kJ/mol -> Hartree
 lande_g_factor = const.physical_constants["electron g factor"][0]
-alpha = 1./speed_of_light_au 
 ANG_TO_BOHR = 1. / (const.physical_constants["Bohr radius"][0]*1E10)
 CM_TO_HARTREE = 1. / (const.physical_constants["hartree-inverse meter relationship"][0]*1E-2)
 HARTREE_TO_EV = const.physical_constants["Hartree energy in eV"][0]
