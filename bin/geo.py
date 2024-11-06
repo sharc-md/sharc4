@@ -31,11 +31,13 @@ import re
 import datetime
 from optparse import OptionParser
 
+from constants import MASSES
+
 # =========================================================0
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
 
-allowedreq = ['a', 'd', 'r', 'p', 'q', 'x', 'y', 'z', '5', '6', 'c', 'i', 'j', 'k', 'l']
+allowedreq = ['a', 'd', 'r', 's', 'p', 'q', 'x', 'y', 'z', '5', '6', 'c', 'i', 'j', 'k', 'l']
 
 # This array contains all Boeyens classification symbols for 5-membered rings.
 # (phi): symbol
@@ -249,6 +251,16 @@ def ang(a, b, c):
     for i in range(3):
         r1[i] = a[i] - b[i]
         r2[i] = c[i] - b[i]
+    return rangle3d(r1, r2)
+
+
+def skewang(a, b, c, d):
+    '''Angle of a-b and c-d.'''
+    r1 = [0, 0, 0]
+    r2 = [0, 0, 0]
+    for i in range(3):
+        r1[i] = a[i] - b[i]
+        r2[i] = d[i] - c[i]
     return rangle3d(r1, r2)
 
 
@@ -489,6 +501,7 @@ def checkreq(s, natom):
         sys.stderr.write('''Valid requests are:\n
     r\tbond distance (2 atoms)\n
     a\tbond angle (3 atoms)\n
+    s\tskew angle (4 atoms)\n
     d\tdihedral angle (4 atoms)\n
     p\tpyramidalization angle (4 atoms)\n
     q\tpyramidalization angle, alternative definition (4 atoms)\n
@@ -514,6 +527,10 @@ def checkreq(s, natom):
     elif s[0] == 'a':
         if not len(s) == 4:
             sys.stderr.write('Angle needs three atoms as arguments!\n')
+            return False
+    elif s[0] == 's':
+        if not len(s) == 5:
+            sys.stderr.write('Skew angle needs four atoms as arguments!\n')
             return False
     elif s[0] == 'd' or s[0] == 'p' or s[0] == 'q':
         if not len(s) == 5:
@@ -544,9 +561,14 @@ def checkreq(s, natom):
             sys.stderr.write('Angle between two 6-rings needs twelve atoms as arguments!\n')
             return False
     for i in range(len(s) - 1):
-        s[i + 1] = int(s[i + 1])
+        if s[i + 1].lower() == 'com':
+            s[i + 1] = 'com'
+        else:
+            s[i + 1] = int(s[i + 1])
     atoms = True
     for i in range(len(s) - 1):
+        if s[i + 1] == 'com':
+            continue
         if s[i + 1] > natom or s[i + 1] <= 0:
             atoms = False
     if not atoms:
@@ -554,7 +576,11 @@ def checkreq(s, natom):
         return False
     atoms = True
     for i in range(len(s) - 1):
+        if s[i + 1] == 'com':
+            continue
         for j in range(len(s) - i - 2):
+            if s[i + j + 2] == 'com':
+                continue
             if s[i + 1] == s[i + j + 2]:
                 atoms = False
     if not atoms:
@@ -592,13 +618,16 @@ def tableheader(req):
     s += '\n'
     s += '#' + ' ' * (f - 5) + 'time|'
     for r in req:
+        for i in range(len(r)-1):
+            if r[1+i] == 'com':
+                r[i+1]= 0
         if r[0] == 'x' or r[0] == 'y' or r[0] == 'z':
             s += ' ' * (f - 4) + r[0] + '%3i|' % (r[1])
         elif r[0] == 'r':
             s += ' ' * (f - 7) + r[0] + '%3i%3i|' % (r[1], r[2])
         elif r[0] == 'a':
             s += ' ' * (f - 10) + r[0] + '%3i%3i%3i|' % (r[1], r[2], r[3])
-        elif r[0] == 'd' or r[0] == 'p' or r[0] == 'q':
+        elif r[0] == 'd' or r[0] == 'p' or r[0] == 'q' or r[0] == 's':
             s += ' ' * (f - 13) + r[0] + '%3i%3i%3i%3i|' % (r[1], r[2], r[3], r[4])
         elif r[0] == '5':
             s += ' ' * (f - 16) + 'q' + '%3i%3i%3i%3i%3i|' % (r[1], r[2], r[3], r[4], r[5])
@@ -636,8 +665,24 @@ def calculate(g, req, comm):
     formatstring = '%%%i.%if ' % (f, p)
     stringstring = '%%%is ' % (f)
     commentstring = '%%%is ' % (f + comment_bonus)
+    # compute and append COM
+    natom = len(g)
+    COM = [0., 0., 0.]
+    for i in range(3):
+        mass = 0.
+        for atom in g:
+            COM[i] += atom[i]*MASSES[atom[3].title()]
+            mass += MASSES[atom[3].title()]
+        COM[i] /= mass
+    g.append(COM+['com'])
+    # print(g)
+    # process requests
     for r in req:
+        # for i in range(len(r)-1):
+        #     if r[1+i] == 'com':
+        #         r[i+1] = 0 
         if r[0] == 'x':
+            print(r)
             s += formatstring % (ang_or_bohr(g[r[1] - 1][0]))
         elif r[0] == 'y':
             s += formatstring % (ang_or_bohr(g[r[1] - 1][1]))
@@ -647,6 +692,8 @@ def calculate(g, req, comm):
             s += formatstring % (dist(g[r[1] - 1], g[r[2] - 1]))
         elif r[0] == 'a':
             s += formatstring % (ang(g[r[1] - 1], g[r[2] - 1], g[r[3] - 1]))
+        elif r[0] == 's':
+            s += formatstring % (skewang(g[r[1] - 1], g[r[2] - 1], g[r[3] - 1], g[r[4] - 1]))
         elif r[0] == 'p':
             s += formatstring % (pyr(g[r[1] - 1], g[r[2] - 1], g[r[3] - 1], g[r[4] - 1]))
         elif r[0] == 'q':
@@ -733,6 +780,7 @@ is the bond length between atoms 1 and 2.
 The one-letter keys are:
     r\tbond distance (2 atoms)
     a\tbond angle (3 atoms)
+    s\tskew angle (4 atoms)
     d\tdihedral angle (4 atoms)
     p\tpyramidalization angle (4 atoms)
     q\tpyramidalization angle, alternative definition (4 atoms)
@@ -836,6 +884,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
                 a = []
                 for j in range(3):
                     a.append(float(geoline[j + 1]))
+                a.append(geoline[0])
                 g.append(a)
                 line += 1
         except ValueError:
