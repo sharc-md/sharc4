@@ -1258,8 +1258,8 @@ class SHARC_LEGACY(SHARC_INTERFACE):
     def write_step_file(self):
         super().write_step_file()
         
-    def update_step(self, step: int = None):
-        super().update_step(step)
+    # def update_step(self, step: int = None):
+    #     super().update_step(step)
 
 
 

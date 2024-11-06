@@ -464,7 +464,12 @@ class SHARC_QMMM(SHARC_HYBRID):
                 # for properties, which should only be computed with QM
                 case _:
                     self.qm_interface.QMin.requests[key] = value
+        self.qm_interface.QMin.save['step'] = self.QMin.save['step']
+        self.mml_interface.QMin.save['step'] = self.QMin.save['step']
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface.QMin.save['step'] = self.QMin.save['step']
         self.qm_interface._request_logic()
+        # TODO: why no request_logic for MM children?
 
         # always set this request as these charges are required for the calculation of the point charges
         self.mml_interface.QMin.requests["multipolar_fit"] = [1]
@@ -602,12 +607,12 @@ class SHARC_QMMM(SHARC_HYBRID):
         if self.QMin.template["embedding"] == "subtractive":
             self.mms_interface.write_step_file()
         
-    def update_step(self, step: int = None):
-        super().update_step(step)
-        self.qm_interface.update_step(step)
-        self.mml_interface.update_step(step)
-        if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface.update_step(step)
+    # def update_step(self, step: int = None):
+    #     super().update_step(step)
+    #     self.qm_interface.update_step(step)
+    #     self.mml_interface.update_step(step)
+    #     if self.QMin.template["embedding"] == "subtractive":
+    #         self.mms_interface.update_step(step)
 
 
 

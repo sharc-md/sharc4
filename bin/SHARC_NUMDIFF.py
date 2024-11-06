@@ -575,13 +575,16 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         super().write_step_file()
         self.ref_interface.write_step_file()
         
-    def update_step(self, step: int = None):
-        super().update_step(step)
-        self.ref_interface.update_step(step)
+    # def update_step(self, step: int = None):
+    #     super().update_step(step)
+    #     self.ref_interface.update_step(step)
 
     def clean_savedir(self):
         super().clean_savedir()
         self.ref_interface.clean_savedir()
+
+    def create_restart_files(self):
+        self.ref_interface.create_restart_files()
 
 # ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------
@@ -861,8 +864,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
 
 
-    def create_restart_files(self):
-        self.ref_interface.create_restart_files()
 
 
 

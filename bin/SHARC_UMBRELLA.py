@@ -318,6 +318,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         for key, value in self.QMin.requests.items():
             if value is not None:
                 self.child_interface.QMin.requests[key] = value
+        self.child_interface.QMin.save['step'] = self.QMin.save['step']
         self.child_interface._request_logic()
 
         # add h request to child if needed for "de" restraints:
@@ -510,9 +511,9 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         super().write_step_file()
         self.child_interface.write_step_file()
         
-    def update_step(self, step: int = None):
-        super().update_step(step)
-        self.child_interface.update_step(step)
+    # def update_step(self, step: int = None):
+    #     super().update_step(step)
+    #     self.child_interface.update_step(step)
 
     def create_restart_files(self):
         self.child_interface.create_restart_files()
