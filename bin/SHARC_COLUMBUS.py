@@ -96,7 +96,7 @@ import datetime
 # copy of arrays of arrays
 from copy import deepcopy
 from socket import gethostname
-
+from constants import au2a, rcm_to_Eh
 
 
 # =========================================================0
@@ -216,10 +216,6 @@ IToPol = {
     'Y': 1,
     'Z': 2
 }
-
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
 
 # ======================================================================= #
 

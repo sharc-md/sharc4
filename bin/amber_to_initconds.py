@@ -35,17 +35,12 @@ import sys
 import datetime
 import re
 from optparse import OptionParser
-
+from constants import  HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR
 
 # =========================================================
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-ANG_TO_BOHR = 1. / 0.529177211  # 1.889725989      # conversion from Angstrom to bohr
 AMBERVEL_TO_AU = 0.0009350161
-PI = math.pi
 
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)

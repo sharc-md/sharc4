@@ -55,7 +55,7 @@ import itertools
 from multiprocessing import Pool
 import time
 import traceback
-
+from constants import au2a, rcm_to_Eh
 
 # =========================================================0
 
@@ -177,9 +177,6 @@ IToPol = {
     'Z': 2
 }
 
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
 
 # Number of frozen core orbitals
 FROZENS = {'H': 0, 'He': 0,
@@ -992,7 +989,6 @@ def getsocme(out, istate, jstate, QMin):
     iline += 5
     # iline+=2
 
-    rcm_to_Eh = 4.556335e-6
     # get a single matrix element
     block = (j) // 10
     yoffset = (i) * 3 + block * (3 * nmstates + 3)

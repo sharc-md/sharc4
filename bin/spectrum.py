@@ -34,16 +34,11 @@ import datetime
 from optparse import OptionParser
 import colorsys
 import re
-
+from constants import U_TO_AMU, HARTREE_TO_EV
 
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-ANG_TO_BOHR = 1. / 0.529177211  # 1.889725989      # conversion from Angstrom to bohr
-PI = math.pi
 
 version = '4.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, 3.0, float(version)]

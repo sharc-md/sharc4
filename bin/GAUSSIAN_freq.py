@@ -107,7 +107,7 @@ for i in range(nfreq):
             out.write('\n')
 out.write('[INT]\n')
 for i in range(nfreq):
-    out.write('%16.9f\n' % ints[i])
+    out.write('%16.15f\n' % ints[i])
 out.close()
 print("Molden output written to %s" % out_file)
 
