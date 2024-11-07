@@ -39,7 +39,7 @@ import re
 
 # internal
 from SHARC_FAST import SHARC_FAST
-from utils import readfile, writefile, question, expand_path
+from utils import readfile, writefile, question, expand_path, phase_correction
 from io import TextIOWrapper
 from constants import U_TO_AMU
 from kabsch import kabsch_w as kabsch, kabsch_w_with_deriv
@@ -708,7 +708,7 @@ class SHARC_LVC(SHARC_FAST):
                 start += n * (im + 1)
                 start_req += n_req * (im + 1)
 
-        if self.QMin.requests["overlap"]:
+        if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             if self.QMin.save["step"] == 0:
                 pass
             elif self.persistent:
@@ -716,6 +716,8 @@ class SHARC_LVC(SHARC_FAST):
             else:
                 Uold = np.load(os.path.join(self.QMin.save["savedir"], f"U.npy.{self.QMin.save['step']-1}")).reshape(self._U.shape)
             overlap = Uold.T @ self._U
+            if self.QMin.requests["phases"]:
+                _, phases = phase_correction(overlap)
 
         # OVERLAP
         if not self.QMin.save["samestep"]:
@@ -782,6 +784,8 @@ class SHARC_LVC(SHARC_FAST):
         self.QMout.dm = dipole
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = overlap
+        if self.QMin.requests["phases"]:
+            self.QMout.phases = phases
         if self.QMin.requests["grad"]:
             self.QMout.grad = grad
         if self.QMin.requests["nacdr"]:
@@ -817,6 +821,7 @@ class SHARC_LVC(SHARC_FAST):
             "overlap",
             "multipolar_fit",
             "point_charges",
+            "phases",
         }
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
