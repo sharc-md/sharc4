@@ -911,3 +911,44 @@ def loewdin_atomic_charge_transfer_numbers(mol, dm: np.ndarray, s_root: np.ndarr
             chrg[i, j] += np.sum(np.sum(pop[ao_start_i:ao_stop_i, :], axis=0)[ao_start_j:ao_stop_j])
 
     return chrg
+
+
+# ======================================================================= #         OK
+
+def phase_correction(matrix):
+    """
+    Do a phase correction of a matrix.
+    Follows algorithm from J. Chem. Theory Comput. 2020, 16, 2, 835-846 (https://doi.org/10.1021/acs.jctc.9b00952)
+    """
+    phases = np.ones(matrix.shape[-1])
+    U = matrix.real.copy()
+    det_U = np.linalg.det(U)
+    if det_U < 0:
+        U[:, 0] *= -1.0  # this row/column convention is correct
+        phases[0] *= -1.0
+    U_sq = U * U
+
+    # sweeps
+    length = len(U)
+    sweeps = 0
+    done = False
+    while not done:
+        done = True
+        for j in range(length):
+            for k in range(j + 1, length):
+                delta = 3.0 * (U_sq[j, j] + U_sq[k, k])
+                delta += 6.0 * U[j, k] * U[k, j]
+                delta += 8.0 * (U[k, k] + U[j, j])
+                delta -= 3.0 * (U[j, :] @ U[:, j] + U[k, :] @ U[:, k])
+
+                # Test if delta < 0
+                num_zero_thres = -1e-15  # needs proper threshold towards 0
+                if delta < num_zero_thres:
+                    U[:, j] *= -1.0  # this row/column convention is correct
+                    U[:, k] *= -1.0  # this row/column convention is correct
+                    phases[j] *= -1.0
+                    phases[k] *= -1.0
+                    done = False
+        sweeps += 1
+
+    return U, phases

@@ -554,9 +554,11 @@ subroutine compute_svec_tau_control(traj,ctrl)
      cgrad_MCH_sad(istate,:,:)=traj%grad_MCH_sad(istate,:,:)
   enddo
 
-  cpNACdR_MCH_ssad=dcmplx(0.d0,0.d0)
+  if (ctrl%nac_projection==1) then
+    cpNACdR_MCH_ssad=dcmplx(0.d0,0.d0)
+    cpNACdR_MCH_ssad=traj%pNACdR_MCH_ssad
+  endif
   cNACdR_MCH_ssad=dcmplx(0.d0,0.d0)
-  cpNACdR_MCH_ssad=traj%pNACdR_MCH_ssad
   cNACdR_MCH_ssad=traj%NACdR_ssad
 
   ! include laser fields
