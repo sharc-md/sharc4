@@ -1523,6 +1523,12 @@ module input
 
 
 
+    ! if users simply want to compute the overlaps for later without using them
+    line=get_value_from_key('only_store_overlaps',io)
+    if (io==0) then
+      ctrl%calc_overlap = 1
+    endif
+
 
 
     ! Flags for switching on/off writing data to output.dat
