@@ -84,7 +84,7 @@ def formatgrad(grad, natom, elements, DEBUG=False):
     for atom in range(natom):
         if not DEBUG:
             if atom == 5:
-                string += '...\t...\n' + '\t     ...' * leng + '\n'
+                string += '...\t...' + '\t     ...' * leng + '\n'
             if 5 <= atom < natom - 1:
                 continue
         string += '%i\t%s' % (atom + 1, elements[atom])

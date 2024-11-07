@@ -8,7 +8,7 @@ from abc import abstractmethod
 from itertools import starmap
 from multiprocessing import Pool, set_start_method
 from textwrap import dedent
-from typing import Optional
+from typing import Callable
 
 import numpy as np
 import sympy
@@ -127,7 +127,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         """
 
     @abstractmethod
-    def read_resources(self, resources_file: str, kw_whitelist: Optional[list[str]] = None) -> None:
+    def read_resources(self, resources_file: str, kw_whitelist: list[str] | None = None) -> None:
         kw_whitelist = [] if kw_whitelist is None else kw_whitelist
         super().read_resources(resources_file, kw_whitelist + ["theodore_fragment"])
 
@@ -151,19 +151,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
     @abstractmethod
     def setup_interface(self) -> None:
         # Setup charge and paddingstates
-        if not self.QMin.template["charge"]:
-            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
-            self.log.info(f"charge not specified setting default, {self.QMin.template['charge']}")
 
         if not self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = [0 for _ in self.QMin.molecule["states"]]
             self.log.info(
                 f"paddingstates not specified setting default, {self.QMin.template['paddingstates']}",
             )
-
-        # Setup chargemap
-        self.log.debug("Building chargemap")
-        self.QMin.maps["chargemap"] = {idx + 1: int(chrg) for (idx, chrg) in enumerate(self.QMin.template["charge"])}
 
         # Setup jobs
         self.QMin.control["states_to_do"] = [
@@ -476,27 +469,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 cpu_per_run[itask] = ncores
             nslots = ncpu // ncores
         return nrounds, nslots, cpu_per_run
-
-    @staticmethod
-    def clean_savedir(path: str, retain: int, step: int) -> None:
-        """
-        Remove files older than step-retain
-
-        path:       Path to savedir
-        retain:     Number of timesteps to keep (-1 = all)
-        step:       Current step
-        """
-        if retain < 0:
-            return
-
-        if not os.path.isdir(path):
-            raise FileNotFoundError(f"{path} is not a directory!")
-
-        for file in os.listdir(path):
-            if not re.match(r"^\d+$", (ext := os.path.splitext(file)[1].replace(".", ""))):  # Skip if extension is not a number
-                continue
-            if int(ext) < step - retain:
-                os.remove(os.path.join(path, file))
 
     # Start TOMI
     def get_density_recipes(self):
@@ -812,12 +784,16 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     @staticmethod
     def read_dets_and_mos(directory, s, step):
-        file = f"{directory}/dets.{s + 1}.{step}"
+        file = f"{directory}/dets_allelec.{s + 1}.{step}"
+        if not os.path.isfile(file):
+            file = f"{directory}/dets.{s + 1}.{step}"
         nst = np.loadtxt(file, usecols=(0,), max_rows=1, dtype=int)
         nst = int(nst)
         dets = np.loadtxt(file, usecols=(0,), skiprows=1, dtype=str, ndmin=1).tolist()
         ci = np.loadtxt(file, skiprows=1, usecols=list(range(1, nst + 1)), ndmin=2, dtype=float)
-        file = f"{directory}/mos.{s + 1}.{step}"
+        file = f"{directory}/mos_allelec.{s + 1}.{step}"
+        if not os.path.isfile(file):
+            file = f"{directory}/mos.{s + 1}.{step}"
         nao = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(0,), dtype=int)
         nmo = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(1,), dtype=int)
         mos = np.zeros((nao, nmo))
@@ -885,10 +861,18 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             nmos1 = MOs1.shape[1]
             naos1 = MOs1.shape[0]
             phi_work = np.zeros((nstates1[dyson_s1], nstates2[dyson_s2], nmos1))
-            mos1 = os.path.join(save1, "mos." + str(dyson_s1 + 1) + "." + str(step1))
-            mos2 = os.path.join(save2, "mos." + str(dyson_s2 + 1) + "." + str(step2))
-            dets1 = os.path.join(save1, "dets." + str(dyson_s1 + 1) + "." + str(step1))
-            dets2 = os.path.join(save2, "dets." + str(dyson_s2 + 1) + "." + str(step2))
+            mos1 = os.path.join(save1, "mos_allelec." + str(dyson_s1 + 1) + "." + str(step1))
+            if not os.path.isfile(mos1):
+                mos1 = os.path.join(save1, "mos." + str(dyson_s1 + 1) + "." + str(step1))
+            mos2 = os.path.join(save2, "mos_allelec." + str(dyson_s2 + 1) + "." + str(step2))
+            if not os.path.isfile(mos2):
+                mos2 = os.path.join(save2, "mos." + str(dyson_s2 + 1) + "." + str(step2))
+            dets1 = os.path.join(save1, "dets_allelec." + str(dyson_s1 + 1) + "." + str(step1))
+            if not os.path.isfile(dets1):
+                dets1 = os.path.join(save1, "dets." + str(dyson_s1 + 1) + "." + str(step1))
+            dets2 = os.path.join(save2, "dets_allelec." + str(dyson_s2 + 1) + "." + str(step2))
+            if not os.path.isfile(dets2):
+                dets2 = os.path.join(save2, "dets." + str(dyson_s2 + 1) + "." + str(step2))
             with InDir(workdir):
                 with open("aoovl", "w", encoding="utf-8") as f:
                     string = f"{naos1} {naos1}\n"
@@ -1221,37 +1205,50 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.log.debug(f"{s1.symbol():14s} ---> {s2.symbol():14s}: {' '.join([f'{x[c]: 8.5f}' for c in range(3)])} a.u.")
 
     @staticmethod
-    def get_theodore(sumfile: str, omffile: str) -> dict[tuple[int], list[float]]:
-        """
-        Read and parse theodore output
-        """
-        out = readfile(sumfile)
-
-        props = {}
-        for line in out[2:]:
-            s = line.replace("(", " ").replace(")", " ").split()
-            if len(s) == 0:
-                continue
+    def parse_label(label: str) -> tuple[int, int]:
+        n = 0
+        m = 0
+        if "(" in label:
+            # ORCA labels are like "1(3)A"
+            s = label.replace("(", " ").replace(")", " ").split()
+            n = int(s[0])
+            m = int(s[1])
+        elif "?" in label:
+            # GAUSSIAN labels are like "1Sing?Sym"
+            s = label.replace("?", " ").split()
             n = int(re.search("([0-9]+)", s[0]).groups()[0])
             m = re.search("([a-zA-Z]+)", s[0]).groups()[0]
             for k, v in IToMult.items():
                 if isinstance(k, str) and m in k:
                     m = v
                     break
+        else:
+            pass
+        return n, m
+
+    @staticmethod
+    def get_theodore(
+        sumfile: str, omffile: str, parse_function: Callable[[str], tuple[int, int]] = parse_label
+    ) -> dict[tuple[int], list[float]]:
+        """
+        Read and parse theodore output
+        """
+        out = readfile(sumfile)
+        props = {}
+        for line in out[2:]:
+            s = line.split()
+            if len(s) == 0:
+                continue
+            n, m = parse_function(s[0])
             props[(m, n + (m == 1))] = [safe_cast(i, float, 0.0) for i in s[3:]]
 
         out = readfile(omffile)
 
         for line in out[1:]:
-            s = line.replace("(", " ").replace(")", " ").split()
+            s = line.split()
             if len(s) == 0:
                 continue
-            n = int(re.search("([0-9]+)", s[0]).groups()[0])
-            m = re.search("([a-zA-Z]+)", s[0]).groups()[0]
-            for k, v in IToMult.items():
-                if isinstance(k, str) and m in k:
-                    m = v
-                    break
+            n, m = parse_function(s[0])
             props[(m, n + (m == 1))].extend([safe_cast(i, float, 0.0) for i in s[2:]])
         return props
 
@@ -1263,10 +1260,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         for jobset in self.QMin.scheduling["schedule"]:
             for job, qmin in jobset.items():
                 # Skip unrestricted jobs
+                if qmin.control["gradonly"]:
+                    continue
                 if not self.QMin.control["jobs"][qmin.control["jobid"]]["restr"]:
                     self.log.debug(f"Skipping theodore run for unrestricted job {job}")
-                    continue
-                if qmin.control["gradonly"]:
                     continue
                 mults = self.QMin.control["jobs"][qmin.control["jobid"]]["mults"]
                 gsmult = mults[0]
@@ -1337,6 +1334,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             "output_file": output_file,
             "prop_list": prop_list,
             "at_lists": at_lists,
+            "print_sorted": False,
         }
         if mo_file:
             theodore_keys["mo_file"] = mo_file
@@ -1430,3 +1428,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             chrg[i] -= sum(pop[ao_start:ao_stop])
 
         return chrg
+
+
+    def create_restart_files(self) -> None:
+        # Ab initio interfaces will do this every time step anyways, so can be empty
+        pass
+

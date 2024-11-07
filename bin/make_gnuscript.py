@@ -43,30 +43,10 @@ import datetime
 from copy import deepcopy
 # colorstuff
 import colorsys
-
+from constants import IToMult
 # =========================================================0
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
-
-# hash table for conversion of multiplicity to the keywords used in MOLPRO
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet ',
-    7: 'Septet ',
-    8: 'Octet  ',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet ': 6,
-    'Septet ': 7,
-    'Octet  ': 8
-}
 
 # ======================================================================= #
 

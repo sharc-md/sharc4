@@ -68,6 +68,12 @@
 #       - redotasks
 #       - printtasks
 
+
+from SHARC_OLD import SHARC_OLD
+class SHARC_COLUMBUS(SHARC_OLD):
+    pass
+
+
 # ======================================================================= #
 # Modules:
 # Operating system, isfile and related routines, move files, create directories
@@ -90,7 +96,7 @@ import datetime
 # copy of arrays of arrays
 from copy import deepcopy
 from socket import gethostname
-
+from constants import au2a, rcm_to_Eh, IToMult, IToPol
 
 
 # =========================================================0
@@ -178,42 +184,8 @@ changelogstring = '''
 starttime = datetime.datetime.now()
 
 # global variables for printing (PRINT gives formatted output, DEBUG gives raw output)
-DEBUG = True
+DEBUG = False
 PRINT = True
-
-# hash table for conversion of multiplicity to the keywords used in COLUMBUS
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# hash table for conversion of polarisations to the keywords used in COLUMBUS
-IToPol = {
-    0: 'X',
-    1: 'Y',
-    2: 'Z',
-    'X': 0,
-    'Y': 1,
-    'Z': 2
-}
-
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
 
 # ======================================================================= #
 
@@ -292,8 +264,8 @@ def measuretime():
     endtime = datetime.datetime.now()
     runtime = endtime - starttime
     if PRINT or DEBUG:
-        hours = runtime.seconds / 3600
-        minutes = runtime.seconds / 60 - hours * 60
+        hours = runtime.seconds // 3600
+        minutes = runtime.seconds // 60 - hours * 60
         seconds = runtime.seconds % 60
         print('==> Runtime:\n%i Days\t%i Hours\t%i Minutes\t%i Seconds\n\n' % (runtime.days, hours, minutes, seconds))
     total_seconds = runtime.days * 24 * 3600 + runtime.seconds + runtime.microseconds / 1.e6
@@ -851,7 +823,7 @@ def printcomplexmatrix(matrix, states):
     for i in range(len(states)):
         nmstates += states[i] * (i + 1)
     string = 'Real Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -867,13 +839,13 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     print(string)
     imag = False
     string = 'Imaginary Part:\n'
-    string += '-' * (11 * nmstates + nmstates / 3)
+    string += '-' * (11 * nmstates + nmstates // 3)
     string += '\n'
     istate = 0
     for imult, i, ms in itnmstates(states):
@@ -890,7 +862,7 @@ def printcomplexmatrix(matrix, states):
             jstate += 1
         string += '\n'
         if i == states[imult - 1]:
-            string += '-' * (11 * nmstates + nmstates / 3)
+            string += '-' * (11 * nmstates + nmstates // 3)
             string += '\n'
         istate += 1
     string += '\n'
@@ -1105,7 +1077,7 @@ def istate_in_job(m1, s1, ms1, states):
         for ist in range(states[im]):
             for ims in range(im + 1):
                 k += 1
-                if (im + 1, ims - im / 2 + 1 / 2, ist + 1) == (m1, ms1, s1):
+                if (im + 1, ims - im // 2 + 1 // 2, ist + 1) == (m1, ms1, s1):
                     return k
 
 # ======================================================================= #
@@ -1180,7 +1152,7 @@ def getsocme(runls, QMin, istate, jstate):
     eref = float(runls[ilines].split()[3])
 
     # find the matrix
-    while '-------------- HT matrix not in cm-1 -------------------' in runls[ilines]:
+    while '-------------- HT matrix in cm-1 -------------------' not in runls[ilines]:
         ilines += 1
         if ilines == len(runls):
             print('SO Matrix not found!')
@@ -1560,6 +1532,19 @@ def writeQMout(QMin, QMout, QMinfilename):
     if PRINT:
         print('===> Writing output to file %s in SHARC Format\n' % (outfilename))
     string = ''
+
+    # add header info
+    string += '! 0 Basic information\nstates '
+    for i in QMin['states']:
+        string += '%i ' % i
+    string += '\nnmstates %i\n' % QMin['nmstates']
+    string += 'natom %i\n' % QMin['natom']
+    string += 'npc 0\n'
+    string += 'charges '
+    for i in QMin['states']:
+        string += '%i ' % 0
+    string += '\n\n'
+
     if 'h' in QMin or 'soc' in QMin:
         string += writeQMoutsoc(QMin, QMout)
     if 'dm' in QMin:
@@ -4240,7 +4225,7 @@ class civfl_ana:
             print("%s/cipc.x for state %i, CSFs %i to %i" % (self.columbus, istate, istart, iend))
             starttime = datetime.datetime.now()
             sys.stdout.write('\t%s' % (starttime))
-            cipx = sp.Popen(command, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+            cipx = sp.Popen(command, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE, text=True)
             cipout, ciperr = cipx.communicate(cipstr)
             if self.debug:
                 open('pycipcin.st%i.%i' % (istate, i), 'w').write(cipstr)

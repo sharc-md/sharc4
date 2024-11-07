@@ -137,7 +137,7 @@ module input
 
     ! default is no restart
     ctrl%restart=.false.
-    ctrl%restart_rerun_last_qm_step=.false.
+    ! ctrl%restart_rerun_last_qm_step=.false.
     ! look for restart keyword
     line=get_value_from_key('restart',io)
     if (io==0) then
@@ -300,22 +300,22 @@ module input
           write(u_log,*)
         endif
       endif
-      line=get_value_from_key('restart_rerun_last_qm_step',io)
-      if (io==0) then
-        ctrl%restart_rerun_last_qm_step=.true.
-        write(u_log,'(a)') 'Assuming that restart/ directory corresponds to upcoming time step)'
-        write(u_log,'(a)') '(e.g., after a crash or job kill).'
-      else
-        line=get_value_from_key('restart_goto_new_qm_step',io)
-        if (io==0) then
-          ctrl%restart_rerun_last_qm_step=.false.
-          write(u_log,'(a)') 'Assuming that restart/ directory corresponds to time step in restart files'
-          write(u_log,'(a)') '(e.g., after using STOP file, killafter mechanism, or reaching time step limit).'
-        else
-          write(0,*) 'Please add "restart_rerun_last_qm_step" or "restart_goto_new_qm_step" keyword!'
-          stop
-        endif
-      endif
+      ! line=get_value_from_key('restart_rerun_last_qm_step',io)
+      ! if (io==0) then
+      !   ctrl%restart_rerun_last_qm_step=.true.
+      !   write(u_log,'(a)') 'Assuming that restart/ directory corresponds to upcoming time step)'
+      !   write(u_log,'(a)') '(e.g., after a crash or job kill).'
+      ! else
+      !   line=get_value_from_key('restart_goto_new_qm_step',io)
+      !   if (io==0) then
+      !     ctrl%restart_rerun_last_qm_step=.false.
+      !     write(u_log,'(a)') 'Assuming that restart/ directory corresponds to time step in restart files'
+      !     write(u_log,'(a)') '(e.g., after using STOP file, killafter mechanism, or reaching time step limit).'
+      !   else
+      !     write(0,*) 'Please add "restart_rerun_last_qm_step" or "restart_goto_new_qm_step" keyword!'
+      !     stop 1
+      !   endif
+      ! endif
 
       ! convert tmax to atomic unit 
       ctrl%tmax=ctrl%tmax/au2fs
@@ -435,6 +435,26 @@ module input
       ctrl%nstates=1
     endif
 
+    ! look up charges keyword
+    line=get_value_from_key('charge',io)
+    if (io==0) then
+      ! value needs to be split into values (each one is a string)
+      call split(line,' ',values,n)
+      if (n.lt.ctrl%maxmult) then
+       write(u_log,*) 'Keyword CHARGE needs to specify a charge for all ',ctrl%maxmult, ' multiplicities!'
+       stop 1
+      endif
+      allocate(ctrl%charges_m(ctrl%maxmult))
+      ! read number of states per multiplicity
+      do i=1,ctrl%maxmult
+        read(values(i),*) ctrl%charges_m(i)
+      enddo
+      deallocate(values)
+    else
+       write(u_log,*) 'Keyword CHARGE not found.'
+       stop 1
+    endif
+
     if (printlevel>0) then
       write(u_log,*) '============================================================='
       write(u_log,*) '                 Number of States and Atoms'
@@ -455,6 +475,11 @@ module input
           write(u_log,*) 'Doing dynamics on a single singlet surface.'
         endif
       endif
+      write(u_log,*)
+      write(u_log,'(a)', advance='no') 'charges set to: '
+      do i=1,ctrl%maxmult
+         write(u_log, '(I4,X)', advance='no') ctrl%charges_m(i)
+      enddo
       write(u_log,*)
     endif
 
@@ -827,6 +852,24 @@ module input
     else
       ctrl%coupling=2
     endif
+
+    ! retain restart data
+    line=get_value_from_key('retain_restart_files',io)
+    if (io==0) then
+      read(line,*) ctrl%retain_restart_files
+    else
+      if (ctrl%coupling==2) then
+        ctrl%retain_restart_files = 3
+      else
+        ctrl%retain_restart_files = 2
+      endif      
+    endif
+    if (ctrl%coupling==2) then
+      if (ctrl%retain_restart_files<1) then
+        ctrl%retain_restart_files=1
+      endif
+    endif
+
 
     ! turn program off if adaptive is used for overlap
     if (ctrl%integrator==0 .or. ctrl%integrator==1) then
@@ -1480,6 +1523,12 @@ module input
 
 
 
+    ! if users simply want to compute the overlaps for later without using them
+    line=get_value_from_key('only_store_overlaps',io)
+    if (io==0) then
+      ctrl%calc_overlap = 1
+    endif
+
 
 
     ! Flags for switching on/off writing data to output.dat
@@ -1690,12 +1739,15 @@ module input
           case (3)
             write(u_log,'(a)') 'Using norm perserving interpolation of TDC for wavefunction propagation.'
         endselect
-        select case (ctrl%neom)
-          case (0)
-            write(u_log,'(a)') 'Using NAC for nuclear equation of motion.'
-          case (1)
-            write(u_log,'(a)') 'Using effective NAC for nuclear equation of motion.'
-        endselect
+        ! NEOM keyword is only for Ehrenfest
+        if (ctrl%method==1) then
+          select case (ctrl%neom)
+            case (0)
+              write(u_log,'(a)') 'Using NAC for nuclear equation of motion.'
+            case (1)
+              write(u_log,'(a)') 'Using effective NAC for nuclear equation of motion.'
+          endselect
+        endif 
         if (ctrl%gradcorrect==1) then
           write(u_log,'(a)') 'Including non-adiabatic coupling vectors in the gradient transformation.'
         elseif (ctrl%gradcorrect==2) then
@@ -1760,6 +1812,12 @@ module input
           case (2)
             write(u_log,'(a,1x,f8.3,1x,a)') 'Non-adiabatic coupling vectors are included for Delta E < ',ctrl%eselect_nac,'eV.'
             write(u_log,'(a)') 'Non-adiabatic coupling vectors are calculated in the second QM calculation.'
+        endselect
+        select case (ctrl%nac_projection)
+          case (0)
+            write(u_log,'(a)') 'Not doing NAC projection.'
+          case (1)
+            write(u_log,'(a)') 'Doing NAC projection'
         endselect
         if (ctrl%calc_second==1) then
           write(u_log,'(a)') 'Doing two QM calculations per step for selection.'

@@ -286,6 +286,35 @@ endsubroutine
 
 ! ------------------------------------------------------
 
+subroutine get_Charges(string)
+    use memory_module, only: traj, ctrl
+    implicit none
+    integer :: i
+    __C_OUT_STRING_S_ :: string
+
+
+    string = ""
+    do i=1,ctrl%maxmult
+      write(string,'(A, I3)') trim(string) // ' ', ctrl%charges_m(i)
+    enddo
+    write(string,'(A)') trim(string) // CHAR(0)
+    
+   
+    return 
+endsubroutine
+
+subroutine get_retain(string)
+    use memory_module, only: traj, ctrl
+    implicit none
+    __C_OUT_STRING_S_ :: string
+
+    string = ""
+    write(string, '(a,1x,I7,a)') 'retain',ctrl%retain_restart_files, CHAR(0)
+endsubroutine
+
+
+! ------------------------------------------------------
+
 subroutine get_dt(string)
     use memory_module, only: traj, ctrl
     implicit none
@@ -347,6 +376,11 @@ subroutine get_tasks(string, ICALL)
     ! only needed for ICALL .eq. 3
     logical :: old_selg_s(ctrl%nstates)
 
+    ! write step into tasks
+    string = 'step'
+    write(string,'(A,1X,I)') trim(string), traj%step
+    ! TODO: add retain
+
 
     if (ICALL .eq. 1) then
         ! if necessary, select the quantities for calculation
@@ -354,14 +388,6 @@ subroutine get_tasks(string, ICALL)
         if (ctrl%calc_nacdr==1) call select_nacdr(traj,ctrl)
         if (ctrl%calc_dipolegrad==1) call select_dipolegrad(traj,ctrl)
 
-
-        string = ''
-        if ((traj%step==0).and..not.(ctrl%track_phase_at_zero==1)) then
-          write(string,'(A)') trim(string)  // ' init'
-        endif
-        if (ctrl%restart) then
-          write(string,'(A)') trim(string)  // ' restart'
-        endif
         if (ctrl%calc_soc==1) then
           write(string,'(A)') trim(string)  //  ' SOC'
         else
@@ -391,7 +417,6 @@ subroutine get_tasks(string, ICALL)
           endif
         endif
 
-        write(string, '(A)') trim(string) // CHAR(0)
 
     else if (ICALL .eq. 2) then
         ! select quantities
@@ -399,7 +424,6 @@ subroutine get_tasks(string, ICALL)
         if (ctrl%calc_nacdr==2) call select_nacdr(traj,ctrl)
         if (ctrl%calc_dipolegrad==2) call select_dipolegrad(traj,ctrl)
         !
-        string = 'samestep' // CHAR(0)
     else if (ICALL .eq. 3) then
         old_selg_s = traj%selg_s
         call select_grad(traj,ctrl)
@@ -410,11 +434,11 @@ subroutine get_tasks(string, ICALL)
             write(u_log,*) traj%selg_s
             write(u_log,*)
         endif
-        string = 'samestep' // CHAR(0)
     else
         write(*,*) "tasks can only be called with icall 0 < icall =< 3"
         call Exit(100)
     endif
+    write(string, '(A)') trim(string) // CHAR(0)
 
     return
 endsubroutine

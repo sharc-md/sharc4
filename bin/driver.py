@@ -29,7 +29,6 @@ import time
 import numpy as np
 from typing import Any, Union
 from optparse import OptionParser
-from constants import IAn2AName, ATOMCHARGE, FROZENS
 
 # INTERNAL
 import sharc.sharc as sharc
@@ -196,7 +195,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         i.write_step_file()
     log.debug(f"\tset_props")
     qmout.set_props(i.getQMout(), icall)
-    i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
+    i.clean_savedir()
 
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
@@ -214,6 +213,7 @@ def main():
     parser = OptionParser()
 
     parser.add_option("-i", "--interface", dest="name", help="Name of the Interface you want to use.")
+    parser.add_option("-P", "--nonpersistent", dest="persistent", action="store_false", default=True, help="to turn off interface persistency")
     parser.add_option(
         "-v", "--verbose", dest="verbose", action="store_true", default=False, help="sets verbosity, i.e. print and debug option"
     )
@@ -239,7 +239,7 @@ def main():
     # param = args[0:-1]
     interface = factory(options.name)
 
-    derived_int: SHARC_INTERFACE = interface(persistent=True, loglevel=loglevel)
+    derived_int: SHARC_INTERFACE = interface(persistent=options.persistent, loglevel=loglevel)
     derived_int.QMin.molecule["unit"] = "bohr"
     derived_int.QMin.molecule["factor"] = 1.0
     if options.print:
@@ -250,27 +250,20 @@ def main():
     basic_info.update(derived_int.parseStates(basic_info["states"]))
     QMout = QMOUT(derived_int.__class__.__name__, basic_info["NAtoms"], basic_info["nmstates"])
 
-    basic_info["step"] = basic_info["istep"]
+    derived_int.setup_mol(basic_info)
 
-    derived_int.QMin.molecule.update({k.lower(): v for k, v in basic_info.items()})
-    derived_int.QMin.molecule["natom"] = basic_info["NAtoms"]
-    derived_int.QMin.molecule["elements"] = [IAn2AName[x] for x in basic_info["IAn"]]
-    derived_int.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], derived_int.QMin.molecule["elements"]))
-    derived_int.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], derived_int.QMin.molecule["elements"]))
-    derived_int.QMin.maps["statemap"] = basic_info["statemap"]
-
-    derived_int._setup_mol = True
     with InDir("QM"):
         derived_int.read_resources()
         derived_int.read_template()
-        derived_int.update_step(basic_info["step"])
+        # derived_int.QMin.save['savedir'] = basic_info['savedir']
+        # derived_int.update_step(basic_info["step"])
         derived_int.setup_interface()
     if IRestart == 0:
         initial_qm_pre()
         do_qm_calc(derived_int, QMout)
         initial_qm_post()
         initial_step(IRestart)
-        derived_int.update_step()
+        # derived_int.update_step()
     lvc_time = 0.0
     all_time = 0.0
     for istep in range(basic_info["istep"] + 1, basic_info["NSteps"] + 1):
@@ -292,15 +285,16 @@ def main():
         log.debug(f"{istep} done")
 
         if IRedo == 2:
-            derived_int.read_requests(get_all_tasks(count))
-            safe(derived_int.run)
-            QMout.set_props(derived_int.getQMout(), 3)
+            with(InDir("QM")):
+                derived_int.read_requests(get_all_tasks(count))
+                safe(derived_int.run)
+                QMout.set_props(derived_int.getQMout(), 3)
         iexit = verlet_finalize(1)
         all_s2 = time.perf_counter_ns()
         all_time += all_s2 - all_s1
         if iexit == 1:
             break
-        derived_int.update_step()
+        # derived_int.update_step()
 
     derived_int.create_restart_files()
     finalize_sharc()

@@ -635,10 +635,23 @@ from the initconds.excited files as provided by excite.py.
     nstates = 0
     for mult, i in enumerate(states):
         nstates += (mult + 1) * i
+
+    print("\nPlease enter the molecular charge for each chosen multiplicity\ne.g. 0 +1 0 for neutral singlets and triplets and cationic doublets.")
+    default = [i % 2 for i in range(len(states))]
+    while True:
+        charges = question("Molecular charges per multiplicity:", int, default)
+        if not states:
+            continue
+        if len(charges) != len(states):
+            print("Charges array must have same length as states array")
+            continue
+        break
+
     log.info("Number of states: " + str(states))
     log.info("Total number of states: %i\n" % (nstates))
     INFOS["states"] = states
     INFOS["nstates"] = nstates
+    INFOS["charge"] = charges
     # obtain the statemap
     statemap = {}
     i = 1
@@ -802,15 +815,16 @@ from the initconds.excited files as provided by excite.py.
 def get_interface() -> SHARC_INTERFACE:
     "asks for interface and instantiates it"
     Interfaces = factory.get_available_interfaces()
+    log.info("")
     log.info("{:-^60}".format("Choose the quantum chemistry interface"))
     log.info("\nPlease specify the quantum chemistry interface (enter any of the following numbers):")
     possible_numbers = []
-    for i, (name, interface) in enumerate(Interfaces):
-        if type(interface) == str:
-            log.info("%i\t%s: %s" % (i, name, interface))
+    for i, (name, interface, possible) in enumerate(Interfaces):
+        if not possible:
+            log.info("% 3i %-20s %s" % (i+1, name, interface))
         else:
-            log.info("%i\t%s: %s" % (i, name, interface.description()))
-            possible_numbers.append(i)
+            log.info("% 3i %-20s %s" % (i+1, name, interface.description()))
+            possible_numbers.append(i+1)
     log.info("")
     while True:
         num = question("Interface number:", int)[0]
@@ -819,7 +833,9 @@ def get_interface() -> SHARC_INTERFACE:
         else:
             log.info("Please input one of the following: %s!" % (possible_numbers))
     log.info("")
-    return Interfaces[num][1]
+    log.info("The following interface was selected:")
+    log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
+    return Interfaces[num-1][1]
 
 
 def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
@@ -1069,9 +1085,9 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
                 log.info("Please enter a positive real number!")
                 continue
             break
-        INFOS["scaling"] = fscal
+        INFOS["scaling_for_sharc"] = fscal
     else:
-        INFOS["scaling"] = False
+        INFOS["scaling_for_sharc"] = False
 
     # Damping
     log.info("\nDo you want to damp the dynamics (Kinetic energy is reduced at each timestep by a factor)?")
@@ -1268,6 +1284,11 @@ Laser files can be created using $SHARC/laser.x
         if INFOS["theodore"]:
             INFOS["needed_requests"].append("theodore")
 
+    string = "\n  " + "=" * 80 + "\n"
+    string += "||" + f"{'Interface setup':^80}" + "||\n"
+    string += "  " + "=" * 80 + "\n\n"
+    log.info(string)
+
     return INFOS
 
 
@@ -1461,6 +1482,9 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     s += "\nactstates "
     for nst in INFOS["actstates"]:
         s += "%i " % nst
+    s += "\ncharge "
+    for nst in INFOS["charge"]:
+        s += "%i " % nst
     s += "\nstate %i %s\n" % (istate, ["mch", "diag"][INFOS["diag"]])
     s += "coeff auto\n"
     s += "rngseed %i\n\n" % (random.randint(-32768, 32767))
@@ -1485,8 +1509,8 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     s += "hopping_procedure %s\n" % (INFOS["hopping"])
     if INFOS["force_hops"]:
         s += "force_hop_to_gs %f\n" % (INFOS["force_hops_dE"])
-    if INFOS["scaling"]:
-        s += "scaling %f\n" % (INFOS["scaling"])
+    if INFOS["scaling_for_sharc"]:
+        s += "scaling %f\n" % (INFOS["scaling_for_sharc"])
     if INFOS["damping"] is not False:
         s += "dampeddyn %f\n" % (INFOS["damping"])
     if INFOS["phases_from_interface"]:

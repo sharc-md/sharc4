@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2023 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -22,6 +22,10 @@
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ******************************************
+
+from SHARC_OLD import SHARC_OLD
+class SHARC_MOLPRO(SHARC_OLD):
+    pass
 
 # ======================================================================= #
 # Modules:
@@ -51,12 +55,12 @@ import itertools
 from multiprocessing import Pool
 import time
 import traceback
-
-
+from constants import au2a, rcm_to_Eh
+from constants import FROZENS, IToMult, IToPol
 # =========================================================0
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '3.0'
+versiondate = datetime.date(2023, 4, 1)
 
 
 changelogstring = '''
@@ -142,55 +146,6 @@ starttime = datetime.datetime.now()
 # global variables for printing (PRINT gives formatted output, DEBUG gives raw output)
 DEBUG = False
 PRINT = True
-
-# hash table for conversion of multiplicity to the keywords used in MOLPRO
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# hash table for conversion of polarisations to the keywords used in MOLPRO
-IToPol = {
-    0: 'X',
-    1: 'Y',
-    2: 'Z',
-    'X': 0,
-    'Y': 1,
-    'Z': 2
-}
-
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
-
-# Number of frozen core orbitals
-FROZENS = {'H': 0, 'He': 0,
-           'Li': 1, 'Be': 1, 'B': 1, 'C': 1, 'N': 1, 'O': 1, 'F': 1, 'Ne': 1,
-           'Na': 1, 'Mg': 1, 'Al': 5, 'Si': 5, 'P': 5, 'S': 5, 'Cl': 5, 'Ar': 5,
-           'K': 5, 'Ca': 5,
-           'Sc': 5, 'Ti': 5, 'V': 5, 'Cr': 5, 'Mn': 5, 'Fe': 5, 'Co': 5, 'Ni': 5, 'Cu': 5, 'Zn': 5,
-           'Ga': 9, 'Ge': 9, 'As': 9, 'Se': 9, 'Br': 9, 'Kr': 9,
-           'Rb': 9, 'Sr': 9,
-           'Y': 14, 'Zr': 14, 'Nb': 14, 'Mo': 14, 'Tc': 14, 'Ru': 14, 'Rh': 14, 'Pd': 14, 'Ag': 14, 'Cd': 14,
-           'In': 18, 'Sn': 18, 'Sb': 18, 'Te': 18, 'I': 18, 'Xe': 18,
-           'Cs': 18, 'Ba': 18,
-           'La': 23, 'Hf': 23, 'Ta': 23, 'W': 23, 'Re': 23, 'Os': 23, 'Ir': 23, 'Pt': 23, 'Au': 23, 'Hg': 23,
-           'Tl': 23, 'Pb': 23, 'Bi': 23, 'Po': 23, 'At': 23, 'Rn': 23
-           }
 
 # =============================================================================================== #
 # =============================================================================================== #
@@ -792,7 +747,7 @@ def getcienergy(out, mult, state):
     ilines = 0
     # look for CI program block
     while ilines < len(out):
-        if containsstring('1PROGRAM \\* CI', out[ilines]):
+        if containsstring(r'PROGRAM \* CI', out[ilines]):
             # look for multiplicity
             while ilines < len(out):
                 if containsstring('Reference symmetry', out[ilines]):
@@ -801,7 +756,7 @@ def getcienergy(out, mult, state):
                         while ilines < len(out):
                             # if '********************************************************' in out[ilines]:
                             # break
-                            if containsstring('!(MRCI|CI\\(SD\\)) STATE ?[0-9]+\\.1 Energy', out[ilines]):
+                            if containsstring(r'!(MRCI|CI\(SD\)) STATE ?[0-9]+\.1 Energy', out[ilines]):
                                 kstate = int(out[ilines].replace('.', ' ').replace('E', ' ').split()[2])
                                 if kstate == state:
                                     return float(out[ilines].split()[-1])
@@ -836,21 +791,21 @@ def getcidm(out, mult, state1, state2, pol):
         pol = IToPol[pol]
     ilines = 0
     while ilines < len(out):
-        if containsstring('1PROGRAM \\* CI', out[ilines]):
+        if containsstring(r'PROGRAM \* CI', out[ilines]):
             while ilines < len(out):
                 if containsstring('Reference symmetry', out[ilines]):
                     if containsstring(IToMult[mult], out[ilines]):
                         # expectation values are in the results section, transition moments seperately
                         if state1 == state2:
-                            while not containsstring('\\*\\*\\*', out[ilines]):
-                                if containsstring('!.* STATE ?[0-9]+\\.1 Dipole moment', out[ilines]):
+                            while not containsstring(r'\*\*\*', out[ilines]):
+                                if containsstring(r'!.* STATE ?[0-9]+\.1 Dipole moment', out[ilines]):
                                     kstate = int(out[ilines].replace('.', ' ').replace('E', ' ').split()[2])
                                     if kstate == state1:
                                         return float(out[ilines].split()[-3 + pol])
                                 ilines += 1
                         else:
-                            while not containsstring('\\*\\*\\*', out[ilines]):
-                                if containsstring('MRCI trans.*<.*\\|DM.\\|.*>', out[ilines]):
+                            while not containsstring(r'\*\*\*', out[ilines]):
+                                if containsstring(r'MRCI trans.*<.*\|DM.\|.*>', out[ilines]):
                                     braket = out[ilines].replace('<', ' ').replace('>', ' ').replace('|', ' ').replace('.', ' ').split()
                                     s1 = int(braket[2])
                                     s2 = int(braket[5])
@@ -895,13 +850,13 @@ def getciang(out, mult, state1, state2, pol):
         pol = IToPol[pol]
     ilines = 0
     while ilines < len(out):
-        if containsstring('1PROGRAM \\* CI', out[ilines]):
+        if containsstring(r'PROGRAM \* CI', out[ilines]):
             while ilines < len(out):
                 if containsstring('Reference symmetry', out[ilines]):
                     if containsstring(IToMult[mult], out[ilines]):
 
-                        while not containsstring('\\*\\*\\*', out[ilines]):
-                            if containsstring('MRCI trans.*<.*\\|L.\\|.*>', out[ilines]):
+                        while not containsstring(r'\*\*\*', out[ilines]):
+                            if containsstring(r'MRCI trans.*<.*\|L.\|.*>', out[ilines]):
                                 braket = out[ilines].replace('<', ' ').replace('>', ' ').replace('|', ' ').replace('.', ' ').split()
                                 s1 = int(braket[2])
                                 s2 = int(braket[5])
@@ -988,7 +943,6 @@ def getsocme(out, istate, jstate, QMin):
     iline += 5
     # iline+=2
 
-    rcm_to_Eh = 4.556335e-6
     # get a single matrix element
     block = (j) // 10
     yoffset = (i) * 3 + block * (3 * nmstates + 3)
@@ -1093,16 +1047,16 @@ def getgrad(out, mult, state, natom):
     statefound = False
     # look for FORCE program block
     while ilines < len(out):
-        if containsstring('1PROGRAM \\* FORCE', out[ilines]):
+        if containsstring(r'PROGRAM \* ALASKA', out[ilines]):
             # look for multiplicity and state
             jlines = ilines
-            while not containsstring('\\*\\*\\*', out[jlines]):
+            while not containsstring(r'\*\*\*', out[jlines]):
                 if containsstring(IToMult[mult], out[jlines]):
                     multfound = True
                     break
                 jlines += 1
             jlines = ilines
-            while not containsstring('\\*\\*\\*', out[jlines]):
+            while not containsstring(r'\*\*\*', out[jlines]):
                 if containsstring('SA-MC GRADIENT FOR STATE', out[jlines]):
                     line = out[jlines].replace('E', ' ').replace('.', ' ').split()
                     if state == int(line[5]):
@@ -1156,16 +1110,16 @@ def getnacana(out, mult, state1, state2, natom):
         return grad
     # look for FORCE program block
     while ilines < len(out):
-        if containsstring('1PROGRAM \\* FORCE', out[ilines]):
+        if containsstring(r'PROGRAM \* ALASKA', out[ilines]):
             # look for multiplicity and state
             jlines = ilines
-            while not containsstring('\\*\\*\\*', out[jlines]):
+            while not containsstring(r'\*\*\*', out[jlines]):
                 if containsstring(IToMult[mult], out[jlines]):
                     multfound = True
                     break
                 jlines += 1
             jlines = ilines
-            while not containsstring('\\*\\*\\*', out[jlines]):
+            while not containsstring(r'\*\*\*', out[jlines]):
                 if containsstring('SA-MC NACME FOR STATES', out[jlines]):
                     line = out[jlines].replace('.', ' ').replace('-', ' ').split()
                     # make sure the NACs are antisymmetric
@@ -1219,7 +1173,7 @@ def getmrcioverlap(out, mult, state1, state2):
             if mult == int(line[5]) - 6000:
                 break
         ilines += 1
-    while not containsstring('\\*\\*\\*', out[ilines]):
+    while not containsstring(r'\*\*\*', out[ilines]):
         if containsstring('!MRCI overlap', out[ilines]):
             braket = out[ilines].replace('<', ' ').replace('>', ' ').replace('|', ' ').replace('.', ' ').split()
             s1 = int(braket[2])
@@ -1336,6 +1290,19 @@ def writeQMout(QMin, QMout, QMinfilename):
     if PRINT:
         print('===> Writing output to file %s in SHARC Format\n' % (outfilename))
     string = ''
+
+    # add header info
+    string += '! 0 Basic information\nstates '
+    for i in QMin['states']:
+        string += '%i ' % i
+    string += '\nnmstates %i\n' % QMin['nmstates']
+    string += 'natom %i\n' % QMin['natom']
+    string += 'npc 0\n'
+    string += 'charges '
+    for i in QMin['states']:
+        string += '%i ' % 0
+    string += '\n\n'
+
     if 'h' in QMin or 'soc' in QMin:
         string += writeQMoutsoc(QMin, QMout)
     if 'dm' in QMin:
@@ -2817,7 +2784,7 @@ def writeMOLPROinput(tasks, QMin):
         # gprint ======================================================================================== #
         elif task[0] == 'gprint':
             string += 'gprint,orbitals,civectors;\n'
-            string += 'gthresh,printci=%.10f\n\n' % (task[1])
+            string += 'gthresh,thrprint=0.,printci=%.10f;\n\n' % (task[1])
 
         # gprint ======================================================================================== #
         elif task[0] == 'molden':
@@ -3152,6 +3119,8 @@ def moveOldFiles(QMin):
 
 
 def saveFiles(WORKDIR, QMin):
+    # see https://www.ibm.com/support/pages/apar/IJ29942
+    shutil._USE_CP_SENDFILE = False
     # copy the wf files from master directories
     job = QMin['JOB']
     fromfile = os.path.join(WORKDIR, 'wf')
@@ -3184,7 +3153,7 @@ def saveFiles(WORKDIR, QMin):
                         n += 1
                     if i + 1 == m:
                         break
-                string = get_CASdet_from_out(out, n, QMin['states'][m - 1])
+                string = get_CASdet_from_out(out, m, QMin['states'][m - 1])
             detfile = os.path.join(QMin['savedir'], 'det_cas.%i' % m)
             writefile(detfile, string)
 
@@ -3295,7 +3264,7 @@ def saveAOovl(WORKDIR, QMin):
 
 def getCPstatus(out):
     for iline, line in enumerate(out):
-        if 'Solving MCSCF z-vector' in line or 'SOLVING CP-MCSCF NACM' in line:
+        if 'for CP-MCSCF' in line:
             break
     else:
         return -1.
@@ -3304,16 +3273,9 @@ def getCPstatus(out):
     while True:
         iline += 1
         line = out[iline]
-        if 'VECTORS REACHED' in line:
-            continue
-        elif 'CONVERGENCE' in line:
-            conv = min(conv, float(line.split()[-1]))
-        else:
-            break
-    if 'Convergence reached' in out[iline + 1]:
-        return 0.
-    else:
-        return conv
+        if 'Convergence reached' in line:
+            return 0.
+    return conv
 
 # ======================================================================= #
 
@@ -3359,13 +3321,13 @@ def get_MO_from_out(out):
     found = 0
     for line in out:
         if 'Number of closed-shell orbitals:' in line:
-            nclosed = int(line.split()[-4])
+            nclosed = int(line.replace('(',' ').replace(')',' ').split()[-2])
             found += 1
         elif 'Number of active  orbitals:' in line:
-            nact = int(line.split()[-4])
+            nact = int(line.replace('(',' ').replace(')',' ').split()[-2])
             found += 1
         elif 'Number of external orbitals:' in line:
-            nex = int(line.split()[-4])
+            nex = int(line.replace('(',' ').replace(')',' ').split()[-2])
             found += 1
             if found == 2:
                 # this means that no closed-shell orbitals are present in output
@@ -3419,16 +3381,16 @@ def get_MO_from_out(out):
 # ======================================================================= #
 
 
-def get_CASdet_from_out(out, isym, nstates):
+def get_CASdet_from_out(out, imult, nstates):
     # extracts the first occurence of determinants from CASSCF and formats them for savedir
     # find number of orbitals
     found = 0
     for line in out:
         if 'Number of closed-shell orbitals:' in line:
-            nclosed = int(line.split()[-4])
+            nclosed = int(line.replace('(',' ').replace(')',' ').split()[-2])
             found += 1
         elif 'Number of active  orbitals:' in line:
-            nact = int(line.split()[-4])
+            nact = int(line.replace('(',' ').replace(')',' ').split()[-2])
             found += 1
             if found == 1:
                 found += 1
@@ -3444,11 +3406,13 @@ def get_CASdet_from_out(out, isym, nstates):
 
     # find the determinants
     for iline, line in enumerate(out):
-        if isym == 0:
-            string = 'CI vector'
+        if imult == 0:
+            string = 'CI Coefficients'
+            multi = ' '
         else:
-            string = 'CI vector for state symmetry %i' % (isym)
-        if string in line:
+            string = 'CI Coefficients of symmetry'
+            multi = IToMult[imult]
+        if string in line and multi in line: 
             break
     iline += 2
 

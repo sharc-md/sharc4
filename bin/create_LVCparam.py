@@ -292,6 +292,9 @@ def partition_matrix(matrix, multiplicity, states):
 
 # ======================================================================= #
 
+def phase_correction_do_nothing(matrix):
+    return matrix.real.copy()
+
 
 def phase_correction(matrix):
     U = matrix.real.copy()
@@ -538,6 +541,7 @@ def write_LVC_template(INFOS, template_name):
             # get hamiltonian & overlap matrix from QM.out
             path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
             # requests = ["h", "overlap"]
+            print("reading displaced QMout at:", path)
             QMout_pos = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
             # check diagonal of S & print warning
@@ -554,6 +558,7 @@ def write_LVC_template(INFOS, template_name):
 
                 # get hamiltonian & overlap matrix from QM.out
                 path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+                print("reading displaced QMout at:", path)
                 QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
                 # check diagonal of S & print warning if wanted
@@ -1177,7 +1182,7 @@ def main():
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
     template_name = "LVC.template"
-    print(len(sys.argv))
+    #print(len(sys.argv))
     if len(sys.argv) == 3:
         template_name = sys.argv[2]
     if is_other_dir:

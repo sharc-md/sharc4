@@ -29,7 +29,6 @@
 import os
 import shutil
 from io import TextIOWrapper
-from typing import Optional
 
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
@@ -40,18 +39,21 @@ class SHARC_FAST(SHARC_INTERFACE):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._threadsafe = True
 
-    def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
+        self.template_file = None
+        self.resources_file = None
+        self.extra_files = None
+
+    def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         return INFOS
 
     def setup_interface(self):
-        pass
+        if self.persistent:
+            self.savedict = {}
 
     def getQMout(self):
         return self.QMout
 
-    # TODO: WTF is self.template_file???
     def prepare(self, INFOS: dict, dir_path: str):
         if "link_files" in INFOS and INFOS["link_files"]:
             os.symlink(
@@ -77,3 +79,31 @@ class SHARC_FAST(SHARC_INTERFACE):
         if "extra_files" in self.__dict__:
             for file in self.extra_files:
                 shutil.copy(expand_path(file), os.path.join(dir_path, os.path.split(file)[1]))
+
+
+    def clean_savedir(self) -> None:
+        if self.persistent:
+            retain = self.QMin.requests["retain"]
+            step = self.QMin.save["step"]
+            if retain < 0:
+                return
+            to_be_deleted = set()
+            for istep in self.savedict:
+                if istep < step - retain:
+                    to_be_deleted.add(istep)
+            for istep in to_be_deleted:
+                del self.savedict[istep]
+        else: 
+            super().clean_savedir()
+
+    def write_step_file(self) -> None:
+        # write step file in every step only in non-persistent mode
+        if not self.persistent:
+            super().write_step_file()
+
+    def create_restart_files(self):
+        # write step file in persistent mode only at the very end
+        if self.persistent:
+            super().write_step_file()
+
+

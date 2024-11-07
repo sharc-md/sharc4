@@ -35,10 +35,11 @@ import os
 import sys
 import datetime
 import numpy as np
+import re
 
 # internal
 from SHARC_FAST import SHARC_FAST
-from utils import readfile, question, expand_path
+from utils import readfile, writefile, question, expand_path, phase_correction
 from io import TextIOWrapper
 from constants import U_TO_AMU
 from kabsch import kabsch_w as kabsch, kabsch_w_with_deriv
@@ -135,9 +136,17 @@ class SHARC_LVC(SHARC_FAST):
         dipole_real = True
         line = f.readline()
         if line.startswith("charge"):
-            self.QMin.molecule["charge"] = [int(x) for x in line.split()[1:]]
-            self.QMout.charges = self.QMin.molecule["charge"]
+            charges = [int(x) for x in line.split()[1:]]
+            c1 = np.array(charges)
+            c2 = np.array(self.QMin.molecule["charge"])
+            mask = np.array(states) != 0
+            c1 = c1[mask]
+            c2 = c2[mask]
+            if not np.array_equal(c1,c2):
+                self.log.error('Charges from request and in template are not consistent!')
+                raise RuntimeError()
             line = f.readline()
+        self.QMout.charges = self.QMin.molecule["charge"]
         # NOTE: possibly assign whole array with index accessor (numpy)
         if line == "epsilon\n":
             z = int(f.readline()[:-1])
@@ -305,15 +314,14 @@ class SHARC_LVC(SHARC_FAST):
             self._diagonalize = self.QMin.resources["diagonalize"]
 
     def setup_interface(self):
-        if self.QMin.requests["overlap"]:
-            if self.QMin.save["step"] == 0:
-                self.QMout.overlap = np.identity(self.parsed_states["nmstates"], dtype=float)
-            else:
-                self.log.debug(f'restarting: getting overlap from file {self.QMin.save["step"]-1}.npy')
-                self.QMout.overlap = (
-                    np.load(os.path.join(self.QMin.save["savedir"], f'U_{self.QMin.save["step"]-1}')).reshape(self._U.shape).T
-                    @ self._U
-                )
+        super().setup_interface()
+        if self.persistent:
+            for file in os.listdir(self.QMin.save["savedir"]):
+                if re.match(r"^U\.npy\.\d+$", file):
+                    step = int(file.split('.')[-1])
+                    ufile = os.path.join(self.QMin.save["savedir"], file)
+                    self.savedict[step] = {'U': np.load(ufile).reshape( (self.QMin.molecule['nmstates'], self.QMin.molecule['nmstates']) )}
+                
 
     def getQMout(self):
         return self.QMout
@@ -700,28 +708,32 @@ class SHARC_LVC(SHARC_FAST):
                 start += n * (im + 1)
                 start_req += n_req * (im + 1)
 
-        if self.QMin.requests["overlap"]:
+        if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             if self.QMin.save["step"] == 0:
                 pass
             elif self.persistent:
-                overlap = self._Uold.T @ self._U
+                Uold = self.savedict[self.QMin.save['step']-1]["U"]
             else:
-                overlap = (
-                    np.load(os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']-1}.npy")).reshape(self._U.shape).T
-                    @ self._U
-                )
+                Uold = np.load(os.path.join(self.QMin.save["savedir"], f"U.npy.{self.QMin.save['step']-1}")).reshape(self._U.shape)
+            overlap = Uold.T @ self._U
+            if self.QMin.requests["phases"]:
+                _, phases = phase_correction(overlap)
 
         # OVERLAP
-        if self.persistent:
-            self._Uold = np.copy(self._U)
-        else:
-            np.save(
-                os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']}"), self._U
-            )  # writes a binary file (can be read with numpy.load())
-        if self.QMin.resources["keep_U"]:
-            if "all_U" not in self.__dict__:
-                self.all_U = []
-            self.all_U.append(self._U)
+        if not self.QMin.save["samestep"]:
+            # store U matrix
+            if self.persistent:
+                self.savedict[self.QMin.save['step']] = {'U': np.copy(self._U)}
+            else:
+                with open(os.path.join(self.QMin.save["savedir"], f"U.npy.{self.QMin.save['step']}"), 'wb') as f:
+                    np.save(f, self._U)  # writes a binary file (can be read with numpy.load())
+            
+            # keep all U matrices 
+            # TODO: could be removed because is done by retain mechanism
+            if self.QMin.resources["keep_U"]:
+                if "all_U" not in self.__dict__:
+                    self.all_U = []
+                self.all_U.append(self._U)
 
         # ========================== Prepare results ========================================
         if self.QMin.requests["soc"]:
@@ -772,6 +784,8 @@ class SHARC_LVC(SHARC_FAST):
         self.QMout.dm = dipole
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = overlap
+        if self.QMin.requests["phases"]:
+            self.QMout.phases = phases
         if self.QMin.requests["grad"]:
             self.QMout.grad = grad
         if self.QMin.requests["nacdr"]:
@@ -786,13 +800,16 @@ class SHARC_LVC(SHARC_FAST):
         return
 
     def create_restart_files(self):
-        np.save(
-            os.path.join(self.QMin.save["savedir"], f'U.{self.QMin.save["step"]}.out'), self._U
-        )  # writes a binary file (can be read with numpy.load())
+        super().create_restart_files()
+        if self.persistent:
+            for istep in self.savedict:
+                with open( os.path.join(self.QMin.save["savedir"], f'U.npy.{istep}'), 'wb') as f:
+                    np.save(f, self.savedict[istep]["U"])  # writes a binary file (can be read with numpy.load())
 
-        if self.QMin.resources["keep_U"]:
-            all_U = np.array(self.all_U)
-            np.save(os.path.join(self.QMin.save["savedir"], f"U_0-{self.QMin.save['step']}.npy"), all_U)
+            if self.QMin.resources["keep_U"]:
+                all_U = np.array(self.all_U)
+                np.save(os.path.join(self.QMin.save["savedir"], f"U_0-{self.QMin.save['step']}.npy"), all_U)
+        # else: nothing is done because run() has already saved the U matrix
 
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         return {
@@ -804,6 +821,7 @@ class SHARC_LVC(SHARC_FAST):
             "overlap",
             "multipolar_fit",
             "point_charges",
+            "phases",
         }
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
@@ -813,7 +831,11 @@ class SHARC_LVC(SHARC_FAST):
         self.log.info("=" * 80)
         self.log.info("\n")
 
-        self.template_file = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        if os.path.isfile('LVC.template'):
+            default = 'LVC.template'
+        else:
+            default = None
+        self.template_file = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True, default=default)
         while not os.path.isfile(self.template_file):
             self.template_file = question(
                 f"'{self.template_file}' not found!\nSpecify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True
@@ -847,12 +869,19 @@ class SHARC_LVC(SHARC_FAST):
 
         if question("Do you have an LVC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
             self.resources_file = question("Specify path to LVC.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        else:
+            self.wants_kabsch = question("Do you want to use the Kabsch algorithm?", bool, KEYSTROKES=KEYSTROKES, default=True)
 
         return INFOS
 
     def dyson_orbitals_with_other(self, other):
-        pass
+        raise NotImplementedError()
 
+    def prepare(self, INFOS: dict, dir_path: str):
+        super().prepare(INFOS, dir_path)
+        if not "resources_file" in self.__dict__ and "wants_kabsch" in self.__dict__ and self.wants_kabsch:
+            string = 'do_kabsch true\n'
+            writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
 if __name__ == "__main__":
     from logger import loglevel

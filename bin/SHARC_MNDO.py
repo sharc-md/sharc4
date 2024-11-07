@@ -88,7 +88,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ici2": 0,
                 "act_orbs": [1],
                 "movo": 0,
-                "kharge": 0,
+                #"kharge": 0,
                 "imomap": 0,
                 "disp": 0,
                 "iop": -6,
@@ -107,7 +107,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ici2": int,
                 "act_orbs": list,
                 "movo": int,
-                "kharge": int,
+                #"kharge": int,
                 "imomap": int,
                 "disp": int,
                 "iop": int,
@@ -215,6 +215,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
         self.make_resources = False
         # Resources
+        # TODO: either ask for resource file at the top of this routine or not at all...
         if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
             while True:
                 resources_file = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="MNDO.resources")
@@ -240,8 +241,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         return INFOS
 
 
-    def create_restart_files(self):
-        pass
 
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
@@ -1079,7 +1078,7 @@ mocoef
         if self.QMin["template"]["nciref"] < 1 or self.QMin["template"]["nciref"] > 20:
             raise ValueError(f"number of references can only be between 1 and 20.")
 
-        self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"]) #cast template inputs to int
+        self.QMin["template"]["kharge"] = self.QMin.molecule['charge'][0] #int(self.QMin["template"]["kharge"]) #cast template inputs to int
         self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
         self.QMin["template"]["disp"] = int(self.QMin["template"]["disp"])
         

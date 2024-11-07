@@ -41,7 +41,7 @@ import time
 from socket import gethostname
 import ast
 import pprint
-
+from constants import IToMult
 # =========================================================0
 # compatibility stuff
 
@@ -51,37 +51,11 @@ if sys.version_info[0] != 3:
 
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-BOHR_TO_ANG = 0.529177211
-PI = math.pi
 
 version = '3.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
 versiondate = datetime.date(2024, 4, 24)
 
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# ======================================================================= #
 
 Interfaces = {
     1: {'script': 'SHARC_MOLPRO.py',
@@ -131,9 +105,9 @@ Interfaces = {
                      'soc': []},
         'pysharc': False
         },
-    5: {'script': 'SHARC_AMS-ADF.py',
+    5: {'script': 'SHARC_AMS_ADF.py',
         'name': 'ams-adf',
-        'description': 'AMS-ADF (DFT, TD-DFT)',
+        'description': 'AMS_ADF (DFT, TD-DFT)',
         'get_routine': 'get_AMS',
         'prepare_routine': 'prepare_AMS',
         'features': {'overlap': ['wfoverlap'],
@@ -498,6 +472,18 @@ def get_general():
             continue
         break
     print('')
+
+    print("\nPlease enter the molecular charge for each chosen multiplicity\ne.g. 0 +1 0 for neutral singlets and triplets and cationic doublets.")
+    default = [i % 2 for i in range(len(states))]
+    while True:
+        charges = question("Molecular charges per multiplicity:", int, default)
+        if not states:
+            continue
+        if len(charges) != len(states):
+            print("Charges array must have same length as states array")
+            continue
+        break
+
     nstates = 0
     for mult, i in enumerate(states):
         nstates += (mult + 1) * i
@@ -505,6 +491,7 @@ def get_general():
     print('Total number of states: %i\n' % (nstates))
     INFOS['states'] = states
     INFOS['nstates'] = nstates
+    INFOS["charge"] = charges
     # obtain the statemap
     statemap = {}
     i = 1
@@ -1704,7 +1691,7 @@ def get_AMS(INFOS):
     '''This routine asks for all questions specific to AMS:
     - path to AMS
     - scratch directory
-    - AMS-ADF.template
+    - AMS_ADF.template
     - TAPE21
     '''
 
@@ -1753,7 +1740,7 @@ def get_AMS(INFOS):
 
     # template file
     print('{:-^60}'.format('AMS input template file') + '\n')
-    print('''Please specify the path to the AMS-ADF.template file. This file must contain the following keywords:
+    print('''Please specify the path to the AMS_ADF.template file. This file must contain the following keywords:
 
 basis <basis>
 functional <type> <name>
@@ -1761,13 +1748,13 @@ charge <x> [ <x2> [ <x3> ...] ]
 
 The AMS interface will generate the appropriate AMS input automatically.
 ''')
-    if os.path.isfile('AMS-ADF.template'):
-        if checktemplate_AMS('AMS-ADF.template', INFOS):
-            print('Valid file "AMS-ADF.template" detected. ')
+    if os.path.isfile('AMS_ADF.template'):
+        if checktemplate_AMS('AMS_ADF.template', INFOS):
+            print('Valid file "AMS_ADF.template" detected. ')
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
-                INFOS['AMS-ADF.template'] = 'AMS-ADF.template'
-    if 'AMS-ADF.template' not in INFOS:
+                INFOS['AMS_ADF.template'] = 'AMS_ADF.template'
+    if 'AMS_ADF.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -1775,7 +1762,7 @@ The AMS interface will generate the appropriate AMS input automatically.
                 continue
             if checktemplate_AMS(filename, INFOS):
                 break
-        INFOS['AMS-ADF.template'] = filename
+        INFOS['AMS_ADF.template'] = filename
     print('')
 
 
@@ -1894,9 +1881,9 @@ Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
 
 
 def prepare_AMS(INFOS, iconddir):
-    # write AMS-ADF.resources
+    # write AMS_ADF.resources
     try:
-        sh2cas = open('%s/AMS-ADF.resources' % (iconddir), 'w')
+        sh2cas = open('%s/AMS_ADF.resources' % (iconddir), 'w')
     except IOError:
         print('IOError during prepareAMS, iconddir=%s' % (iconddir))
         quit(1)
@@ -1920,8 +1907,8 @@ def prepare_AMS(INFOS, iconddir):
     sh2cas.close()
 
     # copy MOs and template
-    cpfrom = INFOS['AMS-ADF.template']
-    cpto = '%s/AMS-ADF.template' % (iconddir)
+    cpfrom = INFOS['AMS_ADF.template']
+    cpto = '%s/AMS_ADF.template' % (iconddir)
     shutil.copy(cpfrom, cpto)
 
     if INFOS['ams.guess']:
@@ -3269,8 +3256,10 @@ def writeOrcascript(INFOS, iconddir):
 
     string = '''#
 #SHARC: states %s
+#SHARC: charge %s
 #SHARC: interface %s
 #SHARC: opt %s %i''' % (' '.join([str(i) for i in INFOS['states']]),
+                       ' '.join([str(i) for i in INFOS['charge']]),
                         Interfaces[INFOS['interface']]['name'],
                         INFOS['opttype'],
                         INFOS['cas.root1'])
@@ -3298,8 +3287,10 @@ end
     filename = '%s/otool_external.inp' % (iconddir)
     string = '''#
 SHARC: states %s
+SHARC: charge %s
 SHARC: interface %s
 SHARC: opt %s %i''' % (' '.join([str(i) for i in INFOS['states']]),
+                       ' '.join([str(i) for i in INFOS['charge']]),
                         Interfaces[INFOS['interface']]['name'],
                         INFOS['opttype'],
                         INFOS['cas.root1'])

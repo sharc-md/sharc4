@@ -2,21 +2,36 @@
 import scipy.constants as const
 
 # conversion factors
-au2a = 0.529177211
-ANG_TO_BOHR = 1. / 0.529177211
-rcm_to_Eh = 4.556335e-6
-kcal_to_Eh = 0.0015936010974213599
-D2au = 0.393430307
-au2eV = 27.2113987622
-CM_TO_HARTREE = 1. / 219474.6
-HARTREE_TO_EV = 27.211396132
-EV_TO_EH = 0.03674930495120813
-U_TO_AMU = 1. / 5.4857990943e-4
-BOHR_TO_ANG = 0.529177211
-kJpermol_to_Eh = kj2Eh = 2625.4996394799    # kJ/mol -> Hartree
-lande_g_factor = const.physical_constants["electron g factor"][0]
-alpha = const.alpha
-# TODO: go higher (see old ORCA interface)
+au2u               = const.physical_constants["atomic unit of mass"][0]*const.Avogadro*1E3 
+au2rcm             = 1./(const.physical_constants["inverse meter-hartree relationship"][0]*1E2)
+au2debye           = const.c/1E-21*const.physical_constants["elementary charge"][0]*const.physical_constants["Bohr radius"][0]
+au2a               = const.physical_constants["Bohr radius"][0]*1E10
+cm2au              = const.physical_constants["inverse meter-hartree relationship"][0]*1E2
+au2fs              = const.physical_constants["atomic unit of time"][0]*1E15
+ram2au             = 1. / const.physical_constants["electron mass in u"][0]
+J2eV               = const.physical_constants["joule-electron volt relationship"][0]
+D2au               = 1./const.c*1E-21/const.physical_constants["elementary charge"][0]/const.physical_constants["Bohr radius"][0]  # https://en.wikipedia.org/wiki/Debye=
+au2V_m             = const.physical_constants["atomic unit of electric field"][0]
+au2J               = const.physical_constants["hartree-joule relationship"][0]
+au2eV              = const.physical_constants["Hartree energy in eV"][0]
+rcm_to_Eh          = 1./(const.physical_constants["hartree-inverse meter relationship"][0]*1E-2)
+D2Cm               = 1./const.c*1E-21
+au2I               = 1/2.*const.epsilon_0*const.c*const.physical_constants["atomic unit of electric field"][0]**2*1E-4
+au2GV_m            = au2V_m*1E-9
+kcal_to_Eh         = const.calorie*1E3/const.Avogadro/const.physical_constants["Hartree energy"][0]  # kcal/mol -> Hartree
+speed_of_light_au  = 1./const.alpha
+kJpermol_to_Eh     = kJpermol_to_Eh = kj2Eh = const.Avogadro*const.physical_constants["Hartree energy"][0]*1E-3
+lande_g_factor     = const.physical_constants["electron g factor"][0]
+alpha              = 1./speed_of_light_au
+ANG_TO_BOHR        = 1. / (const.physical_constants["Bohr radius"][0]*1E10)
+CM_TO_HARTREE      = 1. / (const.physical_constants["hartree-inverse meter relationship"][0]*1E-2)
+HARTREE_TO_EV      = const.physical_constants["Hartree energy in eV"][0]
+EV_TO_EH           = 1. / const.physical_constants["Hartree energy in eV"][0]
+U_TO_AMU           = ram2au
+BOHR_TO_ANG        = const.physical_constants["Bohr radius"][0]*1E10
+AMBERVEL_TO_AU     = (const.calorie*1E3/const.Avogadro/const.physical_constants["atomic mass constant"][0])**(0.5)/ \
+                     (const.physical_constants["Bohr radius"][0]/const.physical_constants["atomic unit of time"][0])  # https://ambermd.org/Questions/units.html
+# TODO: go higher (see old ORCA interface
 # TODO: use some list comprehension to get the reversed half of the dictionary
 IToMult = {
     1: 'Singlet',
@@ -27,6 +42,13 @@ IToMult = {
     6: 'Sextet',
     7: 'Septet',
     8: 'Octet',
+    9: '9-et',   
+    10: '10-et', 
+    11: '11-et', 
+    12: '12-et', 
+    13: '13-et', 
+    14: '14-et', 
+    15: '15-et', 
     'Singlet': 1,
     'Doublet': 2,
     'Triplet': 3,

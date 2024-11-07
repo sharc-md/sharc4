@@ -665,9 +665,9 @@ Interfaces = {
                      'soc': []},
         'pysharc': False
         },
-    5: {'script': 'SHARC_AMS-ADF.py',
+    5: {'script': 'SHARC_AMS_ADF.py',
         'name': 'ams-adf',
-        'description': 'AMS-ADF (DFT, TD-DFT)',
+        'description': 'AMS_ADF (DFT, TD-DFT)',
         'get_routine': 'get_AMS',
         'prepare_routine': 'prepare_AMS',
         'features': {'overlap': ['wfoverlap'],
@@ -1753,7 +1753,7 @@ def get_AMS(INFOS):
     '''This routine asks for all questions specific to AMS:
     - path to AMS
     - scratch directory
-    - AMS-ADF.template
+    - AMS_ADF.template
     - ams.rkf (formerly TAPE21)
     '''
 
@@ -1801,7 +1801,7 @@ def get_AMS(INFOS):
 
     # template file
     print('{:-^60}'.format('AMS input template file') + '\n')
-    print('''Please specify the path to the AMS-ADF.template file. This file must contain the following keywords:
+    print('''Please specify the path to the AMS_ADF.template file. This file must contain the following keywords:
 
 basis <basis>
 functional <type> <name>
@@ -1809,13 +1809,13 @@ charge <x> [ <x2> [ <x3> ...] ]
 
 The AMS interface will generate the appropriate AMS input automatically.
 ''')
-    if os.path.isfile('AMS-ADF.template'):
-        if checktemplate_AMS('AMS-ADF.template', INFOS):
-            print('Valid file "AMS-ADF.template" detected. ')
+    if os.path.isfile('AMS_ADF.template'):
+        if checktemplate_AMS('AMS_ADF.template', INFOS):
+            print('Valid file "AMS_ADF.template" detected. ')
             usethisone = question('Use this template file?', bool, True)
             if usethisone:
-                INFOS['AMS-ADF.template'] = 'AMS-ADF.template'
-    if 'AMS-ADF.template' not in INFOS:
+                INFOS['AMS_ADF.template'] = 'AMS_ADF.template'
+    if 'AMS_ADF.template' not in INFOS:
         while True:
             filename = question('Template filename:', str)
             if not os.path.isfile(filename):
@@ -1823,7 +1823,7 @@ The AMS interface will generate the appropriate AMS input automatically.
                 continue
             if checktemplate_AMS(filename, INFOS):
                 break
-        INFOS['AMS-ADF.template'] = filename
+        INFOS['AMS_ADF.template'] = filename
     print('')
 
 
@@ -1934,9 +1934,9 @@ Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
 
 
 def prepare_AMS(INFOS, iconddir):
-    # write AMS-ADF.resources
+    # write AMS_ADF.resources
     try:
-        sh2cas = open('%s/AMS-ADF.resources' % (iconddir), 'w')
+        sh2cas = open('%s/AMS_ADF.resources' % (iconddir), 'w')
     except IOError:
         print('IOError during prepareAMS, iconddir=%s' % (iconddir))
         quit(1)
@@ -1960,8 +1960,8 @@ def prepare_AMS(INFOS, iconddir):
     sh2cas.close()
 
     # copy MOs and template
-    cpfrom = INFOS['AMS-ADF.template']
-    cpto = '%s/AMS-ADF.template' % (iconddir)
+    cpfrom = INFOS['AMS_ADF.template']
+    cpto = '%s/AMS_ADF.template' % (iconddir)
     shutil.copy(cpfrom, cpto)
 
     if INFOS['ams.guess']:

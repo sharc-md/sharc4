@@ -113,6 +113,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "paste_input_file": None,
                 "basis_external": None,
                 "noneqsolv": False,
+                "state_densities": 'relaxed',
             }
         )
         self.QMin.template.types.update(
@@ -132,6 +133,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "paste_input_file": str,
                 "basis_external": str,
                 "noneqsolv": bool,
+                "state_densities": str,
             }
         )
 
@@ -200,7 +202,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     @staticmethod
     def check_template(template_file):
 
-        necessary = {"basis", "functional", "charge"}
+        necessary = {"basis", "functional"}
         with open(template_file, "r") as f:
             for line in f:
                 if len(necessary) == 0:
@@ -259,7 +261,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     basis <basis>
     functional <type> <name>
-    charge <x> [ <x2> [ <x3> ...] ]
 
     The GAUSSIAN interface will generate the appropriate GAUSSIAN input automatically.
     ''')
@@ -490,7 +491,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.QMin.template["paste_input_file"] = readfile(self.QMin.template["paste_input_file"])
         # do logic checks
         if not self.QMin.template["unrestricted_triplets"]:
-            if len(self.QMin.template["charge"]) >= 3 and self.QMin.template["charge"][0] != self.QMin.template["charge"][2]:
+            if len(self.QMin.molecule["charge"]) >= 3 and self.QMin.molecule["charge"][0] != self.QMin.molecule["charge"][2]:
                 raise RuntimeError('Charges of singlets and triplets differ. Please enable the "unrestricted_triplets" option!')
 
         for s in self.states:
@@ -527,7 +528,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     def setup_interface(self):
         super().setup_interface()
         # make the chargemap
-        self.QMin.maps["chargemap"] = {i + 1: c for i, c in enumerate(self.QMin.template["charge"])}
+        self.QMin.maps["chargemap"] = {i + 1: c for i, c in enumerate(self.QMin.molecule["charge"])}
         self._states_to_do()  # can be different in interface -> general method here with possibility to overwrite
         # make the jobs
         self._jobs()
@@ -723,8 +724,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     self.density_recipes['read'][(s1,s2,spin)] = (dir, keyword)
                 elif spin == 'aa' or spin == 'bb':
                     dir = 'master_'+str(s2.S+1)
-                    keyword = {"Number of g2e trans dens", "G to E trans densities"} 
-                    self.density_recipes['read'][(s1,s2,spin)] = (dir, keyword)
+                    if s1 is s2:
+                        keyword = {"Number of ex state dens", "Excited state densities"} 
+                        self.density_recipes['read'][(s1,s2,spin)] = (dir, keyword)
+                    else:
+                        keyword = {"Number of g2e trans dens", "G to E trans densities"} 
+                        self.density_recipes['read'][(s1,s2,spin)] = (dir, keyword)
 
             for key, value in self.density_recipes['read'].items():
                 if value[0] in self.QMin.control["densjob"]:
@@ -862,7 +867,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.get_mole()
         # Create restart files and garbage collection
         self.create_restart_files()
-        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
+        self.clean_savedir()    # TODO: why done here? Is in main function and in driver...
 
         # do all necessary overlap and Dyson calculations
         self._run_wfoverlap()
@@ -998,19 +1003,19 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     states_to_do[imult] = 0
 
         # number of states to calculate
+        mults_td = ""
+        ncalc = max(states_to_do)
         if restr:
-            ncalc = max(states_to_do)
             sing = states_to_do[0] > 0
             trip = len(states_to_do) >= 3 and states_to_do[2] > 0
-            if sing and trip:
-                mults_td = ",50-50"
-            elif sing and not trip:
+            #  if sing and trip:
+                #  mults_td = ",50-50"
+            #  elif sing and not trip:
+            if sing and not trip:
                 mults_td = ",singlets"
-            elif trip and not sing:
+            #elif trip and not sing:
+            elif trip:
                 mults_td = ",triplets"
-        else:
-            ncalc = max(states_to_do)
-            mults_td = ""
 
         # gradients
         if QMin.maps["gradmap"]:
@@ -1055,18 +1060,15 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             data.append("denfit")
         if ncalc > 0:
             if QMin.template['functional'].lower() == 'eomccsd':
-                s = 'eomccsd'
+                s = f"eomccsd(nstates={ncalc}{mults_td}"
             elif not QMin.template["no_tda"]:
-                s = "tda"
+                s = f"tda(nstates={ncalc}{mults_td}"
             else:
-                s = "td"
-            if QMin.control["master"] or QMin.template['functional'].lower() == 'eomccsd':
-                s += f"(nstates={ncalc}{mults_td}"
-            else:
-                #  if QMin.template['functional'].lower() == 'eomccsd':
-                    #  s+= '(ReadAmplitudes'
-                #  else:
-                if not QMin.template['functional'].lower() == 'eomccsd':s += "(read"
+                s = f"td(nstates={ncalc}{mults_td}"
+            #  if QMin.control["master"] or QMin.template['functional'].lower() == 'eomccsd':
+                #  s += f"(nstates={ncalc}{mults_td}"
+            if not QMin.control["master"] and not QMin.template['functional'].lower() == 'eomccsd':
+                s += ",read"
             if dograd and root > 0:
                 s += f",root={root}"
             elif dodens and root > 0:
@@ -1075,7 +1077,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 s += f",conver={QMin.template['td_conv']}"
             if QMin.template["noneqsolv"]:
                 s += ",noneqsolv"
-            s += ") density=Current"
+            s += ") "
+            if dodens and root > 0 and QMin.template['state_densities'] == 'relaxed': s += "density=Current"
             data.append(s)
         if QMin.template["scrf"]:
             s = ",".join(QMin.template["scrf"])
@@ -1117,13 +1120,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         else:
             string += f"{charge} {gsmult}\n"
         for label, coords in zip(QMin.molecule["elements"], QMin.coords["coords"]):
-            string += f"{label:>4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}\n"
+            string += f"{label:>4s} {coords[0]:16.15f} {coords[1]:16.15f} {coords[2]:16.15f}\n"
         string += "\n"
         if QMin.molecule['point_charges']:
             for a in range(len(QMin.coords['pccharge'])):
                 pccoord = QMin.coords['pccoords'][a,:]
                 pccharge = QMin.coords['pccharge'][a]
-                string += f"{pccoord[0]:16.9f} {pccoord[1]:16.9f} {pccoord[2]:16.9f} {pccharge:16.9f}\n"
+                string += f"{pccoord[0]:16.15f} {pccoord[1]:16.15f} {pccoord[2]:16.15f} {pccharge:16.15f}\n"
             string += "\n"
         if QMin.template["functional"].lower() == "dftba":
             string += "@GAUSS_EXEDIR:dftba.prm\n"
@@ -1144,7 +1147,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     def saveGeometry(self, qmin: QMin_class) -> None:
         string = ""
         for label, atom in zip(qmin.molecule["elements"], qmin.coords["coords"]):
-            string += f"{label:4s} {atom[0]:16.9f} {atom[1]:16.9f} {atom[2]:16.9f}\n"
+            string += f"{label:4s} {atom[0]:16.15f} {atom[1]:16.15f} {atom[2]:16.15f}\n"
         filename = os.path.join(qmin.save["savedir"], f'geom.dat.{qmin.save["step"]}')
         writefile(filename, string)
         self.log.print(shorten_DIR(filename))
@@ -1168,12 +1171,21 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin, self.QMin.molecule['Ubasis'])
             mofile = os.path.join(qmin.save["savedir"], f"mos.{job}.{step}")
             writefile(mofile, string)
+            if True:
+                string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin, self.QMin.molecule['Ubasis'], ignorefrozcore=True)
+                mofile = os.path.join(qmin.save["savedir"], f"mos_allelec.{job}.{step}")
+                writefile(mofile, string)
             self.log.info(shorten_DIR(mofile))
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
             strings = SHARC_GAUSSIAN.get_dets_from_chk(f, qmin)
             for f in strings:
                 writefile(f, strings[f])
                 self.log.print(shorten_DIR(f))
+            if True:
+                f = os.path.join(WORKDIR, "GAUSSIAN.chk")
+                strings = SHARC_GAUSSIAN.get_dets_from_chk(f, qmin, ignorefrozcore=True, filelabel='_allelec')
+                for f in strings:
+                    writefile(f, strings[f])
 
     # ======================================================================= #
 
@@ -1196,9 +1208,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     # ======================================================================= #
     @staticmethod
-    def get_MO_from_chk(filename, qmin: QMin_class, U: np.ndarray) -> str:
+    def get_MO_from_chk(filename, qmin: QMin_class, U: np.ndarray, ignorefrozcore: bool = False) -> str:
         job = qmin.control["jobid"]
         restr = qmin.control["jobs"][job]["restr"]
+        if ignorefrozcore:
+            frozcore = 0
+        else:
+            frozcore = qmin.molecule["frozcore"]
         MO_A = SHARC_GAUSSIAN.parse_fchk(filename, ['Alpha MO coefficients'])['Alpha MO coefficients']
         nao = int(np.sqrt(len(MO_A)))
         MO_A = np.reshape( MO_A, [nao,nao] ).T
@@ -1209,9 +1225,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             MO_B = SHARC_GAUSSIAN.parse_fchk(filename, ['Beta MO coefficients'])['Beta MO coefficients']
             MO_B = np.reshape( MO_B, [nao,nao] ).T 
             MO_B = U @ MO_B 
-        MO_A = MO_A[:,qmin.molecule["frozcore"]:]
+        MO_A = MO_A[:,frozcore:]
         if not restr:
-            MO_B = MO_B[:,qmin.molecule["frozcore"]:]
+            MO_B = MO_B[:,frozcore:]
 
         if restr: 
             NMO = MO_A.shape[1]
@@ -1271,11 +1287,15 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # ======================================================================= #
 
     @staticmethod
-    def get_dets_from_chk(filename, QMin):
+    def get_dets_from_chk(filename, QMin, ignorefrozcore: bool = True, filelabel: str = ''):
         # get general infos
         job = QMin.control["jobid"]
         restr = QMin.control["jobs"][job]["restr"]
         mults = QMin.control["jobs"][job]["mults"]
+        if ignorefrozcore:
+            frozcore = 0
+        else:
+            frozcore = QMin.molecule["frozcore"]
         if 3 in mults:
             mults = [3]
         gsmult = QMin.maps["multmap"][-job][0]
@@ -1355,9 +1375,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             if mult == gsmult:
                 # add ground state
                 if restr:
-                    key = tuple(occ_A[QMin.molecule["frozcore"] :])
+                    key = tuple(occ_A[frozcore :])
                 else:
-                    key = tuple(occ_A[QMin.molecule["frozcore"] :] + occ_B[QMin.molecule["frozcore"] :])
+                    key = tuple(occ_A[frozcore :] + occ_B[frozcore :])
                 eigenvectors[mult].append({key: 1.0})
             for istate in range(nstates_to_extract[mult - 1]):
                 # get X+Y vector
@@ -1447,16 +1467,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 for key in dets2:
                     problem = False
                     if restr:
-                        if any([key[i] != 3 for i in range(QMin.molecule["frozcore"])]):
+                        if any([key[i] != 3 for i in range(frozcore)]):
                             problem = True
                     else:
-                        if any([key[i] != 1 for i in range(QMin.molecule["frozcore"])]):
+                        if any([key[i] != 1 for i in range(frozcore)]):
                             problem = True
                         if any(
                             [
                                 key[i] != 2
                                 for i in range(
-                                    nocc_A + nvir_A + QMin.molecule["frozcore"], nocc_A + nvir_A + 2 * QMin.molecule["frozcore"]
+                                    nocc_A + nvir_A + frozcore, nocc_A + nvir_A + 2 * frozcore
                                 )
                             ]
                         ):
@@ -1466,11 +1486,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         continue
                         # sys.exit(70)
                     if restr:
-                        key2 = key[QMin.molecule["frozcore"] :]
+                        key2 = key[frozcore :]
                     else:
                         key2 = (
-                            key[QMin.molecule["frozcore"] : QMin.molecule["frozcore"] + nocc_A + nvir_A]
-                            + key[nocc_A + nvir_A + 2 * QMin.molecule["frozcore"] :]
+                            key[frozcore : frozcore + nocc_A + nvir_A]
+                            + key[nocc_A + nvir_A + 2 * frozcore :]
                         )
                     dets3[key2] = dets2[key]
                 # append
@@ -1479,7 +1499,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         strings = {}
         step = QMin.save["step"]
         for mult in mults:
-            filename = os.path.join(QMin.save["savedir"], f"dets.{mult}.{step}")
+            filename = os.path.join(QMin.save["savedir"], f"dets{filelabel}.{mult}.{step}")
             strings[filename] = SHARC_GAUSSIAN.format_ci_vectors(eigenvectors[mult])
 
         return strings
@@ -1862,12 +1882,15 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # TheoDORE
         if self.QMin.requests["theodore"]:
-            theodore_arr = np.zeros(
-                (
-                    self.QMin.molecule["nmstates"],
-                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
-                )
-            )
+            # theodore_arr = np.zeros(
+            #     (
+            #         self.QMin.molecule["nmstates"],
+            #         len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2,
+            #     )
+            # )
+            nprop = len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2
+            labels = self.QMin.resources["theodore_prop"][:] + [ 'Om_%i_%i' % (i,j) for i in range(len(self.QMin.resources["theodore_fragment"])) for j in range(len(self.QMin.resources["theodore_fragment"])) ]
+            theodore_arr = [ [labels[j], np.zeros(self.QMin.molecule["nmstates"])] for j in range(nprop)]
             for job in joblist:
                 if not self.QMin.control["jobs"][job]["restr"]:
                     continue
@@ -1887,15 +1910,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                     if (m1, s1) in props:
-                        for j in range(
-                            len(self.QMin.resources["theodore_prop"])
-                            + len(self.QMin.resources["theodore_fragment"]) ** 2
-                        ):
+                        for j in range(nprop):
                             self.log.debug(f"{m1} {s1}: {i} {j} {len(props[(m1,s1)])}")
-                            theodore_arr[i, j] = props[(m1, s1)][j]
-
-        if self.QMin.requests["theodore"]:
-            self.QMout["prop2d"].append(("theodore", theodore_arr))
+                            theodore_arr[j][1][i] = props[(m1,s1)][j]
+                            # theodore_arr[i, j] = props[(m1, s1)][j]
+            self.log.info(self.QMout["prop1d"])
 
         endtime = datetime.datetime.now()
         self.log.print(f"Readout Runtime: {endtime - starttime}")
@@ -2389,15 +2408,34 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         densities = {}
         for s1 in self.states:
             for s2 in self.states:
-                if s1 is s2:
-                    # Total density
+                if s1 is s2 and s1.C['is_gs']: # Total (and maybe spin) SCF density
                     densities[(s1, s2, 'tot')] = {'how':'read'}
-                    # Spin density
                     if s1.S % 2 == 1 and s1.S == s1.M:
                         densities[(s1, s2,'q')] = {'how':'read'}
+                elif s1 is s2 and not s1.C['is_gs']: # Total/spin or aa/bb CIS-like state densities
+                    match self.QMin.template['state_densities']:
+                        case 'relaxed':
+                            densities[(s1, s2, 'tot')] = {'how':'read'}
+                            if s1.S % 2 == 1 and s1.S == s1.M:
+                                densities[(s1, s2,'q')] = {'how':'read'}
+                        case 'unrelaxed':
+                            if s1.S == 2:
+                                if self.QMin.template['unrestricted_triplets']: 
+                                    if s1.M == 2:
+                                        densities[(s1, s2, 'aa')] = {'how':'read'}
+                                        densities[(s1, s2, 'bb')] = {'how':'read'}
+                                else:
+                                    if s1.M == 0:
+                                        densities[(s1, s2, 'aa')] = {'how':'read'}
+                                        densities[(s1, s2, 'bb')] = {'how':'read'}
+                            elif s1.S == s1.M:
+                                densities[(s1, s2, 'aa')] = {'how':'read'}
+                                densities[(s1, s2, 'bb')] = {'how':'read'}
                 elif s1.C['is_gs'] and not s2.C['is_gs'] and s1.M == s2.M and s1 is s2.C['its_gs']:
                     densities[(s1,s2,'aa')] = {'how':'read'} 
                     densities[(s1,s2,'bb')] = {'how':'read'} 
+
+
         return densities
 
     def read_and_append_densities(self): #-> dict[(electronic_state,electronic_state,str), np.ndarray]:
@@ -2430,37 +2468,44 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
             for keyword, raw_data in raw_matrices.items():
                 self.log.debug(f"{keyword} is {'found' if raw_data is not None else None}")
+                print(keyword, raw_data)
                 match (keyword, raw_data):
                     case (_, None):
                         self.log.warning(f"'{keyword}' not found in:\n\t {fchkfile}")
                     case ("Total SCF Density" | "Total CI Density" | "Spin SCF Density" | "Spin CI Density", _):
                         parsed_matrices[keyword] = triangular_to_full_matrix(raw_data, self.QMin.molecule['mol'].nao)
                     case ("G to E trans densities" | _) if raw_matrices["Number of g2e trans dens"] is not None:
-
-                        #print('parse = ', job,raw_matrices["G to E trans densities"][30], raw_matrices["G to E trans densities"][130])
                         parsed_matrices[keyword] = raw_matrices["G to E trans densities"].reshape(
                             raw_matrices["Number of g2e trans dens"], 2, self.QMin.molecule['mol'].nao, self.QMin.molecule['mol'].nao 
                         ) / math.sqrt(2)
                         parsed_matrices[keyword] = np.einsum("abcd->bacd", parsed_matrices[keyword])
+                    #  case("Excited state densities" | _) if raw_matrices["Number of ex state dens"] is not None:
+                        #  self.log.debug(' Tuuuuu sam:')
+                        #  self.log.debug(str(raw_matrices['Excited state densities']))
+                        #  exit()
+                        #  parsed_matrices[keyword] = raw_matrices["Excited state densities"].reshape( 
+                            #  raw_matrices["Number of ex state dens"], 2, self.QMin.molecule['mol'].nao*(self.QMin.molecule['mol'].nao-1)//2+self.QMin.molecule['mol'].nao 
+                        #  )
+                        #  parsed_matrices[keyword] = np.einsum("abc->bac", parsed_matrices[keyword])
+                        #  tmp = np.empty( ( 2, raw_matrices["Number of ex state dens"], self.QMin.molecule['mol'].nao, self.QMin.molecule['mol'].nao ) )
+                        #  for i in range(raw_matrices["Number of ex state dens"]):
+                            #  for j in range(2):
+                                #  tmp[j,i,:,:] = triangular_to_full_matrix( parsed_matrices[keyword][i,j,:], self.QMin.molecule['mol'].nao )
+                        #  parsed_matrices[keyword] = tmp.copy()
                     case _:
                         pass
-
-            ## ============================= REORDER BLOCK =====================================
-            ## reorder all densities and renormalize them
-            #for key in parsed_matrices:
-            #    match key:
-            #        case "Total SCF Density" | "Total CI Density" | "Spin SCF Density" | "Spin CI Density":
-            #            parsed_matrices[key] = parsed_matrices[key][:, new_order][new_order, :]
-            #            parsed_matrices[key] = (parsed_matrices[key] / ao_sqrt_norms[:, None]) / ao_sqrt_norms[None, :]
-            #        case "G to E trans densities":
-            #            parsed_matrices[key] = parsed_matrices[key][..., new_order][..., new_order, :]
-            #            parsed_matrices[key] = (parsed_matrices[key] / ao_sqrt_norms[None, None, :, None]) / ao_sqrt_norms[
-            #                None, None, None, :
-            #            ]
-            #        case _:
-            #            continue
-
-            # ===================== CONSTRUCTION OF DENSITIES  ===============================
+                if keyword == 'Excited state densities' and raw_matrices["Number of ex state dens"] is not None:
+                    self.log.debug(' Tuuuuu sam:')
+                    self.log.debug(str(raw_matrices['Excited state densities']))
+                    parsed_matrices[keyword] = raw_matrices["Excited state densities"].reshape( 
+                        raw_matrices["Number of ex state dens"], 2, self.QMin.molecule['mol'].nao*(self.QMin.molecule['mol'].nao-1)//2+self.QMin.molecule['mol'].nao 
+                    )
+                    parsed_matrices[keyword] = np.einsum("abc->bac", parsed_matrices[keyword])
+                    tmp = np.empty( ( 2, raw_matrices["Number of ex state dens"], self.QMin.molecule['mol'].nao, self.QMin.molecule['mol'].nao ) )
+                    for i in range(raw_matrices["Number of ex state dens"]):
+                        for j in range(2):
+                            tmp[j,i,:,:] = triangular_to_full_matrix( parsed_matrices[keyword][j,i,:], self.QMin.molecule['mol'].nao )
+                    parsed_matrices[keyword] = tmp.copy()
             for key in keys:
                 s1, s2, mat = key
                 dens_type = list(self.density_recipes['read'][key][1])
@@ -2474,11 +2519,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         delta = 1
                     else:
                         delta = 2
-                    #if s1.S == 0 and s2.S == 2:
-                        #print('Tu sam 3')
-                        #print(repr(s1), repr(s2), mat, ab[mat])
-                        #print(parsed_matrices[dens_type[0]][ab[mat], s2.N - delta, ...][0,0])
                     self.QMout['density_matrices'][key] = parsed_matrices[dens_type[0]][ab[mat], s2.N - delta, ...]
+                elif "Excited state densities" in dens_type: 
+                    ab = {"aa": 0, "bb": 1}
+                    sign = 1.
+                    if s2.S == 2 and not self.QMin.template['unrestricted_triplets']: 
+                        delta = 1
+                        if mat == 'bb': sign = -1.
+                    else:
+                        delta = 2
+                    self.QMout['density_matrices'][key] = sign*parsed_matrices[dens_type[0]][ab[mat], s2.N - delta, ...]
 
         for density, rho in self.QMout['density_matrices'].items():
             self.QMout['density_matrices'][density] = self.QMin.molecule['Ubasis'] @ rho @ self.QMin.molecule['Ubasis'].T 

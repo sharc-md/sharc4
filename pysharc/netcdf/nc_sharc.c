@@ -261,7 +261,7 @@ write_sharc_ncoutputdat_istep_(
 void
 read_sharc_ncoutputdat_istep_(
         // 
-        int* nsteps,
+        size_t* nsteps,
         const int* istep,
         const int* natoms,
         const int* nstates,
@@ -285,13 +285,12 @@ read_sharc_ncoutputdat_istep_(
 )
 {
    int iret = 0;
-   int pointer = 0;
 
    if (*istep == 0) {
         ncdat->id = open_ncfile("output.dat.nc", NC_NOWRITE);
 
         // init nsteps
-        size_t nsteps = 0;
+        *nsteps = 0;
 
         int unlim_id = 0;
 
@@ -300,7 +299,7 @@ read_sharc_ncoutputdat_istep_(
         );
 
         check_nccall(iret,
-                nc_inq_dimlen(ncdat->id, unlim_id, &nsteps)
+                nc_inq_dimlen(ncdat->id, unlim_id, nsteps)
         );
 
         

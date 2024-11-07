@@ -9,7 +9,7 @@ from functools import cmp_to_key
 from io import TextIOWrapper
 
 import numpy as np
-from constants import NUMBERS, rcm_to_Eh
+from constants import NUMBERS, rcm_to_Eh, au2a
 from pyscf import gto, tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -163,6 +163,19 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
     _changelogstring = CHANGELOGSTRING
     _name = NAME
     _description = DESCRIPTION
+    _theodore_settings = {
+        "rtype": "ricc2",
+        "rfile": "ricc2.out",
+        "mo_file": "molden.input",
+        "read_binary": True,
+        "jmol_orbitals": False,
+        "molden_orbitals": True,
+        "Om_formula": 2,
+        "eh_pop": 1,
+        "comp_ntos": True,
+        "print_OmFrag": True,
+        "output_file": "tden_summ.txt",
+    }
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -253,6 +266,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         super().read_template(template_file, kw_whitelist)
 
         # Check if basis available and correct casing
+        if not isinstance(self.QMin.template["basis"], str):
+            self.log.error("No basis set defined in template!")
+            raise ValueError()
         for i in BASISSETS:
             if self.QMin.template["basis"].casefold() == i.casefold():
                 self.QMin.template["basis"] = i
@@ -316,22 +332,20 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Setup environment
         os.environ["TURBODIR"] = (turbodir := self.QMin.resources["turbodir"])
 
-        # TODO: grad jobs need different values
         if (ncpu := self.QMin.resources["ncpu"]) > 1:
             os.environ["PARA_ARCH"] = "SMP"
             os.environ["PARANODES"] = str(ncpu)
         os.environ["OMP_NUM_THREADS"] = str(ncpu)
 
-        arch = (
-            sp.Popen([os.path.join(self.QMin.resources["turbodir"], "scripts", "sysname")], stdout=sp.PIPE)
-            .communicate()[0]
-            .decode()
-            .strip()
-        )
+        arch = sp.Popen([os.path.join(turbodir, "scripts", "sysname")], stdout=sp.PIPE).communicate()[0].decode().strip()
         os.environ["PATH"] = f"{turbodir}/scripts:{turbodir}/bin/{arch}:" + os.environ["PATH"]
 
     def setup_interface(self) -> None:
         super().setup_interface()
+
+        if len(self.QMin.molecule["states"]) > 2 and self.QMin.molecule["states"][0] < 1:
+            self.log.error("Due to a TURBOMOLE bug at least two singlets are required if triplet states are requested!")
+            raise ValueError
 
         if self.QMin.resources["ncpu"] > 1 and self.QMin.template["spin-scaling"] == "lt-sos":
             self.log.warning("lt-sos is not fully SMP parallelized.")
@@ -403,9 +417,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 self.QMin.requests["soc"] = False
 
     def _create_aoovl(self) -> None:
-        pass
-
-    def create_restart_files(self) -> None:
         pass
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
@@ -509,11 +520,14 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             codes.append(self.run_program(workdir, "dscf", "dscf.out", "dscf.err"))
             self.log.debug(f"dscf exited with code {codes[-1]}")
 
-            # TODO: e, socs, dm
+            # TODO: dm
             if qmin.requests["soc"] and jobid == 1:
                 self._modify_file(control, None, None, [("$excitations", "tmexc istates=all fstates=all operators=soc\n")])
+            # self._modify_file(control, None, None, [("$excitations", "exprop states=all relaxed operators=diplen\n")])
+            # self._modify_file(control, None, None, [("$excitations", "static relaxed operators=diplen\n")])
+            # self._modify_file(control, None, None, [("$excitations", "spectrum states=all operators=diplen\n")])
 
-            codes.append(self._run_ricc2(workdir))
+            codes.append(self._run_ricc2(workdir, qmin.resources["ncpu"]))
 
             # Generate molden file
             self._generate_molden(workdir)
@@ -523,7 +537,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 codes.append(self._run_orca_soc(workdir))
                 self.log.debug(f"orca_mkl/orca_soc exited with code {codes[-1]}")
 
-            # TODO
             # Save files
             if jobid == 1:
                 shutil.copy(os.path.join(workdir, "mos"), os.path.join(qmin.save["savedir"], f"mos.{jobid}.{qmin.save['step']}"))
@@ -561,7 +574,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             else:
                 exgrad = f"xgrad states=(a{{{grad[0] if grad[0] == 3 else 1}}} {grad[1] - (grad[0] != 3)})"
                 self._modify_file(os.path.join(workdir, "control"), None, None, [("$excitations", f"{exgrad}\n")])
-            codes.append(self._run_ricc2(workdir))
+            codes.append(self._run_ricc2(workdir, qmin.resources["ncpu"]))
         return max(codes), datetime.datetime.now() - starttime
 
     def _get_dets(self, workdir: str, mult: int, side: str = "R") -> list[dict[tuple[int, int], float]]:
@@ -605,11 +618,11 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 for occ in range(n_froz, n_occ[0]):
                     for virt in range(n_occ[0], n_mo):
                         key = occ_str[:]
-                        key[occ], key[virt] = (2, 1) if restr else (0, 1)
+                        key[occ], key[virt] = (1, 2) if restr else (0, 1)
                         val = next(it_coeffs) * (np.sqrt(0.5) if restr else 1.0)
                         tmp[tuple(key)] = val
                         if restr:
-                            key[occ], key[virt] = 1, 2
+                            key[occ], key[virt] = 2, 1
                             tmp[tuple(key)] = val if mult == 3 else -val
 
                 # Unrestricted
@@ -624,7 +637,11 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                         key[occ], key[virt] = 0, 2
                         tmp[tuple(key)] = next(it_coeffs)
 
-                self.log.debug(f"Determinant {mult} {state} norm {np.linalg.norm(list(tmp.values())):.5f}")
+                norm = np.linalg.norm(list(tmp.values()))
+                self.log.debug(f"Determinant {mult} {state} norm {norm:.5f}")
+
+                # Renormalize (needed for SOCs)
+                tmp = {k: v / norm for k, v in tmp.items()}
 
                 # Filter out dets with lowest contribution
                 self.trim_civecs(tmp)
@@ -639,7 +656,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         writefile(os.path.join(workdir, "tm2molden.input"), "molden.input\ny\n")
 
         # Execute tm2molden
-        if code := self.run_program(workdir, "tm2molden norm < tm2molden.input", "tm2molden.out", "tm2molden.err") != 0:
+        if code := self.run_program(workdir, "tm2molden < tm2molden.input", "tm2molden.out", "tm2molden.err") != 0:
             self.log.error(f"tm2molden failed with exit code {code}")
             raise RuntimeError()
 
@@ -657,7 +674,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         Calculate overlap matrix between previous and current geom
         """
         # Load molden file
-        mol2, _, _, _, _, _ = tools.molden.load(os.path.join(self.QMin.resources["scratchdir"], "master_1/molden.input"))
+        mol2, _, _, _, _, _ = tools.molden.load(
+            os.path.join(self.QMin.resources["scratchdir"], f"master_{self.QMin.control['joblist'][0]}/molden.input")
+        )
 
         # Create Mole object, assign basis from molden
         mol = gto.Mole()
@@ -676,11 +695,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         mol.unit = "Bohr"
         mol.build()
         n_ao = mol.nao if dyson else (mol.nao // 2)
-
         # Sort functions from pySCF to Turbomole order
         self._ao_labels = [i.split()[::2] for i in mol.ao_labels()[:n_ao]]
-        self.log.debug(f"AOLABELS {self._ao_labels}")
-        self.log.debug(f"PySCF AO order:{self._print_ao(self._ao_labels)}")
+        self.log.debug(f"PySCF AO order:\n{self._print_ao(self._ao_labels)}")
         ovlp = mol.intor("int1e_ovlp")
         if not dyson:
             ovlp = ovlp[:n_ao, n_ao:]
@@ -763,14 +780,30 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         f.read(4)  # Skip padding
         return vals
 
-    def _run_ricc2(self, workdir: str) -> int:
+    @staticmethod
+    def _setup_env(ncpu: int) -> dict[str, str]:
+        """
+        Generate an env dict for given number of CPUs
+        """
+        ricc2_env = deepcopy(os.environ)
+        if hasattr(ricc2_env, "PARA_ARCH"):
+            del ricc2_env["PARA_ARCH"]
+        if hasattr(ricc2_env, "PARANODES"):
+            del ricc2_env["PARANODES"]
+        if ncpu > 1:
+            ricc2_env["PARA_ARCH"] = "SMP"
+            ricc2_env["PARANODES"] = str(ncpu)
+        ricc2_env["OMP_NUM_THREADS"] = str(ncpu)
+        return ricc2_env
+
+    def _run_ricc2(self, workdir: str, ncpu: int = 1) -> int:
         """
         Run RICC2 module
         """
         shift_mask = iter([(+1, +1), (-2, -1), (+1, +1), (+1, +1), (+1, +1), (+1, +1)])
 
         # Do first ricc2 call
-        ricc2_bin = "ricc2" if self.QMin.resources["ncpu"] < 2 else "ricc2_omp"
+        ricc2_bin = "ricc2" if ncpu < 2 else "ricc2_omp"
         if (code := self.run_program(workdir, ricc2_bin, "ricc2.out", "ricc2.err")) != 0:
             return code
 
@@ -795,7 +828,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 )
             self._modify_file(os.path.join(workdir, "control"), None, ["irrep=a"], excitations)
             # Run RICC2 again
-            if (code := self.run_program(workdir, ricc2_bin, "ricc2.out", "ricc2.err")) != 0:
+            if (code := self.run_program(workdir, ricc2_bin, "ricc2.out", "ricc2.err", self._setup_env(ncpu))) != 0:
                 return code
         return code
 
@@ -837,7 +870,13 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             ],
             ["$maxcor"],
         )
-        code = self.run_program(workdir, "ridft_omp" if qmin.resources["ncpu"] > 1 else "ridft", "ridft.out", "ridft.err")
+        code = self.run_program(
+            workdir,
+            "ridft_omp" if (ncpu := qmin.resources["ncpu"]) > 1 else "ridft",
+            "ridft.out",
+            "ridft.err",
+            self._setup_env(ncpu),
+        )
         shutil.copy(os.path.join(workdir, "control.bak"), os.path.join(workdir, "control"))
         return code
 
@@ -876,8 +915,14 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             requests=requests,
         )
 
+        # Prepare theodore properties
+        if self.QMin.requests["theodore"]:
+            nprop = len(self.QMin.resources["theodore_prop"]) + (nfrag := len(self.QMin.resources["theodore_fragment"])) ** 2
+            labels = self.QMin.resources["theodore_prop"][:] + [f"Om_{i}_{j}" for i in range(nfrag) for j in range(nfrag)]
+            theodore_arr = [[labels[j], np.zeros(self.QMin.molecule["nmstates"])] for j in range(nprop)]
+
         # Open master output file
-        for mult in self.QMin.control["jobs"]:
+        for mult, job_dict in self.QMin.control["jobs"].items():
             with open(os.path.join(scratchdir, f"master_{mult}/ricc2.out"), "r", encoding="utf-8") as f:
                 ricc2_out = f.read()
 
@@ -899,7 +944,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     self.log.error(f"No iteration count found for job {mult}")
 
             # SOCs, only possible between S1-T
-            if  mult == 1 and self.QMin.requests["soc"]:
+            if mult == 1 and self.QMin.requests["soc"]:
                 socs = self._get_socs(ricc2_out)[: states[0] - 1, states[0] - 1 :, :]
 
                 skip = states[0] + 2 * states[1]
@@ -919,6 +964,28 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                         sum(s * m for m, s in enumerate(states[: i - 1], 1)) : sum(s * m for m, s in enumerate(states[:i], 1))
                     ] = np.tile(energies[s_cnt : s_cnt + states[i - 1]], i)
                     s_cnt += states[i - 1]
+
+            # Theodore
+            if self.QMin.requests["theodore"]:
+                if self.QMin.control["jobs"][mult]["restr"]:
+                    ns = 0
+                    for i in job_dict["mults"]:
+                        ns += states[i - 2] - (i == job_dict["mults"][0])
+                    if ns != 0:
+                        props = self.get_theodore(
+                            os.path.join(scratchdir, f"master_{mult}", "tden_summ.txt"),
+                            os.path.join(scratchdir, f"master_{mult}", "OmFrag.txt"),
+                        )
+                        for i in range(self.QMin.molecule["nmstates"]):
+                            m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
+                            if (m1, s1) in props:
+                                for j in range(
+                                    len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2
+                                ):
+                                    theodore_arr[j][1][i] = props[(m1, s1)][j]
+
+        if self.QMin.requests["theodore"]:
+            self.QMout["prop1d"].extend(theodore_arr)
 
         # Overlaps
         if self.QMin.requests["overlap"]:
@@ -975,6 +1042,15 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     for key, val in self.QMin.maps["statemap"].items():
                         if (val[0], val[1]) == grad:
                             self.QMout["grad"][key - 1] = grads
+                            if self.QMin.molecule["point_charges"]:
+                                with open(
+                                    os.path.join(scratchdir, f"grad_{grad[0]}_{grad[1]}/pc_grad"), "r", encoding="utf-8"
+                                ) as pc:
+                                    point_charges = pc.read()
+                                    point_charges = point_charges.replace("D", "E")
+                                    point_charges = point_charges.split("\n")[1:-2]
+                                    point_charges = [c.split() for c in point_charges]
+                                    self.QMout["grad_pc"][key - 1] = np.asarray(point_charges, dtype=float)
 
         return self.QMout
 
@@ -1024,19 +1100,16 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
         energies = ["0.0"]
         # Get energy table
-        if sum(self.QMin.molecule["states"]) > 1:
-            if not (
-                raw_energies := re.findall(
-                    r"excitation energies\s+\|\s+\%t1\s+\|\s+\%t2(.*)?=\+\n\n\s+Energy", ricc2_out, re.DOTALL
-                )
-            ):
-                self.log.error("No energies found in ricc2.out")
-                raise ValueError()
+        if not (
+            raw_energies := re.findall(r"excitation energies\s+\|\s+\%t1\s+\|\s+\%t2(.*)?=\+\n\n\s+Energy", ricc2_out, re.DOTALL)
+        ):
+            # No excitation energies found
+            return np.asarray([gs_energy[-1]], dtype=float), np.zeros(1)
 
-            # Extract energy values
-            energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
+        # Extract energy values
+        energies += re.findall(r"-?\d+\.\d{7}", raw_energies[0])
         return (
-            np.asarray(energies, dtype=np.complex128) + float(gs_energy[0]),
+            np.asarray(energies, dtype=np.complex128) + float(gs_energy[-1]),
             re.findall(r"(\d+\.\d{2})\s", raw_energies[0])[1::2],
         )
 
@@ -1046,7 +1119,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Generate schedule
         self.log.debug("Generate schedule")
         self._generate_schedule()
-        self.log.info(self.QMin.scheduling)
+        for idx, job in enumerate(self.QMin.scheduling["schedule"], 1):
+            self.log.info(f"Schedule {idx}: {list(job.keys())}")
 
         self.log.debug("Execute schedule")
         if not self.QMin.resources["dry_run"]:
@@ -1077,6 +1151,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self._get_aoovl(True)
         self._run_wfoverlap(mo_read=2, left=self.QMin.template["method"] == "cc2")
 
+        # Run theodore
+        if self.QMin.requests["theodore"]:
+            self._run_theodore()
+
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _generate_schedule(self) -> None:
@@ -1088,6 +1166,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self.QMin.resources["ncpu"], len(self.QMin.control["jobs"]), self.QMin.resources["schedule_scaling"]
         )
         master = {}
+        self.log.debug(f"Master jobs executed in {nslots} slots.")
         for idx, job in enumerate(self.QMin.control["jobs"]):
             master_job = deepcopy(self.QMin)
             master_job.resources["ncpu"] = cpu_per_run[idx]
@@ -1097,6 +1176,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             if job != 1:
                 master_job.requests["soc"] = False
             master[f"master_{job}"] = master_job
+            self.log.debug(f"Job master_{job} CPU: {cpu_per_run[idx]}")
         self.QMin.control["nslots_pool"].append(nslots)
         schedule = [master]
 
@@ -1107,14 +1187,16 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             _, nslots, cpu_per_run = self.divide_slots(
                 self.QMin.resources["ncpu"], len(self.QMin.requests["grad"]), self.QMin.resources["schedule_scaling"]
             )
+            self.log.debug(f"Gradient jobs executed in {nslots} slots.")
             self.QMin.control["nslots_pool"].append(nslots)
-            self.log.debug(f"Schedule with {nslots} slots, cpu distribution {cpu_per_run}")
             # Add job for each gradient
             for idx, grad in enumerate(self.QMin.maps["gradmap"]):
                 job = deepcopy(self.QMin)
                 job.resources["ncpu"] = cpu_per_run[idx]
                 job.maps["gradmap"] = {(grad)}
+                job.control["gradonly"] = True
                 gradjobs[f"grad_{'_'.join(str(g) for g in grad)}"] = job
+                self.log.debug(f"Job grad_{'_'.join(str(g) for g in grad)} CPU: {cpu_per_run[idx]}")
             schedule.append(gradjobs)
 
         self.QMin.scheduling["schedule"] = schedule
@@ -1136,8 +1218,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self.log.debug("Write point charge file")
             pc_str = "$point_charges nocheck\n"
             for charge, coord in zip(self.QMin.coords["pccharge"], self.QMin.coords["pccoords"]):
-                coord += self.QMin.molecule["factor"]
-                pc_str += f"{coord[0]:16.12f} {coord[1]:16.12f} {coord[2]:16.12f} {charge:12.9f}\n"
+                pc_str += f"{coord[0]/au2a:16.12f} {coord[1]/au2a:16.12f} {coord[2]/au2a:16.12f} {charge:12.9f}\n"
             pc_str += "$end\n"
             writefile(os.path.join(workdir, "pc"), pc_str)
 
@@ -1153,7 +1234,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         string = "\ntitle: SHARC-TURBOMOLE run\na coord\n*\nno\n"
         if self.QMin.template["basislib"]:
             string += "lib\n3"
-        string += f"b\nall {self.QMin.template['basis']}\n*\neht\ny\n{self.QMin.template['charge'][mult-1]}\n"
+        string += f"b\nall {self.QMin.template['basis']}\n*\neht\ny\n{self.QMin.molecule['charge'][mult-1]}\n"
         if mult - 1 % 2 == 0:
             string += "y\n"
         else:

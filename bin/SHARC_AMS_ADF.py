@@ -23,6 +23,11 @@
 #
 # ******************************************
 
+from SHARC_OLD import SHARC_OLD
+class SHARC_AMS_ADF(SHARC_OLD):
+    pass
+
+
 
 # Modules:
 # Operating system, isfile and related routines, move files, create directories
@@ -52,8 +57,7 @@ from socket import gethostname
 import traceback
 # parse Python literals from input
 import ast
-
-
+from constants import ATOMCHARGE, au2a, D2au, FROZENS, IToMult, IToPol
 # =========================================================0
 # compatibility stuff
 
@@ -80,85 +84,6 @@ starttime = datetime.datetime.now()
 # global variables for printing (PRINT gives formatted output, DEBUG gives raw output)
 DEBUG = False
 PRINT = True
-
-# hash table for conversion of multiplicity to the keywords used in MOLCAS
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# hash table for conversion of polarisations to the keywords used in MOLCAS
-IToPol = {
-    0: 'X',
-    1: 'Y',
-    2: 'Z',
-    'X': 0,
-    'Y': 1,
-    'Z': 2
-}
-
-# Number of frozen core orbitals
-FROZENS = {'H': 0, 'He': 0,
-           'Li': 1, 'Be': 1, 'B': 1, 'C': 1, 'N': 1, 'O': 1, 'F': 1, 'Ne': 1,
-           'Na': 1, 'Mg': 1, 'Al': 5, 'Si': 5, 'P': 5, 'S': 5, 'Cl': 5, 'Ar': 5,
-           'K': 5, 'Ca': 5,
-           'Sc': 5, 'Ti': 5, 'V': 5, 'Cr': 5, 'Mn': 5, 'Fe': 5, 'Co': 5, 'Ni': 5, 'Cu': 5, 'Zn': 5,
-           'Ga': 9, 'Ge': 9, 'As': 9, 'Se': 9, 'Br': 9, 'Kr': 9,
-           'Rb': 9, 'Sr': 9,
-           'Y': 14, 'Zr': 14, 'Nb': 14, 'Mo': 14, 'Tc': 14, 'Ru': 14, 'Rh': 14, 'Pd': 14, 'Ag': 14, 'Cd': 14,
-           'In': 18, 'Sn': 18, 'Sb': 18, 'Te': 18, 'I': 18, 'Xe': 18,
-           'Cs': 18, 'Ba': 18,
-           'La': 23,
-           'Ce': 23, 'Pr': 23, 'Nd': 23, 'Pm': 23, 'Sm': 23, 'Eu': 23, 'Gd': 23, 'Tb': 23, 'Dy': 23, 'Ho': 23, 'Er': 23, 'Tm': 23, 'Yb': 23, 'Lu': 23,
-           'Hf': 23, 'Ta': 23, 'W': 23, 'Re': 23, 'Os': 23, 'Ir': 23, 'Pt': 23, 'Au': 23, 'Hg': 23,
-           'Tl': 23, 'Pb': 23, 'Bi': 23, 'Po': 23, 'At': 23, 'Rn': 23,
-           'Fr': 30, 'Ra': 30,
-           'Ac': 30,
-           'Th': 30, 'Pa': 30, 'U': 30, 'Np': 30, 'Pu': 30, 'Am': 30, 'Cm': 30, 'Bk': 30, 'Cf': 30, 'Es': 30, 'Fm': 30, 'Md': 30, 'No': 30, 'Lr': 30,
-           'Rf': 30, 'Db': 30, 'Sg': 30, 'Bh': 30, 'Hs': 30, 'Mt': 30, 'Ds': 30, 'Rg': 30, 'Cn': 30,
-           'Nh': 39, 'Fl': 39, 'Mc': 39, 'Lv': 39, 'Ts': 39, 'Og': 39
-           }
-
-
-ATOMCHARGE = {'H': 1, 'He': 2,
-              'Li': 3, 'Be': 4, 'B': 5, 'C': 6, 'N': 7, 'O': 8, 'F': 9, 'Ne': 10,
-              'Na': 11, 'Mg': 12, 'Al': 13, 'Si': 14, 'P': 15, 'S': 16, 'Cl': 17, 'Ar': 18,
-              'K': 19, 'Ca': 20,
-              'Sc': 21, 'Ti': 22, 'V': 23, 'Cr': 24, 'Mn': 25, 'Fe': 26, 'Co': 27, 'Ni': 28, 'Cu': 29, 'Zn': 30,
-              'Ga': 31, 'Ge': 32, 'As': 33, 'Se': 34, 'Br': 35, 'Kr': 36,
-              'Rb': 37, 'Sr': 38,
-              'Y': 39, 'Zr': 40, 'Nb': 41, 'Mo': 42, 'Tc': 43, 'Ru': 44, 'Rh': 45, 'Pd': 46, 'Ag': 47, 'Cd': 48,
-              'In': 49, 'Sn': 50, 'Sb': 51, 'Te': 52, 'I': 53, 'Xe': 54,
-              'Cs': 55, 'Ba': 56,
-              'La': 57,
-              'Ce': 58, 'Pr': 59, 'Nd': 60, 'Pm': 61, 'Sm': 62, 'Eu': 63, 'Gd': 64, 'Tb': 65, 'Dy': 66, 'Ho': 67, 'Er': 68, 'Tm': 69, 'Yb': 70, 'Lu': 71,
-              'Hf': 72, 'Ta': 73, 'W': 74, 'Re': 75, 'Os': 76, 'Ir': 77, 'Pt': 78, 'Au': 79, 'Hg': 80,
-              'Tl': 81, 'Pb': 82, 'Bi': 83, 'Po': 84, 'At': 85, 'Rn': 86,
-              'Fr': 87, 'Ra': 88,
-              'Ac': 89,
-              'Th': 90, 'Pa': 91, 'U': 92, 'Np': 93, 'Pu': 94, 'Am': 95, 'Cm': 96, 'Bk': 97, 'Cf': 98, 'Es': 99, 'Fm': 100, 'Md': 101, 'No': 102, 'Lr': 103,
-              'Rf': 104, 'Db': 105, 'Sg': 106, 'Bh': 107, 'Hs': 108, 'Mt': 109, 'Ds': 110, 'Rg': 111, 'Cn': 112,
-              'Nh': 113, 'Fl': 114, 'Mc': 115, 'Lv': 116, 'Ts': 117, 'Og': 118
-              }
-
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
-D2au = 0.393430307
 
 
 # =============================================================================================== #
@@ -745,6 +670,19 @@ def writeQMout(QMin, QMout, QMinfilename):
     if PRINT:
         print('===> Writing output to file %s in SHARC Format\n' % (outfilename))
     string = ''
+
+    # add header info
+    string += '! 0 Basic information\nstates '
+    for i in QMin['states']:
+        string += '%i ' % i
+    string += '\nnmstates %i\n' % QMin['nmstates']
+    string += 'natom %i\n' % QMin['natom']
+    string += 'npc 0\n'
+    string += 'charges '
+    for i in QMin['states']:
+        string += '%i ' % 0
+    string += '\n\n'
+
     if 'h' in QMin or 'soc' in QMin:
         string += writeQMoutsoc(QMin, QMout)
     if 'dm' in QMin:
@@ -1127,13 +1065,13 @@ def get_sh2AMS_environ(sh2AMS, key, environ=True, crucial=True):
             LINE = os.getenv(key.upper())
             if not LINE:
                 if crucial:
-                    print('Either set $%s or give path to %s in AMS-ADF.resources!' % (key.upper(), key.upper()))
+                    print('Either set $%s or give path to %s in AMS_ADF.resources!' % (key.upper(), key.upper()))
                     sys.exit(19)
                 else:
                     return None
         else:
             if crucial:
-                print('Give path to %s in AMS-ADF.resources!' % (key.upper()))
+                print('Give path to %s in AMS_ADF.resources!' % (key.upper()))
                 sys.exit(20)
             else:
                 return None
@@ -1355,12 +1293,12 @@ def readQMin(QMinfilename):
                     sys.exit(38)
 
 
-# --------------------------------------------- AMS-ADF.resources ----------------------------------
+# --------------------------------------------- AMS_ADF.resources ----------------------------------
 
     QMin['pwd'] = os.getcwd()
 
-    # open AMS-ADF.resources
-    filename = 'AMS-ADF.resources'
+    # open AMS_ADF.resources
+    filename = 'AMS_ADF.resources'
     if os.path.isfile(filename):
         sh2AMS = readfile(filename)
     else:
@@ -1536,7 +1474,7 @@ def readQMin(QMinfilename):
             if os.path.isfile(ciopath):
                 QMin['wfoverlap'] = ciopath
             else:
-                print('Give path to wfoverlap.x in AMS-ADF.resources!')
+                print('Give path to wfoverlap.x in AMS_ADF.resources!')
                 sys.exit(45)
 
     # memory
@@ -1560,7 +1498,7 @@ def readQMin(QMinfilename):
     if 'theodore' in QMin:
         QMin['theodir'] = get_sh2AMS_environ(sh2AMS, 'theodir', False, False)
         if QMin['theodir'] is None or not os.path.isdir(QMin['theodir']):
-            print('Give path to the TheoDORE installation directory in AMS-ADF.resources!')
+            print('Give path to the TheoDORE installation directory in AMS_ADF.resources!')
             sys.exit(46)
         os.environ['THEODIR'] = QMin['theodir']
         if 'PYTHONPATH' in os.environ:
@@ -1634,7 +1572,7 @@ def readQMin(QMinfilename):
     QMin['template'] = {**bools, **strings, **integers, **floats, **special}
 
     # open template
-    template = readfile('AMS-ADF.template')
+    template = readfile('AMS_ADF.template')
 
     # go through template
     for line in template:
@@ -2369,7 +2307,7 @@ def writeAMSinput(QMin, WORKDIR):
                     gscorr = True
 
     # gradients
-    if QMin['gradmap']:
+    if QMin['gradmap'] and 'AOoverlap' not in QMin:
         dograd = True
         egrad = ()
         for grad in QMin['gradmap']:
@@ -2450,127 +2388,131 @@ def writeAMSinput(QMin, WORKDIR):
         string += 'BASIS\n  type %s\n  core None\n  createoutput False\n' % (QMin['template']['basis'])
         if QMin['template']['basis_path']:
             string += '  path %s\n' % (QMin['template']['basis_path'])
-        for i in QMin['template']['basis_per_element']:
-            string += '  %s %s\n' % (i, QMin['template']['basis_per_element'][i])
+        if QMin['template']['basis_per_element']:
+            string += 'peratomtype\n'
+            for i in QMin['template']['basis_per_element']:
+                string += '  symbol %s\nfile %s\n' % (i, QMin['template']['basis_per_element'][i])
+            string += 'end\n'
         string += 'END\n\n'
 
-    # chemistry
-    string += 'XC\n  %s\n' % QMin['template']['functional']
-    if QMin['template']['dispersion']:
-        string += '  dispersion %s\n' % QMin['template']['dispersion']
-    if QMin['template']['functional_xcfun'] or QMin['template']['fullkernel']:
-        string += '  xcfun\n'
-    string += 'END\n'
-    if QMin['template']['totalenergy']:
-        string += 'TOTALENERGY\n'
-    string += '\n'
-
-    # accuracy
-    if 'beckegrid' in QMin['template']['grid']:  # TODO: beckegrid gives warning
-        string += 'BECKEGRID\n  quality %s\n' % (QMin['template']['grid'].split()[1])
-        if QMin['template']['grid_per_atom']:
-            string += '  atomdepquality\n'
-            for i in QMin['template']['grid_per_atom']:
-                string += '    %i %s\n' % (i, QMin['template']['grid_per_atom'][i])
-            string += '  subend\n'
-        string += 'END\n\n'
-    elif 'integration' in QMin['template']['grid']:
-        string += 'INTEGRATION\n  accint %s\n' % (QMin['template']['grid'].split()[1])
+    if 'AOoverlap' not in QMin:
+        # chemistry
+        string += 'XC\n  %s\n' % QMin['template']['functional']
+        if QMin['template']['dispersion']:
+            string += '  dispersion %s\n' % QMin['template']['dispersion']
+        if QMin['template']['functional_xcfun'] or QMin['template']['fullkernel']:
+            string += '  xcfun\n'
         string += 'END\n'
-    if 'zlmfit' in QMin['template']['fit']:
-        string += 'ZLMFIT\n  quality %s\n' % QMin['template']['fit'].split()[1]
-        if QMin['template']['fit_per_atom']:
-            string += '  atomdepquality\n'
-            for i in QMin['template']['fit_per_atom']:
-                string += '    %i %s\n' % (i, QMin['template']['fit_per_atom'][i])
-            string += '  subend\n'
-        string += 'END\n'
-    elif 'stofit' in QMin['template']['fit']:
-        string += 'STOFIT\n'
-    if QMin['template']['exactdensity']:
-        string += 'EXACTDENSITY\n'
-    if QMin['template']['rihartreefock']:
-        string += 'RIHARTREEFOCK\n  useme True\n  quality %s\n' % QMin['template']['rihartreefock']
-        if QMin['template']['rihf_per_atom']:
-            string += '  atomdepquality\n'
-            for i in QMin['template']['rihf_per_atom']:
-                string += '    %i %s\n' % (i, QMin['template']['rihf_per_atom'][i])
-            string += '  subend\n'
-        string += 'END\n'
-    else:
-        string += 'RIHARTREEFOCK\n  useme False\nEND\n'
-    string += '\n'
-
-    # excitations
-    if ncalc > 0:
-        string += 'EXCITATIONS\n'
-        if onlysing:
-            string += '  onlysing\n'
-        if onlytrip:
-            string += '  onlytrip\n'
-        if not onlysing and not onlytrip and restr:
-            string += '  lowest %i %i\n' % (states_to_do[0], states_to_do[2])
-        else:
-            string += '  lowest %i\n' % (ncalc)
-        if QMin['template']['dvd_vectors'] > 0:
-            string += '  vectors %i\n' % (QMin['template']['dvd_vectors'])
-        string += '  tolerance %16.12f\n' % (QMin['template']['dvd_tolerance'])
-        string += '  residu %16.12f\n' % (QMin['template']['dvd_residu'])
-        if QMin['template']['dvd_mblocksmall']:
-            string += '  iterations %i\n' % (max(200, 20 * ncalc))
-        if DEBUG:
-            string += '  nto\n'
-        if QMin['template']['fullkernel']:
-            string += 'FULLKERNEL\n'
-        string += 'END\n'
-        if QMin['template']['dvd_mblocksmall']:
-            string += 'MBLOCKSMALL\n'
-        if not QMin['template']['no_tda']:
-            # string+='TDA\n'
-            string += '\nTDA\n'
-        if QMin['template']['modifyexcitations'] > 0:
-            string += 'MODIFYEXCITATION\n  useoccupied\n    A'
-            for i in range(QMin['template']['modifyexcitations']):
-                string += ' %i' % (i + 1)
-            string += '\n  subend\nEND\n'
+        if QMin['template']['totalenergy']:
+            string += 'TOTALENERGY\n'
         string += '\n'
 
-    # spin-orbit coupling
-    if sopert:
-        string += 'SOPERT\n'
-        string += 'END\n'
-        if gscorr:
-            string += 'GSCORR\n'
-        string += 'PRINT SOMATRIX\n\n'
+        # accuracy
+        if 'beckegrid' in QMin['template']['grid']:  # TODO: beckegrid gives warning
+            string += 'BECKEGRID\n  quality %s\n' % (QMin['template']['grid'].split()[1])
+            if QMin['template']['grid_per_atom']:
+                string += '  atomdepquality\n'
+                for i in QMin['template']['grid_per_atom']:
+                    string += '    %i %s\n' % (i, QMin['template']['grid_per_atom'][i])
+                string += '  subend\n'
+            string += 'END\n\n'
+        elif 'integration' in QMin['template']['grid']:
+            string += 'INTEGRATION\n  accint %s\n' % (QMin['template']['grid'].split()[1])
+            string += 'END\n'
+        if 'zlmfit' in QMin['template']['fit']:
+            string += 'ZLMFIT\n  quality %s\n' % QMin['template']['fit'].split()[1]
+            if QMin['template']['fit_per_atom']:
+                string += '  atomdepquality\n'
+                for i in QMin['template']['fit_per_atom']:
+                    string += '    %i %s\n' % (i, QMin['template']['fit_per_atom'][i])
+                string += '  subend\n'
+            string += 'END\n'
+        elif 'stofit' in QMin['template']['fit']:
+            string += 'STOFIT\n'
+        if QMin['template']['exactdensity']:
+            string += 'EXACTDENSITY\n'
+        if QMin['template']['rihartreefock']:
+            string += 'RIHARTREEFOCK\n  useme True\n  quality %s\n' % QMin['template']['rihartreefock']
+            if QMin['template']['rihf_per_atom']:
+                string += '  atomdepquality\n'
+                for i in QMin['template']['rihf_per_atom']:
+                    string += '    %i %s\n' % (i, QMin['template']['rihf_per_atom'][i])
+                string += '  subend\n'
+            string += 'END\n'
+        else:
+            string += 'RIHARTREEFOCK\n  useme False\nEND\n'
+        string += '\n'
 
-    # gradients
-    if dograd and egrad:
-        string += 'EXCITEDGO\n'
-        if singgrad:
-            string += '  SING_GRADS\n    A '
-            string += ' '.join([str(i) for i in singgrad])
-            string += '\n  END\n'
-        if tripgrad:
-            string += '  TRIP_GRADS\n    A '
-            string += ' '.join([str(i) for i in tripgrad])
-            string += '\n  END\n'
-        if not (tripgrad or singgrad):
-            string += '  state A %i\n' % (egrad[1] - (gsmult == egrad[0]))
-            if restr:
-                if egrad[0] == 1:
-                    string += '  singlet\n'
-                elif egrad[0] == 3:
-                    string += '  triplet\n'
-        string += '  output 4\n\n  cpks eps={0:.9f}\n'.format(QMin['template']['cpks_eps'])
-        string += 'END\n'
-    string += '\n'
+        # excitations
+        if ncalc > 0:
+            string += 'EXCITATIONS\n'
+            if onlysing:
+                string += '  onlysing\n'
+            if onlytrip:
+                string += '  onlytrip\n'
+            if not onlysing and not onlytrip and restr:
+                string += '  lowest %i %i\n' % (states_to_do[0], states_to_do[2])
+            else:
+                string += '  lowest %i\n' % (ncalc)
+            if QMin['template']['dvd_vectors'] > 0:
+                string += '  vectors %i\n' % (QMin['template']['dvd_vectors'])
+            string += '  tolerance %16.12f\n' % (QMin['template']['dvd_tolerance'])
+            string += '  residu %16.12f\n' % (QMin['template']['dvd_residu'])
+            if QMin['template']['dvd_mblocksmall']:
+                string += '  iterations %i\n' % (max(200, 20 * ncalc))
+            if DEBUG:
+                string += '  nto\n'
+            if QMin['template']['fullkernel']:
+                string += 'FULLKERNEL\n'
+            string += 'END\n'
+            if QMin['template']['dvd_mblocksmall']:
+                string += 'MBLOCKSMALL\n'
+            if not QMin['template']['no_tda']:
+                # string+='TDA\n'
+                string += '\nTDA\n'
+            if QMin['template']['modifyexcitations'] > 0:
+                string += 'MODIFYEXCITATION\n  useoccupied\n    A'
+                for i in range(QMin['template']['modifyexcitations']):
+                    string += ' %i' % (i + 1)
+                string += '\n  subend\nEND\n'
+            string += '\n'
 
-    # COSMO
-    if QMin['template']['cosmo']:
-        string += 'SOLVATION\n  solv name=%s' % QMin['template']['cosmo']
-        if QMin['template']['cosmo_neql'] >= 0.:
-            string += ' neql=%6.3f' % QMin['template']['cosmo_neql']
-        string += '\nEND\n\n'
+        # spin-orbit coupling
+        if sopert:
+            string += 'SOPERT\n'
+            if gscorr:
+                string += 'GSCORR\n'
+            string += 'END\n'
+            string += 'PRINT SOMATRIX\n\n'
+
+        # gradients
+        if dograd and egrad:
+            string += 'EXCITEDGO\n'
+            if singgrad:
+                string += '  SING_GRADS\n    A '
+                string += ' '.join([str(i) for i in singgrad])
+                string += '\n  END\n'
+            if tripgrad:
+                string += '  TRIP_GRADS\n    A '
+                string += ' '.join([str(i) for i in tripgrad])
+                string += '\n  END\n'
+            if not (tripgrad or singgrad):
+                string += '  state A %i\n' % (egrad[1] - (gsmult == egrad[0]))
+                if restr:
+                    if egrad[0] == 1:
+                        string += '  singlet\n'
+                    elif egrad[0] == 3:
+                        string += '  triplet\n'
+            string += '  output 4\n\n  cpks eps={0:.9f}\n'.format(QMin['template']['cpks_eps'])
+            string += 'END\n'
+        string += '\n'
+
+        # COSMO
+        if QMin['template']['cosmo']:
+            string += 'SOLVATION\n  solv name=%s' % QMin['template']['cosmo']
+            if QMin['template']['cosmo_neql'] >= 0.:
+                string += ' neql=%6.3f' % QMin['template']['cosmo_neql']
+            string += '\nEND\n\n'
 
     # options which are always used
     # MARK

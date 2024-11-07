@@ -112,15 +112,16 @@ def close_keystrokes():
 def get_interface() -> SHARC_INTERFACE:
     "asks for interface and instantiates it"
     Interfaces = factory.get_available_interfaces()
+    log.info("")
     log.info("{:-^60}".format("Choose the quantum chemistry interface"))
     log.info("\nPlease specify the quantum chemistry interface (enter any of the following numbers):")
     possible_numbers = []
-    for i, (name, interface) in enumerate(Interfaces):
-        if type(interface) == str:
-            log.info("%i\t%s: %s" % (i, name, interface))
+    for i, (name, interface, possible) in enumerate(Interfaces):
+        if not possible:
+            log.info("% 3i %-20s %s" % (i+1, name, interface))
         else:
-            log.info("%i\t%s: %s" % (i, name, interface.description()))
-            possible_numbers.append(i)
+            log.info("% 3i %-20s %s" % (i+1, name, interface.description()))
+            possible_numbers.append(i+1)
     log.info("")
     while True:
         num = question("Interface number:", int)[0]
@@ -129,7 +130,9 @@ def get_interface() -> SHARC_INTERFACE:
         else:
             log.info("Please input one of the following: %s!" % (possible_numbers))
     log.info("")
-    return Interfaces[num][1]
+    log.info("The following interface was selected:")
+    log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
+    return Interfaces[num-1][1]
 
 
 def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
@@ -205,6 +208,18 @@ def get_general(INFOS) -> dict:
             continue
         break
     log.info("")
+
+    print("\nPlease enter the molecular charge for each chosen multiplicity\ne.g. 0 +1 0 for neutral singlets and triplets and cationic doublets.")
+    default = [i % 2 for i in range(len(states))]
+    while True:
+        charges = question("Molecular charges per multiplicity:", int, default)
+        if not states:
+            continue
+        if len(charges) != len(states):
+            print("Charges array must have same length as states array")
+            continue
+        break
+
     nstates = 0
     for mult, i in enumerate(states):
         nstates += (mult + 1) * i
@@ -212,6 +227,7 @@ def get_general(INFOS) -> dict:
     log.info("Total number of states: %i\n" % (nstates))
     INFOS["states"] = states
     INFOS["nstates"] = nstates
+    INFOS["charge"] = charges
     # obtain the statemap
     statemap = {}
     i = 1
@@ -366,6 +382,11 @@ states %s
 """ % (
         " ".join([str(i) for i in INFOS["states"]])
     )
+    string += "\n"
+    string += "charge "
+    for i in INFOS["charge"]:
+        string += "%i " % (i)
+    string += "\n"
     string += "\n".join(INFOS["needed_requests"])
 
     runscript.write(string)

@@ -30,6 +30,7 @@ import datetime
 import os
 import shutil
 from io import TextIOWrapper
+import copy
 
 import numpy as np
 # internal
@@ -239,29 +240,7 @@ class SHARC_QMMM(SHARC_HYBRID):
 
         return set(qmmm_features)
 
-    def _step_logic(self):
-        super()._step_logic()
-        self.qm_interface._step_logic()
-        self.mml_interface._step_logic()
 
-        if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface._step_logic()
-
-    def write_step_file(self):
-        super().write_step_file()
-        self.qm_interface.write_step_file()
-        self.mml_interface.write_step_file()
-
-        if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface.write_step_file()
-        
-    def update_step(self, step: int = None):
-        super().update_step(step)
-        self.qm_interface.update_step(step)
-        self.mml_interface.update_step(step)
-
-        if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface.update_step(step)
 
     def read_template(self, template_file="QMMM.template", kw_whitelist: list[str] | None = None) -> None:
         super().read_template(template_file, kw_whitelist)
@@ -290,15 +269,18 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.qm_interface: SHARC_INTERFACE = factory(self.QMin.template["qm-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['qm-program']}", loglevel=self.log.level
         )
+        self.qm_interface.QMin.molecule['states'] = copy.copy(self.QMin.molecule['states'])
 
         self.mml_interface: SHARC_INTERFACE = factory(self.QMin.template["mm-program"])(
             persistent=self.persistent, logname=f"MML {self.QMin.template['mm-program']}", loglevel=self.log.level
         )
+        self.mml_interface.QMin.molecule['states'] = [1]
 
         if self.QMin.template["embedding"] == "subtractive":
             self.mms_interface: SHARC_INTERFACE = factory(self.QMin.template["mm-program"])(
                 persistent=self.persistent, logname=f"MMS {self.QMin.template['mm-program']}", loglevel=self.log.level
             )
+            self.mms_interface.QMin.molecule['states'] = [1]
 
         if not self.QMin.template["qm-dir"]:
             self.QMin.template["qm-dir"] = self.qm_interface.name()
@@ -367,6 +349,9 @@ class SHARC_QMMM(SHARC_HYBRID):
         el = self.QMin.molecule["elements"]
         n_link = len(self._linkatoms)
         qm_el = [self.atoms[i].symbol for i in self.qm_ids] + ["H"] * n_link
+
+        # TODO: Would be better to call setup_mol() in the following, but that is a bit difficult here
+
         # setup mol for qm
         qm_QMin = self.qm_interface.QMin
         qm_QMin.molecule["elements"] = qm_el
@@ -374,8 +359,10 @@ class SHARC_QMMM(SHARC_HYBRID):
         qm_QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], qm_el))
         qm_QMin.molecule["natom"] = self._num_qm + n_link
         qm_QMin.molecule["states"] = self.QMin.molecule["states"]
+        qm_QMin.molecule["charge"] = self.QMin.molecule["charge"]
         qm_QMin.molecule["nstates"] = self.QMin.molecule["nstates"]
         qm_QMin.maps["statemap"] = self.QMin.maps["statemap"]
+        qm_QMin.maps["chargemap"] = self.QMin.maps["chargemap"]
         qm_QMin.molecule["nmstates"] = self.QMin.molecule["nmstates"]
         qm_QMin.molecule["unit"] = self.QMin.molecule["unit"]
         qm_QMin.molecule["point_charges"] = True
@@ -389,6 +376,9 @@ class SHARC_QMMM(SHARC_HYBRID):
         mml_QMin.molecule["frozcore"] = self.QMin.molecule["frozcore"]
         mml_QMin.molecule["natom"] = self.QMin.molecule["natom"]
         mml_QMin.molecule["states"] = [1]
+        mml_QMin.molecule["charge"] = [0]
+        mml_QMin.maps["statemap"] = {1: [1,1,0]}
+        mml_QMin.maps["chargemap"] = {1: 0}
         mml_QMin.molecule["nmstates"] = 1
         mml_QMin.molecule["unit"] = self.QMin.molecule["unit"]
         self.mml_interface._setup_mol = True
@@ -428,6 +418,9 @@ class SHARC_QMMM(SHARC_HYBRID):
             mms_QMin.molecule["frozcore"] = sum((FROZENS[x] for x in mms_el))
             mms_QMin.molecule["natom"] = self._num_qm + n_link
             mms_QMin.molecule["states"] = [1]
+            mms_QMin.molecule["charge"] = [0]
+            mms_QMin.maps["statemap"] = {1: [1,1,0]}
+            mms_QMin.maps["chargemap"] = {1: 0}
             mms_QMin.molecule["nmstates"] = 1
             mms_QMin.molecule["unit"] = self.QMin.molecule["unit"]
             self.mms_interface._setup_mol = True
@@ -477,7 +470,12 @@ class SHARC_QMMM(SHARC_HYBRID):
                 # for properties, which should only be computed with QM
                 case _:
                     self.qm_interface.QMin.requests[key] = value
+        self.qm_interface.QMin.save['step'] = self.QMin.save['step']
+        self.mml_interface.QMin.save['step'] = self.QMin.save['step']
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface.QMin.save['step'] = self.QMin.save['step']
         self.qm_interface._request_logic()
+        # TODO: why no request_logic for MM children?
 
         # always set this request as these charges are required for the calculation of the point charges
         self.mml_interface.QMin.requests["multipolar_fit"] = [1]
@@ -585,11 +583,44 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.QMout.runtime = self.clock.measuretime()
         return self.QMout
 
+
+
+
     def create_restart_files(self):
         self.qm_interface.create_restart_files()
         self.mml_interface.create_restart_files()
         if self.QMin.template["embedding"] == "subtractive":
             self.mms_interface.create_restart_files()
+
+    def clean_savedir(self):
+        super().clean_savedir()
+        self.qm_interface.clean_savedir()
+        self.mml_interface.clean_savedir()
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface.clean_savedir()
+
+    def _step_logic(self):
+        super()._step_logic()
+        self.qm_interface._step_logic()
+        self.mml_interface._step_logic()
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface._step_logic()
+
+    def write_step_file(self):
+        super().write_step_file()
+        self.qm_interface.write_step_file()
+        self.mml_interface.write_step_file()
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface.write_step_file()
+        
+    # def update_step(self, step: int = None):
+    #     super().update_step(step)
+    #     self.qm_interface.update_step(step)
+    #     self.mml_interface.update_step(step)
+    #     if self.QMin.template["embedding"] == "subtractive":
+    #         self.mms_interface.update_step(step)
+
+
 
 
 if __name__ == "__main__":

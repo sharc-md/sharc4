@@ -373,7 +373,8 @@ module definitions
     logical,allocatable :: atommask_a(:)      !< atoms which are considered for decoherence, rescaling, ...
   logical,allocatable :: atommask_b(:)      !< atoms which are considered for verlocity verlet (-> use to freeze atoms)
     integer :: maxmult                        !< highest spin quantum number (determines length of nstates_m)
-    integer,allocatable :: nstates_m(:)       !< numer of states considered in each multiplicy
+    integer,allocatable :: nstates_m(:)       !< number of states considered in each multiplicy
+    integer,allocatable :: charges_m(:)       !< charge in each multiplicy 
     integer :: nstates                        !< total number of states
     integer :: nsteps                         !< total number of simulation steps
     integer :: nsubsteps                      !< number of steps for the electron propagation
@@ -399,10 +400,11 @@ module definitions
     integer :: output_steps_limits(3)         !< switches stride for output.dat writing
     integer :: output_steps_stride_nuc(3)     !< how often sharc_traj_xyz.nc is written
     integer :: output_steps_limits_nuc(3)     !< switches stride for sharc_traj_xyz.nc writing
+    integer :: retain_restart_files           !< how many previous time steps should be kept
   
   ! methods and switches
     logical :: restart                        !< restart yes or no
-    logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
+    ! logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
     logical :: write_restart_files            !< if false skips the generation of all restart files and logic
     integer :: method                         !< 0=trajectory surface hopping(tsh), 1=self-consistent potential(scp)
     integer :: integrator                     !< integrator used, 0=Bulirsch-Stoer, 1=adaptive Velocity Verlet, 2=fixed stepzie Velocity Verlet
@@ -524,17 +526,32 @@ module definitions
   !< -1=+ internal steps
   !< -2=+ input parsing infos
   !< -3 and higher=+ print various numerical values per timestep
+  !< numerical value of constants obtained from scipy.physical_constants (see lib/constants.py)
   ! =========================================================== !
   
-  real*8,parameter:: au2a=0.529177211d0             !< length
-  real*8,parameter:: au2fs=0.024188843d0            !< time
-  real*8,parameter:: au2u=5.4857990943d-4           !< mass
-  real*8,parameter:: au2rcm=219474.631370d0         !< energy
-  real*8,parameter:: au2eV=27.21138386d0            !< energy
-  real*8,parameter:: au2debye=2.5417469d0           !< dipole moment
+  real*8,parameter:: au2u = 5.485799088728282d-4           ! mass
+  real*8,parameter:: au2rcm = 219474.63136319697d0         ! energy
+  real*8,parameter:: au2debye = 2.541746473194078d0        ! dipole moment
+  real*8,parameter:: au2a = 0.529177210903d0               ! transforms length in a.u. to Angstrom
+  real*8,parameter:: cm2au = 4.556335252912d-6             ! transforms energy in wavenumbers to a.u.
+  real*8,parameter:: au2fs = 0.024188843265857d0           ! transforms time in a.u. to femtoseconds
+  real*8,parameter:: ram2au = 1822.8884862086923d0         ! transforms mass in relative atomic mass units to a.u.
+  real*8,parameter:: J2eV = 6.241509074d18                 ! transforms energy in J to eV
+  real*8,parameter:: D2au = 0.39343026951989946d0          ! transforms dipole moment in debye to a.u.
+  real*8,parameter:: au2V_m = 514220674763d0               ! transforms electric field in a.u. to V/m
+  real*8,parameter:: au2J = 4.3597447222071d-18            ! transforms energy in a.u. to J
+  real*8,parameter:: au2eV = 27.211386245988d0             ! transforms energy in a.u. to eV
+  real*8,parameter:: D2Cm = 3.33564095198152d-30           ! transforms dipole moment in d to C * m
+  real*8,parameter:: au2I = 3.50944552058977d16            ! transforms (intensity in a.u.)^2 to W/cm^2, attention: watch the square!!!
+  real*8,parameter:: au2GV_m = 514.220674763d0             ! transforms (field strength in a.u.) to GV/m
+  real*8,parameter:: speed_of_light_au = 137.0359990836958  
   
   complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
   real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
+  real*8,parameter:: alpha=7.2973525693d-3          !< fine-structure constant
+  
+  logical :: debug
+  integer :: allocatestatus
   
   character*20,parameter :: multnames(8)=(/'Singlet','Doublet','Triplet','Quartet','Quintet',' Sextet',' Septet','  Octet'/)
   !< strings used to represent the multiplicities
@@ -1084,6 +1101,7 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
         type(ctrl_type), intent(inout) :: ctrl
   
         if (allocated(ctrl%nstates_m))                  deallocate(ctrl%nstates_m)
+        if (allocated(ctrl%charges_m))                  deallocate(ctrl%charges_m)
         if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
         if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
       if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
@@ -1356,6 +1374,7 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'lpzpe_ke_ah',      allocated(traj%lpzpe_ke_ah      )
       write(u,'(A20,1X,L1)') 'lpzpe_ke_bc',      allocated(traj%lpzpe_ke_bc      )
       write(u,'(A20,1X,L1)') 'nstates_m',        allocated(ctrl%nstates_m        )
+      write(u,'(A20,1X,L1)') 'charges_m',        allocated(ctrl%charges_m        )
       write(u,'(A20,1X,L1)') 'actstates_s',      allocated(ctrl%actstates_s      )
   
       write(u,*) '_______________________ CHECKING NaNs _______________________'

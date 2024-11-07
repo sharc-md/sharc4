@@ -11,7 +11,8 @@ from SHARC_HYBRID import SHARC_HYBRID
 
 #----START of EHF class--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 class EHF:
-    def __init__(self, APCs, estates, frozen, relaxed, maxcycle, tQ, output):
+    def __init__(self, nproc, APCs, estates, frozen, relaxed, maxcycle, tQ, output):
+        self.nproc = nproc
         self.APCs = APCs
         self.estates = estates
         self.frozen = frozen
@@ -64,7 +65,7 @@ class EHF:
                     PCs = np.concatenate( PCs )
                     child1.QMin.coords['pccharge'] = PCs
 
-                SHARC_HYBRID.run_children(self.log, relaxed, 48)
+                SHARC_HYBRID.run_children(self.log, relaxed, self.nproc)
                 for label, child in relaxed.items(): 
                     child.writeQMout( filename=os.path.join( child.QMin.resources['pwd'],'QM_cycle'+str(cycle)+'.out' ) )
                     newAPCs = child.QMout['multipolar_fit'][(estates[label],estates[label])][:,0]

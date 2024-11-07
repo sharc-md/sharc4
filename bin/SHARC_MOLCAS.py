@@ -290,8 +290,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             )
             create_file(val, dest)
 
-    def create_restart_files(self) -> None:
-        pass
 
     def read_resources(self, resources_file: str = "MOLCAS.resources", kw_whitelist: list[str] | None = None) -> None:
         super().read_resources(resources_file, ["theodore_fragment"])
@@ -437,7 +435,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.log.error("nactel must contain either 1 or 3 numbers!")
                 raise ValueError()
 
-        for idx, charge in enumerate(self.QMin.template["charge"], 1):
+        for idx, charge in enumerate(self.QMin.molecule["charge"], 1):
             if (
                 ((nactel := self.QMin.template["nactel"][0]) - idx - charge) % 2 == 0
                 or nactel - charge < 1
@@ -620,7 +618,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if (code := self.run_program(workdir, f"{qmin.resources['driver']} MOLCAS.input", "MOLCAS.out", "MOLCAS.err")) != 96:
                 break
             qmin.template["gradaccudefault"] *= 10
-        endtime = datetime.datetime.now()
 
         return code, datetime.datetime.now() - starttime
 
@@ -743,13 +740,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.requests["theodore"] or qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]:
             if self._hdf5:
                 tasks.append(["link", "MOLCAS.rassi.h5", "MOLCAS.rassi.h5.bak"])
-            for mult, states in enumerate((all_states := qmin.molecule["states"][:]), 1):
+            all_states = qmin.molecule["states"][:] # Copy of states, to modify in loop
+            for mult, states in enumerate(qmin.molecule["states"], 1):
                 if states > 0:
-                    if len(qmin.molecule["states"]) >= mult + 2 and all_states[mult + 1] > 0:
+                    if len(all_states) >= mult + 2 and all_states[mult + 1] > 0:
                         tasks.append(["link", f"MOLCAS.{mult}.JobIph", "JOB001"])
                         tasks.append(["link", f"MOLCAS.{mult+2}.JobIph", "JOB002"])
-                        tasks.append(["rassi", "theodore", [states, all_states[mult + 1]]])
-                        all_states[mult + 1] = 1
+                        tasks.append(["rassi", "theodore", [states, qmin.molecule["states"][mult + 1]]])
+                        all_states[mult + 1] = 1 # Do not do rassi for same mult twice
                         if qmin.requests["theodore"]:
                             tasks.append(["theodore"])
                         if qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]:
@@ -931,13 +929,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str += "MEIN\n"
         if qmin.template["method"] != "casscf":
             input_str += "EJOB\n"
-        if task[1] == "dm" and qmin.requests["multipolar_fit"]:
+        if task[1] == "dm" and (qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]):
             input_str += "TRD1\n"
         if task[1] == "soc":
             input_str += "SPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n"
         if task[1] == "overlap":
             input_str += "STOVERLAPS\nOVERLAPS\n"
-            if qmin.control["master"] and qmin.requests["multipolar_fit"]:
+            if qmin.control["master"] and (qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]) :
                 input_str += "TRD1\n"
         if task[1] == "theodore":
             input_str += "TRD1\n"
@@ -978,7 +976,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Write RASSCF part of MOLCAS input string
         """
         nactel = qmin.template["nactel"][:]
-        nactel[0] -= qmin.template["charge"][task[1] - 1]
+        nactel[0] -= qmin.molecule["charge"][task[1] - 1]
         input_str = f"&RASSCF\nSPIN={task[1]}\nNACTEL={' '.join(str(n) for n in nactel)}\n"
         input_str += f"INACTIVE={qmin.template['inactive']}\nRAS2={qmin.template['ras2']}\n"
         input_str += f"ITERATIONS={qmin.template['iterations'][0]},{qmin.template['iterations'][1]}\n"

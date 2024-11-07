@@ -128,7 +128,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             
             self.read_template(self.template_file)
 
-        child_features = self.child_interface.get_features()
+        child_features = self.child_interface.get_features(KEYSTROKES=KEYSTROKES)
         self.log.debug(child_features)
         return set(child_features)
     
@@ -194,18 +194,6 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
 
 
-    def _step_logic(self):
-        super()._step_logic()
-        self.child_interface._step_logic()
-
-    def write_step_file(self):
-        super().write_step_file()
-        self.child_interface.write_step_file()
-        
-    def update_step(self, step: int = None):
-        super().update_step(step)
-        self.child_interface.update_step(step)
-
 
 
 
@@ -224,15 +212,19 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             )
             raise RuntimeError()
 
+        # make the child
         self.child_interface: SHARC_INTERFACE = factory(self.QMin.template["child-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['child-program']}", loglevel=self.log.level
         )
+        self.child_interface.QMin.molecule['states'] = self.QMin.molecule['states']
+        
 
+        # check directory
         if not self.QMin.template["child-dir"]:
             self.QMin.template["child-dir"] = self.child_interface.name()
             self.log.info(f"'child-dir not set in template setting to name of program: {self.QMin.template['child-dir']}")
 
-        # check is restraint_file is relative or absolute path
+        # check if restraint_file is relative or absolute path
         if not os.path.isabs(self.QMin.template["restraint_file"]):
             #  path from location of template
             self.QMin.template["restraint_file"] = os.path.join(os.path.dirname(template_file), self.QMin.template["restraint_file"])
@@ -298,15 +290,10 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
 
     def setup_interface(self):
-        # obtain the statemap
-        self.QMin.maps["statemap"] = {i + 1: [*v] for i, v in enumerate(itnmstates(self.QMin.molecule["states"]))}
         # prepare info for child interface
         el = self.QMin.molecule["elements"]
         # setup mol for qm
-        qm_QMin = self.child_interface.QMin
-        qm_QMin.molecule = self.QMin.molecule
-        qm_QMin.maps["statemap"] = self.QMin.maps["statemap"]
-        self.child_interface._setup_mol = True
+        self.child_interface.setup_mol(self.QMin)
 
         qm_savedir = os.path.join(self.QMin.save["savedir"], "QM_" + self.QMin.template["child-program"].upper())
         if not os.path.isdir(qm_savedir):
@@ -314,7 +301,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         # read template and resources
         with InDir(self.QMin.template["child-dir"]) as _:
             self.child_interface.read_resources()
-            qm_QMin.save["savedir"] = qm_savedir  # overwrite savedir
+            self.child_interface.QMin.save["savedir"] = qm_savedir  # overwrite savedir
             self.child_interface.read_template()
             self.child_interface.setup_interface()
 
@@ -331,6 +318,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         for key, value in self.QMin.requests.items():
             if value is not None:
                 self.child_interface.QMin.requests[key] = value
+        self.child_interface.QMin.save['step'] = self.QMin.save['step']
         self.child_interface._request_logic()
 
         # add h request to child if needed for "de" restraints:
@@ -344,8 +332,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             for i, restraint in enumerate(self.restraints):
                 t, _, _, indices = restraint
                 if t == "de":
-                    gradrequests.add(indices[0])
-                    gradrequests.add(indices[1])
+                    gradrequests.add(indices[0]+1)
+                    gradrequests.add(indices[1]+1)
             self.child_interface.QMin.requests["grad"] = sorted(gradrequests)
             
 
@@ -366,7 +354,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         for i, restraint in enumerate(self.restraints):
             t, k, v0, indices = restraint
             e = 0.
-            grad = np.zeros_like(self.QMout['grad'][0])
+            if self.QMin.requests["grad"]:
+                grad = np.zeros_like(self.QMout['grad'][0])
             match t:
                 case 'r':
                     if self.pytorch:
@@ -473,9 +462,9 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                             grad[indices[2],:] = g1 * dcosphi_k
                             grad[indices[3],:] = g1 * dcosphi_l
                 case 'de':
-                    Ei = self.child_interface.QMout.h[indices[0],indices[0]]
-                    Ej = self.child_interface.QMout.h[indices[1],indices[1]]
-                    dE = Ei - Ej
+                    Ei = self.child_interface.QMout.h[indices[0],indices[0]].real
+                    Ej = self.child_interface.QMout.h[indices[1],indices[1]].real
+                    dE = Ej - Ei
                     e = k/2. * (dE - v0)**2
                     if self.QMin.requests["grad"]:
                         gi = self.child_interface.QMout.grad[indices[0]]
@@ -512,11 +501,29 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
 
 
+    # savedir handling
 
+    def _step_logic(self):
+        super()._step_logic()
+        self.child_interface._step_logic()
 
+    def write_step_file(self):
+        super().write_step_file()
+        self.child_interface.write_step_file()
+        
+    # def update_step(self, step: int = None):
+    #     super().update_step(step)
+    #     self.child_interface.update_step(step)
 
     def create_restart_files(self):
         self.child_interface.create_restart_files()
+
+    def clean_savedir(self):
+        super().clean_savedir()
+        self.child_interface.clean_savedir()
+
+
+
 
 
 if __name__ == "__main__":

@@ -47,7 +47,7 @@ dispersion D3
     ## Instead, the interface automatically sets this number based on the requested multiplicity.
     ## This keyword accepts either a single number, or as many numbers as there are multiplicities.
     ## In the second case, the charges are used for the respective multiplicities.
-charge 0 +1 0 +1 0
+#charge 0 +1 0 +1 0
 
     ## With this keyword, the interface requests a scrf calculation, with the method and solvent given as arguments.
 #TODO: solvent? with gradients?

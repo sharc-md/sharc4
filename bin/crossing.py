@@ -40,34 +40,10 @@ import random
 from optparse import OptionParser
 import readline
 import time
-
+from constants import IToMult
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-BOHR_TO_ANG = 0.529177211
-PI = math.pi
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
 
 # ======================================================================= #
 

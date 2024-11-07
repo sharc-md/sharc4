@@ -51,6 +51,7 @@ import random
 import numpy as np
 import scipy.integrate as spint
 import scipy.optimize as spopt
+from constants import IToMult
 
 try:
     import numpy
@@ -67,32 +68,6 @@ changelogstring = '''
 
 '''
 
-# ======================================================================= #
-# hash table for conversion of multiplicity to the keywords used in MOLCAS
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
-
-# =============================================================================================== #
 # =============================================================================================== #
 # =========================================== general routines ================================== #
 # =============================================================================================== #

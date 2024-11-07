@@ -38,6 +38,7 @@ import stat
 import shutil
 import datetime
 import pprint
+from constants import BOHR_TO_ANG, IToMult, IToPol
 try:
     import numpy
     NONUMPY = False
@@ -50,49 +51,10 @@ except ImportError:
 # some constants
 PRINT = True
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6
-HARTREE_TO_EV = 27.211396132
-U_TO_AMU = 1. / 5.4857990943e-4
-BOHR_TO_ANG = 0.529177211
-PI = math.pi
 
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
 
-
-# hash table for conversion of multiplicity to the keywords used in MOLPRO
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# hash table for conversion of polarisations to the keywords used in MOLPRO
-IToPol = {
-    0: 'X',
-    1: 'Y',
-    2: 'Z',
-    'X': 0,
-    'Y': 1,
-    'Z': 2
-}
-
-# =========================================================
-# =========================================================
-# =========================================================
 
 # ======================================================================= #
 

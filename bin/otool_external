@@ -28,7 +28,7 @@ import os
 import subprocess as sp
 import pprint
 import math
-
+from constants import au2a
 # Periodic Table (symbol->number)
 NUMBERS = {'H': 1, 'He': 2,
            'Li': 3, 'Be': 4, 'B': 5, 'C': 6, 'N': 7, 'O': 8, 'F': 9, 'Ne': 10,
@@ -58,9 +58,6 @@ for i in NUMBERS:
 
 
 
-
-# conversion factors
-au2a = 0.529177211
 
 # INTERFACE specs
 INTERFACE = {
@@ -94,11 +91,11 @@ INTERFACE = {
               'dipolegrad': False,
               'files': ['RICC2.template', 'RICC2.resources']
               },
-    'ams-adf': {'script': 'SHARC_AMS-ADF.py',
-            'description': 'AMS-ADF (DFT, TD-DFT)',
+    'AMS_ADF': {'script': 'SHARC_AMS_ADF.py',
+            'description': 'AMS_ADF (DFT, TD-DFT)',
             'couplings': [3],
             'dipolegrad': False,
-            'files': ['AMS-ADF.template', 'AMS-ADF.resources']
+            'files': ['AMS_ADF.template', 'AMS_ADF.resources']
             },
     'gaussian': {'script': 'SHARC_GAUSSIAN.py',
                  'description': 'GAUSSIAN (DFT, TD-DFT)',
@@ -309,6 +306,8 @@ def read_infos(ext_in):
                 arg = s[2:]
                 if 'states' in key.lower():
                     INFOS['states'] = [int(i) for i in arg]
+                if 'charge' in key.lower():
+                    INFOS['charge'] = [int(i) for i in arg]
                 if 'opt' in key.lower():
                     INFOS['opt'] = [arg[0].lower()] + [int(i) for i in arg[1:]]
                 if 'interface' in key.lower():
@@ -331,6 +330,8 @@ def read_infos(ext_in):
             sys.exit(1)
     if not 'states' in INFOS:
         INFOS['states'] = [1]
+    if not 'charge' in INFOS:
+        INFOS['charge'] = [1]
     if not 'opt' in INFOS:
         INFOS['opt'] = ['min', 1]
     if not 'sigma' in INFOS:
@@ -423,6 +424,10 @@ def write_QMin(INFOS):
     for i in INFOS['states']:
         string += '%i ' % (i)
     string += '\n'
+    string += 'charge '
+    for i in INFOS['charge']:
+        string += '%i ' % (i)
+    string += '\n'
     string += 'unit angstrom\n'
     string += 'savedir %s\n' % (INFOS['savedir'])
     string += 'H\n'
@@ -433,7 +438,7 @@ def write_QMin(INFOS):
     elif INFOS['opt_mode'] in [1, 2, 3]:
         string += 'grad %i %i\n' % (INFOS['opt'][1], INFOS['opt'][2])
     if INFOS['opt_mode'] == 1:
-        string += 'select nacdr\n%i %i\nend\n' % (INFOS['opt'][1], INFOS['opt'][2])
+        string += 'nacdr select\n%i %i\nend\n' % (INFOS['opt'][1], INFOS['opt'][2])
     # done
     # print 'Input:'
     # print string
