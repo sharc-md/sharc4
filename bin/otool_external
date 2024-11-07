@@ -127,11 +127,12 @@ INTERFACE = {
               'dipolegrad': False,
               'files': ['MNDO.template', 'MNDO.resources']
               },
-    'turbomole': {'script': 'SHARC_TURBOMOLE.py',
-              'description': 'Turbomole (ADC(2), CC2)',
-              'couplings': [3],
+    'mopacpi': {'script': 'SHARC_MOPACPI.py',
+              'description': 'MOPAC-PI (AM1, PM3)',
+              'couplings': [1],
               'dipolegrad': False,
-              'files': ['TURBOMOLE.template', 'TURBOMOLE.resources']
+              'files': ['MOPACPI.template', 'MOPACPI.resources'],
+              'nomolden': []
               }
 }
 
@@ -430,7 +431,8 @@ def write_QMin(INFOS):
     string += 'unit angstrom\n'
     string += 'savedir %s\n' % (INFOS['savedir'])
     string += 'H\n'
-    # string += 'molden\n'
+    if 'nomolden' not in INTERFACE[INFOS['interface']]:
+        string += 'molden\n'
     if INFOS['opt_mode'] == 0:
         string += 'grad %i\n' % (INFOS['opt'][1])
     elif INFOS['opt_mode'] in [1, 2, 3]:

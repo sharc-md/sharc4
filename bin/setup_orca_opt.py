@@ -184,6 +184,16 @@ Interfaces = {
                       'nacdr': [],
                       'phases': ['wfoverlap'], },
          'pysharc': False
+         },
+    12: {'script': 'SHARC_MOPACPI.py',
+         'name': 'mopacpi',
+         'description': 'MOPAC-PI (AM1, PM3)',
+         'get_routine': 'get_MOPACPI',
+         'prepare_routine': 'prepare_MOPACPI',
+         'features': {'overlap': ['wfoverlap'],
+                      'nacdr': [],
+                      'phases': ['wfoverlap'], },
+         'pysharc': False
          }     
 
 }
