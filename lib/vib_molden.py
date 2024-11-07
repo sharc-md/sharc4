@@ -10,7 +10,7 @@ usage: Package for reading a molden input vibration file.
 import os
 import numpy
 import file_handler
-
+from constants import au2a
 
 def convert_molden2xyz(path='.', name='molden.input'):
     """
@@ -193,8 +193,6 @@ def make_molden_file(struc, freqs, vibs, out_file, title='Essential dynamics', n
     w_file.close()
 
 
-b_in_a = 0.529178  # conversion factor between Bohr and Angstrom
-
 
 def ret_Atoms_table(struc):
     """
@@ -203,7 +201,7 @@ def ret_Atoms_table(struc):
     tblmaker = file_handler.table_maker([6, 4, 3, 21, 21, 21])
     for i in range(struc.ret_num_at()):
         atom = struc.mol.GetAtom(i + 1)
-        tblmaker.write_line([struc.ret_symbol(i + 1), i + 1, atom.GetAtomicNum()] + [atom.x() / b_in_a] + [atom.y() / b_in_a] + [atom.z() / b_in_a])
+        tblmaker.write_line([struc.ret_symbol(i + 1), i + 1, atom.GetAtomicNum()] + [atom.x() / au2a] + [atom.y() / au2a] + [atom.z() / au2a])
 
     return tblmaker.return_table()
 
@@ -216,7 +214,7 @@ def ret_FRCOORD_table(struc):
     for i in range(struc.ret_num_at()):
         atom = struc.mol.GetAtom(i + 1)
         vec = atom.GetVector()
-        tblmaker.write_line([struc.ret_symbol(i + 1)] + [atom.x() / b_in_a] + [atom.y() / b_in_a] + [atom.z() / b_in_a])
+        tblmaker.write_line([struc.ret_symbol(i + 1)] + [atom.x() / au2a] + [atom.y() / au2a] + [atom.z() / au2a])
 
     return tblmaker.return_table()
 

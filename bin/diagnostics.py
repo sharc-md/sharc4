@@ -38,6 +38,7 @@ import readline
 import time
 import colorsys
 import pprint
+from constants import IToMult
 
 try:
     import numpy
@@ -51,26 +52,6 @@ DEBUG = False
 
 version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
-
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
 
 
 # ======================================================================= #

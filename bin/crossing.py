@@ -40,29 +40,10 @@ import random
 from optparse import OptionParser
 import readline
 import time
-
+from constants import IToMult
 # =========================================================0
 # some constants
 DEBUG = False
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
 
 # ======================================================================= #
 

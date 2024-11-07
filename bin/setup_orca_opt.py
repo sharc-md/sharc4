@@ -41,7 +41,7 @@ import time
 from socket import gethostname
 import ast
 import pprint
-
+from constants import IToMult
 # =========================================================0
 # compatibility stuff
 
@@ -56,27 +56,6 @@ version = '3.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
 versiondate = datetime.date(2024, 4, 24)
 
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# ======================================================================= #
 
 Interfaces = {
     1: {'script': 'SHARC_MOLPRO.py',

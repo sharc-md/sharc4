@@ -56,7 +56,7 @@ from multiprocessing import Pool
 import time
 import traceback
 from constants import au2a, rcm_to_Eh
-
+from constants import FROZENS, IToMult, IToPol
 # =========================================================0
 
 version = '3.0'
@@ -146,52 +146,6 @@ starttime = datetime.datetime.now()
 # global variables for printing (PRINT gives formatted output, DEBUG gives raw output)
 DEBUG = False
 PRINT = True
-
-# hash table for conversion of multiplicity to the keywords used in MOLPRO
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# hash table for conversion of polarisations to the keywords used in MOLPRO
-IToPol = {
-    0: 'X',
-    1: 'Y',
-    2: 'Z',
-    'X': 0,
-    'Y': 1,
-    'Z': 2
-}
-
-
-# Number of frozen core orbitals
-FROZENS = {'H': 0, 'He': 0,
-           'Li': 1, 'Be': 1, 'B': 1, 'C': 1, 'N': 1, 'O': 1, 'F': 1, 'Ne': 1,
-           'Na': 1, 'Mg': 1, 'Al': 5, 'Si': 5, 'P': 5, 'S': 5, 'Cl': 5, 'Ar': 5,
-           'K': 5, 'Ca': 5,
-           'Sc': 5, 'Ti': 5, 'V': 5, 'Cr': 5, 'Mn': 5, 'Fe': 5, 'Co': 5, 'Ni': 5, 'Cu': 5, 'Zn': 5,
-           'Ga': 9, 'Ge': 9, 'As': 9, 'Se': 9, 'Br': 9, 'Kr': 9,
-           'Rb': 9, 'Sr': 9,
-           'Y': 14, 'Zr': 14, 'Nb': 14, 'Mo': 14, 'Tc': 14, 'Ru': 14, 'Rh': 14, 'Pd': 14, 'Ag': 14, 'Cd': 14,
-           'In': 18, 'Sn': 18, 'Sb': 18, 'Te': 18, 'I': 18, 'Xe': 18,
-           'Cs': 18, 'Ba': 18,
-           'La': 23, 'Hf': 23, 'Ta': 23, 'W': 23, 'Re': 23, 'Os': 23, 'Ir': 23, 'Pt': 23, 'Au': 23, 'Hg': 23,
-           'Tl': 23, 'Pb': 23, 'Bi': 23, 'Po': 23, 'At': 23, 'Rn': 23
-           }
 
 # =============================================================================================== #
 # =============================================================================================== #
