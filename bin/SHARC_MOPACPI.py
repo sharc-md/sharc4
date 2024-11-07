@@ -431,7 +431,8 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
             shutil.copy(saved_file,filecopy)
 
         if step > 0:
-            fromfile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
+            fromfile = os.path.join(savedir, f"MOPACPI_nx.mopac_oldvecs.{step-1}")
+            # fromfile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
             tofile = os.path.join(workdir, "MOPACPI_nx.mopac_oldvecs")
             shutil.copy(fromfile, tofile)
 
@@ -453,7 +454,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         #        pc_str += f"{' '.join(map(str, coords))} {charge}\n"
         #    writefile(os.path.join(workdir, "fort.20"), pc_str)
 
-        # Setup MNDO
+        # Setup MOPA
         starttime = datetime.datetime.now()
         exec_str = f"{os.path.join(qmin.resources['mopacpidir'],'mopacpi.x')} MOPACPI"
         exit_code = self.run_program(
@@ -462,6 +463,11 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         endtime = datetime.datetime.now()
 
         return exit_code, endtime - starttime
+    
+    def remove_old_restart_files(self, retain: int = 5) -> None:
+        """
+        Garbage collection after runjobs()
+        """
     
     def run(self) -> None:
 
@@ -601,7 +607,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
                 iline += 1
             iline += 1
 
-        return dip
+        return np.array(dip)
     
     def _get_grad(self, log_grad: str):
         
@@ -685,10 +691,12 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         Save files (molden, mos) to savedir
         Naming convention: file.job.step
         """
+        step = self.QMin.save["step"]
         savedir = self.QMin.save["savedir"]
 
         fromfile = os.path.join(workdir, "MOPACPI_nx.mopac_oldvecs")
-        tofile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
+        tofile = os.path.join(savedir, f"MOPACPI_nx.mopac_oldvecs.{step}")
+        # tofile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
         shutil.copy(fromfile, tofile)
 
         return

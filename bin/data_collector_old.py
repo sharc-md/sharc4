@@ -568,11 +568,11 @@ def get_general():
             s = path + ' ' * (width - len(path))
             lstraj = os.listdir(path)
             valid = True
-            for i in lstraj:
-                if i.lower() in forbidden:
-                    s += 'DETECTED FILE %s' % (i.lower())
-                    valid = False
-                    break
+            # for i in lstraj:
+            #     if i.lower() in forbidden:
+            #         s += 'DETECTED FILE %s' % (i.lower())
+            #         valid = False
+            #         break
             if not valid:
                 continue
             s += 'OK'

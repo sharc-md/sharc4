@@ -129,6 +129,13 @@ INTERFACE = {
               'couplings': [1],
               'dipolegrad': False,
               'files': ['MNDO.template', 'MNDO.resources']
+              },
+    'mopacpi': {'script': 'SHARC_MOPACPI.py',
+              'description': 'MOPAC-PI (AM1, PM3)',
+              'couplings': [1],
+              'dipolegrad': False,
+              'files': ['MOPACPI.template', 'MOPACPI.resources'],
+              'nomolden': []
               }
 }
 
@@ -419,7 +426,8 @@ def write_QMin(INFOS):
     string += 'unit angstrom\n'
     string += 'savedir %s\n' % (INFOS['savedir'])
     string += 'H\n'
-    string += 'molden\n'
+    if 'nomolden' not in INTERFACE[INFOS['interface']]:
+        string += 'molden\n'
     if INFOS['opt_mode'] == 0:
         string += 'grad %i\n' % (INFOS['opt'][1])
     elif INFOS['opt_mode'] in [1, 2, 3]:
