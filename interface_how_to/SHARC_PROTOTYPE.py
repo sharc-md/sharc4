@@ -55,12 +55,7 @@ all_features = set(
     ]
 )
 
-#TODO: Constants that you need. Examples:
-KCAL_TO_EH = 0.0015936010974213599
-EV_TO_EH = 0.03674930495120813
-BOHR_TO_ANG = 0.529176125
-D2AU = 1 / 0.393456
-
+#TODO: Constants that you need. Use constants from lib/constants.py!
 #TODO: Definition of your Interface class. You have to define the resources and template variables.
 class SHARC_<INTERFACE_NAME>(SHARC_ABINITIO):
     """
@@ -624,13 +619,13 @@ mocoef
                 line = f[iline]
                 s = line.split()
                 if self.QMin.molecule["point_charges"]:                         # In the fort.15 file, depending if thhe calculation includs point charges or not, there is a different amount of columns for the gradients and NACs
-                    grads[st, j, 0] =  float(s[-4]) * KCAL_TO_EH * BOHR_TO_ANG  # kcal/Ang --> H/a0
-                    grads[st, j, 1] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                    grads[st, j, 2] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
+                    grads[st, j, 0] =  float(s[-4]) * kcal_to_Eh * BOHR_TO_ANG  # kcal/Ang --> H/a0
+                    grads[st, j, 1] =  float(s[-3]) * kcal_to_Eh * BOHR_TO_ANG
+                    grads[st, j, 2] =  float(s[-2]) * kcal_to_Eh * BOHR_TO_ANG
                 else:
-                    grads[st, j, 0] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                    grads[st, j, 1] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
-                    grads[st, j, 2] =  float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG
+                    grads[st, j, 0] =  float(s[-3]) * kcal_to_Eh * BOHR_TO_ANG
+                    grads[st, j, 1] =  float(s[-2]) * kcal_to_Eh * BOHR_TO_ANG
+                    grads[st, j, 2] =  float(s[-1]) * kcal_to_Eh * BOHR_TO_ANG
                 iline += 1
 
         return grads
@@ -661,9 +656,9 @@ mocoef
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split()
-                grads[st, j, 0] =  float(s[-3]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[st, j, 1] =  float(s[-2]) * KCAL_TO_EH * BOHR_TO_ANG
-                grads[st, j, 2] =  float(s[-1]) * KCAL_TO_EH * BOHR_TO_ANG
+                grads[st, j, 0] =  float(s[-3]) * kcal_to_Eh * BOHR_TO_ANG
+                grads[st, j, 1] =  float(s[-2]) * kcal_to_Eh * BOHR_TO_ANG
+                grads[st, j, 2] =  float(s[-1]) * kcal_to_Eh * BOHR_TO_ANG
                 iline += 1
 
         return grads
@@ -716,8 +711,8 @@ mocoef
 
                 iline += 1
             if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
-                nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
+                nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
         
         return nac
     
@@ -758,8 +753,8 @@ mocoef
                 nac[s2, s1, j, 2] = -float(s[-1])
                 iline += 1
             if (dE != 0.0):
-                nac[s1,s2,...] = nac[s1,s2,...] * KCAL_TO_EH * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
-                nac[s2,s1,...] = nac[s2,s1,...] * KCAL_TO_EH * BOHR_TO_ANG / dE
+                nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
+                nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
 
         return nac
 
@@ -785,9 +780,9 @@ mocoef
                 for st in range(nmstates):
                     line = f[iline]
                     s = line.split()
-                    dmx = float(s[5]) * D2AU
-                    dmy = float(s[6]) * D2AU
-                    dmz = float(s[7]) * D2AU
+                    dmx = float(s[5]) * D2au
+                    dmy = float(s[6]) * D2au
+                    dmz = float(s[7]) * D2au
                     state = int(s[0])
                     states.append(state)
                     dm[0][state - 1][state - 1] = dmx
@@ -806,9 +801,9 @@ mocoef
             for j in range(noffdiag):
                 line = f[i]
                 s = line.split()
-                dmx = float(s[5]) * D2AU
-                dmy = float(s[6]) * D2AU
-                dmz = float(s[7]) * D2AU
+                dmx = float(s[5]) * D2au
+                dmy = float(s[6]) * D2au
+                dmz = float(s[7]) * D2au
                 dm[0][states[st] - 1][int(s[0]) - 1] = dmx
                 dm[1][states[st] - 1][int(s[0]) - 1] = dmy
                 dm[2][states[st] - 1][int(s[0]) - 1] = dmz

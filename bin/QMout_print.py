@@ -31,7 +31,7 @@ import math
 import sys
 import os
 from optparse import OptionParser
-from constants import HARTREE_TO_EV 
+from constants import HARTREE_TO_EV, IToMult 
 try:
     import numpy
     NONUMPY = False
@@ -43,25 +43,6 @@ except ImportError:
 # some constants
 DEBUG = False
 
-# hash table for conversion of multiplicity to the keywords used in COLUMBUS
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
 
 # ======================================================================= #
 

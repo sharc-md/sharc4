@@ -34,7 +34,7 @@ import datetime
 from optparse import OptionParser
 import colorsys
 import re
-from constants import U_TO_AMU, HARTREE_TO_EV
+from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
 
 # =========================================================0
 # some constants
@@ -44,25 +44,6 @@ version = '4.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, 3.0, float(version)]
 versiondate = datetime.date(2024, 4, 24)
 
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
 
 # =========================================================0
 

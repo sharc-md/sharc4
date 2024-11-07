@@ -96,7 +96,7 @@ import datetime
 # copy of arrays of arrays
 from copy import deepcopy
 from socket import gethostname
-from constants import au2a, rcm_to_Eh
+from constants import au2a, rcm_to_Eh, IToMult, IToPol
 
 
 # =========================================================0
@@ -186,36 +186,6 @@ starttime = datetime.datetime.now()
 # global variables for printing (PRINT gives formatted output, DEBUG gives raw output)
 DEBUG = False
 PRINT = True
-
-# hash table for conversion of multiplicity to the keywords used in COLUMBUS
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# hash table for conversion of polarisations to the keywords used in COLUMBUS
-IToPol = {
-    0: 'X',
-    1: 'Y',
-    2: 'Z',
-    'X': 0,
-    'Y': 1,
-    'Z': 2
-}
 
 # ======================================================================= #
 
