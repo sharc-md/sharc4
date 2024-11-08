@@ -59,28 +59,28 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
             mod = import_module(interface_name)
         except TypeError as e:
             log.debug(f"{interface_name} could not be imported (not a package)\n\t{e}")
-            interfaces.append((interface_name, "(Not Available!)", False))
+            interfaces.append((interface_name, "          (Not Available!)", False))
             continue
         except (ModuleNotFoundError, ImportError) as e:
             log.debug(f"{interface_name} could not be imported (missing dependencies)\n\t{e}")
-            interfaces.append((interface_name, "(Not Available!)", False))
+            interfaces.append((interface_name, "          (Not Available!)", False))
             continue
 
         try:
             interface = getattr(mod, interface_name)
         except AttributeError as e:
             log.debug(f"class {interface_name} not found in {mod}\n\t{e}")
-            interfaces.append((interface_name, "(Not Available!)", False))
+            interfaces.append((interface_name, "          (Not Available!)", False))
             continue
 
         if issubclass(interface, SHARC_OLD):
             log.debug(f"class {interface_name} in {mod} is a legacy class")
-            interfaces.append((interface_name, "(Not Available! Use SHARC_LEGACY to work with this interface)", False))
+            interfaces.append((interface_name, "          (Not Available! Use SHARC_LEGACY to work with this interface)", False))
             continue
 
         if type(interface) == str or not issubclass(interface, SHARC_INTERFACE):
             log.debug(f"class {interface_name} in {mod} is not derived from 'SHARC_INTERFACE'")
-            interfaces.append((interface_name, "(Not Available!)", False))
+            interfaces.append((interface_name, "          (Not Available!)", False))
             continue
 
         interfaces.append((interface_name, interface, True))
