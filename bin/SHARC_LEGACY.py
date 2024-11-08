@@ -1153,7 +1153,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
 
     @staticmethod
     def description():
-        return "    BASIC interface to run legacy interfaces via file I/O (AMS-ADF, BAGEL, COLUMBUS, MOLPRO)"
+        return "    BASIC interface for running legacy interfaces via file I/O (AMS-ADF, BAGEL, COLUMBUS, MOLPRO)"
 
     @staticmethod
     def version():
