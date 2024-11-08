@@ -1342,7 +1342,8 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         try:
             runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
-            self.log.error('Call have had some serious problems:', OSError)
+            self.log.error('Call have had some serious problems:')
+            # self.log.error(OSError)
             exit(22)
         stdoutfile.close()
         stderrfile.close()
