@@ -32,7 +32,7 @@ from io import TextIOWrapper
 
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import expand_path
+from utils import expand_path, readfile
 
 
 class SHARC_FAST(SHARC_INTERFACE):
@@ -50,6 +50,13 @@ class SHARC_FAST(SHARC_INTERFACE):
     def setup_interface(self):
         if self.persistent:
             self.savedict = {}
+            # set last_step
+            stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
+            last_step = None
+            if os.path.isfile(stepfile):
+                last_step = int(readfile(stepfile)[0])
+            self.savedict["last_step"] = last_step
+
 
     def getQMout(self):
         return self.QMout
@@ -60,12 +67,12 @@ class SHARC_FAST(SHARC_INTERFACE):
                 expand_path(self.template_file),
                 os.path.join(dir_path, self.name() + ".template"),
             )
-            if "resources_file" in self.__dict__:
+            if "resources_file" in self.__dict__ and self.resources_file:
                 os.symlink(
                     expand_path(self.resources_file),
                     os.path.join(dir_path, self.name() + ".resources"),
                 )
-            if "extra_files" in self.__dict__:
+            if "extra_files" in self.__dict__ and self.extra_files:
                 for file in self.extra_files:
                     os.symlink(
                         expand_path(file),
@@ -74,9 +81,9 @@ class SHARC_FAST(SHARC_INTERFACE):
             return
 
         shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
-        if "resources_file" in self.__dict__:
+        if "resources_file" in self.__dict__ and self.resources_file:
             shutil.copy(self.resources_file, os.path.join(dir_path, self.name() + ".resources"))
-        if "extra_files" in self.__dict__:
+        if "extra_files" in self.__dict__ and self.extra_files:
             for file in self.extra_files:
                 shutil.copy(expand_path(file), os.path.join(dir_path, os.path.split(file)[1]))
 
@@ -89,6 +96,8 @@ class SHARC_FAST(SHARC_INTERFACE):
                 return
             to_be_deleted = set()
             for istep in self.savedict:
+                if not isinstance(istep, int):
+                    continue
                 if istep < step - retain:
                     to_be_deleted.add(istep)
             for istep in to_be_deleted:
@@ -98,6 +107,7 @@ class SHARC_FAST(SHARC_INTERFACE):
 
     def write_step_file(self) -> None:
         # write step file in every step only in non-persistent mode
+        # TODO: This does not work, because of step_logic
         if not self.persistent:
             super().write_step_file()
 

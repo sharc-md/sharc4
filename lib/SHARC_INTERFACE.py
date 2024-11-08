@@ -897,7 +897,10 @@ class SHARC_INTERFACE(ABC):
 
         # TODO: implement previous_step from driver
         self.QMin.save.update({"newstep": False, "init": False, "samestep": False})
-        last_step = None
+        if self.persistent and "savedict" in self.__dict__ and "last_step" in self.savedict:
+            last_step = self.savedict["last_step"]
+        else:
+            last_step = None
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         self.log.debug(f"{stepfile =}")
         if os.path.isfile(stepfile):
