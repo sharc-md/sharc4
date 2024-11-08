@@ -33,8 +33,8 @@ then
   rm -v DEAD
 fi
 
-# Delete the file restart/STEP
-rm -v restart/STEP
+# Delete all files in restart/ that are named STEP
+find restart/ -type f -name 'STEP' -exec rm -v {} +
 
 # Delete all files in restart/ that end with ".<integer>"
 find restart/ -type f -name '*.[0-9]*' -exec rm -v {} +
