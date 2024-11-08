@@ -150,6 +150,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         interface_name: Name of SHARC interface
         """
 
+        interface_name = interface_name.upper()
         interface_name = interface_name if interface_name.split("_")[0] == "SHARC" else f"SHARC_{interface_name}"
         try:
             module = import_module(interface_name)
