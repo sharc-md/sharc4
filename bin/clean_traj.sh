@@ -12,7 +12,26 @@ echo "In TRAJ_* directory. Proceeding with deletions..."
 rm -v output.* restart.*
 
 # Delete empty indicator files
-rm -v STOP CRASHED DONT_ANALYZE RUNNING DEAD
+if [ -f STOP ]; 
+then 
+  rm -v STOP
+fi
+if [ -f CRASHED ]; 
+then 
+  rm -v CRASHED
+fi
+if [ -f DONT_ANALYZE ]; 
+then 
+  rm -v DONT_ANALYZE
+fi
+if [ -f RUNNING ]; 
+then 
+  rm -v RUNNING
+fi
+if [ -f DEAD ]; 
+then 
+  rm -v DEAD
+fi
 
 # Delete the file restart/STEP
 rm -v restart/STEP
