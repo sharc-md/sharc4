@@ -2,7 +2,6 @@ import pytest
 import os
 import numpy as np
 from SHARC_MNDO import SHARC_MNDO
-from SHARC_MNDO_OLD import SHARC_MNDO_OLD
 from utils import expand_path
 
 PATH = expand_path("$SHARC/../tests/interface")
@@ -505,7 +504,6 @@ def test_template():
                 "ici2": 1,
                 "act_orbs": [4,6,7],
                 "movo": 1,
-                "kharge": 1,
                 "imomap": 3,
                 "iop": -6,
                 "rohf": 0,
@@ -522,7 +520,6 @@ def test_template():
                 "ici2": 2,
                 "act_orbs": [4, 5, 6, 7, 8],
                 "movo": 1,
-                "kharge": 0,
                 "imomap": 0,
                 "iop": -22,
                 "rohf": 0,
