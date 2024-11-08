@@ -35,7 +35,7 @@ import copy
 import numpy as np
 # internal
 from constants import ATOMCHARGE, FROZENS
-from factory import factory
+# from factory import factory
 from SHARC_HYBRID import SHARC_HYBRID
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import (ATOM, InDir, expand_path, itnmstates, mkdir, question,
@@ -266,18 +266,19 @@ class SHARC_QMMM(SHARC_HYBRID):
             )
             raise RuntimeError()
 
-        self.qm_interface: SHARC_INTERFACE = factory(self.QMin.template["qm-program"])(
+
+        self.qm_interface: SHARC_INTERFACE = self._load_interface(self.QMin.template["qm-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['qm-program']}", loglevel=self.log.level
         )
         self.qm_interface.QMin.molecule['states'] = copy.copy(self.QMin.molecule['states'])
 
-        self.mml_interface: SHARC_INTERFACE = factory(self.QMin.template["mm-program"])(
+        self.mml_interface: SHARC_INTERFACE = self._load_interface(self.QMin.template["mm-program"])(
             persistent=self.persistent, logname=f"MML {self.QMin.template['mm-program']}", loglevel=self.log.level
         )
         self.mml_interface.QMin.molecule['states'] = [1]
 
         if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface: SHARC_INTERFACE = factory(self.QMin.template["mm-program"])(
+            self.mms_interface: SHARC_INTERFACE = self._load_interface(self.QMin.template["mm-program"])(
                 persistent=self.persistent, logname=f"MMS {self.QMin.template['mm-program']}", loglevel=self.log.level
             )
             self.mms_interface.QMin.molecule['states'] = [1]
