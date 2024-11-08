@@ -137,13 +137,13 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     def run(self):
         self._trial_failed = False
         try:
-            with InDir(os.path.join(self.QMin.resources["pwd"], "trial_interface")):
+            with InDir("trial_interface"):
                 self._trial_interface.run()
                 self._trial_interface.getQMout()
         except:  # pylint: disable=bare-except
             self.log.info("Trial interface failed, running fallback.")
             self._trial_failed = True
-            with InDir(os.path.join(self.QMin.resources["pwd"], "fallback_interface")):
+            with InDir("fallback_interface"):
                 self._fallback_interface.run()
                 self._fallback_interface.getQMout()
 
@@ -158,25 +158,25 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._fallback_interface.clean_savedir()
 
     def setup_interface(self):
-        if not os.path.isdir(path := os.path.join(self.QMin.resources["pwd"], "fallback_interface")):
-            self.log.error(f"{path} does not exist!")
+        if not os.path.isdir("fallback_interface"):
+            self.log.error(f"Path fallback_interface does not exist!")
             raise ValueError
-        if not os.path.isdir(path := os.path.join(self.QMin.resources["pwd"], "trial_interface")):
-            self.log.error(f"{path} does not exist!")
+        if not os.path.isdir("trial_interface"):
+            self.log.error(f"Path trial_interface does not exist!")
             raise ValueError
 
         # Instantiate trial and fallback interfaces
         trial = self.QMin.template["trial_interface"]
         fallback = self.QMin.template["fallback_interface"]
 
-        with InDir(os.path.join(self.QMin.resources["pwd"], "trial_interface")):
+        with InDir("trial_interface"):
             self._trial_interface = self._load_interface(trial["interface"])(trial["args"], trial["kwargs"])
             self._trial_interface.setup_mol(self.QMin)
             self._trial_interface.read_resources()
             self._trial_interface.read_template()
             self._trial_interface.setup_interface()
 
-        with InDir(os.path.join(self.QMin.resources["pwd"], "fallback_interface")):
+        with InDir("fallback_interface"):
             self._fallback_interface = self._load_interface(fallback["interface"])(fallback["args"], fallback["kwargs"])
             self._fallback_interface.setup_mol(self.QMin)
             self._fallback_interface.read_resources()
