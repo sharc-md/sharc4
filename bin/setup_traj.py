@@ -1121,7 +1121,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         if set(Couplings[i]["required"]).issubset(int_features):
             available.append(i)
     for i in Couplings:
-        log.info("%i\t%s%s" % (i, Couplings[i]["description"], ["(not available)", ""][i in available]))
+        log.info("%i\t%s%s" % (i, Couplings[i]["description"], [" (not available)", ""][i in available]))
     log.info('')
     default = [available[-1]]
     while True:
@@ -1464,8 +1464,9 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     #===========================================
 
 
+    log.info(f"\n\n{'Settings for large systems':-^60}")
+
     # rattle file
-    log.info(f"\n\n{'RATTLE':-^60}")
     INFOS["rattle"] = question("Do you want to constrain some bond lengths (via a RATTLE)?", bool, default=False)
     if INFOS["rattle"]:
         INFOS["rattlefile"] = question("specify path to rattle file: ", str, default="rattle", autocomplete=True)
@@ -2001,7 +2002,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
 
     # let user look at input and add extra stuff
     if ask:
-        if question("Do you want to see the input for the first trajectory?", bool, default=False):
+        if question("\n\nDo you want to see the input for the first trajectory?", bool, default=False):
             log.info(f"{'generated input for ' + iconddir:=^80}")
             log.info("-"*80)
             log.info(s)
@@ -2255,7 +2256,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 continue
             interface.prepare(INFOS, dirname + "/QM")
             
-            if INFOS["pysharc"]:
+            if not INFOS["pysharc"]:
                 run_qm = open(dirname + "/QM/runQM.sh", "w")
                 string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)                
                 run_qm.write(string)                               
