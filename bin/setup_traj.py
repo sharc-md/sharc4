@@ -955,6 +955,7 @@ def get_interface() -> SHARC_INTERFACE:
     log.info("")
     log.info("The following interface was selected:")
     log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
+    log.info("")
     return Interfaces[num-1][1]
 
 
@@ -962,7 +963,8 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     """get requests for every single point"""
     interface.QMin.molecule['states'] = INFOS['states']
     int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
-    log.debug(int_features)
+    log.info("\nThe following features are available from this interface:")
+    log.info(int_features)
     
     INFOS["needed_requests"] = set()
 
@@ -1464,7 +1466,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     #===========================================
 
 
-    log.info(f"\n\n{'Settings for large systems':-^60}")
+    log.info(f"\n\n{'Settings for large systems':-^60}\n")
 
     # rattle file
     INFOS["rattle"] = question("Do you want to constrain some bond lengths (via a RATTLE)?", bool, default=False)
@@ -1522,7 +1524,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
 
 
     # tether
-    if question("Do you want to use a tether? (restraints groupg of atoms to a certian absolute coordinate)", bool, default=False):
+    if question("Do you want to use a tether? (restraints groups of atoms to a certian absolute coordinate)", bool, default=False):
         INFOS["tether"] = True
         INFOS["tether_force"] = question("Specify the force in Hartree/Bohr^2", float)[0]
         while True:
@@ -1861,6 +1863,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         if "atommaskarray" in INFOS and INFOS["atommaskarray"] is not None:
             s += '\natommask external\natommaskfile "atommask"\n\n'
 
+    # SCP settings
     if INFOS['method'] == 'scp':
         s += 'pointer_basis %s\n' % (INFOS['pointer_basis'])
         s += 'neom_rep %s\n' % (INFOS['neom_rep'])
@@ -1880,17 +1883,19 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     if INFOS["pysharc"]:
         s += "notrack_phase\n"
 
-    if INFOS["sel_g"]:
-        s += "grad_select\n"
-    else:
-        s += "grad_all\n"
-    if INFOS["sel_t"]:
-        s += "nac_select\n"
-    else:
-        if "nacdr" in INFOS["needed_requests"]:
-            s += "nac_all\n"
-    if "eselect" in INFOS:
-        s += "eselect %f\n" % (INFOS["eselect"])
+    # TSH settings for selection    
+    if INFOS['method'] == 'tsh':
+        if INFOS["sel_g"]:
+            s += "grad_select\n"
+        else:
+            s += "grad_all\n"
+        if INFOS["sel_t"]:
+            s += "nac_select\n"
+        else:
+            if "nacdr" in INFOS["needed_requests"]:
+                s += "nac_all\n"
+        if "eselect" in INFOS:
+            s += "eselect %f\n" % (INFOS["eselect"])
 
     if INFOS["select_directly"]:
         s += "select_directly\n"
