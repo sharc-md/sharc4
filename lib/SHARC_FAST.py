@@ -110,6 +110,8 @@ class SHARC_FAST(SHARC_INTERFACE):
         # TODO: This does not work, because of step_logic
         if not self.persistent:
             super().write_step_file()
+        else:
+            self.savedict["last_step"] = self.QMin.save['step']
 
     def create_restart_files(self):
         # write step file in persistent mode only at the very end

@@ -107,7 +107,7 @@ class SHARC_OPENMM(SHARC_FAST):
         return "     FAST interface for OpenMM for MM force fields (based on Amber prmtop)"
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set:
-        return {"h", "grad", "overlap", "dm"}
+        return {"h", "grad", "overlap", "dm", "multipolar_fit"}
 
     def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         self.log.info("=" * 80)
@@ -130,8 +130,6 @@ class SHARC_OPENMM(SHARC_FAST):
             self.resources_file = question("Specify path to OPENMM.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
         return INFOS
 
-    def create_restart_files(self):
-        pass
 
     def run(self):
         self.simulation.context.setPositions(self.QMin.coords["coords"] * (au2a / 10))
@@ -192,6 +190,7 @@ class SHARC_OPENMM(SHARC_FAST):
         self._read_resources = True
 
     def setup_interface(self):
+        super().setup_interface()
         QMin = self.QMin
         prmtop = AmberPrmtopFile(QMin.template["prmtop"])
 

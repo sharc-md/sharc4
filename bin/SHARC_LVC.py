@@ -724,7 +724,7 @@ class SHARC_LVC(SHARC_FAST):
             # store U matrix
             if self.persistent:
                 self.savedict[self.QMin.save['step']] = {'U': np.copy(self._U)}
-                self.savedict["last_step"] = self.QMin.save['step']
+                # self.savedict["last_step"] = self.QMin.save['step']
             else:
                 with open(os.path.join(self.QMin.save["savedir"], f"U.npy.{self.QMin.save['step']}"), 'wb') as f:
                     np.save(f, self._U)  # writes a binary file (can be read with numpy.load())

@@ -636,6 +636,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # inherit current step
         self.ref_interface.QMin.save["step"] = self.QMin.save["step"]
         self.ref_interface._step_logic()
+        self.ref_interface._request_logic()
         
         # mandatory requests
         self.ref_interface.QMin.requests['nooverlap'] = False
@@ -730,6 +731,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 stepfile = os.path.join(self._kindergarden[label].QMin.save["savedir"], "STEP")
                 writefile(stepfile, str(self.ref_interface.QMin.save['step']))
                 self._kindergarden[label]._step_logic()
+                self._kindergarden[label]._request_logic()
             
             # run the children
             t1 = datetime.datetime.now()
