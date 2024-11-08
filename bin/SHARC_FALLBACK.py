@@ -13,7 +13,7 @@ AUTHORS = "Sascha Mausenberger"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 10, 31)
 NAME = "Fallback"
-DESCRIPTION = "SHARC 4.0 interface for Fallback"
+DESCRIPTION = "   HYBRID interface for calling a fallback interface if primary interface fails"
 
 CHANGELOGSTRING = """
 """

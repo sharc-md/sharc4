@@ -47,7 +47,7 @@ AUTHORS = "Sebastian Mai, Severin Polonius, Sascha Mausenberger"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "GAUSSIAN"
-DESCRIPTION = "SHARC interface for the GAUSSIAN16 program suite"
+DESCRIPTION = "AB INITIO interface for GAUSSIAN16 for single-reference methods (CIS, TDDFT)"
 
 CHANGELOGSTRING = """
 """

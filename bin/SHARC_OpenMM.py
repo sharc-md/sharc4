@@ -104,7 +104,7 @@ class SHARC_OpenMM(SHARC_FAST):
 
     @staticmethod
     def description() -> str:
-        return "Interface for the OpenMM program for MM calculations"
+        return "     FAST interface for OpenMM for MM force fields (based on Amber prmtop)"
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set:
         return {"h", "grad", "overlap", "dm"}

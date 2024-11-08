@@ -22,7 +22,7 @@ AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
 VERSION = "0.2"
 VERSIONDATE = datetime.datetime(2024, 4, 3)
 NAME = "MNDO"
-DESCRIPTION = "SHARC interface for the MNDO program"
+DESCRIPTION = "AB INITIO interface for the MNDO program (OM2-MRCI)"
 
 CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Only OM2/MRCI

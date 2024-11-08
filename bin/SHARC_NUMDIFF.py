@@ -205,7 +205,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
     
     @staticmethod
     def description():
-        return "Hybrid interface for numerical differentiation."
+        return "   HYBRID interface for numerical derivatives (grad, NACdr, SOCdr, DMdr)"
     
     @ staticmethod
     def changelogstring():

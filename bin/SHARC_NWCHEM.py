@@ -19,7 +19,7 @@ AUTHORS = "Sascha Mausenberger, Sebastian Mai"
 VERSION = "1.0"
 VERSIONDATE = datetime.datetime(2024, 3, 25)
 NAME = "NWCHEM"
-DESCRIPTION = "SHARC 4.0 interface for NWChem"
+DESCRIPTION = "AB INITIO interface for NWChem (TDDFT)"
 
 CHANGELOGSTRING = """
 """

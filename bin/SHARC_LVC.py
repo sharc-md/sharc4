@@ -99,7 +99,7 @@ class SHARC_LVC(SHARC_FAST):
 
     @staticmethod
     def description():
-        return "Linear Vibronic Coupling model calculations"
+        return "     FAST interface for linear/quadratic vibronic coupling models (LVC, QVC, LVC/MM)"
 
     def read_template(self, template_filename="LVC.template"):
         f = open(os.path.abspath(template_filename), "r")

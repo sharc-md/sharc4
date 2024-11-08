@@ -43,7 +43,7 @@ AUTHORS = "Sebastian Mai"
 VERSION = "3.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "SHARC Do Nothing Interface"
-DESCRIPTION = "Zero energies/gradients/couplings/etc and unity overlap matrices/phases."
+DESCRIPTION = "     FAST interface for testing (zero E/grad/NAC/DM, unity overlaps/phases)"
 
 CHANGELOGSTRING = """
 """

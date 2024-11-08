@@ -89,7 +89,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
     @staticmethod
     def description():
-        return "Hybrid interface for adding umbrella-sampling-style restraints"
+        return "   HYBRID interface for adding umbrella-sampling-style restraints (harmonic bonds, angles, dihedrals, energy gaps)"
 
     @staticmethod
     def version():

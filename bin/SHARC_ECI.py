@@ -28,7 +28,7 @@ AUTHORS = "Tomislav Piteša & Sascha Mausenberger"
 VERSION = "1.0"
 VERSIONDATE = datetime.datetime(2024, 2, 20)
 NAME = "ECI"
-DESCRIPTION = ""
+DESCRIPTION = "   HYBRID interface for excitonic HF/CI with multiple fragments"
 
 CHANGELOGSTRING = """
 """

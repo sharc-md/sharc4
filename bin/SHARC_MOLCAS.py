@@ -26,7 +26,7 @@ AUTHORS = "Sascha Mausenberger, Lorenz Grünewald, Sebastian Mai"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "MOLCAS"
-DESCRIPTION = "MOLCAS interface for CASSCF/RASSCF, CASPT2, MS-CASPT2, XMS-CASPT2 and CMS-PDFT"
+DESCRIPTION = "AB INITIO interface for OpenMolcas (>v23) for multireference calculations (CASSCF/RASSCF, MS/XMS-CASPT2, CMS-PDFT)"
 
 CHANGELOGSTRING = """
 """

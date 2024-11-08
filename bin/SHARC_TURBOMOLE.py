@@ -22,7 +22,7 @@ AUTHORS = "Sascha Mausenberger, Sebastian Mai"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 5, 29)
 NAME = "TURBOMOLE"
-DESCRIPTION = "SHARC interface for TURBOMOLE (RICC2/ADC2)"
+DESCRIPTION = "AB INITIO interface for TURBOMOLE (RICC2/ADC2)"
 
 CHANGELOGSTRING = """
 """

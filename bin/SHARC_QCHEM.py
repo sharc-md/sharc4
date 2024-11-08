@@ -17,7 +17,7 @@ AUTHORS = "Sascha Mausenberger, Sebastian Mai"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 8, 27)
 NAME = "QCHEM"
-DESCRIPTION = "SHARC interface for QCHEM"
+DESCRIPTION = "AB INITIO interface for QCHEM"
 
 CHANGELOGSTRING = """
 """

@@ -100,7 +100,7 @@ class SHARC_QMMM(SHARC_HYBRID):
 
     @staticmethod
     def description():
-        return "Hybrid interface for QM/MM"
+        return "   HYBRID interface for QM/MM (electrostatic embedding, link atom scheme)"
 
     @staticmethod
     def version():

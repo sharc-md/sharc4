@@ -23,7 +23,7 @@ AUTHORS = ""
 VERSION = ""
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "ORCA"
-DESCRIPTION = "SHARC interface for ORCA5"
+DESCRIPTION = "AB INITIO interface for ORCA v5-6 (CIS/TDDFT)"
 
 CHANGELOGSTRING = """
 """

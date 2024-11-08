@@ -22,7 +22,7 @@ AUTHORS = "Eduarda Sangiogo Gil"
 VERSION = "0.1"
 VERSIONDATE = datetime.datetime(2024, 7, 30)
 NAME = "MOPACPI"
-DESCRIPTION = "SHARC interface for the MOPAC-PI program"
+DESCRIPTION = "AB INITIO interface for the MOPAC-PI program"
 
 CHANGELOGSTRING = """For now, this implementation is the simplest possible...
 """

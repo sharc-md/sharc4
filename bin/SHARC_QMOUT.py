@@ -42,7 +42,7 @@ AUTHORS = "Sebastian Mai"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "SHARC constant data interface"
-DESCRIPTION = "Constant E/SOC/DM, unity overlap, zero gradients/couplings."
+DESCRIPTION = "     FAST interface for frozen-nuclei dynamics (constant E/SOC/DM, unit overlaps, zero grad/NAC)"
 
 CHANGELOGSTRING = """
 """
