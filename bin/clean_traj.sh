@@ -11,6 +11,9 @@ echo "In TRAJ_* directory. Proceeding with deletions..."
 # Delete files with prefixes output.* and restart.*
 rm -v output.* restart.*
 
+# Delete output_data folder
+rm -vr output_data/
+
 # Delete empty indicator files
 if [ -f STOP ]; 
 then 
@@ -33,10 +36,10 @@ then
   rm -v DEAD
 fi
 
-# Delete all files in restart/ that are named STEP
+# Recursively delete all files in restart/ that are named STEP
 find restart/ -type f -name 'STEP' -exec rm -v {} +
 
-# Delete all files in restart/ that end with ".<integer>"
+# Recursively delete all files in restart/ that end with ".<integer>"
 find restart/ -type f -name '*.[0-9]*' -exec rm -v {} +
 
 # Recursively delete all files in QM/ that start with QM.
