@@ -305,9 +305,14 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
             # TODO: could use schedule scaling and Amdahl, but SHARC_HYBRID does not have it
 
+        # if we need overlaps, we need to modify the INFOS['needed_requests'] to tell children to prepare for that
+        INFOS_copy = deepcopy(INFOS)
+        if self.QMin.template["numdiff_representation"] == 'diabatic' or "nacdr" in INFOS['needed_requests']:
+            INFOS_copy['needed_requests'].add('overlap')
+
         # Get the infos from the child
         self.log.info(f"{' Setting up QM-interface ':=^80s}\n")
-        self.ref_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
+        self.ref_interface.get_infos(INFOS_copy, KEYSTROKES=KEYSTROKES)
 
         return INFOS
 
@@ -356,8 +361,13 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         self.ref_interface.QMin.save["savedir"] = ref_savedir
         self.ref_interface.QMin.resources["scratchdir"] = ref_scratchdir
 
+        # if we need overlaps, we need to modify the INFOS['needed_requests'] to tell children to prepare for that
+        INFOS_copy = deepcopy(INFOS)
+        if self.QMin.template["numdiff_representation"] == 'diabatic' or "nacdr" in INFOS['needed_requests']:
+            INFOS_copy['needed_requests'].add('overlap')
+        
         # Call prepare for the reference interface
-        self.ref_interface.prepare(INFOS, qmdir)
+        self.ref_interface.prepare(INFOS_copy, qmdir)
 
         return
 
