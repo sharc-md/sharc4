@@ -38,12 +38,10 @@ import ast
 
 import numpy as np
 # internal
-from constants import ATOMCHARGE, FROZENS, IToMult
-from factory import factory
+from constants import IToMult
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
-from utils import (ATOM, InDir, expand_path, itnmstates, mkdir, question,
-                   readfile, writefile)
+from utils import mkdir, question, writefile
 from logger import log
 
 
