@@ -36,12 +36,8 @@ from typing import Optional
 import itertools
 
 # internal
-from constants import ATOMCHARGE, FROZENS
-from factory import factory
 from SHARC_HYBRID import SHARC_HYBRID
-from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import ATOM, InDir, itnmstates, mkdir, question, readfile, expand_path, cleandir, writefile
-from qmout import formatcomplexmatrix
+from utils import InDir, mkdir, question, cleandir, writefile
 
 version = '1.0'
 versiondate = datetime.datetime(2023, 11, 3)
