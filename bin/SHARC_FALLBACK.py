@@ -152,6 +152,11 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._trial_interface.create_restart_files()
         self._fallback_interface.create_restart_files()
 
+    def write_step_file(self):
+        super().write_step_file()
+        self._trial_interface.write_step_file()
+        self._fallback_interface.write_step_file()
+
     def clean_savedir(self):
         super().clean_savedir()
         self._trial_interface.clean_savedir()
@@ -159,10 +164,10 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 
     def setup_interface(self):
         if not os.path.isdir("fallback_interface"):
-            self.log.error(f"Path fallback_interface does not exist!")
+            self.log.error("Path fallback_interface does not exist!")
             raise ValueError
         if not os.path.isdir("trial_interface"):
-            self.log.error(f"Path trial_interface does not exist!")
+            self.log.error("Path trial_interface does not exist!")
             raise ValueError
 
         # Instantiate trial and fallback interfaces
