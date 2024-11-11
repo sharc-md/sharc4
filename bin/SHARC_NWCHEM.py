@@ -808,7 +808,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         job = qmin.control["jobid"]
         # Total memory, charge and geometry
         input_str = f"memory total {self.QMin.resources['memory']} mb\n"
-        input_str += f"charge {self.QMin.template['charge'][job-1]}\n"
+        input_str += f"charge {self.QMin.molecule['charge'][job-1]}\n"
         input_str += "geometry units bohr noautosym nocenter\n load format xyz input.xyz\nend\n\n"
 
         # Basis set
