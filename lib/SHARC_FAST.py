@@ -43,13 +43,13 @@ class SHARC_FAST(SHARC_INTERFACE):
         self.template_file = None
         self.resources_file = None
         self.extra_files = None
+        self.savedict = {}
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         return INFOS
 
     def setup_interface(self):
         if self.persistent:
-            self.savedict = {}
             # set last_step
             stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
             last_step = None
