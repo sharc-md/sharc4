@@ -525,7 +525,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             codes.append(self.run_program(workdir, "dscf", "dscf.out", "dscf.err"))
             self.log.debug(f"dscf exited with code {codes[-1]}")
 
-            # TODO: dm
             exc_section = []
             if qmin.requests["soc"] and jobid == 1:
                 exc_section.append(
@@ -987,8 +986,23 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     s_cnt += states[i - 1]
 
             if self.QMin.requests["dm"]:
-                # TODO: fix other mults than S
-                pass
+                # Parse GS->EX dipoles
+                if self.QMin.template["dipolelevel"] > 0:
+                    n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][: mult - 1], 1))
+                    n_states = self.QMin.molecule["states"][mult - 1]
+                    dipoles = self._get_gs_ex_dipole(ricc2_out)
+                    for i in range(mult):
+                        for j in range(mult):
+                            self.QMout["dm"][
+                                :,
+                                n_state + (n_states * j),
+                                n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
+                            ] = dipoles
+                            self.QMout["dm"][
+                                :,
+                                n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
+                                n_state + (n_states * j),
+                            ] = dipoles
 
             # Theodore
             if self.QMin.requests["theodore"]:
@@ -1086,6 +1100,17 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                             self.QMout["dm"][:, idx, idx] = self._get_static_dipole(grad_content, gs)
 
         return self.QMout
+
+    def _get_gs_ex_dipole(self, ricc2_out: str) -> np.ndarray:
+        """
+        Parse gs->ex dipole moments from ASCII ricc2 output
+        """
+        if not (
+            dipoles := re.findall(r"transition strength \|\n.*\n.*?(-?\d+\.\d+).*\n.*?(-?\d+\.\d+).*\n.*?(-?\d+\.\d+)", ricc2_out)
+        ):
+            self.log.error("GS->EX dipole moments not found in ricc2.out!")
+            raise ValueError
+        return np.einsum("ij->ji", np.array(dipoles))
 
     def _get_static_dipole(self, ricc2_out: str, ground_state: bool = True) -> np.ndarray:
         """
