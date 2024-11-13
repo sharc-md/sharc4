@@ -992,17 +992,16 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     n_states = self.QMin.molecule["states"][mult - 1]
                     dipoles = self._get_gs_ex_dipole(ricc2_out)
                     for i in range(mult):
-                        for j in range(mult):
-                            self.QMout["dm"][
-                                :,
-                                n_state + (n_states * j),
-                                n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
-                            ] = dipoles
-                            self.QMout["dm"][
-                                :,
-                                n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
-                                n_state + (n_states * j),
-                            ] = dipoles
+                        self.QMout["dm"][
+                            :,
+                            n_state + (n_states * i),
+                            n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
+                        ] = dipoles
+                        self.QMout["dm"][
+                            :,
+                            n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
+                            n_state + (n_states * i),
+                        ] = dipoles
                 if (self.QMin.template["dipolelevel"] > 1 and self.QMin.molecule["states"][mult - 1] > 2) or (
                     mult == 1 and self.QMin.requests["soc"]
                 ):
@@ -1029,10 +1028,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                             ] += trip_mat
                         self.QMout["dm"][:, :n_sing, :n_sing] += sub_mat
                     else:
-                        n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][:mult], 1))
-                        mult_state = self.QMin.molecule["states"][mult-1]
+                        n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][: mult - 1], 1))
+                        mult_state = self.QMin.molecule["states"][mult - 1]
                         for i in range(3):
-                            sub_mat[i][np.triu_indices(mult_state,2)] = dipoles[i,:]
+                            sub_mat[i][np.triu_indices(mult_state, 2)] = dipoles[i, :]
                             sub_mat[i] += sub_mat[i].T
                         for i in range(mult):
                             self.QMout["dm"][
