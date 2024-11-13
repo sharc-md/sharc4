@@ -1397,7 +1397,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
 
 
     def getQMout(self):
-        WORKDIR =  os.path.abspath(self.QMin.template['child-dir'])
+        WORKDIR = os.path.join(self.QMin.resources["scratchdir"], self.QMin.template['child-dir'])
         filename = os.path.join(WORKDIR,'QM.out')
         if not os.path.isfile(filename):
             self.log.error('No QM.out file found!')
@@ -1426,12 +1426,13 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         # assign stuff
         items = ['h', 'dm', 'grad', 'overlap', 'phases', 'prop1d', 'prop2d', 'nacdr']
         errors = 0
-        for i in items and i in requests:
-            if i in self.QMout:
-                self.QMout[i] = QMout2[i]
-            else:
-                self.log.error(f"Request '{i}' not found in QM.out file of child interface!")
-                errors += 1
+        for i in items:
+            if i in requests:
+                if i in self.QMout:
+                    self.QMout[i] = QMout2[i]
+                else:
+                    self.log.error(f"Request '{i}' not found in QM.out file of child interface!")
+                    errors += 1
         if errors > 0:
             self.log.error("Not all requests could be retrieved!")
             exit(1)

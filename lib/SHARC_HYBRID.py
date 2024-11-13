@@ -32,6 +32,7 @@ from time import sleep
 
 from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
+from utils import InDir
 
 
 class SHARC_HYBRID(SHARC_INTERFACE):
@@ -70,8 +71,9 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                 children_dict[label]._step_logic()
                 children_dict[label]._request_logic()
                 children_dict[label].QMout.mol = None
-                children_dict[label].run()
-                children_dict[label].getQMout()
+                with InDir(children_dict[label].QMin.resources['pwd']):
+                    children_dict[label].run()
+                    children_dict[label].getQMout()
                 if children_dict[label].QMout.mol is not None:
                     children_dict[label].QMout.mol = Mole.pack(children_dict[label].QMout.mol)
                 children_dict[label].clean_savedir()
@@ -84,9 +86,18 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             finally:
                 n_used_cpu.value -= children_dict[label].QMin.resources["ncpu"]
 
+        # check if a child needs more CPUs than we have available
+        for label, child in children_dict.items():
+            if child.QMin.resources["ncpu"] > ncpu:
+                ncpu_needed = child.QMin.resources["ncpu"]
+                logger.error(f"Child {label} is set up to run with {ncpu_needed} cores, but only {ncpu} cores available")
+                raise RuntimeError
+
         # Add jobs to queue until finished
         processes = []
+        logger.info("Entering main loop ...")
         for label, child in children_dict.items():
+            logger.debug(f"Waiting to start child {label}")
             while True:
                 if ncpu - n_used_cpu.value >= child.QMin.resources["ncpu"]:
                     processes.append(Process(target=run_a_child, args=(label, n_used_cpu, qmins, qmouts)))

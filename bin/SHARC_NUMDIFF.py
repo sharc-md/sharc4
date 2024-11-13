@@ -307,7 +307,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         """
             )
             INFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
-            INFOS["scratchdir_numdiff"] = abs(question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)[0])
+            INFOS["scratchdir_numdiff"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
 
             # TODO: could use schedule scaling and Amdahl, but SHARC_HYBRID does not have it
 
@@ -645,7 +645,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         # run the child
         with InDir(self.ref_interface.QMin.resources['pwd']):
-            # TODO: where to run it? self.ref_interface.QMin.resources['pwd']
             self.ref_interface.run()
             self.ref_interface.getQMout()
             self.ref_interface.write_step_file()
@@ -729,6 +728,14 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                     fromfile = os.path.join(self.ref_interface.QMin.save['savedir'],f)
                     tofile = os.path.join(self._kindergarden[label].QMin.save['savedir'],f)
                     shutil.copy(fromfile,tofile)
+                # TODO: extra copy rules for LEGACY interface
+                if self.QMin.template['qm-program'].upper() == "LEGACY":
+                    for f in ["MOLPRO", "COLUMBUS", "ADF_AMS", "BAGEL"]:
+                        fromdir = os.path.join(self.ref_interface.QMin.save['savedir'],f)
+                        if os.path.isdir(fromdir):
+                            self.log.info("Copying subdirectories for LEGACY interface")
+                            todir = os.path.join(self._kindergarden[label].QMin.save['savedir'],f)
+                            shutil.copytree(fromdir, todir)
                 # set step for displaced child
                 self._kindergarden[label].QMin.save['step'] = self.ref_interface.QMin.save['step'] + 1
                 stepfile = os.path.join(self._kindergarden[label].QMin.save["savedir"], "STEP")
@@ -738,6 +745,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             
             # run the children
             t1 = datetime.datetime.now()
+            self.log.info('\nSTART:\t%s' % (t1))
             self.run_children(self.log, 
                               self._kindergarden, 
                               self.QMin.resources['ncpu'])
