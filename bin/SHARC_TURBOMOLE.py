@@ -14,7 +14,7 @@ from pyscf import gto, tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from SHARC_ORCA import SHARC_ORCA
-from utils import expand_path, itmult, mkdir, writefile
+from utils import expand_path, itmult, mkdir, question, writefile, link
 
 __all__ = ["SHARC_TURBOMOLE"]
 
@@ -218,6 +218,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         )
 
         self._ao_labels = None
+        self._resources_file = None
+        self._template_file = None
 
     @staticmethod
     def version() -> str:
@@ -257,10 +259,59 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         return all_features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
-        pass
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'TURBOMOLE interface setup':^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+        if question("Do you have a TURBOMOLE.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
+            while not os.path.isfile(
+                resources_file := question("Specify path to TURBOMOLE.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+            ):
+                self.log.info(f"File {resources_file} does not exist!")
+            self._resources_file = resources_file
+        else:
+            self.log.info(f"{'TURBOMOLE ressource usage':-^60}\n")
+            INFOS["turbodir"] = question("Specify path to TURBOMOLE: ", str, KEYSTROKES=KEYSTROKES)
+            if "soc" in INFOS["needed_requests"]:
+                INFOS["orcadir"] = question("Specify path to ORCA (< 5.0.0) to calculate SOCs:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("Please specify the number of CPUs to be used by EACH trajectory.\n")
+            INFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
+            INFOS["memory"] = question(
+                "Specify the amount of RAM to be used.\nMemory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES
+            )[0]
+            if "overlap" in INFOS["needed_requests"]:
+                INFOS["wfoverlap"] = question(
+                    "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
+                )
+                self.log.info("State threshold for choosing determinants to include in the overlaps")
+                INFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+
+        self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
+        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+
+        if os.path.isfile("TURBOMOLE.template"):
+            self.log.info("Found TURBOMOLE.template in current directory")
+            if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+                self._template_file = "TURBOMOLE.template"
+        else:
+            self.log.info("Specify a path to a TURBOMOLE template file.")
+            while not os.path.isfile(template_file := question("Template path:", str, KEYSTROKES=KEYSTROKES)):
+                self.log.info(f"File {template_file} does not exist!")
+            self._template_file = template_file
+
+        return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str):
-        pass
+        create_file = link if INFOS["link_files"] else shutil.copy
+        if not self._resources_file:
+            with open(os.path.join(dir_path, "TURBOMOLE.resources"), "w", encoding="utf-8") as file:
+                for key in ("turbodir", "orcadir", "scratchdir", "ncpu", "memory", "wfoverlap", "wfthres"):
+                    if key in INFOS:
+                        file.write(f"{key} {INFOS[key]}\n")
+        else:
+            create_file(expand_path(self._resources_file), os.path.join(dir_path, "TURBOMOLE.resources"))
+        create_file(expand_path(self._template_file), os.path.join(dir_path, "TURBOMOLE.template"))
 
     def read_template(self, template_file: str = "TURBOMOLE.template", kw_whitelist: list[str] | None = None) -> None:
         super().read_template(template_file, kw_whitelist)
