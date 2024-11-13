@@ -1006,14 +1006,14 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     mult == 1 and self.QMin.requests["soc"]
                 ):
                     dipoles = self._get_ex_ex_dipole(ricc2_out)
-                    sub_mat = np.zeros(3 * (self.QMin.molecule["states"][mult - 1] ** 2)).reshape(
-                        (3, self.QMin.molecule["states"][mult - 1], -1)
+                    sub_mat = np.zeros(3 * ((self.QMin.molecule["states"][mult - 1] - 1) ** 2)).reshape(
+                        (3, self.QMin.molecule["states"][mult - 1] - 1, -1)
                     )
+                    up_idx = np.triu_indices(sub_mat.shape[1], 1)
                     if mult == 1 and self.QMin.requests["soc"]:
                         n_trip = self.QMin.molecule["states"][2]
                         n_sing = self.QMin.molecule["states"][0]
                         trip_mat = np.zeros(3 * (n_trip**2)).reshape((3, n_trip, -1))
-                        up_idx = np.triu_indices(sub_mat.shape[1], 2)
                         for i in range(3):
                             sub_mat[i][up_idx] = dipoles[i, : up_idx[0].shape[0]]
                             sub_mat[i] += sub_mat[i].T
@@ -1026,18 +1026,18 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                                 n_state + (i * n_trip) : n_state + ((i + 1) * n_trip),
                                 n_state + (i * n_trip) : n_state + ((i + 1) * n_trip),
                             ] += trip_mat
-                        self.QMout["dm"][:, :n_sing, :n_sing] += sub_mat
+                        self.QMout["dm"][:, 1:n_sing, 1:n_sing] += sub_mat
                     else:
                         n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][: mult - 1], 1))
                         mult_state = self.QMin.molecule["states"][mult - 1]
                         for i in range(3):
-                            sub_mat[i][np.triu_indices(mult_state, 2)] = dipoles[i, :]
+                            sub_mat[i][up_idx] = dipoles[i, :]
                             sub_mat[i] += sub_mat[i].T
                         for i in range(mult):
                             self.QMout["dm"][
                                 :,
-                                n_state + (i * mult_state) : n_state + ((i + 1) * mult_state),
-                                n_state + (i * mult_state) : n_state + ((i + 1) * mult_state),
+                                n_state + (i * (mult_state)) + 1 : n_state + ((i + 1) * mult_state),
+                                n_state + (i * (mult_state)) + 1 : n_state + ((i + 1) * mult_state),
                             ] += sub_mat
 
             # Theodore
