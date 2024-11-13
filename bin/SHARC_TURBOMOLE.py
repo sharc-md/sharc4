@@ -1003,6 +1003,43 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                                 n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
                                 n_state + (n_states * j),
                             ] = dipoles
+                if (self.QMin.template["dipolelevel"] > 1 and self.QMin.molecule["states"][mult - 1] > 2) or (
+                    mult == 1 and self.QMin.requests["soc"]
+                ):
+                    dipoles = self._get_ex_ex_dipole(ricc2_out)
+                    sub_mat = np.zeros(3 * (self.QMin.molecule["states"][mult - 1] ** 2)).reshape(
+                        (3, self.QMin.molecule["states"][mult - 1], -1)
+                    )
+                    if mult == 1 and self.QMin.requests["soc"]:
+                        n_trip = self.QMin.molecule["states"][2]
+                        n_sing = self.QMin.molecule["states"][0]
+                        trip_mat = np.zeros(3 * (n_trip**2)).reshape((3, n_trip, -1))
+                        up_idx = np.triu_indices(sub_mat.shape[1], 2)
+                        for i in range(3):
+                            sub_mat[i][up_idx] = dipoles[i, : up_idx[0].shape[0]]
+                            sub_mat[i] += sub_mat[i].T
+                            trip_mat[i][np.triu_indices(trip_mat.shape[1], 1)] = dipoles[i, up_idx[0].shape[0] :]
+                            trip_mat[i] += trip_mat[i].T
+                        for i in range(3):
+                            n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][:2], 1))
+                            self.QMout["dm"][
+                                :,
+                                n_state + (i * n_trip) : n_state + ((i + 1) * n_trip),
+                                n_state + (i * n_trip) : n_state + ((i + 1) * n_trip),
+                            ] += trip_mat
+                        self.QMout["dm"][:, :n_sing, :n_sing] += sub_mat
+                    else:
+                        n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][:mult], 1))
+                        mult_state = self.QMin.molecule["states"][mult-1]
+                        for i in range(3):
+                            sub_mat[i][np.triu_indices(mult_state,2)] = dipoles[i,:]
+                            sub_mat[i] += sub_mat[i].T
+                        for i in range(mult):
+                            self.QMout["dm"][
+                                :,
+                                n_state + (i * mult_state) : n_state + ((i + 1) * mult_state),
+                                n_state + (i * mult_state) : n_state + ((i + 1) * mult_state),
+                            ] += sub_mat
 
             # Theodore
             if self.QMin.requests["theodore"]:
@@ -1101,6 +1138,20 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
         return self.QMout
 
+    def _get_ex_ex_dipole(self, ricc2_out: str) -> np.ndarray:
+        """
+        Get ex->ex dipole moments from ASCII ricc2 output
+        """
+        if not (
+            dipoles := re.findall(
+                r"Transition Strength\n.*?diplen\s+(-?\d+\.\d+).*\n.*?diplen\s+(-?\d+\.\d+).*\n.*?diplen\s+(-?\d+\.\d+)",
+                ricc2_out,
+            )
+        ):
+            self.log.error("EX->EX dipoles not found in ricc2.out!")
+            raise ValueError
+        return np.einsum("ij->ji", np.array(dipoles, dtype=float))
+
     def _get_gs_ex_dipole(self, ricc2_out: str) -> np.ndarray:
         """
         Parse gs->ex dipole moments from ASCII ricc2 output
@@ -1110,7 +1161,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         ):
             self.log.error("GS->EX dipole moments not found in ricc2.out!")
             raise ValueError
-        return np.einsum("ij->ji", np.array(dipoles))
+        return np.einsum("ij->ji", np.array(dipoles, dtype=float))
 
     def _get_static_dipole(self, ricc2_out: str, ground_state: bool = True) -> np.ndarray:
         """
@@ -1136,7 +1187,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             ):
                 self.log.error("No static dipole found in ricc2.out!")
                 raise ValueError
-        return np.array(dipole[0])
+        return np.array(dipole[0], dtype=float)
 
     def _get_gradients(self, ricc2_out: str) -> np.ndarray:
         """
