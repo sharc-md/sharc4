@@ -41,7 +41,7 @@ import numpy as np
 from constants import IToMult
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
-from utils import mkdir, question, writefile
+from utils import mkdir, question, writefile, cleandir, InDir
 from logger import log
 
 
@@ -87,7 +87,7 @@ Interfaces = {
                      'overlap': ['wfoverlap'],
                      'ion': ['wfoverlap'],
                      'nacdr': [],
-                     'phases': ['wfoverlap'],
+                     'phases': ['wfoverlap'],   
                      },
         },
     3: {'script': 'SHARC_AMS_ADF.py',
@@ -130,6 +130,17 @@ def centerstring(string, n, pad=' '):
 
 
 
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -1112,6 +1123,17 @@ def prepare_BAGEL(INFOS, iconddir):
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
 
 
@@ -1271,6 +1293,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         else:
             self.log.error('No child interface given in LEGACY.template!')
             exit(1)
+        self.QMin.template['child-dir_full'] = os.path.abspath(os.path.expanduser(os.path.expandvars(self.QMin.template['child-dir'])))
 
         
 
@@ -1282,15 +1305,26 @@ class SHARC_LEGACY(SHARC_INTERFACE):
 
 
     def setup_interface(self):
+        # setup save dir
         self.qm_savedir = os.path.join(self.QMin.save["savedir"], Interfaces[self.legacy_interface]['name'].upper())
         if not os.path.isdir(self.qm_savedir):
             mkdir(self.qm_savedir)
+        # setup scratch dir to run 
+        if not os.path.isdir(self.QMin.resources["scratchdir"]):
+            mkdir(self.QMin.resources["scratchdir"])
         return
 
 
 
 
     def run(self):
+        # scratch directory and copy everything from child-dir into WORKDIR
+        WORKDIR = os.path.join(self.QMin.resources["scratchdir"], self.QMin.template['child-dir'])
+        cleandir(WORKDIR)
+        self.log.info('LEGACY: source  directory: %s' % self.QMin.template['child-dir'])
+        self.log.info('LEGACY: working directory: %s' % WORKDIR)
+        shutil.copytree(self.QMin.template['child-dir_full'], WORKDIR, dirs_exist_ok = True)
+
         # coordinates
         string = '%i\n\n' % self.QMin.molecule['natom']
         for i,atom in enumerate(self.QMin.coords["coords"]):
@@ -1325,12 +1359,16 @@ class SHARC_LEGACY(SHARC_INTERFACE):
                         string += 'end\n'
                 
         # write QM.in file
-        WORKDIR = os.path.abspath(self.QMin.template['child-dir'])
         filename = os.path.join(WORKDIR,'QM.in')
         writefile(filename, string)
 
+        # removing QM.out file that may be still present from previous step
+        filename = os.path.join(WORKDIR,'QM.out')
+        if os.path.isfile(filename):
+            os.remove(filename)
+
         # call run script
-        string = 'bash %s/runQM.sh' % self.QMin.template['child-dir']
+        string = 'bash %s/runQM.sh' % WORKDIR
         starttime = datetime.datetime.now()
         self.log.info('START:\t%s\t%s\t"%s"\n' % (WORKDIR, starttime, string))
 
@@ -1338,7 +1376,8 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         stdoutfile = open(os.path.join(WORKDIR, 'runQM.out'), 'w')
         stderrfile = open(os.path.join(WORKDIR, 'runQM.err'), 'w')
         try:
-            runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
+            with InDir(self.QMin.resources["scratchdir"]):
+                runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
             self.log.error('Call have had some serious problems:')
             # self.log.error(OSError)
@@ -1349,6 +1388,10 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         endtime = datetime.datetime.now()
         self.log.info('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (WORKDIR, endtime, endtime - starttime, runerror))
         
+        if runerror != 0:
+            self.log.error("Child interface did not terminate successfully!")
+            exit(1)
+
         return
 
 
@@ -1382,9 +1425,16 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         
         # assign stuff
         items = ['h', 'dm', 'grad', 'overlap', 'phases', 'prop1d', 'prop2d', 'nacdr']
-        for i in items:
+        errors = 0
+        for i in items and i in requests:
             if i in self.QMout:
                 self.QMout[i] = QMout2[i]
+            else:
+                self.log.error(f"Request '{i}' not found in QM.out file of child interface!")
+                errors += 1
+        if errors > 0:
+            self.log.error("Not all requests could be retrieved!")
+            exit(1)
 
         self.QMout.runtime = self.clock.measuretime()
         return self.QMout

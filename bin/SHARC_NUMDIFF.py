@@ -245,7 +245,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 raise NotImplementedError
         
 
-        ref_features = self.ref_interface.get_features()
+        ref_features = self.ref_interface.get_features(KEYSTROKES=KEYSTROKES)
         needed = {'grad': set(['h']),
                   'socdr': set(['soc']),
                   'dmdr': set(['dm']),
@@ -301,12 +301,13 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         if question("Do you have an NUMDIFF.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
             self.resources_file = question("Specify path to NUMDIFF.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
         else:
-            self.log.info(f"{'ORCA Ressource usage':-^60}\n")
+            self.log.info(f"{'NUMDIFF Ressource usage':-^60}\n")
             self.log.info(
                 """Please specify the number of CPUs to be used by EACH trajectory.
         """
             )
             INFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
+            INFOS["scratchdir_numdiff"] = abs(question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)[0])
 
             # TODO: could use schedule scaling and Amdahl, but SHARC_HYBRID does not have it
 
@@ -342,7 +343,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".resources"))
 
         # write resource file
-        string = 'ncpu %i\n' % (INFOS['ncpu_numdiff'])
+        string = 'ncpu %i\nscratchdir %s\n' % (INFOS['ncpu_numdiff'], INFOS["scratchdir_numdiff"])
         writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
         # Setup sub-dir for the QM calcs
@@ -643,9 +644,11 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         self.ref_interface.QMin.requests['cleanup'] = False
 
         # run the child
-        self.ref_interface.run()
-        self.ref_interface.getQMout()
-        self.ref_interface.write_step_file()
+        with InDir(self.ref_interface.QMin.resources['pwd']):
+            # TODO: where to run it? self.ref_interface.QMin.resources['pwd']
+            self.ref_interface.run()
+            self.ref_interface.getQMout()
+            self.ref_interface.write_step_file()
 
         # --- displaced child calculations ---
 

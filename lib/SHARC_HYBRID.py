@@ -68,6 +68,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             logger.info(f"Run child {label} on {os.uname()[1]} with pid: {os.getpid()}")
             try:
                 children_dict[label]._step_logic()
+                children_dict[label]._request_logic()
                 children_dict[label].QMout.mol = None
                 children_dict[label].run()
                 children_dict[label].getQMout()
