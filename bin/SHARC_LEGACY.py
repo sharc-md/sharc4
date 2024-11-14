@@ -287,7 +287,7 @@ ncpu %i
         parent.setupINFOS['molpro'],
         parent.setupINFOS['scratchdir'],
         iconddir,
-        parent.setupINFOS['copydir'],
+        INFOS['copydir'],
         iconddir,
         parent.setupINFOS['molpro.gradaccudefault'],
         parent.setupINFOS['molpro.gradaccumax'],
@@ -619,7 +619,7 @@ template %s
     parent.setupINFOS['columbus'], 
     parent.setupINFOS['scratchdir'], 
     iconddir, 
-    parent.setupINFOS['copydir'], 
+    INFOS['copydir'], 
     iconddir, 
     parent.setupINFOS['columbus.mem'], 
     parent.setupINFOS['columbus.template']
@@ -888,7 +888,7 @@ def prepare_AMS(INFOS, parent, iconddir):
         parent.setupINFOS['scmlicense'], 
         parent.setupINFOS['scratchdir'], 
         iconddir, 
-        parent.setupINFOS['copydir'], 
+        INFOS['copydir'], 
         iconddir, 
         parent.setupINFOS['ams.ncpu'], 
         parent.setupINFOS['ams.scaling']
