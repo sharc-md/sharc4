@@ -183,8 +183,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         # folder setup and savedir
         qm_savedir = os.path.join(dir_path, QMin.save["savedir"], "QM_" + QMin.template["child-program"].upper())
         self.log.debug(f"qm_savedir {qm_savedir}")
-        if not os.path.isdir(qm_savedir):
-            mkdir(qm_savedir)
+        # if not os.path.isdir(qm_savedir):
+        #     mkdir(qm_savedir)
         self.child_interface.QMin.save["savedir"] = qm_savedir
         self.child_interface.QMin.resources["scratchdir"] = os.path.join(
             QMin.resources["scratchdir"], "QM_" + QMin.template["child-program"].upper()
