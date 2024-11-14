@@ -558,7 +558,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
 
     parent.setupINFOS['columbus.copy_template'] = question('Do you want to copy the template directory to each trajectory (Otherwise it will be linked)?', bool, KEYSTROKES=KEYSTROKES, default=False)
     if parent.setupINFOS['columbus.copy_template']:
-        parent.setupINFOS['columbus.copy_template_from'] = INFOS['columbus.template']
+        parent.setupINFOS['columbus.copy_template_from'] = parent.setupINFOS['columbus.template']
         parent.setupINFOS['columbus.template'] = './COLUMBUS.template/'
 
 
@@ -587,7 +587,7 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
     log.info(centerstring('COLUMBUS Memory usage', 60, '-') + '\n')
     log.info('''Please specify the amount of memory available to COLUMBUS (in MB). For calculations including moderately-sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
 ''')
-    INFOS['columbus.mem'] = abs(question('COLUMBUS memory:', int, KEYSTROKES=KEYSTROKES)[0])
+    parent.setupINFOS['columbus.mem'] = abs(question('COLUMBUS memory:', int, KEYSTROKES=KEYSTROKES)[0])
 
     # wfoverlap
     if 'wfoverlap' in INFOS['needed']:
@@ -625,16 +625,16 @@ template %s
     parent.setupINFOS['columbus.template']
     )
     string += 'integrals %s\n' % (parent.setupINFOS['columbus.intprog'])
-    for mult in INFOS['columbus.multmap']:
+    for mult in parent.setupINFOS['columbus.multmap']:
         string += 'DIR %i %s\n' % (mult, parent.setupINFOS['columbus.multmap'][mult])
     string += '\n'
-    for job in INFOS['columbus.mocoefmap']:
+    for job in parent.setupINFOS['columbus.mocoefmap']:
         string += 'MOCOEF %s %s\n' % (job, parent.setupINFOS['columbus.mocoefmap'][job])
     string += '\n'
     if 'wfoverlap' in INFOS['needed']:
         string += 'wfoverlap %s\n' % (parent.setupINFOS['columbus.wfpath'])
         string += 'wfthres %f\n' % (parent.setupINFOS['columbus.wfthres'])
-        if INFOS['columbus.numfrozcore'] >= 0:
+        if parent.setupINFOS['columbus.numfrozcore'] >= 0:
             string += 'numfrozcore %i\n' % (parent.setupINFOS['columbus.numfrozcore'])
         if 'columbus.numocc' in parent.setupINFOS:
             string += 'numocc %i\n' % (parent.setupINFOS['columbus.numocc'])
@@ -644,7 +644,7 @@ template %s
     sh2col.close()
 
     # copy MOs and template
-    if INFOS['columbus.guess']:
+    if parent.setupINFOS['columbus.guess']:
         cpfrom = parent.setupINFOS['columbus.guess']
         cpto = '%s/mocoef_mc.init' % (iconddir)
         shutil.copy(cpfrom, cpto)
@@ -896,7 +896,7 @@ def prepare_AMS(INFOS, parent, iconddir):
     if 'wfoverlap' in INFOS['needed']:
         string += 'wfoverlap %s\nwfthres %f\n' % (parent.setupINFOS['ams.wfoverlap'], parent.setupINFOS['ams.ciothres'])
         string += 'memory %i\n' % (parent.setupINFOS['ams.mem'])
-        # string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+        # string+='numfrozcore %i\n' %(parent.setupINFOS['frozcore_number'])
     else:
         string += 'nooverlap\n'
     if parent.setupINFOS['ams.theodore']:
