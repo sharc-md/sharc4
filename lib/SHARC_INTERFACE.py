@@ -865,7 +865,9 @@ class SHARC_INTERFACE(ABC):
                     if val[0] == "[":
                         raw_value = ast.literal_eval(val)
                         # check if matrix
-                        if isinstance(raw_value[0], str):
+                        if not raw_value:
+                            raw_value = []
+                        elif isinstance(raw_value[0], str):
                             raw_value = [entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)]
                     else:
                         raw_value = val.split() if len(val.split()) > 1 else val

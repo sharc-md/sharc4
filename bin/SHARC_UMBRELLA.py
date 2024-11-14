@@ -212,8 +212,9 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             )
             raise RuntimeError()
 
-        # make the child
-        self.child_interface: SHARC_INTERFACE = factory(self.QMin.template["child-program"])(
+        # make the child _load_interface
+        # self.child_interface: SHARC_INTERFACE = factory(self.QMin.template["child-program"])(
+        self.child_interface: SHARC_INTERFACE = self._load_interface(self.QMin.template["child-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['child-program']}", loglevel=self.log.level
         )
         self.child_interface.QMin.molecule['states'] = self.QMin.molecule['states']

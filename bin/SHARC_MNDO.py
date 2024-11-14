@@ -1145,7 +1145,7 @@ mocoef
         #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)+
 
         self._save_files(self.QMin.control["workdir"])
-        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
+        self.clean_savedir()
         # Run wfoverlap
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             self._run_wfoverlap()

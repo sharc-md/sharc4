@@ -541,6 +541,7 @@ class SHARC_QMMM(SHARC_HYBRID):
     def getQMout(self):
         qmQMout = self.qm_interface.QMout
         self.QMout.states = self.QMin.molecule["states"]
+        self.QMout.charges = self.QMin.molecule["charge"][:]
         self.QMout.nstates = self.QMin.molecule["nstates"]
         self.QMout.nmstates = self.QMin.molecule["nmstates"]
         self.QMout.natom = self.QMin.molecule["natom"]
