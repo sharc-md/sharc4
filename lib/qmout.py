@@ -1119,7 +1119,7 @@ class QMout:
     # ======================================================================= #
 
     def writeQmoutPhases(self):
-        string = "! 7 Phases\n%i ! for all nmstates\n" % (self.nmstates)
+        string = "! 7 Wave function phases (%ix1, complex)\n%i\n" % (self.nmstates, self.nmstates)
         for i in range(self.nmstates):
             string += "%s %s\n" % (
                 eformat(self.phases[i].real, 9, 3),
