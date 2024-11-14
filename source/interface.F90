@@ -501,12 +501,12 @@ subroutine get_nacdr(string, ICALL)
           case (0)
             write(string,'(A)')  'NACDR'
           case (1)
-                        do i=1,ctrl%nstates
+            do i=1,ctrl%nstates
               do j=1,ctrl%nstates
                 if (traj%selt_ss(j,i)) write(string,'(A,I3,1X,I3)') trim(string) , i,j
               enddo
             enddo
-                      case (2)
+          case (2)
             write(*,*)
         endselect
     else if (ICALL .eq. 2) then
@@ -848,7 +848,7 @@ subroutine set_nacs(NStates, NAtoms, nacs)
     __INT__ :: i,j,k,l
 
     if ( ctrl%nstates .ne. NStates) then
-        write(*,*) "Overlap is of wrong dimension!"
+        write(*,*) "NACDR is of wrong dimension!"
         call Exit(1)
     end if
 
