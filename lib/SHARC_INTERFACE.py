@@ -102,6 +102,7 @@ class SHARC_INTERFACE(ABC):
         self.density_recipes = {}
         self._setsave = False
         self.states = []
+        self.setupINFOS = {}
 
         logname = logname if isinstance(logname, str) else self.name()
         self.log = logging.getLogger(logname)

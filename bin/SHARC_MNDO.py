@@ -184,7 +184,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         self.log.info(
             "\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
         )
-        INFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
         self.log.info("")
 
         # scratch
@@ -192,7 +192,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         self.log.info(
             "Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
         )
-        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
         self.log.info("")
 
         self.template_file = None
@@ -229,12 +229,12 @@ class SHARC_MNDO(SHARC_ABINITIO):
             self.make_resources = True
             self.log.info(f"{'MNDO Ressource usage':-^60}\n")
 
-            INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
             
             if "overlap" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'WFoverlap setup':-^60}\n")
-                INFOS["wfoverlap"] = question(
+                self.setupINFOS["wfoverlap"] = question(
                     "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
                 )
 
@@ -1038,11 +1038,11 @@ mocoef
             except IOError:
                 self.log.error('IOError during prepareMNDO, iconddir=%s' % (workdir))
                 quit(1)
-            string = 'scratchdir %s/\n' % INFOS['scratchdir']
-            string += 'mndodir %s\n' % INFOS['mndodir']
-            string += 'memory %i\n' % (INFOS['memory'])
+            string = 'scratchdir %s/\n' % self.setupINFOS['scratchdir']
+            string += 'mndodir %s\n' % self.setupINFOS['mndodir']
+            string += 'memory %i\n' % (self.setupINFOS['memory'])
             if 'overlap' in INFOS['needed_requests']:
-                string += 'wfoverlap %s\n' % (INFOS['wfoverlap'])
+                string += 'wfoverlap %s\n' % (self.setupINFOS['wfoverlap'])
 
             resources_file.write(string)
             resources_file.close()

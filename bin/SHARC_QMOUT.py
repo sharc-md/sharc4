@@ -112,17 +112,16 @@ class SHARC_QMOUT(SHARC_FAST):
             autocomplete=True,
         )
         linking = question("Sym-link the file? (no = copy)?", bool, default=False, KEYSTROKES=KEYSTROKES)
-        self.setup_info = {}
-        self.setup_info["path"] = expand_path(path)
-        self.setup_info["link"] = linking
+        self.setupINFOS["path"] = expand_path(path)
+        self.setupINFOS["link"] = linking
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         "setup the folders"
-        if self.setup_info["link"]:
-            os.symlink(self.setup_info["path"], os.path.join(dir_path, "QMout.template"))
+        if self.setupINFOS["link"]:
+            os.symlink(self.setupINFOS["path"], os.path.join(dir_path, "QMout.template"))
         else:
-            shutil.copy(self.setup_info["path"], os.path.join(dir_path, "QMout.template"))
+            shutil.copy(self.setupINFOS["path"], os.path.join(dir_path, "QMout.template"))
 
     @staticmethod
     def name() -> str:

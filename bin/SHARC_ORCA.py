@@ -194,7 +194,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.log.info(
             "\nPlease specify path to ORCA directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
         )
-        INFOS["orcadir"] = question("Path to ORCA:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["orcadir"] = question("Path to ORCA:", str, KEYSTROKES=KEYSTROKES)
         self.log.info("")
 
         # scratch
@@ -202,7 +202,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.log.info(
             "Please specify an appropriate scratch directory. This will be used to run the ORCA calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
         )
-        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
         self.log.info("")
 
         self.log.info(f"{'ORCA input template file':-^60}\n")
@@ -233,19 +233,19 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 """Please specify the number of CPUs to be used by EACH calculation.
         """
             )
-            INFOS["ncpu"] = abs(question("Number of CPUs:", int, default=[1], KEYSTROKES=KEYSTROKES)[0])
+            self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, default=[1], KEYSTROKES=KEYSTROKES)[0])
 
-            if INFOS["ncpu"] > 1:
+            if self.setupINFOS["ncpu"] > 1:
                 self.log.info(
                     """Please specify how well your job will parallelize.
         A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
         Typical values for ORCA are 0.90-0.98."""
                 )
-                INFOS["scaling"] = max(0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0])
+                self.setupINFOS["scaling"] = max(0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0])
             else:
-                INFOS["scaling"] = 0.9
+                self.setupINFOS["scaling"] = 0.9
 
-            INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
             # Ionization
             # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
@@ -253,13 +253,13 @@ class SHARC_ORCA(SHARC_ABINITIO):
             # if INFOS['ion']:
             if "overlap" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'WFoverlap setup':-^60}\n")
-                INFOS["wfoverlap"] = question(
+                self.setupINFOS["wfoverlap"] = question(
                     "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
                 )
                 self.log.info("")
                 self.log.info("State threshold for choosing determinants to include in the overlaps")
                 self.log.info("For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1")
-                INFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                self.setupINFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
                 self.log.info("")
 
             # TheoDORE
@@ -292,7 +292,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if "theodore" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'Wave function analysis by TheoDORE':-^60}\n")
 
-                INFOS["theodir"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
+                self.setupINFOS["theodir"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
                 self.log.info("")
 
                 self.log.info("Please give a list of the properties to calculate by TheoDORE.\nPossible properties:")
@@ -303,21 +303,21 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         string += "\n"
                 self.log.info(string)
                 line = question("TheoDORE properties:", str, default="Om  PRNTO  S_HE  Z_HE  RMSeh", KEYSTROKES=KEYSTROKES)
-                INFOS["theodore_prop"] = line.split()
+                self.setupINFOS["theodore_prop"] = line.split()
                 self.log.info("")
 
                 self.log.info("Please give a list of the fragments used for TheoDORE analysis.")
                 # self.log.info("You can use the list-of-lists from dens_ana.in")
                 self.log.info('Enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
                 self.log.info("Atom numbering starts at 1 for TheoDORE.")
-                INFOS["theodore_frag"] = []
+                self.setupINFOS["theodore_frag"] = []
                 while True:
                     line = question("TheoDORE fragment:", str, default="end", KEYSTROKES=KEYSTROKES)
                     if "end" in line.lower():
                         break
                     f = [int(i) for i in line.split()]
                     INFOS["theodore_frag"].append(f)
-                INFOS["theodore_count"] = len(INFOS["theodore_prop"]) + len(INFOS["theodore_frag"]) ** 2
+                self.setupINFOS["theodore_count"] = len(INFOS["theodore_prop"]) + len(INFOS["theodore_frag"]) ** 2
 
         return INFOS
 
@@ -338,8 +338,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     "wfoverlap",
                     "wfthres",
                 ):
-                    if key in INFOS:
-                        file.write(f"{key} {INFOS[key]}\n")
+                    if key in self.setupINFOS:
+                        file.write(f"{key} {self.setupINFOS[key]}\n")
         else:
             create_file(expand_path(self.resources_file), os.path.join(dir_path, "ORCA.resources"))
         create_file(expand_path(self.template_file), os.path.join(dir_path, "ORCA.template"))

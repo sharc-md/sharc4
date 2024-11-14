@@ -272,23 +272,23 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self._resources_file = resources_file
         else:
             self.log.info(f"{'TURBOMOLE ressource usage':-^60}\n")
-            INFOS["turbodir"] = question("Specify path to TURBOMOLE: ", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["turbodir"] = question("Specify path to TURBOMOLE: ", str, KEYSTROKES=KEYSTROKES)
             if "soc" in INFOS["needed_requests"]:
                 INFOS["orcadir"] = question("Specify path to ORCA (< 5.0.0) to calculate SOCs:", str, KEYSTROKES=KEYSTROKES)
             self.log.info("Please specify the number of CPUs to be used by EACH trajectory.\n")
-            INFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
-            INFOS["memory"] = question(
+            self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
+            self.setupINFOS["memory"] = question(
                 "Specify the amount of RAM to be used.\nMemory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES
             )[0]
             if "overlap" in INFOS["needed_requests"]:
-                INFOS["wfoverlap"] = question(
+                self.setupINFOS["wfoverlap"] = question(
                     "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
                 )
                 self.log.info("State threshold for choosing determinants to include in the overlaps")
-                INFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                self.setupINFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
-        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
 
         if os.path.isfile("TURBOMOLE.template"):
             self.log.info("Found TURBOMOLE.template in current directory")
@@ -307,8 +307,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         if not self._resources_file:
             with open(os.path.join(dir_path, "TURBOMOLE.resources"), "w", encoding="utf-8") as file:
                 for key in ("turbodir", "orcadir", "scratchdir", "ncpu", "memory", "wfoverlap", "wfthres"):
-                    if key in INFOS:
-                        file.write(f"{key} {INFOS[key]}\n")
+                    if key in self.setupINFOS:
+                        file.write(f"{key} {self.setupINFOS[key]}\n")
         else:
             create_file(expand_path(self._resources_file), os.path.join(dir_path, "TURBOMOLE.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "TURBOMOLE.template"))

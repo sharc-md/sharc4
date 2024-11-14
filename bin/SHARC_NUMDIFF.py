@@ -306,8 +306,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 """Please specify the number of CPUs to be used by EACH trajectory.
         """
             )
-            INFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
-            INFOS["scratchdir_numdiff"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
+            self.setupINFOS["scratchdir_numdiff"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
 
             # TODO: could use schedule scaling and Amdahl, but SHARC_HYBRID does not have it
 
@@ -343,7 +343,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".resources"))
 
         # write resource file
-        string = 'ncpu %i\nscratchdir %s\n' % (INFOS['ncpu_numdiff'], INFOS["scratchdir_numdiff"])
+        string = 'ncpu %i\nscratchdir %s\n' % (self.setupINFOS['ncpu_numdiff'], self.setupINFOS["scratchdir_numdiff"])
         writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
         # Setup sub-dir for the QM calcs

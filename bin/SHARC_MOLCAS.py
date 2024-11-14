@@ -212,10 +212,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.log.info("\n")
 
         self.log.info("\nSpecify path to MOLCAS.")
-        INFOS["molcas"] = question("Path to MOLCAS:", str, default="$MOLCAS", KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["molcas"] = question("Path to MOLCAS:", str, default="$MOLCAS", KEYSTROKES=KEYSTROKES)
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
-        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
 
         if os.path.isfile("MOLCAS.template"):
             self.log.info("Found MOLCAS.template in current directory")
@@ -228,10 +228,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self._template_file = template_file
 
         self.log.info("Specify the number of CPUs to be used.")
-        INFOS["ncpu"] = question("Number of CPUs:", int, default=[1], KEYSTROKES=KEYSTROKES)[0]
+        self.setupINFOS["ncpu"] = question("Number of CPUs:", int, default=[1], KEYSTROKES=KEYSTROKES)[0]
 
         self.log.info("Specify the amount of RAM to be used.")
-        INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+        self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
         self.log.info("Initial wavefunction: MO Guess\n")
         self.log.info(
@@ -240,7 +240,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         self.log.info(
             "Please note that this script cannot check whether the wavefunction file and the Input template are consistent!"
         )
-        INFOS["molcas.guess"] = {}
+        self.setupINFOS["molcas.guess"] = {}
         string = "Do you have initial wavefunction files for multiplicit"
         mults = []
         for mult, state in enumerate(INFOS["states"]):
@@ -255,7 +255,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if question(string, bool, KEYSTROKES=KEYSTROKES, default=True):
             while (jobiph_or_rasorb := question("JobIph files (1) or RasOrb files (2)?", int, KEYSTROKES=KEYSTROKES)[0]) not in (1, 2):
                 self.log.info(f"{jobiph_or_rasorb} invalid option!")
-            INFOS["molcas.jobiph_or_rasorb"] = jobiph_or_rasorb
+            self.setupINFOS["molcas.jobiph_or_rasorb"] = jobiph_or_rasorb
             for mult, state in enumerate(INFOS["states"]):
                 if state <= 0:
                     continue
@@ -264,7 +264,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     filename := question(f"Initial wavefunction file for multiplicity {mult + 1}:", str, default=guess_file,KEYSTROKES=KEYSTROKES)
                 ):
                     self.log.info("File not found!")
-                INFOS["molcas.guess"][mult + 1] = filename
+                self.setupINFOS["molcas.guess"][mult + 1] = filename
         else:
             self.log.warning(
                 "Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs."
@@ -277,16 +277,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if not self._resource_file:
             with open(os.path.join(dir_path, "MOLCAS.resources"), "w", encoding="utf-8") as file:
                 for key in ("molcas", "scratchdir", "ncpu", "memory"):
-                    if key in INFOS:
-                        file.write(f"{key} {INFOS[key]}\n")
+                    if key in self.setupINFOS:
+                        file.write(f"{key} {self.setupINFOS[key]}\n")
         else:
             create_file(expand_path(self._resource_file), os.path.join(dir_path, "MOLCAS.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "MOLCAS.template"))
 
-        for key, val in INFOS["molcas.guess"].items():
+        for key, val in self.setupINFOS["molcas.guess"].items():
             val = os.path.abspath(val)
             dest = os.path.join(
-                dir_path, f"MOLCAS.{key}.{'JobIph' if INFOS['molcas.jobiph_or_rasorb'] == 1 else 'RasOrb'}.init"
+                dir_path, f"MOLCAS.{key}.{'JobIph' if self.setupINFOS['molcas.jobiph_or_rasorb'] == 1 else 'RasOrb'}.init"
             )
             create_file(val, dest)
 

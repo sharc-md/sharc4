@@ -243,14 +243,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             if path:
                 break
         self.log.info('\nPlease specify path to GAUSSIAN directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-        INFOS['groot'] = question('Path to GAUSSIAN:', str, KEYSTROKES=KEYSTROKES, default=path)
+        self.setupINFOS['groot'] = question('Path to GAUSSIAN:', str, KEYSTROKES=KEYSTROKES, default=path)
         self.log.info('')
 
 
         # scratch
         self.log.info('{:-^60}'.format('Scratch directory') + '\n')
         self.log.info('Please specify an appropriate scratch directory. This will be used to run the GAUSSIAN calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
-        INFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
         self.log.info('')
 
 
@@ -326,17 +326,17 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.log.info('{:-^60}'.format('GAUSSIAN Ressource usage') + '\n')
             self.log.info('''Please specify the number of CPUs to be used by EACH calculation.
         ''')
-            INFOS['ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
+            self.setupINFOS['ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
 
-            if INFOS['ncpu'] > 1:
+            if self.setupINFOS['ncpu'] > 1:
                 self.log.info('''Please specify how well your job will parallelize.
         A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
         Typical values for GAUSSIAN are 0.90-0.98.''')
-                INFOS['scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]))
+                self.setupINFOS['scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]))
             else:
-                INFOS['scaling'] = 0.9
+                self.setupINFOS['scaling'] = 0.9
 
-            INFOS['mem'] = question('Memory (MB):', int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS['mem'] = question('Memory (MB):', int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
             # Ionization
             # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
@@ -344,11 +344,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             # if INFOS['ion']:
             if 'overlap' in INFOS['needed_requests']:
                 self.log.info('\n' + '{:-^60}'.format('WFoverlap setup') + '\n')
-                INFOS['wfoverlap'] = question('Path to wavefunction overlap executable:', str, default='$SHARC/wfoverlap.x', KEYSTROKES=KEYSTROKES)
+                self.setupINFOS['wfoverlap'] = question('Path to wavefunction overlap executable:', str, default='$SHARC/wfoverlap.x', KEYSTROKES=KEYSTROKES)
                 self.log.info('')
                 self.log.info('State threshold for choosing determinants to include in the overlaps')
                 self.log.info('For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1')
-                INFOS['ciothres'] = question('Threshold:', float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                self.setupINFOS['ciothres'] = question('Threshold:', float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
                 self.log.info('')
                 # TODO not asked: numfrozcore and numocc
 
@@ -370,7 +370,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             if 'theodore' in INFOS['needed_requests']:
                 self.log.info('\n' + '{:-^60}'.format('Wave function analysis by TheoDORE') + '\n')
 
-                INFOS['theodore'] = question('Path to TheoDORE directory:', str, default='$THEODIR', KEYSTROKES=KEYSTROKES)
+                self.setupINFOS['theodore'] = question('Path to TheoDORE directory:', str, default='$THEODIR', KEYSTROKES=KEYSTROKES)
                 self.log.info('')
 
                 self.log.info('Please give a list of the properties to calculate by TheoDORE.\nPossible properties:')
@@ -382,15 +382,15 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 self.log.info(string)
                 line = question('TheoDORE properties:', str, default='Om  PRNTO  S_HE  Z_HE  RMSeh', KEYSTROKES=KEYSTROKES)
                 if '[' in line:
-                    INFOS['theodore.prop'] = ast.literal_eval(line)
+                    self.setupINFOS['theodore.prop'] = ast.literal_eval(line)
                 else:
-                    INFOS['theodore.prop'] = line.split()
+                    self.setupINFOS['theodore.prop'] = line.split()
                 self.log.info('')
 
                 self.log.info('Please give a list of the fragments used for TheoDORE analysis.')
                 self.log.info('You can use the list-of-lists from dens_ana.in')
                 self.log.info('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
-                INFOS['theodore.frag'] = []
+                self.setupINFOS['theodore.frag'] = []
                 while True:
                     line = question('TheoDORE fragment:', str, default='end', KEYSTROKES=KEYSTROKES)
                     if 'end' in line.lower():
@@ -402,8 +402,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         except ValueError:
                             continue
                     f = [int(i) for i in line.split()]
-                    INFOS['theodore.frag'].append(f)
-                INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
+                    self.setupINFOS['theodore.frag'].append(f)
+                self.setupINFOS['theodore.count'] = len(self.setupINFOS['theodore.prop']) + len(self.setupINFOS['theodore.frag'])**2
 
         return INFOS
 
@@ -423,15 +423,15 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 self.log.error('IOError during prepareGAUSSIAN, iconddir=%s' % (workdir))
                 quit(1)
 #  project='GAUSSIAN'
-            string = 'groot %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (INFOS['groot'], INFOS['scratchdir'], workdir, INFOS['ncpu'], INFOS['scaling'])
-            string += 'memory %i\n' % (INFOS['mem'])
+            string = 'groot %s\nscratchdir %s/%s/\nncpu %i\nschedule_scaling %f\n' % (self.setupINFOS['groot'], self.setupINFOS['scratchdir'], workdir, self.setupINFOS['ncpu'], self.setupINFOS['scaling'])
+            string += 'memory %i\n' % (self.setupINFOS['mem'])
             if 'overlap' in INFOS['needed_requests']:
-                string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['wfoverlap'], INFOS['ciothres'])
+                string += 'wfoverlap %s\nwfthres %f\n' % (self.setupINFOS['wfoverlap'], self.setupINFOS['ciothres'])
                 # string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
             if 'theodore' in INFOS['needed_requests']:
-                string += 'theodir %s\n' % (INFOS['gaussian.theodore'])
-                string += 'theodore_prop %s\n' % (INFOS['theodore.prop'])
-                string += 'theodore_fragment %s\n' % (INFOS['theodore.frag'])
+                string += 'theodir %s\n' % (self.setupINFOS['gaussian.theodore'])
+                string += 'theodore_prop %s\n' % (self.setupINFOS['theodore.prop'])
+                string += 'theodore_fragment %s\n' % (self.setupINFOS['theodore.frag'])
             resources_file.write(string)
             resources_file.close()
 
