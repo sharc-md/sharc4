@@ -1002,7 +1002,7 @@ class SHARC_INTERFACE(ABC):
             self.log.debug(f"{request}")
             match request:
                 case ["grad", None | "all"]:
-                    self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
+                    self.QMin.requests[req] = list(range(1, self.QMin.molecule["nmstates"] + 1))
                 case ["nacdr" | "multipolar_fit" | "density_matrices", None | "all"]:
                     self.QMin.requests[req] = ["all"]
                 case ["grad", value]:
