@@ -1422,30 +1422,30 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         for s1, s2, spin in self.density_recipes["read"].keys():
             if spin == "tot":
                 if s1.S == s2.S and s1.M == s2.M:
-                    self.QMout["density_matrices"][(s1, s2, spin)] = dens_one_mult[s1.S + 1][s1.N - 1, s2.N - 1, :].reshape(
-                        dim, -1
-                    )[np.ix_(ao_sorted, ao_sorted)]
+                    mult = s1.S
+                    x, y = min(s1.N - 1, s2.N - 1), max(s1.N - 1, s2.N - 1) # matrices in h5 are triangle
+                    dens = dens_one_mult
                 else:
                     mult = min(s1.S, s2.S)
                     x, y = s1.N - 1 + states[mult], s2.N - 1
                     if s1.S < s2.S:
                         x, y = s1.N - 1, s2.N - 1 + states[mult]
-                    self.QMout["density_matrices"][(s1, s2, spin)] = trans_dens[mult + 1][x, y, :].reshape(dim, -1)[
-                        np.ix_(ao_sorted, ao_sorted)
-                    ]
+                    dens = trans_dens
             elif spin == "q":
                 if s1.S == s2.S and s1.M == s2.M:
-                    self.QMout["density_matrices"][(s1, s2, spin)] = dens_one_mult_spin[s1.S + 1][s1.N - 1, s2.N - 1, :].reshape(
-                        dim, -1
-                    )[np.ix_(ao_sorted, ao_sorted)]
+                    mult = s1.S
+                    x, y = min(s1.N - 1, s2.N - 1), max(s1.N - 1, s2.N - 1) # matrices in h5 are triangle
+                    dens = dens_one_mult_spin
                 else:
                     mult = min(s1.S, s2.S)
                     x, y = s1.N - 1 + states[mult], s2.N - 1
                     if s1.S < s2.S:
                         x, y = s1.N - 1, s2.N - 1 + states[mult]
-                    self.QMout["density_matrices"][(s1, s2, spin)] = trans_dens_spin[mult + 1][x, y, :].reshape(dim, -1)[
+                    dens = trans_dens_spin
+            self.QMout["density_matrices"][(s1, s2, spin)] = dens[mult + 1][x, y, :].reshape(dim, -1)[
                         np.ix_(ao_sorted, ao_sorted)
                     ]
+
 
     def _get_energy(self, output_file: str | h5py.File) -> np.ndarray:
         """
