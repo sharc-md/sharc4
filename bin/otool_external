@@ -73,11 +73,11 @@ INTERFACE = {
                  'dipolegrad': False,
                  'files': ['COLUMBUS.resources']
                  },
-    'analytical': {'script': 'SHARC_Analytical.py',
+    'analytical': {'script': 'SHARC_ANALYTICAL.py',
                    'description': 'Analytical PESs',
                    'couplings': [3],
                    'dipolegrad': True,
-                   'files': ['Analytical.template']
+                   'files': ['ANALYTICAL.template']
                    },
     'molcas': {'script': 'SHARC_MOLCAS.py',
                'description': 'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
