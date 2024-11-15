@@ -954,7 +954,7 @@ module input
         case ('npi')
           ctrl%eeom=3
         case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "neom"!'
+          write(0,*) 'Unknown keyword ',trim(line),' to "eeom"!'
           stop 1
       endselect
     else ! set the default nuclear propagators
@@ -2160,7 +2160,7 @@ module input
       endif
     endif
 
-    if (printlevel>1) then
+    if ( (printlevel>1) .and. (ctrl%method==1)) then   ! should this only be printed if SCP?
       if (ctrl%decotime_method==0) then
         write(u_log,'(a)') 'Decoherence time is computed with CSDM method'
       elseif (ctrl%decotime_method==1) then
@@ -3115,6 +3115,7 @@ module input
            write(u_log,'(a)') 'No thermostat will be applied.'
          case (1)
            write(u_log,'(a)') 'Langevin thermostat will be applied.'
+           write(u_log,'(a)') 'Temperature (in K) and friction coefficient (in m_e*fs^-1): '
        endselect
      endif
    endif
