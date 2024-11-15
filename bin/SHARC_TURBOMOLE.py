@@ -191,7 +191,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 "spin-scaling": None,
                 "basislib": None,
                 "douglas-kroll": False,
-                "dipolelevel": 0,
+                "dipolelevel": 1,
             }
         )
 
