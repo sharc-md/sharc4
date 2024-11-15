@@ -295,7 +295,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             )
             create_file(val, dest)
 
-
     def read_resources(self, resources_file: str = "MOLCAS.resources", kw_whitelist: list[str] | None = None) -> None:
         super().read_resources(resources_file, ["theodore_fragment"])
 
@@ -641,8 +640,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 continue
             with h5py.File(os.path.join(workdir, f"MOLCAS.{mult}.rasscf.h5"), "r") as f:
                 mos = f["MO_VECTORS"][:]
-                mos = mos.reshape(int(mos.shape[0]**0.5), -1)
-                
+                mos = mos.reshape(int(mos.shape[0] ** 0.5), -1)
+
                 # Sort MOs
                 with h5py.File(os.path.join(workdir, "MOLCAS.rassi.h5"), "r") as f:
                     ao_order = np.asarray(f["BASIS_FUNCTION_IDS"][:])
@@ -656,7 +655,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 ao_sorted = sorted(list(range(ao_order.shape[0])), key=cmp_to_key(sort_ao))
                 mos = mos[:, ao_sorted]
 
-                mo_string = f"2mocoef\nheader\n1\nMO-coefficients from MOLCAS\n1\n{mos.shape[0]}   {mos.shape[0]}\na\nmocoef\n(*)\n"
+                mo_string = (
+                    f"2mocoef\nheader\n1\nMO-coefficients from MOLCAS\n1\n{mos.shape[0]}   {mos.shape[0]}\na\nmocoef\n(*)\n"
+                )
                 for mat in mos:
                     for idx, i in enumerate(mat):
                         if idx > 0 and idx % 3 == 0:
@@ -672,7 +673,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     mo_string += f"{0.0: 6.12e} "
 
                 writefile(os.path.join(self.QMin.save["savedir"], f"mos.{mult}.{self.QMin.save['step']}"), mo_string)
-
 
     def _get_dets(self, workdir: str) -> None:
         """
@@ -691,7 +691,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     dets = re.findall(r"(-?\d\.\d+E[-|+]\d{2})\s+([20ab]+)", f.read())
                     for det in dets:
                         tmp[
-                            tuple([3] * inactive + [int(i) for i in det[1].replace("2", "3").replace("a", "1").replace("b", "2")] + [0] * 29)
+                            tuple(
+                                [3] * inactive
+                                + [int(i) for i in det[1].replace("2", "3").replace("a", "1").replace("b", "2")]
+                                + [0] * 29
+                            )
                         ] = float(det[0])
                     self.log.debug(f"Determinant norm {mult} {state:4d} {np.linalg.norm(list(tmp.values())):.5f}")
 
@@ -1022,7 +1026,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "SPINORBIT\nSOCOUPLING=0.0d0\nEJOB\n"
         if task[1] == "overlap":
             input_str += "STOVERLAPS\nOVERLAPS\n"
-            if qmin.control["master"] and (qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]) :
+            if qmin.control["master"] and (qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]):
                 input_str += "TRD1\n"
         if task[1] == "theodore":
             input_str += "TRD1\n"
@@ -1153,9 +1157,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
-        if self.QMin.template["method"] == "caspt2" and (self.QMin.requests["nacdr"] or self.QMin.requests["grad"]):
-            self.log.error("NACs/Gradients are not possible with caspt2")
-            raise ValueError()
+        if self.QMin.requests["nacdr"] or self.QMin.requests["grad"]:
+            if self.QMin.template["method"] == "caspt2":
+                self.log.error("NACs/Gradients are not possible with caspt2")
+                raise ValueError()
+            elif self.QMin.template["method"] in ("xms-caspt2", "ms-caspt2"):
+                for mult, (state, root) in enumerate(zip(self.QMin.molecule["states"], self.QMin.template["roots"]), 1):
+                    if state != root:
+                        self.log.error(f"*pt2 with NACs/grad. Number of roots does not equal number of states in mult {mult}.")
+                        raise ValueError
 
         if (
             self.QMin.template["method"] in ("ms-caspt2", "xms-caspt2")
