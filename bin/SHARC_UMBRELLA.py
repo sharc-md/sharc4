@@ -336,6 +336,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                     gradrequests.add(indices[0]+1)
                     gradrequests.add(indices[1]+1)
             self.child_interface.QMin.requests["grad"] = sorted(gradrequests)
+            self.child_interface._step_logic()
+            self.child_interface._request_logic()
             
 
         with InDir(self.QMin.template["child-dir"]) as _:
@@ -471,7 +473,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                         gi = self.child_interface.QMout.grad[indices[0]]
                         gj = self.child_interface.QMout.grad[indices[1]]
                         g1 = k*(dE - v0)
-                        grad = g1 * (gi - gj)
+                        grad = g1 * (gj - gi)
 
             # save the computed results
             E.append(e)
