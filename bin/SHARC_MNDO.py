@@ -88,7 +88,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ici2": 0,
                 "act_orbs": [1],
                 "movo": 0,
-                #"kharge": 0,
                 "imomap": 0,
                 "disp": 0,
                 "iop": -6,
@@ -107,7 +106,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ici2": int,
                 "act_orbs": list,
                 "movo": int,
-                #"kharge": int,
                 "imomap": int,
                 "disp": int,
                 "iop": int,
@@ -268,8 +266,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         # Write MNDO input
         input_str = self.generate_inputstr(qmin)
 
-        # save_input_file = os.path.join(savedir, f"input.{step}.exp")
-        # writefile(save_input_file, input_str)
 
         self.log.debug(f"Generating input string\n{input_str}")
         input_path = os.path.join(workdir, "MNDO.inp")
