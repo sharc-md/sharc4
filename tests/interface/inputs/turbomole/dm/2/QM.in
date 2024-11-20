@@ -1,0 +1,20 @@
+4
+Comment
+ C          0.0000000000        0.0000000000        0.0307618822
+ S         -0.0000000000        0.2000000000        1.6448608630
+ H          0.9290545107        0.0000000000       -0.5573113726
+ H         -0.9290545107        0.0000000000       -0.5573113726
+
+States 3 0 4          # number of states per multiplicity (singlets, doublets, triplets, ...)
+Unit Angstrom           # in which units to interpret the above geometry
+step 0
+#point_charges pc
+
+H
+SOC
+DM
+#GRAD
+#OVERLAP
+#ION
+#MOLDEN
+#THEODORE               # as in ADF interface. If MOLDEN is also active, also generates the NTO files and copies them to the MOLDEN directory
