@@ -2864,14 +2864,14 @@ module qm
 
 
     ! ===============================
-    ! 6. Compute Hopping and Frustratede hop direction 
+    ! 6. Compute Hopping and Frustrated hop direction 
     ! ===============================
 
     if (ctrl%method==0) then ! TSH method
 
       if (printlevel>3) then
         write(u_log,*) '============================================================='
-        write(u_log,*) '    [6].Caculating Hopping and Frustrated Hop  Direction '
+        write(u_log,*) '    [6].Calculating Hopping and Frustrated Hop Direction '
         write(u_log,*) '============================================================='
       endif
 
