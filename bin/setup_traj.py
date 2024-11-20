@@ -934,10 +934,10 @@ from the initconds.excited files as provided by excite.py.
 
 def get_interface() -> SHARC_INTERFACE:
     "asks for interface and instantiates it"
+    Interfaces = factory.get_available_interfaces()
     log.info("")
     log.info("{:-^60}".format("Choose the quantum chemistry interface"))
     log.info("\nPlease specify the quantum chemistry interface (enter any of the following numbers):")
-    Interfaces = factory.get_available_interfaces()
     possible_numbers = []
     for i, (name, interface, possible) in enumerate(Interfaces):
         if not possible:
