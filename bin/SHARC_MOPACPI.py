@@ -278,14 +278,15 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         qmmm         = qmin ["template"]["qmmm"]
         link_atoms   = qmin ["template"]["link_atoms"]
         link_atom_pos= qmin ["template"]["link_atom_pos"]
+        charge       = qmin["molecule"]["charge"][0]
 
 
         inpstring = ""
         # input top:
         if micros != None:
-            inpstring += f"{ham} OPEN({numb_elec}, {numb_orb}) MICROS={micros} FLOCC={flocc} +\n"
+            inpstring += f"{ham} OPEN({numb_elec}, {numb_orb}) MICROS={micros} FLOCC={flocc} CHARGE={charge} +\n"
         else:
-            inpstring += f"{ham} OPEN({numb_elec}, {numb_orb}) FLOCC={flocc} +\n"
+            inpstring += f"{ham} OPEN({numb_elec}, {numb_orb}) FLOCC={flocc} CHARGE={charge} +\n"
         if external_par != None:
             inpstring += "VECTORS GEO-OK PULAY EXTERNAL=external_par +\n"
         else:
@@ -413,9 +414,6 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
 
         qminstring = self.writeQMin(qmin)
         writefile(os.path.join(workdir, "QM.in"), qminstring)
-        # filecopy = os.path.join(self.QMin.control["workdir"], "QM.in")
-        # saved_file = os.path.join(main_dir, "QM.in")
-        # shutil.copy(saved_file,filecopy)
 
         if qmin["template"]["qmmm"] != None:
             filecopy = os.path.join(self.QMin.control["workdir"], "MOPACPI_tnk.xyz")
@@ -432,7 +430,6 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
 
         if step > 0:
             fromfile = os.path.join(savedir, f"MOPACPI_nx.mopac_oldvecs.{step-1}")
-            # fromfile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
             tofile = os.path.join(workdir, "MOPACPI_nx.mopac_oldvecs")
             shutil.copy(fromfile, tofile)
 
@@ -447,12 +444,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
             input_par = os.path.join(workdir, "external_par")
             self.log.debug(f"Write external files into file {input_par}")
             writefile(input_par, par_str)
-                  
-        #Min.molecule["point_charges"]:
-        #    pc_str = ""
-        #    for coords, charge in zip(self.QMin.coords["pccoords"], self.QMin.coords["pccharge"]):
-        #        pc_str += f"{' '.join(map(str, coords))} {charge}\n"
-        #    writefile(os.path.join(workdir, "fort.20"), pc_str)
+                
 
         # Setup MOPA
         starttime = datetime.datetime.now()
@@ -475,9 +467,6 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
 
         self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "mopacpi_calc")
 
-        #schedule = [{"mopacpi_calc" : self.QMin}] #Generate fake schedule
-        #self.QMin.control["nslots_pool"].append(1)
-        #self.runjobs(schedule)
         self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)
 
         self._save_files(self.QMin.control["workdir"])
@@ -694,9 +683,9 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         step = self.QMin.save["step"]
         savedir = self.QMin.save["savedir"]
 
-        fromfile = os.path.join(workdir, "MOPACPI_nx.mopac_oldvecs")
+        #fromfile = os.path.join(workdir, "MOPACPI_nx.mopac_oldvecs")
         tofile = os.path.join(savedir, f"MOPACPI_nx.mopac_oldvecs.{step}")
-        # tofile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
+        tofile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
         shutil.copy(fromfile, tofile)
 
         return

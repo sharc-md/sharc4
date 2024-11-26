@@ -327,11 +327,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         mo = os.path.join(savedir, f"mos.{step}")
         writefile(mo, mos)
 
-        # mo_e = os.path.join(savedir, f"mo_energies.{step}.exp")
-        # with open(mo_e, 'w') as f:
-        #     for line in mo_energies:
-        #         f.write(f"{line}\n")
-
         
         #AO_OVL
         aos = self.get_Double_AOovl(NAO)
@@ -351,17 +346,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         det = os.path.join(savedir, f"dets.{step}")
         writefile(det, determinants)
 
-
-        # tofile = os.path.join(savedir, f"MNDO.out.{step}")
-        # shutil.copy(log_file, tofile)
-
-        # out_file = os.path.join(workdir, "fort.15")
-        # tofile = os.path.join(savedir, f"fort.15.{step}")
-        # shutil.copy(out_file, tofile)
-
-        # mm_file = os.path.join(workdir, "fort.20")
-        # tofile = os.path.join(savedir, f"fort.20.{step}")
-        # shutil.copy(mm_file, tofile)
 
         return
 
@@ -606,8 +590,6 @@ mocoef
 
         # add MO occupancy to ci_vector
         active_mos = [*self._get_active_space(log_file)]
-        # ci_vectors["active MOs"] = active_mos
-        # active_mos = [*get_active_space(logfile)]
         ci_vectors["active MOs"] = [*range(1, len(MO_occ)+1)]
 
         # get CSFs from log_file
@@ -865,7 +847,7 @@ mocoef
         # nac = np.fromiter(map(), count=).reshape()
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i]
-            #dE = self.QMout["h"][s2,s2].real - self.QMout["h"][s1,s1].real # In MNDO cannot calculate imaginary energies
+
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
@@ -887,9 +869,6 @@ mocoef
                 iline += 1
             nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
             nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
-            # if (dE != 0.0):
-            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
-            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
         
         return nac
     
@@ -918,7 +897,7 @@ mocoef
         # make nac matrix
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i] 
-            #dE = self.QMout["h"][s2, s2].real - self.QMout["h"][s1, s1].real # In MNDO cannot calculate imaginary energies
+
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
@@ -932,9 +911,7 @@ mocoef
 
             nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
             nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
-            # if (dE != 0.0):
-            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
-            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
+
 
         return nac
 
