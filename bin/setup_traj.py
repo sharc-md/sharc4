@@ -934,6 +934,10 @@ from the initconds.excited files as provided by excite.py.
 
 def get_interface() -> SHARC_INTERFACE:
     "asks for interface and instantiates it"
+    string = "\n  " + "=" * 80 + "\n"
+    string += "||" + f"{'Quantum chemistry interface':^80}" + "||\n"
+    string += "  " + "=" * 80 + "\n\n"
+    log.info(string)
     Interfaces = factory.get_available_interfaces()
     log.info("")
     log.info("{:-^60}".format("Choose the quantum chemistry interface"))
@@ -1645,6 +1649,9 @@ def get_trajectory_info(INFOS) -> dict:
     log.info("\nSHARC or PYSHARC can produce output in ASCII format (all features supported currently)")
     log.info("or in NetCDF format (more efficient file I/O, some features currently not supported).")
     INFOS["netcdf"] = question("Write output in NetCDF format?", bool, INFOS["pysharc"])
+    INFOS["netcdf_separate"] = False
+    if INFOS["netcdf"]: 
+        INFOS["netcdf_separate"] = question("Write nuclear and electronic date to separate NetCDF files?", bool, False)
 
 
     # options for writing to output.dat
@@ -1677,7 +1684,10 @@ def get_trajectory_info(INFOS) -> dict:
     log.info("\nDo you want to write the overlap matrix to the output.dat file ?")
     INFOS["write_overlap"] = question("Write overlap matrix?", bool, (Couplings[INFOS["coupling"]]["name"] == "overlap"))
 
+    # strides
     log.info("\nDo you want to modify the output.dat writing stride?")
+    if INFOS["netcdf_separate"]:
+        log.info("\nNOTE: This stride will only affect electronic data in output.dat.nc")
     stride = question("Modify stride?", bool, False)
     if stride:
         INFOS["stride"] = []
@@ -1694,6 +1704,24 @@ def get_trajectory_info(INFOS) -> dict:
     else:
         INFOS["stride"] = [1]
 
+    # separate nuclear stride
+    if INFOS["netcdf_separate"]:
+        log.info("\nDo you want to modify the stride for sharc_traj_xyz.nc?")
+        stride = question("Modify stride?", bool, False)
+        if stride:
+            INFOS["stride_nuclear"] = []
+            stride = question('Enter the  *INITIAL*   output stride (e.g., "1"=write every step)', int, [1])
+            INFOS["stride_nuclear"].extend(stride)
+            stride = question(
+                'Enter the *SUBSEQUENT* output stride (e.g., "10 2"=write every second step starting at step 10)', int, [0, 1]
+            )
+            INFOS["stride_nuclear"].extend(stride)
+            stride = question(
+                'Enter the   *FINAL*    output stride (e.g., "100 10"=write every tenth step starting at step 100)', int, [0, 1]
+            )
+            INFOS["stride_nuclear"].extend(stride)
+        else:
+            INFOS["stride_nuclear"] = [1]
 
     # Add some simple keys
     INFOS["log.infolevel"] = 2
@@ -1921,7 +1949,10 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
 
     # NetCDF or ASCII
     if INFOS["netcdf"]:
-        out = "netcdf"
+        if INFOS["netcdf_separate"]:
+            out = "netcdf_separate_nuc"
+        else:
+            out = "netcdf"
     else:
         out = "ascii"
     s += "output_format %s\n" % out
@@ -1932,6 +1963,14 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         for i in INFOS["stride"]:
             s += " %i" % i
         s += "\n"
+
+    # stride for separate nuclei
+    if INFOS["netcdf_separate"]:
+        if "stride_nuclear" in INFOS:
+            s += "output_dat_steps_nuc"
+            for i in INFOS["stride_nuclear"]:
+                s += " %i" % i
+            s += "\n"
 
     # rattle
     if INFOS["rattle"]:
