@@ -35,7 +35,7 @@ import datetime
 import os
 from optparse import OptionParser
 
-from constants import au2fs, ANG_TO_BOHR, AMBERVEL_TO_AU, IAn2AName
+from constants import au2fs, ANG_TO_BOHR, U_TO_AMU, IAn2AName
 from utils import readfile
 
 
@@ -55,48 +55,33 @@ versiondate = datetime.date(2024, 11, 30)
 
 
 
-def main(prmtop, rst_file, dt, ang, app, gv, ini):
-    # get number of atoms and elements
-    natom = -1
-    with open(prmtop, "r") as f:
-        line = f.readline()
-        while line:
-            if "%FLAG POINTERS" in line:
-                f.readline()
-                natom = int(f.readline().split()[0])
-            elif "%FLAG ATOMIC_NUMBER" in line:
-                f.readline()
-                if natom == -1:
-                    print("natom not read!")
-                    exit(1)
-                nl = (natom - 1) // 10 + 1
-                numbers = [int(x) for x in chain(*map(lambda x: f.readline().split(), range(nl)))]
-                symbols = [IAn2AName[x] for x in numbers]
-            elif "%FLAG MASS" in line:
-                f.readline()
-                if natom == -1:
-                    print("natom not read!")
-                    exit(1)
-                nl = (natom - 1) // 5 + 1
-                masses = [float(x) for x in chain(*map(lambda x: f.readline().split(), range(nl)))]
-            line = f.readline()
+def main(geomfile, ncfile, step, ang, app, gv, ini):
+    # get number of atoms, elements, numbers, masses from geom file
+    dat = readfile(geomfile)
+    numbers = []
+    symbols = []
+    masses = []
+    for line in dat:
+        s = line.split()
+        symbols.append( s[0] )
+        numbers.append( float(s[1]) )
+        masses.append( float(s[5]) )
+    natom = len(masses)
 
-    with Dataset(rst_file) as dat:
-        geom_rst = dat.variables["coordinates"]
-        na = dat.dimensions["atom"].size
-        nx = dat.dimensions["spatial"].size
-        if na != natom:
-            print("natom do not match!")
-            print(f"From prmtop: {natom}")
-            print(f"From NetCDF: {na}")
-            exit(1)
-        veloc_rst = dat.variables["velocities"]  # angstrom/picosecond, NOT Amber velocity units!
+    # look into NetCDF file
+    with Dataset(ncfile) as dat:
 
-        geom = np.array(geom_rst[:], dtype=np.float32).reshape((na, nx)) * ANG_TO_BOHR
-        veloc = np.array(veloc_rst[:], dtype=np.float32).reshape((na, nx)) * ANG_TO_BOHR /1000 * au2fs
+        # get dimensions and data
+        nstep, natom2, nspat = dat.variables["geom"].shape
+        geom_rst = dat.variables["geom"]
+        veloc_rst = dat.variables["veloc"]
 
-        # move geom halve a timestep back (AMBER uses leapfrog!!!)
-        geom = geom - 0.5 * dt * veloc / au2fs
+        # figure out which step we want
+        geom  = np.array( geom_rst[step, :, :], dtype=np.float32).reshape(3, natom)
+        veloc = np.array(veloc_rst[step, :, :], dtype=np.float32).reshape(3, natom)
+        geom  = np.einsum("xa->ax", geom)
+        veloc = np.einsum("xa->ax", veloc)
+
 
         if gv:
             # write geom and veloc files
@@ -124,10 +109,10 @@ def main(prmtop, rst_file, dt, ang, app, gv, ini):
                 string = '%i\n' % natom
                 if ang:
                     factor = 1. / ANG_TO_BOHR
-                    string += f'File {rst_file}, rewound by {dt/2}fs, in Angstrom\n'
+                    string += f'File {ncfile}\n'
                 else:
                     factor = 1.
-                    string += f'File {rst_file}, rewound by {dt/2}fs, in Bohrs\n'
+                    string += f'File {ncfile}\n'
                 for s, c in zip(symbols, geom * factor):
                     string += f"{s:5s} {c[0]: 12.8f} {c[1]: 12.8f} {c[2]: 12.8f} \n"
 
@@ -149,18 +134,19 @@ def main(prmtop, rst_file, dt, ang, app, gv, ini):
 if __name__ == "__main__":
 
     parser = OptionParser()
-    parser.add_option("-t", "--timestep", dest="dt", type="float", help="specify the timestep in fs")
+    # parser.add_option("-t", "--timestep", dest="dt", type="float", help="specify the timestep in fs")
+    parser.add_option("-s", "--step", dest="step", type="int", default=-1, help="specify the timestep to extract (negative numbers are counted from the end)")
     parser.add_option("-a", "--angstrom", dest='ang', action='store_true', help="Output in Angstrom (default in Bohr)")
     parser.add_option("-q", "--append_qmin", dest='app', action='store_true', help="Append request lines from file 'QM.in'")
     parser.add_option("-i", "--initconds", dest='ini', action='store_true', help="Produce output to append to initconds instead of xyz")
     parser.add_option("-g", "--geom_veloc", dest='gv', action='store_true', help="Produce geom and veloc files instead of writing to stdout")
 
     (options, args) = parser.parse_args()
-    if len(args) == 0:
+    if len(args) <= 1:
         parser.print_usage()
-    if options.dt is None:
-        print("specify the timestep!!")
-        exit(1)
+    # if options.dt is None:
+    #     print("specify the timestep!!")
+    #     exit(1)
     if options.gv:
         if options.ang:
             sys.stderr.write("Ignoring -a flag while -g is active")
@@ -173,7 +159,7 @@ if __name__ == "__main__":
             sys.stderr.write("Ignoring -a flag while -i is active")
         if options.app:
             sys.stderr.write("Ignoring -q flag while -i is active")
-    main(*args, options.dt, options.ang, options.app, options.gv, options.ini)
+    main(args[0], args[1], options.step, options.ang, options.app, options.gv, options.ini)
 
 
 
