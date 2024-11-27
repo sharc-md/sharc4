@@ -264,7 +264,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
             shutil.copy(saved_file, orbital_tracking)
 
         # Write MNDO input
-        input_str = self.generate_inputstr(qmin)
+        input_str = self._generate_inputstr()
 
 
         self.log.debug(f"Generating input string\n{input_str}")
@@ -1118,7 +1118,8 @@ mocoef
         #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)+
 
         self._save_files(self.QMin.control["workdir"])
-        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
+        #self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
+        self.clean_savedir()
         # Run wfoverlap
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             self._run_wfoverlap()
@@ -1205,19 +1206,24 @@ mocoef
             raise OSError()
 
 
-    @staticmethod
-    def generate_inputstr(qmin: QMin) -> str:
+    def _generate_inputstr(self) -> str:
         """
         Generate MNDO input file string from QMin object
         """
-
+        qmin = self.QMin
+        ncigrd = 1
+        grads = [1]
+        icross = 1                                              #calc gradients
         natom = qmin["molecule"]["natom"]
-        if qmin.requests["grad"]:
-            ncigrd = len(qmin["maps"]["gradmap"])
-            grads = [y for _,y in qmin["maps"]["gradmap"]]
-        else:
-            ncigrd = 1
-            grads = [1]
+        if qmin.requests["grad"] or qmin.requests["nacdr"]:
+            if qmin.requests["nacdr"]:
+                icross = 7                                      #calc gradients and NACs
+                grads = self._check_grads_request(qmin)
+                ncigrd = len(grads)
+            else:
+                ncigrd = len(qmin["maps"]["gradmap"])
+                grads = [y for _,y in qmin["maps"]["gradmap"]]
+
 
         coords = qmin["coords"]["coords"]
         elements = qmin["molecule"]["elements"]
@@ -1237,11 +1243,9 @@ mocoef
         mciref = qmin["template"]["mciref"]
 
         nfloat = ici1 + ici2
-        icross = 1
 
 
-        if qmin.requests["nacdr"]:
-            icross = 7
+        
 
         if qmin["template"]["fomo"] == 1:
             inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref={mciref} levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
@@ -1271,6 +1275,21 @@ mocoef
             inputstring += str(l) + " "
 
         return inputstring
+
+    @staticmethod
+    def _check_grads_request(qmin: QMin) -> list:
+        
+        grads = [y for _,y in qmin["maps"]["gradmap"]]
+        nac_i = list(map(lambda x: x[1], qmin["maps"]["nacmap"]))
+        nac_j = list(map(lambda x: x[3], qmin["maps"]["nacmap"]))
+        naclist = nac_i + nac_j
+        together = grads + naclist
+        no_duplicates = list(dict.fromkeys(together))
+        ordered = sorted(no_duplicates)
+        
+        return ordered
+
+
     
 
     def _create_aoovl(self) -> None:
