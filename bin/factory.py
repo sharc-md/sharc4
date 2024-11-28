@@ -49,10 +49,14 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
         return AVAILABLE_INTERFACES
 
     sharc_bin = expand_path('$SHARC')
-    log.debug(f"factory interface collection: {sharc_bin}")
+    log.info(f"Loading interface collection from {sharc_bin} ...")
     interfaces = []
     start = time.time_ns()
-    for path in sorted(glob.glob(sharc_bin + '/SHARC_*.py')):
+    pathlist = sorted(glob.glob(sharc_bin + '/SHARC_*.py'))
+    # ninterface = len(pathlist)
+    # interfaces_done = 0
+    # width_progressbar = 50
+    for path in pathlist:
         filename = path.split('/')[-1]
         interface_name = filename.split('.')[0]
         try:
@@ -84,6 +88,14 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
             continue
 
         interfaces.append((interface_name, interface, True))
+
+        # interfaces_done += 1
+        # done = interfaces_done * width_progressbar // ninterface
+        # log.info(
+        #     "\rProgress: [" + "=" * done + " " * (width_progressbar - done) + "] %3i%%" % (done * 100 // width_progressbar)
+        # )
+
+
     stop = time.time_ns()
     log.debug("Timing for finding interfaces: %.1f sec" % ((stop - start) * 1e-9) )
     log.debug(interfaces)

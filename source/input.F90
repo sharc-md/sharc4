@@ -2521,6 +2521,13 @@ module input
       enddo
       write(u_log,*)
     endif
+  ! =====================================================
+
+  ! carry out RATTLE on the input velocities
+  if (ctrl%do_constraints==1) then
+    call rattle_initial_velocities(traj, ctrl)
+  endif
+
 
   ! =====================================================
 
@@ -3659,6 +3666,68 @@ module input
       traj%veloc_ad(iatom,2)=v*dsin(theta)*dsin(phi)
       traj%veloc_ad(iatom,3)=v*dcos(phi)
     enddo
+
+  endsubroutine
+
+
+! ===================================================
+
+
+  subroutine rattle_initial_velocities(traj,ctrl)
+    use definitions
+    implicit none
+    type(trajectory_type),intent(inout) :: traj
+    type(ctrl_type),intent(in) :: ctrl
+
+    ! variables for constraints
+    logical :: check_constraints(ctrl%n_constraints)
+    integer :: iconstr, iA, iB, iiter
+    real*8 :: relpos(3), relvel(3)
+    real*8 :: d2t, coeff
+
+
+  ! if (ctrl%do_constraints==1) then
+    if (printlevel>2) then
+      write(u_log,'(A)') 'RATTLE iterations for initial velocities'
+      write(u_log,'(A3,X,A3,X,A5,X,A5,X,A12,X,A12,X,A2)') 'it','Con','AtomA','AtomB','Resid','coeff','OK'
+    endif
+    do iiter=1,1000
+      ! initialize logical variable that controls whether constraints are enforced
+      check_constraints(:) = .TRUE.
+        ! loop over the constrained bonds
+        do iconstr = 1, ctrl%n_constraints
+          ! define the atomic id of the atoms that have fixed distance
+          iA = ctrl%constraints_ca(iconstr,1)
+          iB = ctrl%constraints_ca(iconstr,2)
+          ! compute projection of the relative velocity with respect to the distance vector of the bond
+          relvel = traj%veloc_ad(iA,:) - traj%veloc_ad(iB,:)
+          relpos = traj%geom_ad(iA,:) - traj%geom_ad(iB,:)
+          d2t = DOT_PRODUCT(relpos, relvel)
+          ! when this projection is significantly different from zero, do RATTLE
+          coeff=0.d0
+          if ( abs(d2t) > ctrl%constraints_tol ) then
+            ! compute RATTLE coefficient
+            coeff = d2t / ((1.D0 / traj%mass_a(iA) + 1.D0 / traj%mass_a(iB)) * ctrl%constraints_dist_c(iconstr))
+            ! correct velocities
+            traj%veloc_ad(iA,:) = traj%veloc_ad(iA,:) - (coeff * relpos(:) / traj%mass_a(iA) )
+            traj%veloc_ad(iB,:) = traj%veloc_ad(iB,:) + (coeff * relpos(:) / traj%mass_a(iB) )
+            ! this constraint was not ok
+            check_constraints(iconstr) = .FALSE.
+          endif
+          ! print
+          if (printlevel>2) then
+            write(u_log,'(I3,X,I3,X,I5,X,I5,X,F12.7,X,F12.7,X,L1)') iiter,iconstr,iA,iB,&
+            &abs(D2t),coeff,check_constraints(iconstr)
+          endif
+        end do ! end of the loop over the constraints
+      ! break the loop when all constraints are satisfied
+      if ( all(check_constraints) ) exit
+    end do
+    if (.not. all(check_constraints) ) then
+      write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (initial vstep)!'
+      stop 1
+    endif
+  ! endif
 
   endsubroutine
 
