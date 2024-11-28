@@ -37,15 +37,12 @@ import numpy as np
 import os
 import sys
 import re
-import stat
-import shutil
 import datetime
-import pprint
 import sympy
 
 # internal
 from SHARC_FAST import SHARC_FAST
-from utils import readfile, question, expand_path
+from utils import readfile, question, phase_correction
 from io import TextIOWrapper
 
 authors = "Brigitta Bachmair"
@@ -98,7 +95,7 @@ class SHARC_ANALYTICAL(SHARC_FAST):
 
     @staticmethod
     def description():
-        return "Analytical PESs calculations"
+        return "     FAST interface for analytical model Hamiltonians with sympy"
 
     @staticmethod
     def find_lines(nlines, match, strings):
@@ -113,8 +110,7 @@ class SHARC_ANALYTICAL(SHARC_FAST):
             if line == smatch:
                 return [s.rstrip('\n \t\r;').split(';') for s in strings[iline + 1:iline +1 + nlines]]
     
-    @staticmethod
-    def check_dimensions(mat, nmstates):
+    def check_dimensions(self, mat, nmstates):
         for i, elements in enumerate(mat):
             if (len(elements) < i+1) or (len(elements) > nmstates):
                 self.log.error('Dimensions of defined matrix in template file not correct.')
@@ -208,7 +204,7 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         for idir in range(1, 4):
             self._Dstring[idir] = self.find_lines(nmstates, f'Dipole {idir}', lines)
             if self._Dstring[idir] != []:
-                self.check_dimensions(self._Dstring[idir], mnstates)
+                self.check_dimensions(self._Dstring[idir], nmstates)
 
         # obtain the dipole derivative matrices
         #if self.QMin.requests["dmdr"]:
@@ -461,8 +457,8 @@ class SHARC_ANALYTICAL(SHARC_FAST):
                     self.all_U = []
                 self.all_U.append(self._U)
 
-        print("am here 1")
-        print(self.QMin.save['step'])
+        # print("am here 1")
+        # print(self.QMin.save['step'])
         # ======================================== assign to QMout =========================================
         self.log.debug(f"requests: {self.QMin.requests}")
         self.QMout.states = states
@@ -492,9 +488,9 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         return
 
     def create_restart_files(self):
-        print("am here 0")
-        print(self.QMin.save['step'])
-        print(self.persistent)
+        # print("am here 0")
+        # print(self.QMin.save['step'])
+        # print(self.persistent)
         super().create_restart_files()
         if self.persistent:
             for istep in self.savedict:
