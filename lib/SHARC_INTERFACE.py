@@ -906,7 +906,7 @@ class SHARC_INTERFACE(ABC):
             last_step = None
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         self.log.debug(f"{stepfile =}")
-        if os.path.isfile(stepfile):
+        if os.path.isfile(stepfile) and not self.persistent: # if persistent, we should ignore a STEP file if it exists, because we don't write one every step
             self.log.debug(f"Found stepfile {stepfile}")
             last_step = int(readfile(stepfile)[0])
         self.log.debug(f"{last_step =}, {self.QMin.save['step']=}")
