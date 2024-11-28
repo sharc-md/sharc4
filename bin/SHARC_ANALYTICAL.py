@@ -217,10 +217,10 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         #if self.QMin.requests["soc"]:
         self._socRstring = self.find_lines(nmstates, 'SOC Re', lines)
         if self._socRstring != []:
-            self.check_dimensions(self._socRstring, mnstates)
+            self.check_dimensions(self._socRstring, nmstates)
             self._socIstring = self.find_lines(nmstates, 'SOC Im', lines)
             if self._socIstring != []:
-                self.check_dimensions(self._socIstring, mnstates)
+                self.check_dimensions(self._socIstring, nmstates)
                 self._soc_real = False
 
         self._read_template = True
