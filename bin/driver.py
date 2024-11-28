@@ -29,6 +29,8 @@ import time
 import numpy as np
 from typing import Any, Union
 from optparse import OptionParser
+from importlib import import_module
+import inspect
 
 # INTERNAL
 import sharc.sharc as sharc
@@ -237,7 +239,29 @@ def main():
         exit(0)
     inp_file = args[0]
     # param = args[0:-1]
-    interface = factory(options.name)
+
+
+    # load interface without factory
+    # interface = factory(options.name)
+    interface_name = options.name.upper()
+    interface_name = interface_name if interface_name.split("_")[0] == "SHARC" else f"SHARC_{interface_name}"
+    try:
+        module = import_module(interface_name)
+    except (ModuleNotFoundError, ImportError, TypeError):
+        log.error(f"{interface_name} could not be imported!")
+        raise
+    try:
+        interface = getattr(module, interface_name)
+        if not issubclass(interface, SHARC_INTERFACE):
+            log.error(f"Class {interface_name} is not derived from SHARC_INTERFACE")
+            raise ImportError()
+        if inspect.isabstract(interface):
+            log.error(f"{interface_name} is an abstract base class!")
+            raise ImportError()
+    except AttributeError as exc:
+        log.error(f"Class {interface_name} not found in {module}")
+        raise AttributeError from exc
+
 
     derived_int: SHARC_INTERFACE = interface(persistent=options.persistent, loglevel=loglevel)
     derived_int.QMin.molecule["unit"] = "bohr"
