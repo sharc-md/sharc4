@@ -468,6 +468,8 @@ class SHARC_QMMM(SHARC_HYBRID):
         if self.QMin.template["embedding"] == "subtractive":
             if len(self._linkatoms) > 0:
                 mmlink_indices = [i[1] for i in self._linkatoms]
+            else:
+                mmlink_indices = []
             self.qm_and_mmlink_indices = sorted(self.qm_ids+mmlink_indices)
             mms_coords = np.array([self.QMin.coords["coords"][i].copy() for i in self.qm_and_mmlink_indices])
 
