@@ -304,7 +304,7 @@ class SHARC_LVC(SHARC_FAST):
 
     def read_resources(self, resources_filename="LVC.resources"):
         if not os.path.isfile(resources_filename):
-            self.log.warning("LVC.resources not found; continuuing without further settings.")
+            self.log.warning("LVC.resources not found; continuing without further settings.")
             self._read_resources = True
             return
 
