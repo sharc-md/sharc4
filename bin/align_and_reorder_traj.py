@@ -325,20 +325,19 @@ def do_calc(INFOS):
     start_time = perf_counter_ns()
     last__time = perf_counter_ns()
 
+    # print header
+    print("%6s %13s %40s %10s\n" % ("Step", "Trajs", "File written", "Timing"))
+
     # main loop
     for istep in range(nstep):
-
-        # progress
-        print('\n=== Time step %i ===' % istep)
 
         # main containers
         all_geom = np.zeros((nfile, natom, 3), dtype=float)
 
         # go through the files
-        sys.stdout.write("Files done (of %i): " % nfile)
+        # sys.stdout.write("Files done (of %i): " % nfile)
         for itraj, filename in enumerate(sorted(filename_list_and_steps.keys())):
-            sys.stdout.write('#')
-            # print("-> File: %s [%i]" % (filename, istep))
+            sys.stdout.write('\r%6i %6i/%6i ' % (istep+1, itraj+1, nfile))
             with Dataset(filename) as f:
                 # read and convert coordinates
                 geom = f.variables["geom"]
@@ -352,7 +351,6 @@ def do_calc(INFOS):
 
                 # align
                 all_geom[itraj, ...] = (geom - com_coord_0[itraj, None, ...]) @ T_mats_0[itraj, ...].T + com_ref_0[itraj, None, ...]
-        sys.stdout.write('\n')
 
         if INFOS['write_coord']:
             # all geometries acquired, now write them
@@ -360,7 +358,7 @@ def do_calc(INFOS):
                 out_filename = f"frame_coord_mol_pers_{istep:05d}.nc"
             else:
                 out_filename = f"frame_coord_sol_pers_{istep:05d}.nc"
-            print(" => Writing File: %s" % out_filename)
+            sys.stdout.write("%40s" % out_filename)
             with Dataset(out_filename, "w", format="NETCDF3_64BIT_OFFSET") as out:
                 out.title = "SHARCTRAJ to AMBERTRAJ"
                 out.application = "AMBER"
@@ -381,15 +379,14 @@ def do_calc(INFOS):
         # if velocities are needed, go through the files and read them
         # rotation matrices are already there, so no need to touch geometries again
         if INFOS['write_veloc']:
+            sys.stdout.write("\n")
 
             # reuse the same container
             all_geom = np.zeros((nfile, natom, 3), dtype=float)
 
             # go through the files
-            sys.stdout.write("Files done (of %i): " % nfile)
             for itraj, filename in enumerate(sorted(filename_list_and_steps.keys())):
-                sys.stdout.write('#')
-                # print("-> File: %s [%i] for velocity" % (filename, istep))
+                sys.stdout.write('\r%6i %6i/%6i ' % (istep+1, itraj+1, nfile))
                 with Dataset(filename) as f:
                     # read and convert coordinates
                     veloc = f.variables["veloc"]
@@ -398,14 +395,13 @@ def do_calc(INFOS):
 
                     # align
                     all_geom[itraj, ...] = veloc @ T_mats_0[itraj, ...].T # COM shifts are not applied to velocities
-            sys.stdout.write('\n')
             
             # all geometries acquired, now write them
             if INFOS['mol_persp']:
                 out_filename = f"frame_veloc_mol_pers_{istep:05d}.nc"
             else:
                 out_filename = f"frame_veloc_sol_pers_{istep:05d}.nc"
-            print(" => Writing File: %s" % out_filename)
+            sys.stdout.write("%40s" % out_filename)
             with Dataset(out_filename, "w", format="NETCDF3_64BIT_OFFSET") as out:
                 out.title = "SHARCTRAJ to AMBERTRAJ"
                 out.application = "AMBER"
@@ -425,7 +421,8 @@ def do_calc(INFOS):
         final_time = perf_counter_ns()
         timing = (final_time - last__time) * 1e-9
         nfiles = 1 + int(INFOS['write_veloc'])
-        print(f"Wall time: {timing: 15.4}sec ({timing/nfile/nfiles: 15.4}sec per file access)")
+        sys.stdout.write("% 7.3fsec\n" % timing)
+        # print(f"Wall time: {timing: 15.4}sec ({timing/nfile/nfiles: 15.4}sec per file access)")
         last__time = final_time
     
     # total timing

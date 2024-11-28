@@ -1301,7 +1301,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
     whichatoms = []
 
     if options.DUM:
-        molecule, modes = [None], [{'freq': 0.}]
+        molecule, modes = [ATOM(symb='H', num=0, m=1.*U_TO_AMU)], [{'freq': 0.}]
     else:
         molecule, modes = import_from_molden(filename, scaling, flag, options.lvc)
 

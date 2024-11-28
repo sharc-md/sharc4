@@ -475,7 +475,8 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     """get requests for every single point"""
     interface.QMin.molecule["states"] = INFOS["states"]
     int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
-    log.debug(int_features)
+    log.info("\nThe following features are available from this interface:")
+    log.info(int_features)
 
     INFOS["needed_requests"] = ["h", "dm"]
     states = INFOS["states"]
