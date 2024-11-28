@@ -7,7 +7,7 @@ from constants import au2a
 
 def expand_str_to_list(input: str) -> list[int]:
     out = []
-    for i in input.split(","):
+    for i in input.split(" "):
         if "~" in i:
             q = i.split("~")
             for j in range(int(q[0]), int(q[1]) + 1):
@@ -114,7 +114,11 @@ def main(file, qm_list, rattle_hx=False, atommask=False):
     atoms_to_keep = sorted(atoms_to_keep)
 
     truncated_prmtop = prmtop[atoms_to_keep]
-    truncated_prmtop.parm_data["BOX_DIMENSIONS"] = prmtop.parm_data["BOX_DIMENSIONS"]  # in at least some cases, the box dimensions are zero, which leads to div-by-zero in QMMM interface
+    # in at least some cases, the box dimensions are zero, which leads to div-by-zero in QMMM interface 
+    truncated_prmtop.parm_data["BOX_DIMENSIONS"] = prmtop.parm_data["BOX_DIMENSIONS"]  
+    # set charges for link atoms to zero
+    for i in range(len(truncated_prmtop.atoms)):
+        truncated_prmtop.atoms[i].charge = 0.0
     print(f"writing file '{filebase}_qm_and_links_chrg0{ext}'")
     truncated_prmtop.write_parm(filebase + "_qm_and_links_chrg0" + ext)
 
