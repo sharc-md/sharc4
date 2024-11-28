@@ -1048,7 +1048,7 @@ mocoef
             resources_file.close()
             
         create_file = link if INFOS["link_files"] else shutil.copy
-        print(self.files)
+        # print(self.files)
         for file in self.files:
             create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
 

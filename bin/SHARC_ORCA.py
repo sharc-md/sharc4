@@ -767,7 +767,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         self.QMout["grad"][key - 1] = gradients
 
                         # Point charges
-                        if point_charges:
+                        if self.QMin.molecule["point_charges"]:
                             self.QMout["grad_pc"][key - 1] = point_charges
 
             # Populate neglected gradients
