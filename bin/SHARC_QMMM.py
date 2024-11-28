@@ -356,10 +356,11 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.QMin.maps["statemap"] = {i + 1: [*v] for i, v in enumerate(itnmstates(self.QMin.molecule["states"]))}
         # prepare info for both interfaces
         el = self.QMin.molecule["elements"]
+        # TODO: check whether self.atoms[i].symbol and el are the same
         n_link = len(self._linkatoms)
         qm_el = [self.atoms[i].symbol for i in self.qm_ids] + ["H"] * n_link
 
-        # TODO: Would be better to call setup_mol() in the following, but that is a bit difficult here
+        # TODO: Would be better to call setup_mol() in the following, but that is a bit difficult for this interface
 
         # ----- QM interface -----
         # setup mol for qm
@@ -460,10 +461,16 @@ class SHARC_QMMM(SHARC_HYBRID):
                 qm_id, mm_id = link
                 return self.QMin.coords["coords"][qm_id] * self._qm_s + self.QMin.coords["coords"][mm_id] * self._mm_s
 
-            link_coords = np.fromiter(map(get_link_coord, self._linkatoms), dtype=float, count=len(self._linkatoms))
+            link_coords = np.array([get_link_coord(link) for link in self._linkatoms])
             self.qm_interface.QMin.coords["coords"] = np.vstack((qm_coords, link_coords))
         else:
             self.qm_interface.QMin.coords["coords"] = qm_coords
+        if self.QMin.template["embedding"] == "subtractive":
+            if len(self._linkatoms) > 0:
+                mmlink_indices = [i[1] for i in self._linkatoms]
+            self.qm_and_mmlink_indices = sorted(self.qm_ids+mmlink_indices)
+            mms_coords = np.array([self.QMin.coords["coords"][i].copy() for i in self.qm_and_mmlink_indices])
+
 
         self.mml_interface.QMin.coords["coords"] = self.QMin.coords["coords"].copy()
         # setting requests for qm and mm regions based on the QMMM requests
@@ -497,7 +504,6 @@ class SHARC_QMMM(SHARC_HYBRID):
             self.mms_interface.QMin.save['step'] = self.QMin.save['step']
             self.mms_interface._step_logic()
             self.mms_interface._request_logic()
-        # TODO: why no request_logic for MM children?
 
         # always set this request as these charges are required for the calculation of the point charges
         self.mml_interface.QMin.requests["multipolar_fit"] = [1]
@@ -511,7 +517,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             raw_pc = self.mml_interface.QMout["multipolar_fit"][0, 0, ...]
 
         if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface.QMin.coords["coords"] = qm_coords
+            self.mms_interface.QMin.coords["coords"] = mms_coords
             with InDir(self.QMin.template["mms-dir"]) as _:
                 self.mms_interface.run()
                 self.mms_interface.getQMout()
@@ -525,7 +531,9 @@ class SHARC_QMMM(SHARC_HYBRID):
             chrg = raw_pc[mmid] / len(neighbor_ids)
             for nb in neighbor_ids:
                 raw_pc[nb] += chrg
-        self.non_link_mm = [i for i in self.mm_ids if i not in self.mm_links]  # shallow copy
+            raw_pc[mmid] = 0.
+        # self.non_link_mm = [i for i in self.mm_ids if i not in self.mm_links]  # shallow copy
+        self.non_link_mm = [i for i in self.mm_ids]  # shallow copy
         # calc qm
         # pc: list[list[float]] = each pc is x, y, z, qpc[p[mmid][1]][3] = 0.  # set the charge of the mm atom to zero
         self.qm_interface.QMin.coords["pccoords"] = self.QMin.coords["coords"][self.non_link_mm, :]
@@ -548,23 +556,43 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.QMout.npc = self.QMin.molecule["npc"]
         self.QMout.point_charges = False
 
+        # for debugging contributions
+        set_qm_to_zero = False
+        set_mms_to_zero = False
+        set_mml_to_zero = False
+
         mm_e = float(self.mml_interface.QMout["h"][0][0])
+        if set_mml_to_zero:
+            mm=e = 0. 
         if self.QMin.template["embedding"] == "subtractive":
-            mm_e -= float(self.mms_interface.QMout["h"][0][0])
+            mms_e = float(self.mms_interface.QMout["h"][0][0])
+            if set_mms_to_zero:
+                mms_e = 0.
+            mm_e -= mms_e
 
         self.QMout["prop0d"].append(("MM Energy", mm_e))
         # Hamiltonian
         if self.qm_interface.QMin.requests["h"]:
-            self.QMout.h = self.qm_interface.QMout.h.copy()
+            self.QMout.h = qmQMout.h.copy()
+            if set_qm_to_zero:
+                self.QMout.h = np.zeros_like(self.QMout.h)
             self.QMout.h += np.eye(self.QMout.h.shape[0], dtype=float) * mm_e
+
+
         # gen output
         if self.QMin.requests["grad"]:
             qm_grad = qmQMout.grad
+            if set_qm_to_zero:
+                qm_grad = np.zeros_like(qm_grad)
             mm_grad = self.mml_interface.QMout.grad[0]
+            if set_mml_to_zero:
+                mm_grad = np.zeros_like(mm_grad)
 
             if self.QMin.template["embedding"] == "subtractive":
                 mms_grad = self.mms_interface.QMout["grad"][0]
-                mm_grad[self.qm_ids, :] -= mms_grad[: self._num_qm, :]
+                if set_mms_to_zero:
+                    mms_grad = np.zeros_like(mms_grad)
+                mm_grad[self.qm_and_mmlink_indices, :] -= mms_grad[:, :]
 
             # init gradient as mm_gradient
             grad = np.full((self.QMin.molecule["nmstates"], self.QMin.molecule["natom"], 3), mm_grad[None, ...])
@@ -572,10 +600,12 @@ class SHARC_QMMM(SHARC_HYBRID):
             # linkatoms come after qm atoms
             for n, _ in enumerate(self._linkatoms):
                 qm_id, mm_id = self._linkatoms[n]
-                grad[:, mm_id, :] += self._mm_s * qm_grad[:, n + self._num_qm]
-                grad[:, qm_id, :] += self._qm_s * qm_grad[:, n + self._num_qm]
+                grad[:, mm_id, :] += self._mm_s * qm_grad[:, n + self._num_qm, :]
+                grad[:, qm_id, :] += self._qm_s * qm_grad[:, n + self._num_qm, :]
 
             if "grad_pc" in qmQMout:  # apply pc grad
+                if set_qm_to_zero:
+                    qmQMout.grad_pc = np.zeros_like(qmQMout.grad_pc)
                 grad[:, self.non_link_mm, :] += qmQMout.grad_pc
             else:
                 self.log.warning("No 'grad_pc' in QMout of QM interface!")
@@ -583,15 +613,21 @@ class SHARC_QMMM(SHARC_HYBRID):
             self.QMout.grad = grad
 
         if self.QMin.requests["nacdr"]:
-            # nacs would have to inserted in the whole system matrix only for qm atoms
             nacdr = np.zeros(
                 (self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"], self.QMin.molecule["natom"], 3), dtype=float
             )
             nacdr[:, :, self.qm_ids, :] += self.qm_interface.QMout.nacdr
+
             for n, _ in enumerate(self._linkatoms):  # linkatoms come after qm atoms
                 qm_id, mm_id = self._linkatoms[n]
                 nacdr[:, :, mm_id, :] += self._mm_s * self.qm_interface.QMout.nacdr[:, :, n + self._num_qm, :]
                 nacdr[:, :, qm_id, :] += self._qm_s * self.qm_interface.QMout.nacdr[:, :, n + self._num_qm, :]
+
+            if "nacdr_pc" in qmQMout:
+                nacdr[:, :, self.non_link_mm, :] += qmQMout.nacdr_pc
+            else:
+                self.log.warning("No 'nacdr_pc' in QMout of QM interface!")
+
             self.QMout.nacdr = nacdr
 
         if self.QMin.requests["dm"]:
@@ -602,7 +638,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = self.qm_interface.QMout.overlap
 
-        # potentially print out other contributions and properties...
+        # potentially put out other contributions and properties...
         for i in ["ion", "prop", "theodore"]:
             if i in qmQMout:
                 self.QMout[i] = qmQMout[i]
