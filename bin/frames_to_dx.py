@@ -6,6 +6,7 @@ from netCDF4 import Dataset
 import numba as nb
 import numpy as np
 import sys
+from utils import readfile
 
 
 
@@ -63,7 +64,18 @@ def main(infile, maskfile, outfile, options):
 
     # mask file
     # TODO: format from cpptraj mask command
-    mask_indices = np.loadtxt(maskfile, dtype = int) - 1
+    mask = readfile(maskfile)
+    if "Frame    AtomNum Atom   ResNum  Res   MolNum" in mask[0]:
+        # mask file from cpptraj
+        indices = set()
+        for line in mask:
+            if '#' in line:
+                continue
+            indices.add(line.split()[1]-1)
+            mask_indices = np.array(sorted(indices))
+    else:
+        # raw file
+        mask_indices = np.loadtxt(maskfile, dtype = int) - 1
 
     # get data
     # TODO: could do this with slicing for lower memory usage
