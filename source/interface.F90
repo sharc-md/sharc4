@@ -1305,8 +1305,18 @@ subroutine Verlet_xstep(i_step)
     implicit none
     __INT__, intent(in) :: i_step
 
+    ! traj%step=traj%step+1
+    ! ctrl%nsteps=traj%step
+    ! if ( (traj%microtime+ctrl%dtstep) .le. ctrl%tmax) then
+    !   traj%microtime=traj%microtime+ctrl%dtstep
+    ! else
+    !   ctrl%dtstep=ctrl%tmax-traj%microtime
+    !   traj%microtime=ctrl%tmax
+    ! endif
+
     traj%step=i_step
-    call write_logtimestep(u_log, i_step, traj%microtime)
+    traj%microtime=i_step*ctrl%dtstep
+    call write_logtimestep(u_log, i_step, traj%microtime) 
     ! Velocity Verlet x
     call VelocityVerlet_xstep(traj, ctrl)
     return

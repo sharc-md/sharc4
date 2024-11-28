@@ -86,7 +86,7 @@ module input
   integer :: idate,time
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
-  logical :: selectdirectly_bool
+  logical :: selectdirectly_bool, file_exists
 
   
 #ifndef __PYSHARC__
@@ -149,6 +149,22 @@ module input
       ctrl%restart=.false.
     endif
     ! if both keywords are present, norestart will take precendence
+
+  ! =====================================================
+
+  ! new in SHARC 4.0: do not proceed if restart.ctrl or restart.traj are present
+  if (.not.ctrl%restart) then
+    inquire(file="restart.ctrl", exist=file_exists)
+    if (file_exists) then
+      write(0,*) 'File restart.ctrl present but no restart requested. Remove the file or add the restart keyword.'
+      stop 
+    endif
+    inquire(file="restart.traj", exist=file_exists)
+    if (file_exists) then
+      write(0,*) 'File restart.traj present but no restart requested. Remove the file or add the restart keyword.'
+      stop 
+    endif
+  endif 
 
   ! =====================================================
 
