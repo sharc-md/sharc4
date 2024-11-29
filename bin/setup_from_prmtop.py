@@ -7,7 +7,7 @@ from constants import au2a
 
 def expand_str_to_list(input: str) -> list[int]:
     out = []
-    for i in input.split(" "):
+    for i in input.split():
         if "~" in i:
             q = i.split("~")
             for j in range(int(q[0]), int(q[1]) + 1):
@@ -48,6 +48,9 @@ def bool_list_to_ranges(bool_list):
 
 def main(file, qm_list, rattle_hx=False, atommask=False):
     qm_list = expand_str_to_list(qm_list)
+    if not qm_list:
+        print("Please give a list of QM atoms with -q")
+        exit()
     prmtop: pmd.amber.AmberParm = pmd.amber.LoadParm(file)
     natom = prmtop.ptr("NATOM")
     atom_symb = [re.match(r"[A-Z][a-z]?", prmtop.atoms[i].name)[0] for i in range(natom)]
