@@ -15,7 +15,7 @@ from typing import Optional
 import ast
 
 import numpy as np
-from constants import IAn2AName, IToMult, au2eV
+from constants import IAn2AName, IToMult, au2eV, au2a
 from pyscf import gto
 
 # internal
@@ -584,6 +584,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         ls = os.listdir(groot)
         for key, val in tries.items():
             if key in ls:
+                if os.path.isdir(os.path.join(groot,key)):
+                    raise RuntimeError(f"The path $groot{key} is a directory!")
                 return val
         raise RuntimeError(f"Found no executable (possible names: {list(tries)}) in $groot!")
 
@@ -628,7 +630,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         initorbs = {}
         step = qmin.save["step"]
         if qmin.save["always_guess"]:
-            qmin.resources["initorbs"] = {}
+            pass
         elif qmin.save["init"] or qmin.save["always_orb_init"]:
             for job in qmin.control["joblist"]:
                 filename = os.path.join(qmin.resources["pwd"], "GAUSSIAN.chk.init")
@@ -641,7 +643,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             if qmin.save["always_orb_init"] and len(initorbs) < qmin.control["njobs"]:
                 self.log.error("Initial orbitals missing for some jobs!")
                 raise RuntimeError()
-            qmin.resources["initorbs"] = initorbs
         elif qmin.save["newstep"]:
             for job in qmin.control["joblist"]:
                 filename = os.path.join(qmin.save["savedir"], f"GAUSSIAN.chk.{job}.{step-1}")
@@ -650,7 +651,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 else:
                     self.log.error(f"File {filename} missing in savedir!")
                     raise RuntimeError()
-            qmin.resources["initorbs"] = initorbs
         elif qmin.save["samestep"]:
             for job in qmin.control["joblist"]:
                 filename = os.path.join(qmin.save["savedir"], f"GAUSSIAN.chk.{job}.{step}")
@@ -659,16 +659,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 else:
                     self.log.error(f"File {filename} missing in savedir!")
                     raise RuntimeError()
-            qmin.resources["initorbs"] = initorbs
-        elif qmin.save["restart"]:
-            for job in qmin.control["joblist"]:
-                filename = os.path.join(qmin.save["savedir"], f"GAUSSIAN.chk.{job}.{step}")
-                if os.path.isfile(filename):
-                    initorbs[job] = filename
-                else:
-                    self.log.error(f"File {filename} missing in savedir!")
-                    raise RuntimeError
-            qmin.resources["initorbs"] = initorbs
+        qmin.resources["initorbs"] = initorbs
+        self.log.debug(qmin.resources["initorbs"])
 
     def generate_joblist(self) -> None:
         # sort the gradients into the different jobs
@@ -1026,7 +1018,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         dodens = False
         # TODO only activate if state is requested (i.e. is in densmap)
-        if QMin.requests["multipolar_fit"] or QMin.requests["density_matrices"]:
+        if QMin.requests["multipolar_fit"] or QMin.requests["density_matrices"] or dograd:
             dodens = True
             root = QMin.control["rootstate"]
 
@@ -1078,7 +1070,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             if QMin.template["noneqsolv"]:
                 s += ",noneqsolv"
             s += ") "
-            if dodens and root > 0 and QMin.template['state_densities'] == 'relaxed': s += "density=Current"
+            if dodens and root > 0 and QMin.template['state_densities'] == 'relaxed': 
+                s += "density=Current"
             data.append(s)
         if QMin.template["scrf"]:
             s = ",".join(QMin.template["scrf"])
@@ -1106,6 +1099,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             data.append("GFINPUT")
         if QMin.molecule['point_charges']:
             data.append('charge')
+            data.append('prop=(field,read)')
+            # TODO: also add prop=(field, read) and give the point charges a second time to get gradients
 
         # data.append("GFPRINT")
         string += "#"
@@ -1127,6 +1122,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 pccoord = QMin.coords['pccoords'][a,:]
                 pccharge = QMin.coords['pccharge'][a]
                 string += f"{pccoord[0]:16.15f} {pccoord[1]:16.15f} {pccoord[2]:16.15f} {pccharge:16.15f}\n"
+            string += "\n"
+            for a in range(len(QMin.coords['pccharge'])):
+                pccoord = QMin.coords['pccoords'][a,:]
+                string += f"{pccoord[0]*au2a:16.15f} {pccoord[1]*au2a:16.15f} {pccoord[2]*au2a:16.15f}\n"
             string += "\n"
         if QMin.template["functional"].lower() == "dftba":
             string += "@GAUSS_EXEDIR:dftba.prm\n"
@@ -1162,7 +1161,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         fromfile = os.path.join(WORKDIR, "GAUSSIAN.chk")
         tofile = os.path.join(qmin.save["savedir"], f"GAUSSIAN.chk.{job}.{step}")
         shutil.copy(fromfile, tofile)
-        self.log.info(shorten_DIR(tofile))
+        self.log.debug(shorten_DIR(tofile))
 
         # if necessary, extract the MOs and CI coefficients and write them to savedir
         if qmin.requests["ion"] or not qmin.requests["nooverlap"] or len(self.density_recipes["calculate"]) > 0:
@@ -1175,7 +1174,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 string = SHARC_GAUSSIAN.get_MO_from_chk(f, qmin, self.QMin.molecule['Ubasis'], ignorefrozcore=True)
                 mofile = os.path.join(qmin.save["savedir"], f"mos_allelec.{job}.{step}")
                 writefile(mofile, string)
-            self.log.info(shorten_DIR(mofile))
+            self.log.debug(shorten_DIR(mofile))
             f = os.path.join(WORKDIR, "GAUSSIAN.chk")
             strings = SHARC_GAUSSIAN.get_dets_from_chk(f, qmin)
             for f in strings:
@@ -1287,7 +1286,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # ======================================================================= #
 
     @staticmethod
-    def get_dets_from_chk(filename, QMin, ignorefrozcore: bool = True, filelabel: str = ''):
+    def get_dets_from_chk(filename, QMin, ignorefrozcore: bool = False, filelabel: str = ''):
         # get general infos
         job = QMin.control["jobid"]
         restr = QMin.control["jobs"][job]["restr"]
@@ -1609,7 +1608,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         SAO = mol_conc.intor("int1e_ovlp")[:mol_old.nao,mol_old.nao:]
         string = "%i %i\n" % (mol_old.nao, mol_old.nao)
         string += "\n".join(map(lambda row: " ".join(map(lambda f: f"{f: .15e}", row)), SAO))
-        filename = os.path.join(self.QMin.save["savedir"], "aoovl")
+        filename = os.path.join(self.QMin.save["savedir"], "AO_overl.mixed")
         writefile(filename, string)
 
         # get geometries
@@ -1790,10 +1789,14 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 path, isgs = self.QMin.control["jobgrad"][grad]
                 logfile = os.path.join(self.QMin.resources["scratchdir"], path, "GAUSSIAN.log")
                 g = self.getgrad(logfile)
+                if self.QMin.molecule["point_charges"]:
+                    gpc = self.getgrad_pc(logfile)
                 for istate in self.QMin.maps["statemap"]:
                     state = self.QMin.maps["statemap"][istate]
                     if (state[0], state[1]) == grad:
                         self.QMout["grad"][istate - 1] = g
+                        if self.QMin.molecule["point_charges"]:
+                            self.QMout["grad_pc"][istate - 1] = gpc
             if self.QMin.resources["neglected_gradient"] != "zero":
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
@@ -2049,8 +2052,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         prevdir = os.getcwd()
         os.chdir(workdir)
         string = os.path.join(groot, "formchk") + " GAUSSIAN.chk"
+        outfile = open(os.path.join(workdir, "fchk.out"), "w", encoding="utf-8")
+        errfile = open(os.path.join(workdir, "fchk.err"), "w", encoding="utf-8")
         try:
-            sp.call(string, shell=True, stdout=sys.stderr, stderr=sys.stderr)
+            sp.call(string, shell=True, stdout=outfile, stderr=errfile)
         except OSError as e:
             raise RuntimeError("Call have had some serious problems:", e)
         os.chdir(prevdir)
@@ -2367,7 +2372,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         ECPs = SHARC_GAUSSIAN.prepare_ecp(raw_properties_from_master)
         self.log.debug(f"{'ECP:':=^80}\n{ECPs}")
         if len(ECPs) == 0:
-            self.log.info("No ECPs found")
+            self.log.debug("No ECPs found")
         #gsmult = self.QMin.maps["statemap"][1][0]
         #charge = self.QMin.maps["chargemap"][gsmult]
         atoms = [
@@ -2554,7 +2559,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # ======================================================================= #
 
     def getgrad(self, logfile):
-        # read file and check if ego is active
+        # read file
         out = readfile(logfile)
         self.log.print("Gradient: " + shorten_DIR(logfile))
 
@@ -2573,6 +2578,31 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         g[iatom][i] = -float(s[2 + i])
 
         return g
+    
+    # ======================================================================= #
+
+    def getgrad_pc(self, logfile):
+        # read file
+        out = readfile(logfile)
+        self.log.print("PC Gradient: " + shorten_DIR(logfile))
+
+        # initialize
+        natom = self.QMin.molecule["natom"]
+        npc = self.QMin.molecule["npc"]
+        g = [[0.0 for i in range(3)] for j in range(npc)]
+
+        # get gradient
+        string = "Center     Electric         -------- Electric Field --------"
+        shift = 3 + natom
+        for iline, line in enumerate(out):
+            if string in line:
+                for iatom in range(npc):
+                    s = out[iline + shift + iatom].split()
+                    for i in range(3):
+                        g[iatom][i] =  -float(s[2 + i]) * self.QMin.coords["pccharge"][iatom]
+        return g
+
+    # ======================================================================= #
 
     @staticmethod
     def getDyson(out, s1, s2):
