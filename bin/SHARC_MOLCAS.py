@@ -1120,8 +1120,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str = "&GATEWAY\n"
             for idx, (charge, coord) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"]), 1):
                 input_str += f"basis set\n{charge}.{qmin.template['basis']}....\n"
-                input_str += f"{charge}{idx} {coord[0]: >10.15f} {coord[1]: >10.15f} {coord[2]: >10.15f}"
+                input_str += f"{charge}{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f}"
                 input_str += " /Angstrom\nend of basis\n\n"
+            for idx, (charge, coord) in enumerate(zip(qmin.coords["pccharge"], qmin.coords["pccoords"]), 1):
+                input_str += (
+                    f"basis set\nX...0s.0s.\nX{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f} /Angstrom\n"
+                )
+                input_str += f"Charge = {charge}\nend of basis\n\n"
+        input_str += "\n"
 
         if qmin.requests["soc"]:
             input_str += "AMFI\nangmom\n0 0 0\n"
@@ -1133,13 +1139,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.template["pcmset"]:
             input_str += f"TF-INPUT\nPCM-MODEL\nSOLVENT = {qmin.template['pcmset']['solvent']}\n"
             input_str += f"AARE = {qmin.template['pcmset']['aare']}\nR-MIN = {qmin.template['pcmset']['r-min']}"
-        if qmin.molecule["point_charges"]:
-            for idx, (charge, coord) in enumerate(zip(qmin.coords["pccharge"], qmin.coords["pccoords"]), 1):
-                input_str += (
-                    f"basis set\nX...0s.0s.\nX{idx} {coord[0]: >10.15f} {coord[1]: >10.15f} {coord[2]: >10.15f} /Angstrom\n"
-                )
-                input_str += f"Charge = {charge}\nend of basis\n"
-        input_str += "\n"
         return input_str
 
     def _write_geom(self, atoms: list[str], coords: list[list[float]] | np.ndarray) -> str:
