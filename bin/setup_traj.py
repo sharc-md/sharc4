@@ -1647,7 +1647,7 @@ def get_trajectory_info(INFOS) -> dict:
 
     # NetCDF
     log.info("\nSHARC or PYSHARC can produce output in ASCII format (all features supported currently)")
-    log.info("or in NetCDF format (more efficient file I/O, some features currently not supported).")
+    log.info("or in NetCDF format (more efficient file I/O, trajectory restart currently not supported).")
     INFOS["netcdf"] = question("Write output in NetCDF format?", bool, INFOS["pysharc"])
     INFOS["netcdf_separate"] = False
     if INFOS["netcdf"]: 
