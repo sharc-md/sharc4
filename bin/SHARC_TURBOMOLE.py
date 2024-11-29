@@ -14,7 +14,7 @@ from pyscf import gto, tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from SHARC_ORCA import SHARC_ORCA
-from utils import expand_path, itmult, mkdir, question, writefile, link
+from utils import expand_path, itmult, link, mkdir, question, writefile
 
 __all__ = ["SHARC_TURBOMOLE"]
 
@@ -144,10 +144,6 @@ all_features = set(
         "molden",
         "point_charges",
         "grad_pc",
-        # raw data request
-        "mol",
-        "wave_functions",
-        "density_matrices",
     ]
 )
 
