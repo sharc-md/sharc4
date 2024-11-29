@@ -144,10 +144,10 @@ all_features = set(
         "molden",
         "point_charges",
         "grad_pc",
-        # raw data request
-        "mol",
-        "wave_functions",
-        "density_matrices",
+        # raw data request TODO: need to be implemented
+        # "mol",
+        # "wave_functions",
+        # "density_matrices",
     ]
 )
 
@@ -264,6 +264,17 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         self.log.info(f"||{'TURBOMOLE interface setup':^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
+        
+        if os.path.isfile("TURBOMOLE.template"):
+            self.log.info("Found TURBOMOLE.template in current directory")
+            if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+                self._template_file = "TURBOMOLE.template"
+        else:
+            self.log.info("Specify a path to a TURBOMOLE template file.")
+            while not os.path.isfile(template_file := question("Template path:", str, KEYSTROKES=KEYSTROKES)):
+                self.log.info(f"File {template_file} does not exist!")
+            self._template_file = template_file
+
         if question("Do you have a TURBOMOLE.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
             while not os.path.isfile(
                 resources_file := question("Specify path to TURBOMOLE.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
@@ -276,7 +287,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             if "soc" in INFOS["needed_requests"]:
                 INFOS["orcadir"] = question("Specify path to ORCA (< 5.0.0) to calculate SOCs:", str, KEYSTROKES=KEYSTROKES)
             self.log.info("Please specify the number of CPUs to be used by EACH trajectory.\n")
-            self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
+            self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0], default=1)
             self.setupINFOS["memory"] = question(
                 "Specify the amount of RAM to be used.\nMemory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES
             )[0]
@@ -289,16 +300,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
         self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
-
-        if os.path.isfile("TURBOMOLE.template"):
-            self.log.info("Found TURBOMOLE.template in current directory")
-            if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
-                self._template_file = "TURBOMOLE.template"
-        else:
-            self.log.info("Specify a path to a TURBOMOLE template file.")
-            while not os.path.isfile(template_file := question("Template path:", str, KEYSTROKES=KEYSTROKES)):
-                self.log.info(f"File {template_file} does not exist!")
-            self._template_file = template_file
 
         return INFOS
 
@@ -354,8 +355,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             raise ValueError()
 
         # Check spin-scaling
-        if (scaling := self.QMin.template["spin-scaling"]) and scaling not in ("scs", "sos", "lt-sos"):
-            self.log.error(f"spin-scaling {scaling} invalid. Use scs, sos or lt-sos.")
+        if (scaling := self.QMin.template["spin-scaling"]) and scaling not in ("scs", "sos", "lt-sos", "none"):
+            self.log.error(f"spin-scaling {scaling} invalid. Use none, scs, sos, lt-sos.")
             raise ValueError()
 
         if self.QMin.template["spin-scaling"] == "lt-sos" and self.QMin.template["dipolelevel"] > 1:
@@ -503,6 +504,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     add_section.append(("$ricc2", "scs\n"))
                 case "sos" | "lt-sos":
                     add_section.append(("$ricc2", "sos cos= 1.20000 css= 0.33333\n"))
+                case "none":
+                    pass
             if self.QMin.template["spin-scaling"] == "lt-sos":
                 add_lines.append("$laplace\nconv=5\n")
             add_lines.append("$scfiterlimit 100\n")
@@ -956,7 +959,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         Copy run files from master job
         """
         self.log.debug("Copy run files from master job")
-        files = ("auxbasis", "basis", "mos", "alpha", "beta", "restart.cc")
+        files = ("auxbasis", "basis", "mos", "alpha", "beta", "restart.cc", "energy")
         for f in files:
             try:
                 shutil.copy(os.path.join(master_dir, f), os.path.join(workdir, f))
