@@ -1450,6 +1450,13 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             with open(os.path.join(workdir, "define.err"), "r", encoding="utf-8") as f:
                 self.log.error(f.read())
             raise RuntimeError()
+
+        # TURBOMOLE returns 0 even on errors
+        with open(os.path.join(workdir, "define.err"), "r", encoding="utf-8") as err:
+            while line := err.readline():
+                if "abnormally" in line.split():
+                    self.log.error("Define failed for some unknown reason.")
+                    raise RuntimeError
         return code
 
     def _modify_file(
