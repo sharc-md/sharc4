@@ -30,7 +30,7 @@ For now, this implementation is the simplest possible....
 Only Singlets are supported. Using local diabatization.
 Will be extended to triplets and NACs int the future.
 
-02.12.2024:     Version 1.0 by Hans Georg
+02.12.2024:     Version 1.0 by Georg
 Added all the needed functionality to run the SHARC pipeline with MOPAC-PI. 
 Minor and cosmetic changes to the code.
 """
@@ -46,7 +46,6 @@ all_features = set(
     ]
 )
 
-au2ang = 0.529176125
 
 class SHARC_MOPACPI(SHARC_ABINITIO):
     """
@@ -320,10 +319,10 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
                 for i in range(len(link_atoms)):
                     elements_link[int(link_atom_pos[i])-1] = link_atoms[i]
             for i in range(natom-qmmm):
-                inpstring += f"{elements_link[i]}\t{coords[i][0]*au2ang:>10,.5f} 1\t{coords[i][1]*au2ang:>10,.5f} 1\t{coords[i][2]*au2ang:>10,.5f} 1\n"
+                inpstring += f"{elements_link[i]}\t{coords[i][0]*au2a:>10,.5f} 1\t{coords[i][1]*au2a:>10,.5f} 1\t{coords[i][2]*au2a:>10,.5f} 1\n"
         else:
             for i in range(natom):
-                inpstring += f"{elements[i]}\t{coords[i][0]*au2ang:>10,.5f} 1\t{coords[i][1]*au2ang:>10,.5f} 1\t{coords[i][2]*au2ang:>10,.5f} 1\n"
+                inpstring += f"{elements[i]}\t{coords[i][0]*au2a:>10,.5f} 1\t{coords[i][1]*au2a:>10,.5f} 1\t{coords[i][2]*au2a:>10,.5f} 1\n"
 
         inpstring += "\n"
         
