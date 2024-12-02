@@ -869,9 +869,17 @@ module restart
       deallocate(values)
     endif
  
-     close(u_ctrl)
+      close(u_ctrl)
+
+      ! -------------------------
  
-     ! -------------------------
+      if (ctrl%output_format < 0) then
+        write(0, *) "Restart with NetCDF output files is currently not supported."
+        stop 1
+      endif
+      ! TODO: Check how this can be implemented 
+
+      ! -------------------------
  
      ctrl%restart=.true.
  

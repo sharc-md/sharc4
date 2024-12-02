@@ -1728,12 +1728,12 @@ def writeQMoutnacnum(QMin, QMout):
             string += '%s %s ' % (eformat(QMout['nacdt'][i][j].real, 12, 3), eformat(QMout['nacdt'][i][j].imag, 12, 3))
         string += '\n'
     string += ''
-    # also write wavefunction phases
-    string += '! %i Wavefunction phases (%i, complex)\n' % (7, nmstates)
-    for i in range(nmstates):
-        string += '%s %s\n' % (eformat(QMout['phases'][i], 12, 3), eformat(0., 12, 3))
-    string += '\n\n'
-    return string
+    # # also write wavefunction phases
+    # string += '! %i Wavefunction phases (%i, complex)\n' % (7, nmstates)
+    # for i in range(nmstates):
+    #     string += '%s %s\n' % (eformat(QMout['phases'][i], 12, 3), eformat(0., 12, 3))
+    # string += '\n\n'
+    # return string
 
 # ======================================================================= #
 
@@ -1851,13 +1851,13 @@ def writeQMoutprop(QMin, QMout):
 
 
 def writeQmoutPhases(QMin, QMout):
-
-    string = '! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+    string = "! 7 Wave function phases (%ix1, complex)\n%i\n" % (QMin['nmstates'], QMin['nmstates'])
     for i in range(QMin['nmstates']):
-        string += '%s %s\n' % (eformat(QMout['phases'][i].real, 9, 3), eformat(QMout['phases'][i].imag, 9, 3))
+        string += "%s %s\n" % (
+            eformat(QMout['phases'][i].real, 9, 3),
+            eformat(QMout['phases'][i].imag, 9, 3),
+        )
     return string
-
-
 
 
 # =============================================================================================== #

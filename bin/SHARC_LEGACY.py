@@ -38,12 +38,10 @@ import ast
 
 import numpy as np
 # internal
-from constants import ATOMCHARGE, FROZENS, IToMult
-from factory import factory
+from constants import IToMult
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
-from utils import (ATOM, InDir, expand_path, itnmstates, mkdir, question,
-                   readfile, writefile)
+from utils import mkdir, question, writefile, cleandir, InDir
 from logger import log
 
 
@@ -89,7 +87,7 @@ Interfaces = {
                      'overlap': ['wfoverlap'],
                      'ion': ['wfoverlap'],
                      'nacdr': [],
-                     'phases': ['wfoverlap'],
+                     'phases': ['wfoverlap'],   
                      },
         },
     3: {'script': 'SHARC_AMS_ADF.py',
@@ -135,6 +133,17 @@ def centerstring(string, n, pad=' '):
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
 def checktemplate_MOLPRO(filename):
     necessary = ['basis', 'closed', 'occ', 'nelec', 'roots']
@@ -157,7 +166,7 @@ def checktemplate_MOLPRO(filename):
 # =================================================
 
 
-def get_MOLPRO(INFOS, KEYSTROKES: Optional[TextIOWrapper] = None):
+def get_MOLPRO(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
     '''This routine asks for all questions specific to MOLPRO:
     - path to molpro
     - scratch directory
@@ -179,13 +188,13 @@ def get_MOLPRO(INFOS, KEYSTROKES: Optional[TextIOWrapper] = None):
     else:
         path = None
     log.info('\nPlease specify path to MOLPRO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-    INFOS['molpro'] = question('Path to MOLPRO executable:', str, KEYSTROKES=KEYSTROKES, default=path)
+    parent.setupINFOS['molpro'] = question('Path to MOLPRO executable:', str, KEYSTROKES=KEYSTROKES, default=path)
     log.info('')
 
     # Scratch directory
     log.info(centerstring('Scratch directory', 60, '-') + '\n')
     log.info('Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
-    INFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
     log.info('')
 
     # MOLPRO input template
@@ -205,8 +214,8 @@ The MOLPRO interface will generate the remaining MOLPRO input automatically.
             log.info('Valid file "MOLPRO.template" detected. ')
             usethisone = question('Use this template file?', bool, KEYSTROKES=KEYSTROKES, default=True)
             if usethisone:
-                INFOS['molpro.template'] = 'MOLPRO.template'
-    if 'molpro.template' not in INFOS:
+                parent.setupINFOS['molpro.template'] = 'MOLPRO.template'
+    if 'molpro.template' not in parent.setupINFOS:
         while True:
             filename = question('Template filename:', str, KEYSTROKES=KEYSTROKES)
             if not os.path.isfile(filename):
@@ -214,7 +223,7 @@ The MOLPRO interface will generate the remaining MOLPRO input automatically.
                 continue
             if checktemplate_MOLPRO(filename):
                 break
-        INFOS['molpro.template'] = filename
+        parent.setupINFOS['molpro.template'] = filename
     log.info('')
 
     # Initial wavefunction
@@ -230,37 +239,37 @@ If you optimized your geometry with MOLPRO/CASSCF you can reuse the "wf" file fr
                 break
             else:
                 log.info('File not found!')
-        INFOS['molpro.guess'] = filename
+        parent.setupINFOS['molpro.guess'] = filename
     else:
         log.info('WARNING: Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs.')
-        INFOS['molpro.guess'] = False
+        parent.setupINFOS['molpro.guess'] = False
 
 
     log.info(centerstring('MOLPRO Ressource usage', 60, '-') + '\n')
     log.info('''Please specify the amount of memory available to MOLPRO (in MB). For calculations including moderately-sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
 ''')
-    INFOS['molpro.mem'] = abs(question('MOLPRO memory:', int, KEYSTROKES=KEYSTROKES, default=[500])[0])
+    parent.setupINFOS['molpro.mem'] = abs(question('MOLPRO memory:', int, KEYSTROKES=KEYSTROKES, default=[500])[0])
     log.info('''Please specify the number of CPUs to be used by EACH trajectory.
 ''')
-    INFOS['molpro.ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES, default=[1])[0])
+    parent.setupINFOS['molpro.ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES, default=[1])[0])
 
     # wfoverlap
     if 'wfoverlap' in INFOS['needed']:
         log.info('\n' + centerstring('Wfoverlap code setup', 60, '-') + '\n')
-        INFOS['molpro.wfpath'] = question('Path to wavefunction overlap executable:', str, KEYSTROKES=KEYSTROKES, default='$SHARC/wfoverlap.x')
+        parent.setupINFOS['molpro.wfpath'] = question('Path to wavefunction overlap executable:', str, KEYSTROKES=KEYSTROKES, default='$SHARC/wfoverlap.x')
 
     # Other settings
-    INFOS['molpro.gradaccudefault'] = 1.e-7
-    INFOS['molpro.gradaccumax'] = 1.e-4
-    INFOS['molpro.ncore'] = -1
-    INFOS['molpro.ndocc'] = 0
+    parent.setupINFOS['molpro.gradaccudefault'] = 1.e-7
+    parent.setupINFOS['molpro.gradaccumax'] = 1.e-4
+    parent.setupINFOS['molpro.ncore'] = -1
+    parent.setupINFOS['molpro.ndocc'] = 0
 
     return INFOS
 
 # =================================================
 
 
-def prepare_MOLPRO(INFOS, iconddir):
+def prepare_MOLPRO(INFOS, parent, iconddir):
     # write MOLPRO.resources
     try:
         sh2pro = open('%s/MOLPRO.resources' % (iconddir), 'w')
@@ -275,27 +284,27 @@ gradaccumax %f
 memory %i
 ncpu %i
 ''' % (
-        INFOS['molpro'],
-        INFOS['scratchdir'],
+        parent.setupINFOS['molpro'],
+        parent.setupINFOS['scratchdir'],
         iconddir,
         INFOS['copydir'],
         iconddir,
-        INFOS['molpro.gradaccudefault'],
-        INFOS['molpro.gradaccumax'],
-        INFOS['molpro.mem'],
-        INFOS['molpro.ncpu']
+        parent.setupINFOS['molpro.gradaccudefault'],
+        parent.setupINFOS['molpro.gradaccumax'],
+        parent.setupINFOS['molpro.mem'],
+        parent.setupINFOS['molpro.ncpu']
     )
     if 'wfoverlap' in INFOS['needed']:
-        string += 'wfoverlap %s\n' % (INFOS['molpro.wfpath'])
+        string += 'wfoverlap %s\n' % (parent.setupINFOS['molpro.wfpath'])
     sh2pro.write(string)
     sh2pro.close()
 
     # copy MOs and template
-    cpfrom = INFOS['molpro.template']
+    cpfrom = parent.setupINFOS['molpro.template']
     cpto = '%s/MOLPRO.template' % (iconddir)
     shutil.copy(cpfrom, cpto)
-    if INFOS['molpro.guess']:
-        cpfrom = INFOS['molpro.guess']
+    if parent.setupINFOS['molpro.guess']:
+        cpfrom = parent.setupINFOS['molpro.guess']
         cpto = '%s/QM/wf.init' % (iconddir)
         shutil.copy(cpfrom, cpto)
 
@@ -389,7 +398,7 @@ def checktemplate_COLUMBUS(TEMPLATE, mult):
 # =================================================
 
 
-def get_COLUMBUS(INFOS, KEYSTROKES: Optional[TextIOWrapper] = None):
+def get_COLUMBUS(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
     '''This routine asks for all questions specific to COLUMBUS:
     - path to COLUMBUS
     - scratchdir
@@ -418,14 +427,14 @@ def get_COLUMBUS(INFOS, KEYSTROKES: Optional[TextIOWrapper] = None):
         # INFOS['columbus']=path
     # if not 'columbus' in INFOS:
     log.info('\nPlease specify path to COLUMBUS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-    INFOS['columbus'] = question('Path to COLUMBUS:', str, KEYSTROKES=KEYSTROKES, default=path)
+    parent.setupINFOS['columbus'] = question('Path to COLUMBUS:', str, KEYSTROKES=KEYSTROKES, default=path)
     log.info('')
 
 
     # Scratch directory
     log.info(centerstring('Scratch directory', 60, '-') + '\n')
     log.info('Please specify an appropriate scratch directory. This will be used to temporally store all COLUMBUS files. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
-    INFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
     log.info('')
 
 
@@ -542,15 +551,15 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
             mocoefmap[j] = m
     log.info('')
 
-    INFOS['columbus.template'] = path
-    INFOS['columbus.multmap'] = multmap
-    INFOS['columbus.mocoefmap'] = mocoefmap
-    INFOS['columbus.intprog'] = intprog
+    parent.setupINFOS['columbus.template'] = path
+    parent.setupINFOS['columbus.multmap'] = multmap
+    parent.setupINFOS['columbus.mocoefmap'] = mocoefmap
+    parent.setupINFOS['columbus.intprog'] = intprog
 
-    INFOS['columbus.copy_template'] = question('Do you want to copy the template directory to each trajectory (Otherwise it will be linked)?', bool, KEYSTROKES=KEYSTROKES, default=False)
-    if INFOS['columbus.copy_template']:
-        INFOS['columbus.copy_template_from'] = INFOS['columbus.template']
-        INFOS['columbus.template'] = './COLUMBUS.template/'
+    parent.setupINFOS['columbus.copy_template'] = question('Do you want to copy the template directory to each trajectory (Otherwise it will be linked)?', bool, KEYSTROKES=KEYSTROKES, default=False)
+    if parent.setupINFOS['columbus.copy_template']:
+        parent.setupINFOS['columbus.copy_template_from'] = parent.setupINFOS['columbus.template']
+        parent.setupINFOS['columbus.template'] = './COLUMBUS.template/'
 
 
     # Initial mocoef
@@ -567,10 +576,10 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
             else:
                 log.info('File not found!')
                 continue
-        INFOS['columbus.guess'] = line
+        parent.setupINFOS['columbus.guess'] = line
     else:
         log.info('WARNING: Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs.')
-        INFOS['columbus.guess'] = False
+        parent.setupINFOS['columbus.guess'] = False
     log.info('')
 
 
@@ -578,23 +587,23 @@ In order to setup the COLUMBUS input, use COLUMBUS' input facility colinp. For f
     log.info(centerstring('COLUMBUS Memory usage', 60, '-') + '\n')
     log.info('''Please specify the amount of memory available to COLUMBUS (in MB). For calculations including moderately-sized CASSCF calculations and less than 150 basis functions, around 2000 MB should be sufficient.
 ''')
-    INFOS['columbus.mem'] = abs(question('COLUMBUS memory:', int, KEYSTROKES=KEYSTROKES)[0])
+    parent.setupINFOS['columbus.mem'] = abs(question('COLUMBUS memory:', int, KEYSTROKES=KEYSTROKES)[0])
 
     # wfoverlap
     if 'wfoverlap' in INFOS['needed']:
         log.info('\n' + centerstring('Wfoverlap code setup', 60, '-') + '\n')
-        INFOS['columbus.wfpath'] = question('Path to wavefunction overlap executable:', str, KEYSTROKES=KEYSTROKES, default='$SHARC/wfoverlap.x')
-        INFOS['columbus.wfthres'] = question('Determinant screening threshold:', float, KEYSTROKES=KEYSTROKES, default=[0.97])[0]
-        INFOS['columbus.numfrozcore'] = question('Number of frozen core orbitals for overlaps (-1=as in template):', int, KEYSTROKES=KEYSTROKES, default=[-1])[0]
-        if 'ion' in INFOS and INFOS['ion']:
-            INFOS['columbus.numocc'] = question('Number of doubly occupied orbitals for Dyson:', int, KEYSTROKES=KEYSTROKES, default=[0])[0]
+        parent.setupINFOS['columbus.wfpath'] = question('Path to wavefunction overlap executable:', str, KEYSTROKES=KEYSTROKES, default='$SHARC/wfoverlap.x')
+        parent.setupINFOS['columbus.wfthres'] = question('Determinant screening threshold:', float, KEYSTROKES=KEYSTROKES, default=[0.97])[0]
+        parent.setupINFOS['columbus.numfrozcore'] = question('Number of frozen core orbitals for overlaps (-1=as in template):', int, KEYSTROKES=KEYSTROKES, default=[-1])[0]
+        if 'ion' in INFOS["needed"]:
+            parent.setupINFOS['columbus.numocc'] = question('Number of doubly occupied orbitals for Dyson:', int, KEYSTROKES=KEYSTROKES, default=[0])[0]
 
     return INFOS
 
 # =================================================
 
 
-def prepare_COLUMBUS(INFOS, iconddir):
+def prepare_COLUMBUS(INFOS, parent, iconddir):
     # write COLUMBUS.resources
     try:
         sh2col = open('%s/COLUMBUS.resources' % (iconddir), 'w')
@@ -606,34 +615,42 @@ scratchdir %s/%s/
 savedir %s/%s/restart
 memory %i
 template %s
-''' % (INFOS['columbus'], INFOS['scratchdir'], iconddir, INFOS['copydir'], iconddir, INFOS['columbus.mem'], INFOS['columbus.template'])
-    string += 'integrals %s\n' % (INFOS['columbus.intprog'])
-    for mult in INFOS['columbus.multmap']:
-        string += 'DIR %i %s\n' % (mult, INFOS['columbus.multmap'][mult])
+''' % (
+    parent.setupINFOS['columbus'], 
+    parent.setupINFOS['scratchdir'], 
+    iconddir, 
+    INFOS['copydir'], 
+    iconddir, 
+    parent.setupINFOS['columbus.mem'], 
+    parent.setupINFOS['columbus.template']
+    )
+    string += 'integrals %s\n' % (parent.setupINFOS['columbus.intprog'])
+    for mult in parent.setupINFOS['columbus.multmap']:
+        string += 'DIR %i %s\n' % (mult, parent.setupINFOS['columbus.multmap'][mult])
     string += '\n'
-    for job in INFOS['columbus.mocoefmap']:
-        string += 'MOCOEF %s %s\n' % (job, INFOS['columbus.mocoefmap'][job])
+    for job in parent.setupINFOS['columbus.mocoefmap']:
+        string += 'MOCOEF %s %s\n' % (job, parent.setupINFOS['columbus.mocoefmap'][job])
     string += '\n'
     if 'wfoverlap' in INFOS['needed']:
-        string += 'wfoverlap %s\n' % (INFOS['columbus.wfpath'])
-        string += 'wfthres %f\n' % (INFOS['columbus.wfthres'])
-        if INFOS['columbus.numfrozcore'] >= 0:
-            string += 'numfrozcore %i\n' % (INFOS['columbus.numfrozcore'])
-        if 'columbus.numocc' in INFOS:
-            string += 'numocc %i\n' % (INFOS['columbus.numocc'])
+        string += 'wfoverlap %s\n' % (parent.setupINFOS['columbus.wfpath'])
+        string += 'wfthres %f\n' % (parent.setupINFOS['columbus.wfthres'])
+        if parent.setupINFOS['columbus.numfrozcore'] >= 0:
+            string += 'numfrozcore %i\n' % (parent.setupINFOS['columbus.numfrozcore'])
+        if 'columbus.numocc' in parent.setupINFOS:
+            string += 'numocc %i\n' % (parent.setupINFOS['columbus.numocc'])
     else:
         string += 'nooverlap\n'
     sh2col.write(string)
     sh2col.close()
 
     # copy MOs and template
-    if INFOS['columbus.guess']:
-        cpfrom = INFOS['columbus.guess']
+    if parent.setupINFOS['columbus.guess']:
+        cpfrom = parent.setupINFOS['columbus.guess']
         cpto = '%s/mocoef_mc.init' % (iconddir)
         shutil.copy(cpfrom, cpto)
 
-    if INFOS['columbus.copy_template']:
-        copy_from = INFOS['columbus.copy_template_from']
+    if parent.setupINFOS['columbus.copy_template']:
+        copy_from = parent.setupINFOS['columbus.copy_template_from']
         copy_to = iconddir + '/COLUMBUS.template/'
         if os.path.exists(copy_to):
             shutil.rmtree(copy_to)
@@ -646,7 +663,7 @@ template %s
 # ======================================================================================================================
 
 
-def checktemplate_AMS(filename, INFOS):
+def checktemplate_AMS(filename):
     necessary = ['basis', 'functional', 'charge']
     try:
         f = open(filename)
@@ -676,7 +693,7 @@ def checktemplate_AMS(filename, INFOS):
 # =================================================
 
 
-def get_AMS(INFOS, KEYSTROKES: Optional[TextIOWrapper] = None):
+def get_AMS(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
     '''This routine asks for all questions specific to AMS:
     - path to AMS
     - scratch directory
@@ -699,14 +716,14 @@ def get_AMS(INFOS, KEYSTROKES: Optional[TextIOWrapper] = None):
             path = '$AMSHOME/amsbashrc.sh'
         log.info('\nPlease specify path to the amsbashrc.sh file (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
         path = question('Path to amsbashrc.sh file:', str, KEYSTROKES=KEYSTROKES, default=path)
-        INFOS['amsbashrc'] = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
-        log.info('Will use amsbashrc= %s' % INFOS['amsbashrc'])
-        INFOS['ams'] = '$AMSHOME'
-        INFOS['scmlicense'] = '$SCMLICENSE'
+        parent.setupINFOS['amsbashrc'] = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+        log.info('Will use amsbashrc= %s' % parent.setupINFOS['amsbashrc'])
+        parent.setupINFOS['ams'] = '$AMSHOME'
+        parent.setupINFOS['scmlicense'] = '$SCMLICENSE'
         log.info('')
     else:
         log.info('\nPlease specify path to AMS directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-        INFOS['ams'] = question('Path to AMS:', str, KEYSTROKES=KEYSTROKES, default=path)
+        parent.setupINFOS['ams'] = question('Path to AMS:', str, KEYSTROKES=KEYSTROKES, default=path)
         log.info('')
         log.info(centerstring('Path to AMS license file', 60, '-') + '\n')
         path = os.getenv('SCMLICENSE')
@@ -716,14 +733,14 @@ def get_AMS(INFOS, KEYSTROKES: Optional[TextIOWrapper] = None):
         else:
             path = '$SCMLICENSE'
         log.info('\nPlease specify path to AMS license.txt\n')
-        INFOS['scmlicense'] = question('Path to license:', str, KEYSTROKES=KEYSTROKES, default=path)
+        parent.setupINFOS['scmlicense'] = question('Path to license:', str, KEYSTROKES=KEYSTROKES, default=path)
         log.info('')
 
 
     # scratch
     log.info(centerstring('Scratch directory', 60, '-') + '\n')
     log.info('Please specify an appropriate scratch directory. This will be used to run the AMS calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
-    INFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
     log.info('')
 
 
@@ -738,20 +755,20 @@ charge <x> [ <x2> [ <x3> ...] ]
 The AMS interface will generate the appropriate AMS input automatically.
 ''')
     if os.path.isfile('AMS_ADF.template'):
-        if checktemplate_AMS('AMS_ADF.template', INFOS):
+        if checktemplate_AMS('AMS_ADF.template'):
             log.info('Valid file "AMS_ADF.template" detected. ')
             usethisone = question('Use this template file?', bool, KEYSTROKES=KEYSTROKES, default=True)
             if usethisone:
-                INFOS['AMS_ADF.template'] = 'AMS_ADF.template'
-    if 'AMS_ADF.template' not in INFOS:
+                parent.setupINFOS['AMS_ADF.template'] = 'AMS_ADF.template'
+    if 'AMS_ADF.template' not in parent.setupINFOS:
         while True:
             filename = question('Template filename:', str, KEYSTROKES=KEYSTROKES)
             if not os.path.isfile(filename):
                 log.info('File %s does not exist!' % (filename))
                 continue
-            if checktemplate_AMS(filename, INFOS):
+            if checktemplate_AMS(filename):
                 break
-        INFOS['AMS_ADF.template'] = filename
+        parent.setupINFOS['AMS_ADF.template'] = filename
     log.info('')
 
 
@@ -762,11 +779,11 @@ The AMS interface will generate the appropriate AMS input automatically.
     if question('Do you have a restart file?', bool, KEYSTROKES=KEYSTROKES, default=True):
         if True:
             filename = question('Restart file:', str, KEYSTROKES=KEYSTROKES, default='AMS.t21.init')
-            INFOS['ams.guess'] = filename
+            parent.setupINFOS['ams.guess'] = filename
     else:
         log.info('WARNING: Remember that the calculations may take longer without an initial guess for the MOs.')
         # time.sleep(2)
-        INFOS['ams.guess'] = {}
+        parent.setupINFOS['ams.guess'] = {}
 
 
 
@@ -774,28 +791,28 @@ The AMS interface will generate the appropriate AMS input automatically.
     log.info(centerstring('AMS Ressource usage', 60, '-') + '\n')
     log.info('''Please specify the number of CPUs to be used by EACH calculation.
 ''')
-    INFOS['ams.ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
+    parent.setupINFOS['ams.ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
 
-    if INFOS['ams.ncpu'] > 1:
+    if parent.setupINFOS['ams.ncpu'] > 1:
         log.info('''Please specify how well your job will parallelize.
 A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
 Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for hybrids (better if RIHartreeFock is used).''')
-        INFOS['ams.scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, KEYSTROKES=KEYSTROKES, default=[0.8])[0]))
+        parent.setupINFOS['ams.scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, KEYSTROKES=KEYSTROKES, default=[0.8])[0]))
     else:
-        INFOS['ams.scaling'] = 0.9
+        parent.setupINFOS['ams.scaling'] = 0.9
 
 
     # Overlaps
     # if need_wfoverlap:
     if 'wfoverlap' in INFOS['needed']:
         log.info('\n' + centerstring('Wfoverlap code setup', 60, '-') + '\n')
-        INFOS['ams.wfoverlap'] = question('Path to wavefunction overlap executable:', str, KEYSTROKES=KEYSTROKES, default='$SHARC/wfoverlap.x')
+        parent.setupINFOS['ams.wfoverlap'] = question('Path to wavefunction overlap executable:', str, KEYSTROKES=KEYSTROKES, default='$SHARC/wfoverlap.x')
         log.info('')
         log.info('''State threshold for choosing determinants to include in the overlaps''')
         log.info('''For hybrids (and without TDA) one should consider that the eigenvector X may have a norm larger than 1''')
-        INFOS['ams.ciothres'] = question('Threshold:', float, KEYSTROKES=KEYSTROKES, default=[0.998])[0]
+        parent.setupINFOS['ams.ciothres'] = question('Threshold:', float, KEYSTROKES=KEYSTROKES, default=[0.998])[0]
         log.info('')
-        INFOS['ams.mem'] = question('Memory for wfoverlap (MB):', int, KEYSTROKES=KEYSTROKES, default=[1000])[0]
+        parent.setupINFOS['ams.mem'] = question('Memory for wfoverlap (MB):', int, KEYSTROKES=KEYSTROKES, default=[1000])[0]
         # TODO not asked: numfrozcore and numocc
 
         # print('Please state the number of core orbitals you wish to freeze for the overlaps (recommended to use for at least the 1s orbital and a negative number uses default values)?')
@@ -816,7 +833,7 @@ Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
     # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
     if 'theodore' in INFOS['needed']:
 
-        INFOS['ams.theodore'] = question('Path to TheoDORE directory:', str, KEYSTROKES=KEYSTROKES, default='$THEODIR')
+        parent.setupINFOS['ams.theodore'] = question('Path to TheoDORE directory:', str, KEYSTROKES=KEYSTROKES, default='$THEODIR')
         log.info('')
 
         log.info('Please give a list of the properties to calculate by TheoDORE.\nPossible properties:')
@@ -828,37 +845,37 @@ Typical values for AMS are 0.90-0.98 for LDA/GGA functionals and 0.50-0.80 for h
         log.info(string)
         line = question('TheoDORE properties:', str, KEYSTROKES=KEYSTROKES, default='Om  PRNTO  S_HE  Z_HE  RMSeh')
         if '[' in line:
-            INFOS['theodore.prop'] = ast.literal_eval(line)
+            parent.setupINFOS['theodore.prop'] = ast.literal_eval(line)
         else:
-            INFOS['theodore.prop'] = line.split()
+            parent.setupINFOS['theodore.prop'] = line.split()
         log.info('')
 
         log.info('Please give a list of the fragments used for TheoDORE analysis.')
         log.info('You can use the list-of-lists from dens_ana.in')
         log.info('Alternatively, enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
-        INFOS['theodore.frag'] = []
+        parent.setupINFOS['theodore.frag'] = []
         while True:
             line = question('TheoDORE fragment:', str, KEYSTROKES=KEYSTROKES, default='end')
             if 'end' in line.lower():
                 break
             if '[' in line:
                 try:
-                    INFOS['theodore.frag'] = ast.literal_eval(line)
+                    parent.setupINFOS['theodore.frag'] = ast.literal_eval(line)
                     break
                 except ValueError:
                     continue
             f = [int(i) for i in line.split()]
-            INFOS['theodore.frag'].append(f)
-        INFOS['theodore.count'] = len(INFOS['theodore.prop']) + len(INFOS['theodore.frag'])**2
-        if 'AMS.ctfile' in INFOS:
-            INFOS['theodore.count'] += 7
+            parent.setupINFOS['theodore.frag'].append(f)
+        parent.setupINFOS['theodore.count'] = len(parent.setupINFOS['theodore.prop']) + len(parent.setupINFOS['theodore.frag'])**2
+        if 'AMS.ctfile' in parent.setupINFOS:
+            parent.setupINFOS['theodore.count'] += 7
 
 
     return INFOS
 
 # =================================================
 
-def prepare_AMS(INFOS, iconddir):
+def prepare_AMS(INFOS, parent, iconddir):
     # write AMS_ADF.resources
     try:
         sh2cas = open('%s/AMS_ADF.resources' % (iconddir), 'w')
@@ -866,31 +883,40 @@ def prepare_AMS(INFOS, iconddir):
         log.info('IOError during prepareAMS, iconddir=%s' % (iconddir))
         quit(1)
 #  project='AMS'
-    string = 'amshome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nschedule_scaling %f\n' % (INFOS['ams'], INFOS['scmlicense'], INFOS['scratchdir'], iconddir, INFOS['copydir'], iconddir, INFOS['ams.ncpu'], INFOS['ams.scaling'])
+    string = 'amshome %s\nscmlicense %s\nscratchdir %s/%s/\nsavedir %s/%s/restart\nncpu %i\nschedule_scaling %f\n' % (
+        parent.setupINFOS['ams'], 
+        parent.setupINFOS['scmlicense'], 
+        parent.setupINFOS['scratchdir'], 
+        iconddir, 
+        INFOS['copydir'], 
+        iconddir, 
+        parent.setupINFOS['ams.ncpu'], 
+        parent.setupINFOS['ams.scaling']
+        )
     if 'wfoverlap' in INFOS['needed']:
-        string += 'wfoverlap %s\nwfthres %f\n' % (INFOS['ams.wfoverlap'], INFOS['ams.ciothres'])
-        string += 'memory %i\n' % (INFOS['ams.mem'])
-        # string+='numfrozcore %i\n' %(INFOS['frozcore_number'])
+        string += 'wfoverlap %s\nwfthres %f\n' % (parent.setupINFOS['ams.wfoverlap'], parent.setupINFOS['ams.ciothres'])
+        string += 'memory %i\n' % (parent.setupINFOS['ams.mem'])
+        # string+='numfrozcore %i\n' %(parent.setupINFOS['frozcore_number'])
     else:
         string += 'nooverlap\n'
-    if INFOS['theodore']:
-        string += 'theodir %s\n' % (INFOS['ams.theodore'])
-        string += 'theodore_prop %s\n' % (INFOS['theodore.prop'])
-        string += 'theodore_fragment %s\n' % (INFOS['theodore.frag'])
-    if 'AMS.fffile' in INFOS:
-        string += 'qmmm_ff_file AMS.qmmm.ff\n'
-    if 'AMS.ctfile' in INFOS:
-        string += 'qmmm_table AMS.qmmm.table\n'
+    if parent.setupINFOS['ams.theodore']:
+        string += 'theodir %s\n' % (parent.setupINFOS['ams.theodore'])
+        string += 'theodore_prop %s\n' % (parent.setupINFOS['theodore.prop'])
+        string += 'theodore_fragment %s\n' % (parent.setupINFOS['theodore.frag'])
+    # if 'AMS.fffile' in parent.setupINFOS:
+    #     string += 'qmmm_ff_file AMS.qmmm.ff\n'
+    # if 'AMS.ctfile' in parent.setupINFOS:
+    #     string += 'qmmm_table AMS.qmmm.table\n'
     sh2cas.write(string)
     sh2cas.close()
 
     # copy MOs and template
-    cpfrom = INFOS['AMS_ADF.template']
+    cpfrom = parent.setupINFOS['AMS_ADF.template']
     cpto = '%s/AMS_ADF.template' % (iconddir)
     shutil.copy(cpfrom, cpto)
 
-    if INFOS['ams.guess']:
-        cpfrom1 = INFOS['ams.guess']
+    if parent.setupINFOS['ams.guess']:
+        cpfrom1 = parent.setupINFOS['ams.guess']
         cpto1 = '%s/AMS.t21_init' % (iconddir)
         shutil.copy(cpfrom1, cpto1)
 
@@ -954,7 +980,7 @@ def checktemplate_BAGEL(filename, INFOS):
 # =================================================
 
 
-def get_BAGEL(INFOS, KEYSTROKES: Optional[TextIOWrapper] = None):
+def get_BAGEL(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
     '''This routine asks for all questions specific to BAGEL:
     - path to bagel
     - scratch directory
@@ -979,13 +1005,13 @@ def get_BAGEL(INFOS, KEYSTROKES: Optional[TextIOWrapper] = None):
         # INFOS['molcas']=path
         # if 'molcas' not in INFOS:
     log.info('\nPlease specify path to BAGEL directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-    INFOS['bagel'] = question('Path to BAGEL:', str, KEYSTROKES=KEYSTROKES, default=path)
+    parent.setupINFOS['bagel'] = question('Path to BAGEL:', str, KEYSTROKES=KEYSTROKES, default=path)
     log.info('')
 
 
     log.info(centerstring('Scratch directory', 60, '-') + '\n')
     log.info('Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
-    INFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
     log.info('')
 
 
@@ -1005,8 +1031,8 @@ The BAGEL interface will generate the appropriate BAGEL input automatically.
             log.info('Valid file "BAGEL.template" detected. ')
             usethisone = question('Use this template file?', bool, KEYSTROKES=KEYSTROKES, default=True)
             if usethisone:
-                INFOS['bagel.template'] = 'BAGEL.template'
-    if 'bagel.template' not in INFOS:
+                parent.setupINFOS['bagel.template'] = 'BAGEL.template'
+    if 'bagel.template' not in parent.setupINFOS:
         while True:
             filename = question('Template filename:', str, KEYSTROKES=KEYSTROKES)
             if not os.path.isfile(filename):
@@ -1014,18 +1040,18 @@ The BAGEL interface will generate the appropriate BAGEL input automatically.
                 continue
             if checktemplate_BAGEL(filename, INFOS):
                 break
-        INFOS['bagel.template'] = filename
+        parent.setupINFOS['bagel.template'] = filename
     log.info('')
 
     log.info(centerstring('Dipole level', 60, '-') + '\n')
     log.info('Please specify the desired amount of calculated dipole moments:\n0 -only dipole moments that are for free are calculated\n1 -calculate all transition dipole moments between the (singlet) ground state and all singlet states for absorption spectra\n2 -calculate all dipole moments')
-    INFOS['dipolelevel'] = question('Requested dipole level:', int, KEYSTROKES=KEYSTROKES, default=[0])[0]
+    parent.setupINFOS['dipolelevel'] = question('Requested dipole level:', int, KEYSTROKES=KEYSTROKES, default=[0])[0]
     log.info('')
 
     log.info(centerstring('Initial wavefunction: MO Guess', 60, '-') + '\n')
     log.info('''Please specify the path to a MOLCAS JobIph file containing suitable starting MOs for the CASSCF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
 ''')
-    INFOS['bagel.guess'] = {}
+    parent.setupINFOS['bagel.guess'] = {}
     string = 'Do you have initial wavefunction files for '
     for mult, state in enumerate(INFOS['states']):
         if state <= 0:
@@ -1040,7 +1066,7 @@ The BAGEL interface will generate the appropriate BAGEL input automatically.
                 guess_file = 'archive.%i.init' % (mult + 1)
                 filename = question('Initial wavefunction file for %ss:' % (IToMult[mult + 1]), str, KEYSTROKES=KEYSTROKES, default=guess_file)
                 if os.path.isfile(filename):
-                    INFOS['bagel.guess'][mult + 1] = filename
+                    parent.setupINFOS['bagel.guess'][mult + 1] = filename
                     break
                 else:
                     log.info('File not found!')
@@ -1052,10 +1078,10 @@ The BAGEL interface will generate the appropriate BAGEL input automatically.
     log.info('''Please specify the number of CPUs to be used by EACH calculation.''')
     INFOS['bagel.ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES, default=[1])[0])
 
-    if INFOS['bagel.ncpu'] > 1:
-        INFOS['bagel.mpi'] = question('Use MPI mode (no=OpenMP)?', bool, KEYSTROKES=KEYSTROKES, default=False)
+    if parent.setupINFOS['bagel.ncpu'] > 1:
+        parent.setupINFOS['bagel.mpi'] = question('Use MPI mode (no=OpenMP)?', bool, KEYSTROKES=KEYSTROKES, default=False)
     else:
-        INFOS['bagel.mpi'] = False
+        parent.setupINFOS['bagel.mpi'] = False
     # Ionization
     # need_wfoverlap=False
     # log.info(centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
@@ -1066,20 +1092,20 @@ The BAGEL interface will generate the appropriate BAGEL input automatically.
     # wfoverlap
     if 'wfoverlap' in INFOS['needed']:
         log.info('\n' + centerstring('WFoverlap setup', 60, '-') + '\n')
-        INFOS['bagel.wfoverlap'] = question('Path to wavefunction overlap executable:', str, KEYSTROKES=KEYSTROKES, default='$SHARC/wfoverlap.x')
+        parent.setupINFOS['bagel.wfoverlap'] = question('Path to wavefunction overlap executable:', str, KEYSTROKES=KEYSTROKES, default='$SHARC/wfoverlap.x')
         # TODO not asked for: numfrozcore, numocc
         log.info('''Please specify the amount of memory available to wfoverlap.x (in MB). \n (Note that BAGEL's memory cannot be controlled)
 ''')
-        INFOS['bagel.mem'] = abs(question('wfoverlap.x memory:', int, KEYSTROKES=KEYSTROKES, default=[1000])[0])
+        parent.setupINFOS['bagel.mem'] = abs(question('wfoverlap.x memory:', int, KEYSTROKES=KEYSTROKES, default=[1000])[0])
     else:
-        INFOS['bagel.mem'] = 1000
+        parent.setupINFOS['bagel.mem'] = 1000
 
     return INFOS
 
 # =================================================
 
 
-def prepare_BAGEL(INFOS, iconddir):
+def prepare_BAGEL(INFOS, parent, iconddir):
     # write BAGEL.resources
     try:
         sh2cas = open('%s/BAGEL.resources' % (iconddir), 'w')
@@ -1087,30 +1113,48 @@ def prepare_BAGEL(INFOS, iconddir):
         log.info('IOError during prepareBAGEL, iconddir=%s' % (iconddir))
         quit(1)
     project = 'BAGEL'
-    string = 'bagel %s\nscratchdir %s/%s/\nmemory %i\nncpu %i\ndipolelevel %i\nproject %s' % (INFOS['bagel'], INFOS['scratchdir'], iconddir, INFOS['bagel.mem'], INFOS['bagel.ncpu'], INFOS['dipolelevel'], project)
+    string = 'bagel %s\nscratchdir %s/%s/\nmemory %i\nncpu %i\ndipolelevel %i\nproject %s' % (
+        parent.setupINFOS['bagel'], 
+        parent.setupINFOS['scratchdir'], 
+        iconddir, 
+        parent.setupINFOS['bagel.mem'], 
+        parent.setupINFOS['bagel.ncpu'], 
+        parent.setupINFOS['dipolelevel'], 
+        project)
 
-    if INFOS['bagel.mpi']:
+    if parent.setupINFOS['bagel.mpi']:
         string += 'mpi\n'
     if 'wfoverlap' in INFOS['needed']:
-        string += '\nwfoverlap %s\n' % INFOS['bagel.wfoverlap']
+        string += '\nwfoverlap %s\n' % parent.setupINFOS['bagel.wfoverlap']
     else:
         string += '\nnooverlap\n'
     sh2cas.write(string)
     sh2cas.close()
 
     # copy MOs and template
-    cpfrom = INFOS['bagel.template']
+    cpfrom = parent.setupINFOS['bagel.template']
     cpto = '%s/BAGEL.template' % (iconddir)
     shutil.copy(cpfrom, cpto)
-    if not INFOS['bagel.guess'] == {}:
-        for i in INFOS['bagel.guess']:
-            cpfrom = INFOS['bagel.guess'][i]
+    if not parent.setupINFOS['bagel.guess'] == {}:
+        for i in parent.setupINFOS['bagel.guess']:
+            cpfrom = parent.setupINFOS['bagel.guess'][i]
             cpto = '%s/%s.%i.init' % (iconddir, 'archive', i)
             shutil.copy(cpfrom, cpto)
 
     return
 
 
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================
@@ -1153,7 +1197,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
 
     @staticmethod
     def description():
-        return "Basic interface to run legacy interfaces via file I/O"
+        return "    BASIC interface for running legacy interfaces via file I/O (AMS-ADF, BAGEL, COLUMBUS, MOLPRO)"
 
     @staticmethod
     def version():
@@ -1221,7 +1265,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         #self.log.info(INFOS)
 
         ## call get routine
-        INFOS = globals()[Interfaces[self.legacy_interface]['get_routine']](INFOS, KEYSTROKES=KEYSTROKES)
+        INFOS = globals()[Interfaces[self.legacy_interface]['get_routine']](INFOS, self, KEYSTROKES=KEYSTROKES)
 
         return INFOS
 
@@ -1240,7 +1284,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         mkdir(qmdir)
         
         # call prepare routine 
-        globals()[Interfaces[self.legacy_interface]['prepare_routine']](INFOS, qmdir)
+        globals()[Interfaces[self.legacy_interface]['prepare_routine']](INFOS, self, qmdir)
 
         # runQM.sh of child
         runname = os.path.join(qmdir, 'runQM.sh')
@@ -1273,6 +1317,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         else:
             self.log.error('No child interface given in LEGACY.template!')
             exit(1)
+        self.QMin.template['child-dir_full'] = os.path.abspath(os.path.expanduser(os.path.expandvars(self.QMin.template['child-dir'])))
 
         
 
@@ -1284,15 +1329,26 @@ class SHARC_LEGACY(SHARC_INTERFACE):
 
 
     def setup_interface(self):
+        # setup save dir
         self.qm_savedir = os.path.join(self.QMin.save["savedir"], Interfaces[self.legacy_interface]['name'].upper())
         if not os.path.isdir(self.qm_savedir):
             mkdir(self.qm_savedir)
+        # setup scratch dir to run 
+        if not os.path.isdir(self.QMin.resources["scratchdir"]):
+            mkdir(self.QMin.resources["scratchdir"])
         return
 
 
 
 
     def run(self):
+        # scratch directory and copy everything from child-dir into WORKDIR
+        WORKDIR = os.path.join(self.QMin.resources["scratchdir"], self.QMin.template['child-dir'])
+        cleandir(WORKDIR)
+        self.log.info('LEGACY: source  directory: %s' % self.QMin.template['child-dir'])
+        self.log.info('LEGACY: working directory: %s' % WORKDIR)
+        shutil.copytree(self.QMin.template['child-dir_full'], WORKDIR, dirs_exist_ok = True)
+
         # coordinates
         string = '%i\n\n' % self.QMin.molecule['natom']
         for i,atom in enumerate(self.QMin.coords["coords"]):
@@ -1327,12 +1383,16 @@ class SHARC_LEGACY(SHARC_INTERFACE):
                         string += 'end\n'
                 
         # write QM.in file
-        WORKDIR = os.path.abspath(self.QMin.template['child-dir'])
         filename = os.path.join(WORKDIR,'QM.in')
         writefile(filename, string)
 
+        # removing QM.out file that may be still present from previous step
+        filename = os.path.join(WORKDIR,'QM.out')
+        if os.path.isfile(filename):
+            os.remove(filename)
+
         # call run script
-        string = 'bash %s/runQM.sh' % self.QMin.template['child-dir']
+        string = 'bash %s/runQM.sh' % WORKDIR
         starttime = datetime.datetime.now()
         self.log.info('START:\t%s\t%s\t"%s"\n' % (WORKDIR, starttime, string))
 
@@ -1340,9 +1400,11 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         stdoutfile = open(os.path.join(WORKDIR, 'runQM.out'), 'w')
         stderrfile = open(os.path.join(WORKDIR, 'runQM.err'), 'w')
         try:
-            runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
+            with InDir(self.QMin.resources["scratchdir"]):
+                runerror = sp.call(string, shell=True, stdout=stdoutfile, stderr=stderrfile)
         except OSError:
-            self.log.error('Call have had some serious problems:', OSError)
+            self.log.error('Call have had some serious problems:')
+            # self.log.error(OSError)
             exit(22)
         stdoutfile.close()
         stderrfile.close()
@@ -1350,12 +1412,16 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         endtime = datetime.datetime.now()
         self.log.info('FINISH:\t%s\t%s\tRuntime: %s\tError Code: %i\n' % (WORKDIR, endtime, endtime - starttime, runerror))
         
+        if runerror != 0:
+            self.log.error("Child interface did not terminate successfully!")
+            exit(1)
+
         return
 
 
 
     def getQMout(self):
-        WORKDIR =  os.path.abspath(self.QMin.template['child-dir'])
+        WORKDIR = os.path.join(self.QMin.resources["scratchdir"], self.QMin.template['child-dir'])
         filename = os.path.join(WORKDIR,'QM.out')
         if not os.path.isfile(filename):
             self.log.error('No QM.out file found!')
@@ -1383,9 +1449,17 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         
         # assign stuff
         items = ['h', 'dm', 'grad', 'overlap', 'phases', 'prop1d', 'prop2d', 'nacdr']
+        errors = 0
         for i in items:
-            if i in self.QMout:
-                self.QMout[i] = QMout2[i]
+            if i in requests:
+                if i in self.QMout:
+                    self.QMout[i] = QMout2[i]
+                else:
+                    self.log.error(f"Request '{i}' not found in QM.out file of child interface!")
+                    errors += 1
+        if errors > 0:
+            self.log.error("Not all requests could be retrieved!")
+            exit(1)
 
         self.QMout.runtime = self.clock.measuretime()
         return self.QMout

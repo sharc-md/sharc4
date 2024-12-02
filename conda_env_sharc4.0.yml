@@ -1,0 +1,21 @@
+name: sharc4.0
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - h5py
+  - matplotlib
+  - pyparsing
+  - netcdf4
+  - gfortran_linux-64
+  - pyscf
+  - openmm
+  - numba
+  - sympy
+  - pyyaml
+  - pytorch
+  - pytest
+

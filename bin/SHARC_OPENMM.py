@@ -56,7 +56,7 @@ changelogstring = """
 """
 
 
-class SHARC_OpenMM(SHARC_FAST):
+class SHARC_OPENMM(SHARC_FAST):
     """
     Interface for the [OpenMM program](https://openmm.org/)
 
@@ -100,14 +100,14 @@ class SHARC_OpenMM(SHARC_FAST):
 
     @staticmethod
     def name() -> str:
-        return "OpenMM"
+        return "OPENMM"
 
     @staticmethod
     def description() -> str:
-        return "Interface for the OpenMM program for MM calculations"
+        return "     FAST interface for OpenMM for MM force fields (based on Amber prmtop)"
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set:
-        return {"h", "grad", "overlap", "dm"}
+        return {"h", "grad", "overlap", "dm", "multipolar_fit"}
 
     def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         self.log.info("=" * 80)
@@ -116,7 +116,7 @@ class SHARC_OpenMM(SHARC_FAST):
         self.log.info("=" * 80)
         self.log.info("\n")
         while True:
-            self.template_file = question("Specify path to OpenMM.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+            self.template_file = question("Specify path to OPENMM.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
             try:
                 self.read_template(self.template_file)
             except (RuntimeError, OSError, ValueError) as e:
@@ -127,11 +127,9 @@ class SHARC_OpenMM(SHARC_FAST):
         self.extra_files = [self.QMin.template["prmtop"]]
 
         if question("Do you have a resources file?", bool, KEYSTROKES=KEYSTROKES, default=True):
-            self.resources_file = question("Specify path to OpenMM.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+            self.resources_file = question("Specify path to OPENMM.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
         return INFOS
 
-    def create_restart_files(self):
-        pass
 
     def run(self):
         self.simulation.context.setPositions(self.QMin.coords["coords"] * (au2a / 10))
@@ -162,7 +160,7 @@ class SHARC_OpenMM(SHARC_FAST):
         self.QMout.point_charges = self.QMin.molecule["npc"] > 0
         return self.QMout
 
-    def read_template(self, template_filename="OpenMM.template"):
+    def read_template(self, template_filename="OPENMM.template"):
         super().read_template(template_filename)
         self._read_template = False
         if not self.QMin.template["prmtop"]:
@@ -178,7 +176,7 @@ class SHARC_OpenMM(SHARC_FAST):
         self.log.debug(f"{self.QMin.template}")
         self._read_template = True
 
-    def read_resources(self, resources_filename="OpenMM.resources"):
+    def read_resources(self, resources_filename="OPENMM.resources"):
         if not os.path.isfile(resources_filename):
             self.log.warning(f"{resources_filename} not found! Continueing without further settings.")
             self._read_resources = True
@@ -192,6 +190,7 @@ class SHARC_OpenMM(SHARC_FAST):
         self._read_resources = True
 
     def setup_interface(self):
+        super().setup_interface()
         QMin = self.QMin
         prmtop = AmberPrmtopFile(QMin.template["prmtop"])
 
@@ -243,5 +242,5 @@ class SHARC_OpenMM(SHARC_FAST):
 if __name__ == "__main__":
     from logger import loglevel
 
-    omm = SHARC_OpenMM(loglevel=loglevel)
+    omm = SHARC_OPENMM(loglevel=loglevel)
     omm.main()

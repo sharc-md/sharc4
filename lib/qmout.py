@@ -1119,7 +1119,7 @@ class QMout:
     # ======================================================================= #
 
     def writeQmoutPhases(self):
-        string = "! 7 Phases\n%i ! for all nmstates\n" % (self.nmstates)
+        string = "! 7 Wave function phases (%ix1, complex)\n%i\n" % (self.nmstates, self.nmstates)
         for i in range(self.nmstates):
             string += "%s %s\n" % (
                 eformat(self.phases[i].real, 9, 3),
@@ -1350,7 +1350,7 @@ class QMout:
         # Multipolar fit
         if QMin.requests["multipolar_fit"]:
             string += "=> Multipolar fit:\n\n"
-            for (s1, s2), val in self["multipolar_fit"].items():
+            for (s1, s2), val in sorted(self["multipolar_fit"].items()):
                 istate, imult, ims = s1.N, s1.S, s1.M
                 jstate, jmult, jms = s2.N, s2.S, s2.M
                 if imult == jmult and ims == jms:

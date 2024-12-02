@@ -37,11 +37,9 @@ import itertools
 
 # internal
 from constants import ATOMCHARGE, FROZENS
-from factory import factory
+# from factory import factory
 from SHARC_HYBRID import SHARC_HYBRID
-from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import ATOM, InDir, itnmstates, mkdir, question, readfile, expand_path, cleandir, writefile
-from qmout import formatcomplexmatrix
+from utils import InDir, mkdir, question, cleandir, writefile
 
 version = '1.0'
 versiondate = datetime.datetime(2023, 11, 3)
@@ -205,7 +203,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
     
     @staticmethod
     def description():
-        return "Hybrid interface for numerical differentiation."
+        return "   HYBRID interface for numerical derivatives (grad, NACdr, SOCdr, DMdr)"
     
     @ staticmethod
     def changelogstring():
@@ -241,10 +239,13 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             self.read_template(self.template_file)
             qm_program = self.QMin.template['qm-program']
             self.ref_interface = self._load_interface(qm_program)()
-            self.ref_interface.QMin.molecule['states'] = self.QMin.molecule['states']
+            # self.ref_interface.QMin.molecule['states'] = self.QMin.molecule['states']
+            if isinstance(self.ref_interface, SHARC_HYBRID):
+                self.log.error('Currently, Hybrid interfaces cannot be used as children of SHARC_NUMDIFF.py')
+                raise NotImplementedError
         
 
-        ref_features = self.ref_interface.get_features()
+        ref_features = self.ref_interface.get_features(KEYSTROKES=KEYSTROKES)
         needed = {'grad': set(['h']),
                   'socdr': set(['soc']),
                   'dmdr': set(['dm']),
@@ -258,6 +259,10 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             if all([ j in ref_features for j in needed[i] ]):
                 possible.add(i)
         qm_features = ref_features.union(possible)
+
+        # NUMDIFF cannot displace point charges
+        not_supported = {'point_charges'}
+        qm_features -= not_supported
 
         # Make QM features into a set a return these
         self.log.debug(qm_features) # log features
@@ -287,7 +292,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # Setup some output to log
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'NUMDIFF interface setup':=^76}||\n{'||':<78}||")
+        self.log.info(f"||{'NUMDIFF interface setup':^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
 
@@ -296,18 +301,27 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         if question("Do you have an NUMDIFF.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
             self.resources_file = question("Specify path to NUMDIFF.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
         else:
-            self.log.info(f"{'ORCA Ressource usage':-^60}\n")
+            self.log.info(f"{'NUMDIFF Ressource usage':-^60}\n")
             self.log.info(
                 """Please specify the number of CPUs to be used by EACH trajectory.
         """
             )
-            INFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
+            self.setupINFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
+            self.setupINFOS["scratchdir_numdiff"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
 
             # TODO: could use schedule scaling and Amdahl, but SHARC_HYBRID does not have it
 
+        # if we need overlaps, we need to modify the INFOS['needed_requests'] to tell children to prepare for that
+        needed_copy = deepcopy(INFOS['needed_requests'])
+        if self.QMin.template["numdiff_representation"] == 'diabatic' or "nacdr" in INFOS['needed_requests']:
+            INFOS['needed_requests'].add('overlap')
+        
         # Get the infos from the child
         self.log.info(f"{' Setting up QM-interface ':=^80s}\n")
         self.ref_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
+
+        # reset the needed requests
+        INFOS['needed_requests'] = needed_copy
 
         return INFOS
 
@@ -329,7 +343,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".resources"))
 
         # write resource file
-        string = 'ncpu %i\n' % (INFOS['ncpu_numdiff'])
+        string = 'ncpu %i\nscratchdir %s\n' % (self.setupINFOS['ncpu_numdiff'], self.setupINFOS["scratchdir_numdiff"])
         writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
         # Setup sub-dir for the QM calcs
@@ -356,8 +370,16 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         self.ref_interface.QMin.save["savedir"] = ref_savedir
         self.ref_interface.QMin.resources["scratchdir"] = ref_scratchdir
 
+        # if we need overlaps, we need to modify the INFOS['needed_requests'] to tell children to prepare for that
+        needed_copy = deepcopy(INFOS['needed_requests'])
+        if self.QMin.template["numdiff_representation"] == 'diabatic' or "nacdr" in INFOS['needed_requests']:
+            INFOS['needed_requests'].add('overlap')
+        
         # Call prepare for the reference interface
         self.ref_interface.prepare(INFOS, qmdir)
+
+        # reset the needed requests
+        INFOS['needed_requests'] = needed_copy
 
         return
 
@@ -567,9 +589,9 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
 # ----------------------------------------------------------------------------------------------
 
-    def _step_logic(self):
-        super()._step_logic()
-        self.ref_interface._step_logic()
+    # def _step_logic(self):
+    #     super()._step_logic()
+    #     self.ref_interface._step_logic()
 
     def write_step_file(self):
         super().write_step_file()
@@ -614,15 +636,18 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         # inherit current step
         self.ref_interface.QMin.save["step"] = self.QMin.save["step"]
+        self.ref_interface._step_logic()
+        self.ref_interface._request_logic()
         
         # mandatory requests
         self.ref_interface.QMin.requests['nooverlap'] = False
         self.ref_interface.QMin.requests['cleanup'] = False
 
         # run the child
-        self.ref_interface.run()
-        self.ref_interface.getQMout()
-        self.ref_interface.write_step_file()
+        with InDir(self.ref_interface.QMin.resources['pwd']):
+            self.ref_interface.run()
+            self.ref_interface.getQMout()
+            self.ref_interface.write_step_file()
 
         # --- displaced child calculations ---
 
@@ -695,16 +720,32 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 # copy all files from reference child to displaced child
                 ls = os.listdir(self.ref_interface.QMin.save['savedir'])
                 for f in ls:
+                    base, ext = os.path.splitext(f)
+                    if not ext[1:].isdigit():
+                        continue
+                    if not int(ext[1:]) == self.ref_interface.QMin.save['step']:
+                        continue
                     fromfile = os.path.join(self.ref_interface.QMin.save['savedir'],f)
-                    # TODO: only copy files pertaining to current step!
-                    # if os.path.splitext()
                     tofile = os.path.join(self._kindergarden[label].QMin.save['savedir'],f)
                     shutil.copy(fromfile,tofile)
+                # TODO: extra copy rules for LEGACY interface
+                if self.QMin.template['qm-program'].upper() == "LEGACY":
+                    for f in ["MOLPRO", "COLUMBUS", "ADF_AMS", "BAGEL"]:
+                        fromdir = os.path.join(self.ref_interface.QMin.save['savedir'],f)
+                        if os.path.isdir(fromdir):
+                            self.log.info("Copying subdirectories for LEGACY interface")
+                            todir = os.path.join(self._kindergarden[label].QMin.save['savedir'],f)
+                            shutil.copytree(fromdir, todir)
                 # set step for displaced child
                 self._kindergarden[label].QMin.save['step'] = self.ref_interface.QMin.save['step'] + 1
+                stepfile = os.path.join(self._kindergarden[label].QMin.save["savedir"], "STEP")
+                writefile(stepfile, str(self.ref_interface.QMin.save['step']))
+                self._kindergarden[label]._step_logic()
+                self._kindergarden[label]._request_logic()
             
             # run the children
             t1 = datetime.datetime.now()
+            self.log.info('\nSTART:\t%s' % (t1))
             self.run_children(self.log, 
                               self._kindergarden, 
                               self.QMin.resources['ncpu'])

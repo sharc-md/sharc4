@@ -51,10 +51,10 @@ PI = math.pi
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
 versiondate = datetime.date(2019, 9, 1)
+
+
 global KEYSTROKES
 old_question = question
-
-
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     return old_question(
         question=question, typefunc=typefunc, KEYSTROKES=KEYSTROKES, default=default, autocomplete=autocomplete, ranges=ranges
@@ -63,61 +63,181 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
 # ======================================================================= #
 
+# General NAMD methods in SHARC: TSH and SCP
+Method={
+    1: {'name':        'tsh',
+        'description': 'Trajectory surface hopping dynamics using single surface potential'
+        },
+    2: {'name':        'scp',
+        'description': 'Semi-classical Ehrenfest dynamics using self-consistent potential'
+        }
+}
 
+# Couplings to propagate the el-TDSE: 
 Couplings = {
-    1: {"name": "nacdt", "description": "DDT     =  < a|d/dt|b >        Hammes-Schiffer-Tully scheme   "},
-    2: {"name": "nacdr", "description": "DDR     =  < a|d/dR|b >        Original Tully scheme          "},
-    3: {"name": "overlap", "description": "overlap = < a(t0)|b(t) >       Local Diabatization scheme     "},
+    1: {"name": "nacdt",   "description": "DDT     =  < a|d/dt|b >            Hammes-Schiffer-Tully scheme", "required": ["nacdt"]},
+    2: {"name": "nacdr",   "description": "DDR     =  < a|d/dR|b >            Original Tully scheme       ", "required": ["nacdr"]},
+    3: {'name': "ktdc",    "description": "ktdc    = sqrt(D2(dV)/dt2/(dV))/2  Curvature Driven TDC scheme ", "required": []},
+    4: {"name": "overlap", "description": "overlap = < a(t0)|b(t) >           Local Diabatization scheme  ", "required": ["overlap"]},
 }
 
-EkinCorrect = {
-    1: {
-        "name": "none",
-        "description": "Do not conserve total energy. Hops are never frustrated.",
-        "description_refl": "Do not reflect at a frustrated hop.",
-        "required": [],
-    },
-    2: {
-        "name": "parallel_vel",
-        "description": "Adjust kinetic energy by rescaling the velocity vectors. Often sufficient.",
-        "description_refl": "Reflect the full velocity vector.",
-        "required": [],
-    },
-    3: {
-        "name": "parallel_nac",
-        "description": "Adjust kinetic energy only with the component of the velocity vector along the non-adiabatic coupling vector.",
-        "description_refl": "Reflect only the component of the velocity vector along the non-adiabatic coupling vector.",
+# Nonadiabatic coupling-like vectors to propagate nuclei with SCP (not relevant for TSH)
+Neom = {
+    1: {'name':        'ddr',
+        'description': 'Nuclear EOM propagation with NACdR   ',
         "required": ["nacdr"],
-    },
-    4: {
-        "name": "parallel_diff",
-        "description": "Adjust kinetic energy only with the component of the velocity vector along the gradient difference vector.",
-        "description_refl": "Reflect only the component of the velocity vector along the gradient difference vector.",
-        "required": [],
-    },
+        },
+    2: {'name':        'gdiff',
+        'description': 'Nuclear EOM propagation effective NAC based on gradient difference    ',
+        "required": []
+        }
 }
 
-Decoherences = {
-    1: {"name": "none", "description": "No decoherence correction.", "required": [], "params": ""},
-    2: {
-        "name": "edc",
-        "description": "Energy-based decoherence scheme (Granucci, Persico, Zoccante).",
-        "required": [],
-        "params": "0.1",
-    },
-    3: {
-        "name": "afssh",
-        "description": "Augmented fewest-switching surface hopping (Jain, Alguire, Subotnik).",
-        "required": [],
-        "params": "",
-    },
+# Velocity-Verlet integrator to be used
+Integrator={
+    1: {'name':        'avv',
+        'description': 'adaptive timestep Velocity-Verlet integrator',
+        'forbidden': ["overlap", "phases"]
+        },
+    2: {'name':        'fvv',
+        'description': 'fixed timestep Velocity-Verlet integrator',
+        'forbidden': []
+        }
 }
 
+# Gradient mixing protocol for TSH in diagonal basis or for SCP
+GradCorrect={
+    1: {'name':        'none',
+        'description': 'mixed gradients are calculated as linear combination of MCH gradients only',
+        'required':   []
+        },
+    2: {'name':        'ngt',
+        'description': 'mixed gradients are calculated by correction of MCH gradients with non-adiabatic coupling vector',
+        'required':   ['nacdr']
+        },
+    3: {'name':        'tdh',
+        'description': 'mixed gradients are calculated by rescaling of the MCH gradients according to time derivatives in diagonal and MCH representations',
+        'required':   []  # TODO: what is required?
+        }
+}
+
+# How to rescale the kinetic energy vector after a hop. 
+# TODO: Does this apply to SCP or only to TSH?
+EkinCorrect={
+    1: {'name':             'none',
+        'description':      'Do not conserve total energy. Hops are never frustrated.',
+        'description_refl': 'Do not reflect at a frustrated hop.',
+        'required':   []
+        },
+    2: {'name':             'parallel_vel',
+        'description':      'Adjust kinetic energy by rescaling the velocity vectors. Often sufficient.',
+        'description_refl': 'Reflect the full velocity vector.',
+        'required':   []
+        },
+    3: {'name':             'parallel_pvel',
+        'description':      'Adjust kinetic energy only with the component of the velocity vector along the vibrational velocity vector.',
+        'description_refl': 'Reflect the vibrational velocity vector.',
+        'required':   []
+        },
+    4: {'name':             'parallel_nac',
+        'description':      'Adjust kinetic energy only with the component of the velocity vector along the non-adiabatic coupling vector.',
+        'description_refl': 'Reflect only the component of the velocity vector along the non-adiabatic coupling vector.',
+        'required':   ['nacdr']
+        },
+    5: {'name':             'parallel_diff',
+        'description':      'Adjust kinetic energy only with the component of the velocity vector along the gradient difference vector.',
+        'description_refl': 'Reflect only the component of the velocity vector along the gradient difference vector.',
+        'required':   []
+        },
+    6: {'name':             'parallel_pnac',
+        'description':      'Adjust kinetic energy only with the component of the velocity vector along the projected non-adiabatic coupling vector.',
+        'description_refl': 'Reflect only the component of the velocity vector along the projected non-adiabatic coupling vector.',
+        'required':   ['nacdr']
+        },
+    7: {'name':             'parallel_enac',
+        'description':      'Adjust kinetic energy only with the component of the velocity vector along the effective non-adiabatic coupling vector.',
+        'description_refl': 'Reflect only the component of the velocity vector along the effective non-adiabatic coupling vector.',
+        'required':   []
+        },
+    8: {'name':             'parallel_penac',
+        'description':      'Adjust kinetic energy only with the component of the velocity vector along the projected effective non-adiabatic coupling vector.',
+        'description_refl': 'Reflect only the component of the velocity vector along the projected effective non-adiabatic coupling vector.',
+        'required':   []
+        }
+}
+
+# Decoherence schemes for TSH
+DecoherencesTSH = {
+    1: {'name': 'none',
+        'description': 'No decoherence correction.',
+        'required': [],
+        'params': ''
+        },
+    2: {'name': 'edc',
+        'description': 'Energy-based decoherence scheme (Granucci, Persico, Zoccante).',
+        'required': [],
+        'params': '0.1'
+        },
+    3: {'name': 'afssh',
+        'description': 'Augmented fewest-switching surface hopping (Jain, Alguire, Subotnik).',
+        'required': [],
+        'params': ''
+        }
+}
+
+# Decoherence schemes for SCP
+DecoherencesSCP={
+  1: {'name':             'none',
+      'description':      'No decoherence correction.',
+      'required':   [],
+      'params':     ''
+     },
+  2: {'name':             'dom',
+      'description':      'Decay of Mixing (Zhu, Nangia, Jasper, Truhlar).',
+      'required':   [],
+      'params':     ''
+     }
+}
+
+# Decoherence time formulas for SCP
+DecotimeSCP={
+    1: {'name':             'csdm',
+        'description':      'Original CSDM method (Zhu, Nangia, Jasper, Truhlar)'
+        },
+    2: {'name':             'scdm',
+        'description':      'SCDM method (Zhu, Jasper, Truhlar)'
+        },
+    3: {'name':             'edc',
+        'description':      'energy based decoherence (Granucci, Persico, Zoccante)'
+        },
+    4: {'name':             'sd',
+        'description':      'stochastic decoherence time (Jasper, Truhlar)'
+        },
+    5: {'name':             'fp1',
+        'description':      'force momentum method 1 (Shu, Zhang, Truhlar, underdevelopment)'
+        },
+    6: {'name':             'fp2',
+        'description':      'force momentum method 2 (Shu, Zhang, Truhlar, underdevelopment)'
+        }
+}
+
+# Surface hopping schemes for TSH
 HoppingSchemes = {
     1: {"name": "off", "description": "Surface hops off."},
     2: {"name": "sharc", "description": "Standard SHARC surface hopping probabilities (Mai, Marquetand, Gonzalez)."},
     3: {"name": "gfsh", "description": "Global flux surface hopping probabilities (Wang, Trivedi, Prezhdo)."},
 }
+
+# Pointer state switching schemes for SCP
+SwitchingSchemes={
+    1: {'name':             'off',
+        'description':      'Surface switchings off.'
+        },
+    2: {'name':             'CSDM',
+        'description':      'Coherent switching with decay of mixing (Shu, Zhang, Mai, Sun, Truhlar, Gonzalez).'
+        }
+}
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -814,6 +934,10 @@ from the initconds.excited files as provided by excite.py.
 
 def get_interface() -> SHARC_INTERFACE:
     "asks for interface and instantiates it"
+    string = "\n  " + "=" * 80 + "\n"
+    string += "||" + f"{'Quantum chemistry interface':^80}" + "||\n"
+    string += "  " + "=" * 80 + "\n\n"
+    log.info(string)
     Interfaces = factory.get_available_interfaces()
     log.info("")
     log.info("{:-^60}".format("Choose the quantum chemistry interface"))
@@ -835,6 +959,7 @@ def get_interface() -> SHARC_INTERFACE:
     log.info("")
     log.info("The following interface was selected:")
     log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
+    log.info("")
     return Interfaces[num-1][1]
 
 
@@ -842,13 +967,36 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     """get requests for every single point"""
     interface.QMin.molecule['states'] = INFOS['states']
     int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
-    log.debug(int_features)
+    log.info("\nThe following features are available from this interface:")
+    log.info(int_features)
+    
+    INFOS["needed_requests"] = set()
 
     # Dynamics options
     string = "\n  " + "=" * 80 + "\n"
     string += "||" + f"{'Surface Hopping dynamics settings':^80}" + "||\n"
     string += "  " + "=" * 80 + "\n\n"
     log.info(string)
+
+
+    # Method
+    log.info(f"{'Nonadiabatic dynamics method':-^60}" + "\n")
+    log.info('Please choose the dynamics method you want to employ.')
+    cando = list(Method)
+    for i in Method:
+        log.info('%i\t%s' % (i, Method[i]['description']))
+    while True:
+        dyn=question('Method:',int,[1])[0]
+        if dyn in Method and dyn in cando:
+            break
+        else:
+            log.info('Please input one of the following: %s!' % ([i for i in cando]))
+    INFOS['method']=Method[dyn]['name']
+    # TODO: is SCP requiring any features?
+    INFOS["needed_requests"].add("h")
+    INFOS["needed_requests"].add("grad")
+    INFOS["needed_requests"].add("dm")
+
 
     # Simulation time
     log.info(f"{'Simulation time':-^60}" + "\n")
@@ -861,6 +1009,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         break
     INFOS["tmax"] = num2
 
+
     # Timestep
     log.info("\nPlease enter the simulation timestep (0.5 fs recommended).")
     while True:
@@ -872,6 +1021,38 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     INFOS["dtstep"] = dt
     log.info("\nSimulation will have %i timesteps." % (num2 // dt + 1))
 
+
+    # Integrator
+    log.info('\nPlease choose the integrator you want to use')
+    cando = list(Integrator)
+    for i in Integrator:
+        log.info('%i\t%s' % (i, Integrator[i]['description']))
+    while True:
+        itg=question('Integrator:',int,[2])[0]
+        if itg in Integrator and itg in cando:
+            break
+        else:
+            log.info('Please input one of the following: %s!' % ([i for i in cando]))
+    INFOS['integrator'] = itg    #Integrator[itg]['name']
+    # some integrators do not work with all requests
+    for forbidden in Integrator[INFOS['integrator']]["forbidden"]:
+        if forbidden in int_features:
+            log.info('Integrator is not compatible with feature "%s"' % forbidden)
+            int_features.remove(forbidden)
+
+
+    # convergence threshold
+    if Integrator[INFOS['integrator']]["name"] == 'avv':
+        while True:
+            conv=question('Convergence threshold (eV):',float,[0.00005])[0]
+            if conv<=0:
+                log.info('Must be positive!')
+                continue
+            break
+        log.info('\nConvergence threshold: %f.' % (conv))
+        INFOS['convthre']=conv
+
+
     # number of substeps
     log.info("\nPlease enter the number of substeps for propagation (25 recommended).")
     while True:
@@ -881,6 +1062,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             continue
         break
     INFOS["nsubstep"] = nsubstep
+
 
     # whether to kill relaxed trajectories
     log.info("\nThe trajectories can be prematurely terminated after they run for a certain time in the lowest state. ")
@@ -895,17 +1077,29 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         INFOS["killafter"] = tkill
     log.info("")
 
+
     log.info("\n" + f"{'Dynamics settings':-^60}")
 
-    # SHARC or FISH
+
+    # SHARC or MCH
     log.info(
-        "\nDo you want to perform the dynamics in the diagonal representation (SHARC dynamics) or in the MCH representation (regular surface hopping)?"
+        "\nDo you want to perform the dynamics in the diagonal representation (SHARC dynamics) or in the MCH representation (regular TSH/SCP)?"
     )
     surf = question("SHARC dynamics?", bool, True)
-    INFOS["surf"] = ["mch", "diagonal"][surf]
+    if INFOS['method']=='tsh':
+        INFOS['surf'] = ['mch', 'diagonal'][surf]
+    elif INFOS['method']=='scp':
+        INFOS['surf'] = 'diagonal'
+        if surf==True:
+            INFOS['pointer_basis'] = 'diag'
+            INFOS['neom_rep'] = 'diag' 
+        else:
+            INFOS['pointer_basis'] = 'diag'
+            INFOS['neom_rep'] = 'MCH'
+
+
 
     states = INFOS["states"]
-    INFOS["needed_requests"] = []
     # Setup SOCs
     if len(states) > 1:
         if "soc" in int_features:
@@ -922,33 +1116,29 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     log.info("")
     INFOS["soc"] = soc
     if INFOS["soc"]:
-        INFOS["needed_requests"].append("soc")
+        INFOS["needed_requests"].add("soc")
+
+
 
     # Coupling
     log.info("\nPlease choose the quantities to describe non-adiabatic effects between the states:")
+    available = []
     for i in Couplings:
-        log.info("%i\t%s%s" % (i, Couplings[i]["description"], ["(not available)", ""][Couplings[i]["name"] in int_features]))
-    # log.info('')
+        if set(Couplings[i]["required"]).issubset(int_features):
+            available.append(i)
+    for i in Couplings:
+        log.info("%i\t%s%s" % (i, Couplings[i]["description"], [" (not available)", ""][i in available]))
+    log.info('')
+    default = [available[-1]]
     while True:
-        default = None
-        for i in Couplings:
-            if Couplings[i]["name"] in int_features:
-                default = [i]
-        # if len(Interfaces[INFOS['interface']]['couplings'])==1:
-        # default=Interfaces[INFOS['interface']]['couplings']
-        # else:
-        # default=None
         num = question("Coupling number:", int, default)[0]
-        if num in Couplings and Couplings[num]["name"] in int_features:
+        if num in Couplings and num in available:
             break
         else:
-            li = []
-            for i in Couplings:
-                if Couplings[i]["name"] in int_features:
-                    li.append(i)
-            log.info("Please input one of the following: %s!" % li)
+            log.info("Please input one of the following: %s!" % available)
     INFOS["coupling"] = num
-    INFOS["needed_requests"].append(Couplings[i]["name"])
+    INFOS["needed_requests"].update(Couplings[num]["required"])
+
 
     # Phase tracking
     INFOS["phases_from_interface"] = False
@@ -956,207 +1146,337 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         if "phases" in int_features:
             INFOS["phases_from_interface"] = question("Do you want to track wavefunction phases through overlaps?", bool, True)
             if INFOS["phases_from_interface"]:
-                INFOS["needed_requests"].append("phases")
+                INFOS["needed_requests"].add("phases")
 
-    # Gradient correction (only for SHARC)
+
+    # Gradient correction (only for diagonal PESs)
     if INFOS["surf"] == "diagonal":
-        possible = "nacdr" in int_features
-        recommended = Couplings[INFOS["coupling"]]["name"] == "nacdr"
+        available = []
+        for i in GradCorrect:
+            if set(GradCorrect[i]["required"]).issubset(int_features):
+                available.append(i)
+        for i in GradCorrect:
+            log.info("%i\t%s%s" % (i, GradCorrect[i]["description"], ["(not available)", ""][i in available]))
+        log.info('')
+        # recommend ngt if nacdr are already calculated
+        recommended = [available[0]]
+        priority = ["tdh", "none", "ngt"]
+        for name in priority:
+            num = next((k for k, v in GradCorrect.items() if v["name"] == name), None)  # TODO: check if that works
+            if set(GradCorrect[num]["required"]).issubset(INFOS["needed_requests"]):
+                recommended = [num]
+        while True:
+            num = question("Coupling number:", int, recommended)[0]
+            if num in GradCorrect and num in available:
+                break
+            else:
+                log.info("Please input one of the following: %s!" % available)
+        INFOS["gradcorrect"] = num
+        INFOS["needed_requests"].update(GradCorrect[num]["required"])
+    else:
+        num = next((k for k, v in GradCorrect.items() if v["name"] == "none"), None)
+        INFOS["gradcorrect"] = num
+        INFOS["needed_requests"].update(GradCorrect[num]["required"])
+    INFOS["needed_requests"].update(GradCorrect[INFOS["gradcorrect"]]["required"])
+
+
+
+
+    #===============================
+    # Begin Surface hopping details
+    #=============================== 
+    if INFOS['method']=='tsh':
+        # Kinetic energy modification
         log.info(
-            "\nFor SHARC dynamics, the evaluation of the mixed gradients necessitates to calculate non-adiabatic coupling vectors %s."
-            % (["(Extra computational cost)", " (Recommended)"][recommended])
+            "\nDuring a surface hop, the kinetic energy has to be modified in order to conserve total energy. There are several options to that:"
         )
-        if possible:
-            # while True:
-            INFOS["gradcorrect"] = question("Include non-adiabatic couplings in the gradient transformation?", bool, recommended)
-            # if INFOS['gradcorrect'] and not 'nacdr' in int_features:
-            # log.info('Not possible with the chosen interface!')
-            # else:
-            # break
-        else:
-            log.info("... but interface cannot provide non-adiabatic coupling vectors, turning option off.")
-            INFOS["gradcorrect"] = False
-    else:
-        INFOS["gradcorrect"] = False
-    if INFOS["gradcorrect"]:
-        INFOS["needed_requests"].append("nacdr")
-
-    # Kinetic energy modification
-    log.info(
-        "\nDuring a surface hop, the kinetic energy has to be modified in order to conserve total energy. There are several options to that:"
-    )
-    cando = []
-    for i in EkinCorrect:
-        recommended = len(EkinCorrect[i]["required"]) == 0 or Couplings[INFOS["coupling"]]["name"] in EkinCorrect[i]["required"]
-        possible = all([j in int_features for j in EkinCorrect[i]["required"]])
-        if possible:
-            cando.append(i)
-        if not possible:
-            log.info("%i\t%s%s" % (i, EkinCorrect[i]["description"], "\n\t(not possible)"))
-        else:
-            log.info("%i\t%s%s" % (i, EkinCorrect[i]["description"], ["\n\t(extra computational cost)", ""][recommended]))
-    while True:
-        ekinc = question("EkinCorrect:", int, [2])[0]
-        if ekinc in EkinCorrect and ekinc in cando:
-            break
-        else:
-            log.info("Please input one of the following: %s!" % ([i for i in cando]))
-    INFOS["ekincorrect"] = ekinc
-    if INFOS["ekincorrect"]:
-        for i in EkinCorrect[INFOS["ekincorrect"]]["required"]:
-            INFOS["needed_requests"].append(i)
-
-    # frustrated reflection
-    log.info(
-        "\nIf a surface hop is refused (frustrated) due to insufficient energy, the velocity can either be left unchanged or reflected:"
-    )
-    cando = []
-    for i in EkinCorrect:
-        recommended = len(EkinCorrect[i]["required"]) == 0 or Couplings[INFOS["coupling"]]["name"] in EkinCorrect[i]["required"]
-        possible = all([j in int_features for j in EkinCorrect[i]["required"]])
-        if possible:
-            cando.append(i)
-        if not possible:
-            log.info("%i\t%s%s" % (i, EkinCorrect[i]["description_refl"], "\n\t(not possible)"))
-        else:
-            log.info("%i\t%s%s" % (i, EkinCorrect[i]["description_refl"], ["\n\t(extra computational cost)", ""][recommended]))
-    while True:
-        reflect = question("Reflect frustrated:", int, [1])[0]
-        if reflect in EkinCorrect and reflect in cando:
-            break
-        else:
-            log.info("Please input one of the following: %s!" % ([i for i in cando]))
-    INFOS["reflect"] = reflect
-    if INFOS["reflect"]:
-        for i in EkinCorrect[INFOS["ekincorrect"]]["required"]:
-            INFOS["needed_requests"].append(i)
-
-    # decoherence
-    log.info("\nPlease choose a decoherence correction for the %s states:" % (["MCH", "diagonal"][INFOS["surf"] == "diagonal"]))
-    cando = []
-    for i in Decoherences:
-        recommended = len(Decoherences[i]["required"]) == 0 or Couplings[INFOS["coupling"]]["name"] in Decoherences[i]["required"]
-        possible = all([j in int_features for j in Decoherences[i]["required"]])
-        if possible:
-            cando.append(i)
-        if not possible:
-            log.info("%i\t%s%s" % (i, Decoherences[i]["description"], "\n\t(not possible)"))
-        else:
-            log.info("%i\t%s%s" % (i, Decoherences[i]["description"], ["\n\t(extra computational cost)", ""][recommended]))
-    while True:
-        decoh = question("Decoherence scheme:", int, [2])[0]
-        if decoh in Decoherences and decoh in cando:
-            break
-        else:
-            log.info("Please input one of the following: %s!" % ([i for i in cando]))
-    INFOS["decoherence"] = [Decoherences[decoh]["name"], Decoherences[decoh]["params"]]
-    for i in Decoherences[decoh]["required"]:
-        INFOS["needed_requests"].append(i)
-
-    # surface hopping scheme
-    log.info("\nPlease choose a surface hopping scheme for the %s states:" % (["MCH", "diagonal"][INFOS["surf"] == "diagonal"]))
-    cando = list(HoppingSchemes)
-    for i in HoppingSchemes:
-        log.info("%i\t%s" % (i, HoppingSchemes[i]["description"]))
-    while True:
-        hopping = question("Hopping scheme:", int, [2])[0]
-        if hopping in HoppingSchemes and hopping in cando:
-            break
-        else:
-            log.info("Please input one of the following: %s!" % ([i for i in cando]))
-    INFOS["hopping"] = HoppingSchemes[hopping]["name"]
-
-    # Forced hops to lowest state
-    log.info("\nDo you want to perform forced hops to the lowest state based on a energy gap criterion?")
-    log.info("(Note that this ignores spin multiplicity)")
-    INFOS["force_hops"] = question("Forced hops to ground state?", bool, False)
-    if INFOS["force_hops"]:
-        INFOS["force_hops_dE"] = abs(question("Energy gap threshold for forced hops (eV):", float, [0.1])[0])
-    else:
-        INFOS["force_hops_dE"] = 9999.0
-
-    # Scaling
-    log.info("\nDo you want to scale the energies and gradients?")
-    scal = question("Scaling?", bool, False)
-    if scal:
+        cando = []
+        for i in EkinCorrect:
+            recommended = len(EkinCorrect[i]["required"]) == 0 or set(EkinCorrect[num]["required"]).issubset(INFOS["needed_requests"])
+            possible = all([j in int_features for j in EkinCorrect[i]["required"]])
+            if possible:
+                cando.append(i)
+            if not possible:
+                log.info("%i\t%s%s" % (i, EkinCorrect[i]["description"], "\n\t(not possible)"))
+            else:
+                log.info("%i\t%s%s" % (i, EkinCorrect[i]["description"], ["\n\t(extra computational cost)", ""][recommended]))
         while True:
-            fscal = question("Scaling factor (>0.0): ", float)[0]
-            if fscal <= 0:
-                log.info("Please enter a positive real number!")
-                continue
-            break
-        INFOS["scaling_for_sharc"] = fscal
-    else:
-        INFOS["scaling_for_sharc"] = False
+            ekinc = question("EkinCorrect:", int, [2])[0]
+            if ekinc in EkinCorrect and ekinc in cando:
+                break
+            else:
+                log.info("Please input one of the following: %s!" % ([i for i in cando]))
+        INFOS["ekincorrect"] = ekinc
+        if INFOS["ekincorrect"]:
+            for i in EkinCorrect[INFOS["ekincorrect"]]["required"]:
+                INFOS["needed_requests"].add(i)
 
-    # Damping
-    log.info("\nDo you want to damp the dynamics (Kinetic energy is reduced at each timestep by a factor)?")
-    damp = question("Damping?", bool, False)
-    if damp:
+
+
+        # frustrated reflection
+        log.info(
+            "\nIf a surface hop is refused (frustrated) due to insufficient energy, the velocity can either be left unchanged or reflected:"
+        )
+        cando = []
+        for i in EkinCorrect:
+            recommended = len(EkinCorrect[i]["required"]) == 0 or set(EkinCorrect[num]["required"]).issubset(INFOS["needed_requests"])
+            possible = all([j in int_features for j in EkinCorrect[i]["required"]])
+            if possible:
+                cando.append(i)
+            if not possible:
+                log.info("%i\t%s%s" % (i, EkinCorrect[i]["description_refl"], "\n\t(not possible)"))
+            else:
+                log.info("%i\t%s%s" % (i, EkinCorrect[i]["description_refl"], ["\n\t(extra computational cost)", ""][recommended]))
         while True:
-            fdamp = question("Scaling factor (0-1): ", float)[0]
-            if not 0 <= fdamp <= 1:
-                log.info("Please enter a real number 0<=r<=1!")
-                continue
-            break
-        INFOS["damping"] = fdamp
-    else:
-        INFOS["damping"] = False
+            reflect = question("Reflect frustrated:", int, [1])[0]
+            if reflect in EkinCorrect and reflect in cando:
+                break
+            else:
+                log.info("Please input one of the following: %s!" % ([i for i in cando]))
+        INFOS["reflect"] = reflect
+        if INFOS["reflect"]:
+            for i in EkinCorrect[INFOS["ekincorrect"]]["required"]:
+                INFOS["needed_requests"].add(i)
 
-    # atommask
-    INFOS["atommaskarray"] = None
-    if (INFOS["decoherence"][0] == "edc") or (INFOS["ekincorrect"] == 2) or (INFOS["reflect"] == 2):
-        log.info("\nDo you want to use an atom mask for velocity rescaling or decoherence?")
-        if question("Atom masking?", bool, False):
-            log.info(
-                '\nPlease enter all atom indices (start counting at 1) of the atoms which should considered for velocity rescaling and dechoerence. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").'
-            )
-            #      log.info('\nPlease enter all atom indices (start counting at 1) of the atoms which should be masked. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").')
-            arr = question("Masked atoms:", int, ranges=True)
-            INFOS["atommaskarray"] = []
-            for i in arr:
-                if 1 <= i <= INFOS["natom"]:
-                    INFOS["atommaskarray"].append(i)
 
-    # selection of gradients (only for SHARC) and NACs (only if NAC=ddr)
-    log.info("\n" + f"{'Selection of Gradients and NACs':-^60}" + "\n")
-    log.info(
-        """In order to speed up calculations, SHARC is able to select which gradients and NAC vectors it has to calculate at a certain timestep. The selection is based on the energy difference between the state under consideration and the classical occupied state.
-"""
-    )
-    if INFOS["surf"] == "diagonal":
-        if INFOS["soc"]:
-            sel_g = question("Select gradients?", bool, False)
+        # decoherence
+        log.info("\nPlease choose a decoherence correction for the %s states:" % (["MCH", "diagonal"][INFOS["surf"] == "diagonal"]))
+        cando = []
+        for i in DecoherencesTSH:
+            recommended = len(DecoherencesTSH[i]["required"]) == 0 or set(DecoherencesTSH[num]["required"]).issubset(INFOS["needed_requests"])
+            possible = all([j in int_features for j in DecoherencesTSH[i]["required"]])
+            if possible:
+                cando.append(i)
+            if not possible:
+                log.info("%i\t%s%s" % (i, DecoherencesTSH[i]["description"], "\n\t(not possible)"))
+            else:
+                log.info("%i\t%s%s" % (i, DecoherencesTSH[i]["description"], ["\n\t(extra computational cost)", ""][recommended]))
+        while True:
+            decoh = question("Decoherence scheme:", int, [2])[0]
+            if decoh in DecoherencesTSH and decoh in cando:
+                break
+            else:
+                log.info("Please input one of the following: %s!" % ([i for i in cando]))
+        INFOS["decoherence"] = [DecoherencesTSH[decoh]["name"], DecoherencesTSH[decoh]["params"]]
+        for i in DecoherencesTSH[decoh]["required"]:
+            INFOS["needed_requests"].add(i)
+
+
+        # surface hopping scheme
+        log.info("\nPlease choose a surface hopping scheme for the %s states:" % (["MCH", "diagonal"][INFOS["surf"] == "diagonal"]))
+        cando = list(HoppingSchemes)
+        for i in HoppingSchemes:
+            log.info("%i\t%s" % (i, HoppingSchemes[i]["description"]))
+        while True:
+            hopping = question("Hopping scheme:", int, [2])[0]
+            if hopping in HoppingSchemes and hopping in cando:
+                break
+            else:
+                log.info("Please input one of the following: %s!" % ([i for i in cando]))
+        INFOS["hopping"] = HoppingSchemes[hopping]["name"]
+
+
+        # Forced hops to lowest state
+        log.info("\nDo you want to perform forced hops to the lowest state based on a energy gap criterion?")
+        log.info("(Note that this ignores spin multiplicity)")
+        INFOS["force_hops"] = question("Forced hops to ground state?", bool, False)
+        if INFOS["force_hops"]:
+            INFOS["force_hops_dE"] = abs(question("Energy gap threshold for forced hops (eV):", float, [0.1])[0])
         else:
-            sel_g = True
-    else:
-        sel_g = False
-    INFOS["sel_g"] = sel_g
-    if (
-        Couplings[INFOS["coupling"]]["name"] == "ddr"
-        or INFOS["gradcorrect"]
-        or EkinCorrect[INFOS["ekincorrect"]]["name"] == "parallel_nac"
-    ):
-        sel_t = question("Select non-adiabatic couplings?", bool, False)
-    else:
-        sel_t = False
-    INFOS["sel_t"] = sel_t
-    if sel_g or sel_t:
-        if not sel_t and not INFOS["soc"]:
-            INFOS["eselect"] = 0.001
-            log.info("\nSHARC dynamics without SOC and NAC: setting minimal selection threshold.")
+            INFOS["force_hops_dE"] = 9999.0
+
+
+        # TODO: move out of the TSH/SCP if's
+        # Scaling
+        log.info("\nDo you want to scale the energies and gradients?")
+        scal = question("Scaling?", bool, False)
+        if scal:
+            while True:
+                fscal = question("Scaling factor (>0.0): ", float)[0]
+                if fscal <= 0:
+                    log.info("Please enter a positive real number!")
+                    continue
+                break
+            INFOS["scaling_for_sharc"] = fscal
         else:
-            log.info(
-                "\nPlease enter the energy difference threshold for the selection of gradients and non-adiabatic couplings (in eV). (0.5 eV recommended, or even larger if SOC is strong in this system.)"
-            )
-            eselect = question("Selection threshold (eV):", float, [0.5])[0]
-            INFOS["eselect"] = abs(eselect)
+            INFOS["scaling_for_sharc"] = False
+
+
+        # TODO: move out of the TSH/SCP if's
+        # Damping
+        log.info("\nDo you want to damp the dynamics (Kinetic energy is reduced at each timestep by a factor)?")
+        damp = question("Damping?", bool, False)
+        if damp:
+            while True:
+                fdamp = question("Scaling factor (0-1): ", float)[0]
+                if not 0 <= fdamp <= 1:
+                    log.info("Please enter a real number 0<=r<=1!")
+                    continue
+                break
+            INFOS["damping"] = fdamp
+        else:
+            INFOS["damping"] = False
+
+
+        # TODO: move out of the TSH/SCP if's?
+        # atommask
+        INFOS["atommaskarray"] = None
+        if (INFOS["decoherence"][0] == "edc") or (INFOS["ekincorrect"] == 2) or (INFOS["reflect"] == 2):
+            log.info("\nDo you want to use an atom mask for velocity rescaling or decoherence?")
+            if question("Atom masking?", bool, False):
+                log.info(
+                    '\nPlease enter all atom indices (start counting at 1) of the atoms which should considered for velocity rescaling and dechoerence. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").'
+                )
+                #      log.info('\nPlease enter all atom indices (start counting at 1) of the atoms which should be masked. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").')
+                arr = question("Masked atoms:", int, ranges=True)
+                INFOS["atommaskarray"] = []
+                for i in arr:
+                    if 1 <= i <= INFOS["natom"]:
+                        INFOS["atommaskarray"].append(i)
+
+
+        # TODO: move out of the TSH/SCP if's? Or set sel_g/sel_t nonetheless?
+        # selection of gradients (only for SHARC) and NACs (only if NAC=ddr)
+        log.info("\n" + f"{'Selection of Gradients and NACs':-^60}" + "\n")
+        log.info(
+            """In order to speed up calculations, SHARC is able to select which gradients and NAC vectors it has to calculate at a certain timestep. The selection is based on the energy difference between the state under consideration and the classical occupied state.
+    """
+        )
+        if INFOS["surf"] == "diagonal":
+            if INFOS["soc"]:
+                sel_g = question("Select gradients?", bool, False)
+            else:
+                sel_g = True
+        else:
+            sel_g = False
+        INFOS["sel_g"] = sel_g
+        if "nacdr" in INFOS["needed_requests"]:
+            sel_t = question("Select non-adiabatic couplings?", bool, False)
+        else:
+            sel_t = False
+        INFOS["sel_t"] = sel_t
+        if sel_g or sel_t:
+            if not sel_t and not INFOS["soc"]:
+                INFOS["eselect"] = 0.001
+                log.info("\nSHARC dynamics without SOC and NAC: setting minimal selection threshold.")
+            else:
+                log.info(
+                    "\nPlease enter the energy difference threshold for the selection of gradients and non-adiabatic couplings (in eV). (0.5 eV recommended, or even larger if SOC is strong in this system.)"
+                )
+                eselect = question("Selection threshold (eV):", float, [0.5])[0]
+                INFOS["eselect"] = abs(eselect)
+
+    #===============================
+    # End Surface hopping details
+    #===============================
+
+    #========================================
+    # Begin Self-Consistent Potential Methods details 
+    #========================================
+    if INFOS['method']=='scp':
+
+        # Nuclear EOM
+        print('\nPlease choose the nuclear EOM propagator for SCP:')
+        cando=list(Neom)
+        for i in Neom:
+            print('%i\t%s' % (i, Neom[i]['description']))
+        while True:
+            if INFOS['coupling']==3:
+                eom=question('Neom:',int,[2])[0]
+            else:
+                eom=question('Neom:',int,[1])[0]
+            if eom in Neom and eom in cando:
+                break
+            else:
+                print('Please input one of the following: %s!' % (cando))
+        INFOS['neom'] = Neom[eom]['name']
+
+        # decoherence
+        print('\nPlease choose a decoherence correction for the %s states:' % (['MCH','diagonal'][INFOS['surf']=='diagonal']))
+        cando=[]
+        for i in DecoherencesSCP:
+            recommended = len(DecoherencesSCP[i]["required"]) == 0 or set(DecoherencesSCP[num]["required"]).issubset(INFOS["needed_requests"])
+            possible = all([j in int_features for j in DecoherencesSCP[i]["required"]])
+            if possible:
+                cando.append(i)
+            if not possible:
+                print('%i\t%s%s' % (i, DecoherencesSCP[i]['description'],'\n\t(not possible)' ))
+            else:
+                print('%i\t%s%s' % (i, DecoherencesSCP[i]['description'],['\n\t(extra computational cost)',''][ recommended ]))
+        while True:
+            decoh=question('Decoherence scheme:',int,[2])[0]
+            if decoh in DecoherencesSCP and decoh in cando:
+                break
+            else:
+                print('Please input one of the following: %s!' % ([i for i in cando]))
+        INFOS['decoherence']=[DecoherencesSCP[decoh]['name'],DecoherencesSCP[decoh]['params']]
+        for i in DecoherencesSCP[decoh]["required"]:
+            INFOS["needed_requests"].add(i)
+
+        # surface switching scheme for decay of mixing methods
+        if INFOS['decoherence'][0]=='dom':
+            print('\nPlease choose a surface switching scheme for the %s states:' % (['MCH','diagonal'][INFOS['surf']=='diagonal']))
+            cando=list(SwitchingSchemes)
+            for i in SwitchingSchemes:
+                print('%i\t%s' % (i, SwitchingSchemes[i]['description']))
+            while True:
+                switching=question('Switching scheme:',int,[2])[0]
+                if switching in SwitchingSchemes and switching in cando:
+                    break
+                else:
+                    print('Please input one of the following: %s!' % ([i for i in cando]))
+            INFOS['switching'] = SwitchingSchemes[switching]['name']
+
+
+        # decoherence time method
+        if INFOS['decoherence'][0]=='dom':
+            print('\nPlease choose a decoherence time scheme:')
+            cando=list(DecotimeSCP)
+            for i in DecotimeSCP:
+                print('%i\t%s' % (i, DecotimeSCP[i]['description']))
+            while True:
+                decotimemethod=question('Decoherence time scheme:',int,[1])[0]
+                if decotimemethod in DecotimeSCP and decotimemethod in cando:
+                    break
+                else:
+                    print('Please input one of the following: %s!' % ([i for i in cando]))
+            INFOS['decotime'] = DecotimeSCP[decotimemethod]['name']
+
+
+        # gaussian width parameter for Decoherence time scheme=fp2
+        if INFOS['decotime']=='fp2':
+            width=question('Gaussian width (bohr^-2):',float,[6.0])[0]
+            if width<=0:
+                print('Must be positive!')
+            print('\nGaussian width: %f.' % (width))
+            INFOS['width']=width
+
+        # Damping
+        print('\nDo you want to damp the dynamics (Kinetic energy is reduced at each timestep by a factor)?')
+        damp=question('Damping?',bool,False)
+        if damp:
+            while True:
+                fdamp=question('Scaling factor (0-1): ',float)[0]
+                if not 0<=fdamp<=1:
+                    print('Please enter a real number 0<=r<=1!')
+                    continue
+                break
+            INFOS['damping']=fdamp
+        else:
+            INFOS['damping']=False
+
+    #===========================================
+    # End Self-Consistent Potential Methods details 
+    #===========================================
+
+
+    log.info(f"\n\n{'Settings for large systems':-^60}\n")
 
     # rattle file
-    log.info(f"\n\n{'RATTLE':-^60}")
     INFOS["rattle"] = question("Do you want to constrain some bond lengths (via a RATTLE)?", bool, default=False)
     if INFOS["rattle"]:
         INFOS["rattlefile"] = question("specify path to rattle file: ", str, default="rattle", autocomplete=True)
+
 
     # thermostat
     INFOS["use_thermostat"] = question("Do you want to use a thermostat?", bool, False)
@@ -1168,6 +1488,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             INFOS["thermostat_friction"] = question("Please enter the friction coefficient [fs^-1]:", float, default=[0.02])[0]
             log.debug("regions not implemented")
             # if question("Do you want to use ", bool, False)
+
 
     # droplet potential
     if question("Do you want to use a droplet force?", bool, default=False):
@@ -1205,8 +1526,9 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         else:
             INFOS["droplet_atoms"] = question("Specify the atom affected by the droplet force (list of atom indexes starting at 1)", int, ranges=True)
 
+
     # tether
-    if question("Do you want to use a tether? (restraints groupg of atoms to a certian absolute coordinate)", bool, default=False):
+    if question("Do you want to use a tether? (restraints groups of atoms to a certian absolute coordinate)", bool, default=False):
         INFOS["tether"] = True
         INFOS["tether_force"] = question("Specify the force in Hartree/Bohr^2", float)[0]
         while True:
@@ -1222,6 +1544,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             INFOS["tether_atoms"] = "all"
         else:
             INFOS["tether_atoms"] = question("Specify the atoms affected by the tether force (list of atom indexes starting at 1)", int, ranges=True)
+
 
     # Laser file
     log.info("\n\n" + f"{'Laser file':-^60}" + "\n")
@@ -1261,7 +1584,8 @@ Laser files can be created using $SHARC/laser.x
     else:
         INFOS["dipolegrad"] = False
     if INFOS["dipolegrad"]:
-        INFOS["needed_requests"].append("dmdr")
+        INFOS["needed_requests"].add("dmdr")
+
 
     # Setup Dyson computation
     INFOS["ion"] = False
@@ -1274,7 +1598,8 @@ Laser files can be created using $SHARC/laser.x
             log.info("Do you want to compute Dyson norms between neutral and ionic states?")
             INFOS["ion"] = question("Dyson norms?", bool, False)
             if INFOS["ion"]:
-                INFOS["needed_requests"].append("ion")
+                INFOS["needed_requests"].add("ion")
+
 
     # Setup theodore
     if "theodore" in int_features:
@@ -1282,7 +1607,8 @@ Laser files can be created using $SHARC/laser.x
         log.info("Do you want to run TheoDORE to obtain one-electron descriptors for the electronic wave functions?")
         INFOS["theodore"] = question("TheoDORE?", bool, False)
         if INFOS["theodore"]:
-            INFOS["needed_requests"].append("theodore")
+            INFOS["needed_requests"].add("theodore")
+
 
     string = "\n  " + "=" * 80 + "\n"
     string += "||" + f"{'Interface setup':^80}" + "||\n"
@@ -1293,15 +1619,24 @@ Laser files can be created using $SHARC/laser.x
 
 
 def get_trajectory_info(INFOS) -> dict:
+
     # PYSHARC
     string = "\n  " + "=" * 80 + "\n"
     string += "||" + f"{'PYSHARC':^80}" + "||\n"
     string += "  " + "=" * 80 + "\n"
     log.info(string)
-    log.info("\nThe chosen interface can be run very efficiently with PYSHARC.")
-    log.info("PYSHARC runs the SHARC dynamics directly within Python (with C and Fortran extension)")
-    log.info("with minimal file I/O for maximum performance.")
-    INFOS["pysharc"] = question("Setup for PYSHARC?", bool, True)
+    pysharc_possible = True
+    if Integrator[INFOS['integrator']]["name"] == 'avv':
+        log.info("Pysharc not possible with adaptive time step integrator.")
+        pysharc_possible = False
+    if pysharc_possible:
+        log.info("\nThe chosen interface can be run very efficiently with PYSHARC.")
+        log.info("PYSHARC runs the SHARC dynamics directly within Python (with C and Fortran extension)")
+        log.info("with minimal file I/O for maximum performance.")
+        INFOS["pysharc"] = question("Setup for PYSHARC?", bool, True)
+    else:
+        INFOS["pysharc"] = False
+
 
     # Dynamics options
     string = "\n  " + "=" * 80 + "\n"
@@ -1309,10 +1644,15 @@ def get_trajectory_info(INFOS) -> dict:
     string += "  " + "=" * 80 + "\n"
     log.info(string)
 
+
     # NetCDF
     log.info("\nSHARC or PYSHARC can produce output in ASCII format (all features supported currently)")
-    log.info("or in NetCDF format (more efficient file I/O, some features currently not supported).")
+    log.info("or in NetCDF format (more efficient file I/O, trajectory restart currently not supported).")
     INFOS["netcdf"] = question("Write output in NetCDF format?", bool, INFOS["pysharc"])
+    INFOS["netcdf_separate"] = False
+    if INFOS["netcdf"]: 
+        INFOS["netcdf_separate"] = question("Write nuclear and electronic date to separate NetCDF files?", bool, False)
+
 
     # options for writing to output.dat
     log.info("\nDo you want to write the gradients to the output.dat file ?")
@@ -1344,7 +1684,10 @@ def get_trajectory_info(INFOS) -> dict:
     log.info("\nDo you want to write the overlap matrix to the output.dat file ?")
     INFOS["write_overlap"] = question("Write overlap matrix?", bool, (Couplings[INFOS["coupling"]]["name"] == "overlap"))
 
+    # strides
     log.info("\nDo you want to modify the output.dat writing stride?")
+    if INFOS["netcdf_separate"]:
+        log.info("\nNOTE: This stride will only affect electronic data in output.dat.nc")
     stride = question("Modify stride?", bool, False)
     if stride:
         INFOS["stride"] = []
@@ -1360,6 +1703,25 @@ def get_trajectory_info(INFOS) -> dict:
         INFOS["stride"].extend(stride)
     else:
         INFOS["stride"] = [1]
+
+    # separate nuclear stride
+    if INFOS["netcdf_separate"]:
+        log.info("\nDo you want to modify the stride for sharc_traj_xyz.nc?")
+        stride = question("Modify stride?", bool, False)
+        if stride:
+            INFOS["stride_nuclear"] = []
+            stride = question('Enter the  *INITIAL*   output stride (e.g., "1"=write every step)', int, [1])
+            INFOS["stride_nuclear"].extend(stride)
+            stride = question(
+                'Enter the *SUBSEQUENT* output stride (e.g., "10 2"=write every second step starting at step 10)', int, [0, 1]
+            )
+            INFOS["stride_nuclear"].extend(stride)
+            stride = question(
+                'Enter the   *FINAL*    output stride (e.g., "100 10"=write every tenth step starting at step 100)', int, [0, 1]
+            )
+            INFOS["stride_nuclear"].extend(stride)
+        else:
+            INFOS["stride_nuclear"] = [1]
 
     # Add some simple keys
     INFOS["log.infolevel"] = 2
@@ -1390,6 +1752,7 @@ def get_runscript_info(INFOS):
     string += "  " + "=" * 80 + "\n\n"
     log.info(string)
 
+    # run script
     log.info(f"{'Run script':-^60}" + "\n")
     log.info(
         """This script can generate the run scripts for each initial condition in two modes:
@@ -1412,6 +1775,7 @@ Note that in any case this script will create the input subdirectories in the cu
         INFOS["copydir"] = question("Run directory?", str)
     log.info("")
 
+    # submission script
     log.info(f"{'Submission script':-^60}" + "\n")
     log.info(
         """During the setup, a script for running all initial conditions sequentially in batch mode is generated. Additionally, a queue submission script can be generated for all initial conditions.
@@ -1491,48 +1855,75 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     s += "ezero %18.10f\n" % (INFOS["eref"])
 
     s += "tmax %f\nstepsize %f\nnsubsteps %i\n" % (INFOS["tmax"], INFOS["dtstep"], INFOS["nsubstep"])
+    s += 'integrator %s\n' % (Integrator[INFOS['integrator']]["name"])
+    if Integrator[INFOS['integrator']]["name"] == 'avv':
+        s += 'convthre %s\n' % (INFOS['convthre'])
     if INFOS["kill"]:
         s += "killafter %f\n" % (INFOS["killafter"])
     s += "\n"
 
-    if "atommaskarray" in INFOS and INFOS["atommaskarray"] is not None:
-        s += 'atommask external\natommaskfile "atommask"\n\n'
 
+    # general dynamics settings
+    s += 'method %s\n' % (INFOS['method'])
     s += "surf %s\n" % (INFOS["surf"])
     s += "coupling %s\n" % (Couplings[INFOS["coupling"]]["name"])
-    s += "%sgradcorrect\n" % (["no", ""][INFOS["gradcorrect"]])
-    s += "ekincorrect %s\n" % (EkinCorrect[INFOS["ekincorrect"]]["name"])
-    s += "reflect_frustrated %s\n" % (EkinCorrect[INFOS["reflect"]]["name"])
-    s += "decoherence_scheme %s\n" % (INFOS["decoherence"][0])
-    if INFOS["decoherence"][1]:
-        s += "decoherence_param %s\n" % (INFOS["decoherence"][1])
-    s += "hopping_procedure %s\n" % (INFOS["hopping"])
-    if INFOS["force_hops"]:
-        s += "force_hop_to_gs %f\n" % (INFOS["force_hops_dE"])
-    if INFOS["scaling_for_sharc"]:
-        s += "scaling %f\n" % (INFOS["scaling_for_sharc"])
-    if INFOS["damping"] is not False:
-        s += "dampeddyn %f\n" % (INFOS["damping"])
-    if INFOS["phases_from_interface"]:
-        s += "phases_from_interface\n"
+    if GradCorrect[INFOS['gradcorrect']]['name'] == 'none':
+        s += 'nogradcorrect\n'
+    else:
+        s += 'gradcorrect %s\n' % (GradCorrect[INFOS['gradcorrect']]['name'])
+
+    # TSH settings
+    if INFOS['method'] == 'tsh':
+        s += 'ekincorrect %s\n' % (EkinCorrect[INFOS['ekincorrect']]['name'])
+        s += 'reflect_frustrated %s\n' % (EkinCorrect[INFOS['reflect']]['name'])
+        s += 'decoherence_scheme %s\n' % (INFOS['decoherence'][0])
+        if INFOS['decoherence'][1]:
+            s += 'decoherence_param %s\n' % (INFOS['decoherence'][1])
+        s += 'hopping_procedure %s\n' % (INFOS['hopping'])
+        if INFOS['force_hops']:
+            s += 'force_hop_to_gs %f\n' % (INFOS['force_hops_dE'])
+        if INFOS['scaling_for_sharc']:
+            s += 'scaling %f\n' % (INFOS['scaling_for_sharc'])
+        if INFOS['damping'] is not False:
+            s += 'dampeddyn %f\n' % (INFOS['damping'])
+        if INFOS['phases_from_interface']:
+            s += 'phases_from_interface\n'
+        if "atommaskarray" in INFOS and INFOS["atommaskarray"] is not None:
+            s += '\natommask external\natommaskfile "atommask"\n\n'
+
+    # SCP settings
+    if INFOS['method'] == 'scp':
+        s += 'pointer_basis %s\n' % (INFOS['pointer_basis'])
+        s += 'neom_rep %s\n' % (INFOS['neom_rep'])
+        s += 'neom %s\n' % (INFOS['neom'])
+        s += 'decoherence_scheme %s\n' % (INFOS['decoherence'][0])
+        if INFOS['decoherence'][1]:
+            s += 'decoherence_param %s\n' % (INFOS['decoherence'][1])
+        if INFOS['decoherence'][0]=='dom':
+            s += 'switching_procedure %s\n' % (INFOS['switching'])
+        if INFOS['decoherence'][0]=='dom':
+            s += 'decotime_method %s\n' % (INFOS['decotime'])
+            if INFOS['decotime']=='fp2':
+                s += 'gaussian_width %s\n' % (INFOS['width'])
+        if INFOS['damping']:
+            s += 'dampeddyn %f\n' % (INFOS['damping'])
+
     if INFOS["pysharc"]:
         s += "notrack_phase\n"
 
-    if INFOS["sel_g"]:
-        s += "grad_select\n"
-    else:
-        s += "grad_all\n"
-    if INFOS["sel_t"]:
-        s += "nac_select\n"
-    else:
-        if (
-            Couplings[INFOS["coupling"]]["name"] == "ddr"
-            or INFOS["gradcorrect"]
-            or EkinCorrect[INFOS["ekincorrect"]]["name"] == "parallel_nac"
-        ):
-            s += "nac_all\n"
-    if "eselect" in INFOS:
-        s += "eselect %f\n" % (INFOS["eselect"])
+    # TSH settings for selection    
+    if INFOS['method'] == 'tsh':
+        if INFOS["sel_g"]:
+            s += "grad_select\n"
+        else:
+            s += "grad_all\n"
+        if INFOS["sel_t"]:
+            s += "nac_select\n"
+        else:
+            if "nacdr" in INFOS["needed_requests"]:
+                s += "nac_all\n"
+        if "eselect" in INFOS:
+            s += "eselect %f\n" % (INFOS["eselect"])
 
     if INFOS["select_directly"]:
         s += "select_directly\n"
@@ -1558,7 +1949,10 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
 
     # NetCDF or ASCII
     if INFOS["netcdf"]:
-        out = "netcdf"
+        if INFOS["netcdf_separate"]:
+            out = "netcdf_separate_nuc"
+        else:
+            out = "netcdf"
     else:
         out = "ascii"
     s += "output_format %s\n" % out
@@ -1569,6 +1963,14 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         for i in INFOS["stride"]:
             s += " %i" % i
         s += "\n"
+
+    # stride for separate nuclei
+    if INFOS["netcdf_separate"]:
+        if "stride_nuclear" in INFOS:
+            s += "output_dat_steps_nuc"
+            for i in INFOS["stride_nuclear"]:
+                s += " %i" % i
+            s += "\n"
 
     # rattle
     if INFOS["rattle"]:
@@ -1584,14 +1986,17 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
             s += "dipole_gradient\n"
         s += "\n"
 
+    # Dyson norms
     if "ion" in INFOS and INFOS["ion"]:
         s += "ionization\n"
         s += "ionization_step 1\n"
 
+    # TheoDORE
     if "theodore" in INFOS and INFOS["theodore"]:
         s += "theodore\n"
         s += "theodore_step 1\n"
 
+    # Thermostat
     if INFOS["use_thermostat"]:
         s += f"thermostat {INFOS['thermostat']}\n"
         s += f"temperature {INFOS['thermostat_temp']:.2f}\n"
@@ -1600,6 +2005,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
             s += f"thermostat_const {INFOS['thermostat_friction']}\n"
         s += "\n"
 
+    # Droplet and tether
     if 'droplet' in INFOS and 'tether' in INFOS:
         s += "restrictive_potential droplet_tether\n"
     elif 'droplet' in INFOS:
@@ -1636,8 +2042,11 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
             s += f"tether_at {INFOS['tether_atoms']}\n"
         s += f"tethering_position {' '.join(map(lambda x: f'{x: 8.6f}', INFOS['tether_position']))}\n"
 
+
+
+    # let user look at input and add extra stuff
     if ask:
-        if question("Do you want to see the input for the first trajectory?", bool, default=False):
+        if question("\n\nDo you want to see the input for the first trajectory?", bool, default=False):
             log.info(f"{'generated input for ' + iconddir:=^80}")
             log.info("-"*80)
             log.info(s)
@@ -1891,7 +2300,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 continue
             interface.prepare(INFOS, dirname + "/QM")
             
-            if INFOS["pysharc"]:
+            if not INFOS["pysharc"]:
                 run_qm = open(dirname + "/QM/runQM.sh", "w")
                 string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)                
                 run_qm.write(string)                               

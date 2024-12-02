@@ -2,7 +2,6 @@ import pytest
 import os
 import numpy as np
 from SHARC_MNDO import SHARC_MNDO
-from SHARC_MNDO_OLD import SHARC_MNDO_OLD
 from utils import expand_path
 
 PATH = expand_path("$SHARC/../tests/interface")

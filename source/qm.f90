@@ -302,8 +302,13 @@ module qm
 
     ! get non-adiabatic couplings
     if ( (ctrl%calc_nacdr==0).or.(ctrl%calc_nacdr==1) ) then
-      call get_nonadiabatic_ddr(ctrl%nstates, ctrl%natom, traj%NACdr_ssad)
-      if (printlevel>3) write(u_log,'(A31,A2)') 'Non-adiabatic couplings (DDR): ','OK'
+      if (any(traj%selt_ss)) then
+        call get_nonadiabatic_ddr(ctrl%nstates, ctrl%natom, traj%NACdr_ssad)
+        if (printlevel>3) write(u_log,'(A31,A2)') 'Non-adiabatic couplings (DDR): ','OK'
+      else
+        traj%NACdr_ssad = 0.d0
+        if (printlevel>3) write(u_log,'(A31,A2)') 'Non-adiabatic couplings (DDR): ','none requested'
+      endif 
     endif
 
     ! get dipole moment derivatives
@@ -625,13 +630,15 @@ module qm
       case (0)
         write(u_qm_qmin,'(A)') 'NACDR'
       case (1)
-        write(u_qm_qmin,'(A)') 'NACDR SELECT'
-        do i=1,ctrl%nstates
-          do j=1,ctrl%nstates
-            if (traj%selt_ss(i,j)) write(u_qm_qmin,'(I3,1X,I3)') i,j
+        if (any(traj%selt_ss)) then
+          write(u_qm_qmin,'(A)') 'NACDR SELECT'
+          do i=1,ctrl%nstates
+            do j=1,ctrl%nstates
+              if (traj%selt_ss(i,j)) write(u_qm_qmin,'(I3,1X,I3)') i,j
+            enddo
           enddo
-        enddo
-        write(u_qm_qmin,'(A)') 'END'
+          write(u_qm_qmin,'(A)') 'END'
+        endif
       case (2)
         write(u_qm_qmin,*)
     endselect
@@ -688,13 +695,15 @@ module qm
     endif
 
     if (ctrl%calc_nacdr==2) then
-      write(u_qm_qmin,'(A)') 'NACDR SELECT'
-      do i=1,ctrl%nstates
-        do j=1,ctrl%nstates
-          if (traj%selt_ss(i,j)) write(u_qm_qmin,'(I3,1X,I3)') i,j
+      if (any(traj%selt_ss)) then
+        write(u_qm_qmin,'(A)') 'NACDR SELECT'
+        do i=1,ctrl%nstates
+          do j=1,ctrl%nstates
+            if (traj%selt_ss(i,j)) write(u_qm_qmin,'(I3,1X,I3)') i,j
+          enddo
         enddo
-      enddo
-      write(u_qm_qmin,'(A)') 'END'
+        write(u_qm_qmin,'(A)') 'END'
+      endif 
     endif
 
     if (ctrl%calc_dipolegrad==2) then
@@ -2855,14 +2864,14 @@ module qm
 
 
     ! ===============================
-    ! 6. Compute Hopping and Frustratede hop direction 
+    ! 6. Compute Hopping and Frustrated hop direction 
     ! ===============================
 
     if (ctrl%method==0) then ! TSH method
 
       if (printlevel>3) then
         write(u_log,*) '============================================================='
-        write(u_log,*) '    [6].Caculating Hopping and Frustrated Hop  Direction '
+        write(u_log,*) '    [6].Calculating Hopping and Frustrated Hop Direction '
         write(u_log,*) '============================================================='
       endif
 

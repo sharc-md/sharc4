@@ -19,7 +19,7 @@ AUTHORS = "Sascha Mausenberger, Sebastian Mai"
 VERSION = "1.0"
 VERSIONDATE = datetime.datetime(2024, 3, 25)
 NAME = "NWCHEM"
-DESCRIPTION = "SHARC 4.0 interface for NWChem"
+DESCRIPTION = "AB INITIO interface for NWChem (TDDFT)"
 
 CHANGELOGSTRING = """
 """
@@ -141,10 +141,10 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         self.log.info("\n")
 
         self.log.info("\nSpecify path to NWChem binary.")
-        INFOS["nwchem"] = question("Path to NWChem:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["nwchem"] = question("Path to NWChem:", str, KEYSTROKES=KEYSTROKES)
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
-        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
 
         if os.path.isfile("NWCHEM.template"):
             self.log.info("Found NWCHEM.template in current directory")
@@ -167,18 +167,18 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
                 self._resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES)
         else:
             self.log.info("Specify the number of CPUs to be used.")
-            INFOS["ncpu"] = question("Number of CPUs (at least 2):", int, default=[2], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS["ncpu"] = question("Number of CPUs (at least 2):", int, default=[2], KEYSTROKES=KEYSTROKES)[0]
 
             self.log.info("Specify the amount of RAM to be used.")
-            INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
             if "overlap" in INFOS["needed_requests"]:
-                INFOS["wfoverlap"] = question(
+                self.setupINFOS["wfoverlap"] = question(
                     "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
                 )
                 self.log.info("State threshold for choosing determinants to include in the overlaps")
                 self.log.info("For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1")
-                INFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                self.setupINFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
 
         return INFOS
 
@@ -187,8 +187,8 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         if not self._resource_file:
             with open(os.path.join(dir_path, "NWCHEM.resources"), "w", encoding="utf-8") as file:
                 for key in ("nwchem", "scratchdir", "ncpu", "memory", "wfoverlap", "wfthres"):
-                    if key in INFOS:
-                        file.write(f"{key} {INFOS[key]}\n")
+                    if key in self.setupINFOS:
+                        file.write(f"{key} {self.setupINFOS[key]}\n")
         else:
             create_file(expand_path(self._resource_file), os.path.join(dir_path, "NWCHEM.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "NWCHEM.template"))
@@ -808,7 +808,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         job = qmin.control["jobid"]
         # Total memory, charge and geometry
         input_str = f"memory total {self.QMin.resources['memory']} mb\n"
-        input_str += f"charge {self.QMin.template['charge'][job-1]}\n"
+        input_str += f"charge {self.QMin.molecule['charge'][job-1]}\n"
         input_str += "geometry units bohr noautosym nocenter\n load format xyz input.xyz\nend\n\n"
 
         # Basis set

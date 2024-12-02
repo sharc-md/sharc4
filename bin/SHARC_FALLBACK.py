@@ -13,7 +13,7 @@ AUTHORS = "Sascha Mausenberger"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 10, 31)
 NAME = "Fallback"
-DESCRIPTION = "SHARC 4.0 interface for Fallback"
+DESCRIPTION = "   HYBRID interface for calling a fallback interface if primary interface fails"
 
 CHANGELOGSTRING = """
 """
@@ -137,13 +137,13 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     def run(self):
         self._trial_failed = False
         try:
-            with InDir(os.path.join(self.QMin.resources["pwd"], "trial_interface")):
+            with InDir("trial_interface"):
                 self._trial_interface.run()
                 self._trial_interface.getQMout()
         except:  # pylint: disable=bare-except
             self.log.info("Trial interface failed, running fallback.")
             self._trial_failed = True
-            with InDir(os.path.join(self.QMin.resources["pwd"], "fallback_interface")):
+            with InDir("fallback_interface"):
                 self._fallback_interface.run()
                 self._fallback_interface.getQMout()
 
@@ -152,31 +152,36 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._trial_interface.create_restart_files()
         self._fallback_interface.create_restart_files()
 
+    def write_step_file(self):
+        super().write_step_file()
+        self._trial_interface.write_step_file()
+        self._fallback_interface.write_step_file()
+
     def clean_savedir(self):
         super().clean_savedir()
         self._trial_interface.clean_savedir()
         self._fallback_interface.clean_savedir()
 
     def setup_interface(self):
-        if not os.path.isdir(path := os.path.join(self.QMin.resources["pwd"], "fallback_interface")):
-            self.log.error(f"{path} does not exist!")
+        if not os.path.isdir("fallback_interface"):
+            self.log.error("Path fallback_interface does not exist!")
             raise ValueError
-        if not os.path.isdir(path := os.path.join(self.QMin.resources["pwd"], "trial_interface")):
-            self.log.error(f"{path} does not exist!")
+        if not os.path.isdir("trial_interface"):
+            self.log.error("Path trial_interface does not exist!")
             raise ValueError
 
         # Instantiate trial and fallback interfaces
         trial = self.QMin.template["trial_interface"]
         fallback = self.QMin.template["fallback_interface"]
 
-        with InDir(os.path.join(self.QMin.resources["pwd"], "trial_interface")):
+        with InDir("trial_interface"):
             self._trial_interface = self._load_interface(trial["interface"])(trial["args"], trial["kwargs"])
             self._trial_interface.setup_mol(self.QMin)
             self._trial_interface.read_resources()
             self._trial_interface.read_template()
             self._trial_interface.setup_interface()
 
-        with InDir(os.path.join(self.QMin.resources["pwd"], "fallback_interface")):
+        with InDir("fallback_interface"):
             self._fallback_interface = self._load_interface(fallback["interface"])(fallback["args"], fallback["kwargs"])
             self._fallback_interface.setup_mol(self.QMin)
             self._fallback_interface.read_resources()

@@ -164,3 +164,27 @@ def test_gradients():
             grads = test_interface._get_gradients(f.read())
             print(grads)
             assert np.allclose(grads, ref, atol=5e-6)
+
+
+def test_dm():
+    # S+T dipoles compared to old interface
+    tests = [
+        (2, "inputs/turbomole/dm/1", "inputs/turbomole/dm/1/304_2.npz"),
+        (1, "inputs/turbomole/dm/2", "inputs/turbomole/dm/2/304_1.npz"),
+    ]
+
+    for lvl, path, ref in tests:
+        test_interface = SHARC_TURBOMOLE()
+        test_interface.setup_mol(expand_path(os.path.join(PATH, path, "QM.in")))
+        test_interface.QMin.template["dipolelevel"] = lvl
+        test_interface._read_resources = True
+        test_interface._read_template = True
+        test_interface.setup_interface()
+        try:  # skip orca error
+            test_interface.read_requests(expand_path(os.path.join(PATH, path, "QM.in")))
+        except:
+            pass
+        test_interface.QMin.resources["scratchdir"] = expand_path(os.path.join(PATH, path))
+        test_interface.getQMout()
+        dm = np.load(expand_path(os.path.join(PATH, ref)))
+        assert np.allclose(test_interface.QMout["dm"], dm["arr_0"], rtol=1e-3)

@@ -22,7 +22,7 @@ AUTHORS = "Eduarda Sangiogo Gil, Hans Georg Gallmetzer"
 VERSION = "1.0"
 VERSIONDATE = datetime.datetime(2024, 12, 2)
 NAME = "MOPACPI"
-DESCRIPTION = "SHARC interface for the MOPAC-PI program"
+DESCRIPTION = "AB INITIO interface for the MOPAC-PI program"
 
 CHANGELOGSTRING = """
 30.07.2021:     Initial version 0.1 by Eduarda
@@ -220,7 +220,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
             self.log.info(
             "\nPlease specify path to MOPACPI directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
             )
-            INFOS["mopacdir"] = question("Path to MOPACPI:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["mopacdir"] = question("Path to MOPACPI:", str, KEYSTROKES=KEYSTROKES)
             self.log.info("")
 
             # scratch

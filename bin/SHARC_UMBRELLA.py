@@ -89,7 +89,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
     @staticmethod
     def description():
-        return "Hybrid interface for adding umbrella-sampling-style restraints"
+        return "   HYBRID interface for adding umbrella-sampling-style restraints (harmonic bonds, angles, dihedrals, energy gaps)"
 
     @staticmethod
     def version():
@@ -183,8 +183,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         # folder setup and savedir
         qm_savedir = os.path.join(dir_path, QMin.save["savedir"], "QM_" + QMin.template["child-program"].upper())
         self.log.debug(f"qm_savedir {qm_savedir}")
-        if not os.path.isdir(qm_savedir):
-            mkdir(qm_savedir)
+        # if not os.path.isdir(qm_savedir):
+        #     mkdir(qm_savedir)
         self.child_interface.QMin.save["savedir"] = qm_savedir
         self.child_interface.QMin.resources["scratchdir"] = os.path.join(
             QMin.resources["scratchdir"], "QM_" + QMin.template["child-program"].upper()
@@ -212,8 +212,9 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
             )
             raise RuntimeError()
 
-        # make the child
-        self.child_interface: SHARC_INTERFACE = factory(self.QMin.template["child-program"])(
+        # make the child _load_interface
+        # self.child_interface: SHARC_INTERFACE = factory(self.QMin.template["child-program"])(
+        self.child_interface: SHARC_INTERFACE = self._load_interface(self.QMin.template["child-program"])(
             persistent=self.persistent, logname=f"QM {self.QMin.template['child-program']}", loglevel=self.log.level
         )
         self.child_interface.QMin.molecule['states'] = self.QMin.molecule['states']
@@ -335,6 +336,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                     gradrequests.add(indices[0]+1)
                     gradrequests.add(indices[1]+1)
             self.child_interface.QMin.requests["grad"] = sorted(gradrequests)
+            self.child_interface._step_logic()
+            self.child_interface._request_logic()
             
 
         with InDir(self.QMin.template["child-dir"]) as _:
@@ -470,7 +473,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                         gi = self.child_interface.QMout.grad[indices[0]]
                         gj = self.child_interface.QMout.grad[indices[1]]
                         g1 = k*(dE - v0)
-                        grad = g1 * (gi - gj)
+                        grad = g1 * (gj - gi)
 
             # save the computed results
             E.append(e)

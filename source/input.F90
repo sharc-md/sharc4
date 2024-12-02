@@ -86,7 +86,7 @@ module input
   integer :: idate,time
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
-  logical :: selectdirectly_bool
+  logical :: selectdirectly_bool, file_exists
 
   
 #ifndef __PYSHARC__
@@ -149,6 +149,22 @@ module input
       ctrl%restart=.false.
     endif
     ! if both keywords are present, norestart will take precendence
+
+  ! =====================================================
+
+  ! new in SHARC 4.0: do not proceed if restart.ctrl or restart.traj are present
+  if (.not.ctrl%restart) then
+    inquire(file="restart.ctrl", exist=file_exists)
+    if (file_exists) then
+      write(0,*) 'File restart.ctrl present but no restart requested. Remove the file or add the restart keyword.'
+      stop 
+    endif
+    inquire(file="restart.traj", exist=file_exists)
+    if (file_exists) then
+      write(0,*) 'File restart.traj present but no restart requested. Remove the file or add the restart keyword.'
+      stop 
+    endif
+  endif 
 
   ! =====================================================
 
@@ -954,7 +970,7 @@ module input
         case ('npi')
           ctrl%eeom=3
         case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "neom"!'
+          write(0,*) 'Unknown keyword ',trim(line),' to "eeom"!'
           stop 1
       endselect
     else ! set the default nuclear propagators
@@ -2160,7 +2176,7 @@ module input
       endif
     endif
 
-    if (printlevel>1) then
+    if ( (printlevel>1) .and. (ctrl%method==1)) then   ! should this only be printed if SCP?
       if (ctrl%decotime_method==0) then
         write(u_log,'(a)') 'Decoherence time is computed with CSDM method'
       elseif (ctrl%decotime_method==1) then
@@ -2521,6 +2537,13 @@ module input
       enddo
       write(u_log,*)
     endif
+  ! =====================================================
+
+  ! carry out RATTLE on the input velocities
+  if (ctrl%do_constraints==1) then
+    call rattle_initial_velocities(traj, ctrl)
+  endif
+
 
   ! =====================================================
 
@@ -3115,6 +3138,7 @@ module input
            write(u_log,'(a)') 'No thermostat will be applied.'
          case (1)
            write(u_log,'(a)') 'Langevin thermostat will be applied.'
+           write(u_log,'(a)') 'Temperature (in K) and friction coefficient (in m_e*fs^-1): '
        endselect
      endif
    endif
@@ -3658,6 +3682,68 @@ module input
       traj%veloc_ad(iatom,2)=v*dsin(theta)*dsin(phi)
       traj%veloc_ad(iatom,3)=v*dcos(phi)
     enddo
+
+  endsubroutine
+
+
+! ===================================================
+
+
+  subroutine rattle_initial_velocities(traj,ctrl)
+    use definitions
+    implicit none
+    type(trajectory_type),intent(inout) :: traj
+    type(ctrl_type),intent(in) :: ctrl
+
+    ! variables for constraints
+    logical :: check_constraints(ctrl%n_constraints)
+    integer :: iconstr, iA, iB, iiter
+    real*8 :: relpos(3), relvel(3)
+    real*8 :: d2t, coeff
+
+
+  ! if (ctrl%do_constraints==1) then
+    if (printlevel>2) then
+      write(u_log,'(A)') 'RATTLE iterations for initial velocities'
+      write(u_log,'(A3,X,A3,X,A5,X,A5,X,A12,X,A12,X,A2)') 'it','Con','AtomA','AtomB','Resid','coeff','OK'
+    endif
+    do iiter=1,1000
+      ! initialize logical variable that controls whether constraints are enforced
+      check_constraints(:) = .TRUE.
+        ! loop over the constrained bonds
+        do iconstr = 1, ctrl%n_constraints
+          ! define the atomic id of the atoms that have fixed distance
+          iA = ctrl%constraints_ca(iconstr,1)
+          iB = ctrl%constraints_ca(iconstr,2)
+          ! compute projection of the relative velocity with respect to the distance vector of the bond
+          relvel = traj%veloc_ad(iA,:) - traj%veloc_ad(iB,:)
+          relpos = traj%geom_ad(iA,:) - traj%geom_ad(iB,:)
+          d2t = DOT_PRODUCT(relpos, relvel)
+          ! when this projection is significantly different from zero, do RATTLE
+          coeff=0.d0
+          if ( abs(d2t) > ctrl%constraints_tol ) then
+            ! compute RATTLE coefficient
+            coeff = d2t / ((1.D0 / traj%mass_a(iA) + 1.D0 / traj%mass_a(iB)) * ctrl%constraints_dist_c(iconstr))
+            ! correct velocities
+            traj%veloc_ad(iA,:) = traj%veloc_ad(iA,:) - (coeff * relpos(:) / traj%mass_a(iA) )
+            traj%veloc_ad(iB,:) = traj%veloc_ad(iB,:) + (coeff * relpos(:) / traj%mass_a(iB) )
+            ! this constraint was not ok
+            check_constraints(iconstr) = .FALSE.
+          endif
+          ! print
+          if (printlevel>2) then
+            write(u_log,'(I3,X,I3,X,I5,X,I5,X,F12.7,X,F12.7,X,L1)') iiter,iconstr,iA,iB,&
+            &abs(D2t),coeff,check_constraints(iconstr)
+          endif
+        end do ! end of the loop over the constraints
+      ! break the loop when all constraints are satisfied
+      if ( all(check_constraints) ) exit
+    end do
+    if (.not. all(check_constraints) ) then
+      write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (initial vstep)!'
+      stop 1
+    endif
+  ! endif
 
   endsubroutine
 

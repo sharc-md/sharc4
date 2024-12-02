@@ -467,7 +467,7 @@ There are two representations:
 - diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
 """
             )
-        INFOS["diag"] = question("Do you want to use the diagonal representation (yes=diag, no=MCH)?", bool)
+        INFOS["diag"] = question("Do you want to use the diagonal representation (True=diag, False=MCH)?", bool, default = False)
         if INFOS["diag"] and INFOS["read_QMout"]:
             qmfilename = INFOS["iconddir"] + "/ICOND_00000/QM.in"
             if os.path.isfile(qmfilename):

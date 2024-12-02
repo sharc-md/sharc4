@@ -22,7 +22,7 @@ AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
 VERSION = "1.0"
 VERSIONDATE = datetime.datetime(2024, 12, 2)
 NAME = "MNDO"
-DESCRIPTION = "SHARC interface for the MNDO program"
+DESCRIPTION = "AB INITIO interface for the MNDO program (OM2-MRCI)"
 
 CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Only OM2/MRCI
@@ -227,12 +227,12 @@ class SHARC_MNDO(SHARC_ABINITIO):
 
             self.log.info(f"{'MNDO Ressource usage':-^60}\n")
 
-            INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
             
             if "overlap" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'WFoverlap setup':-^60}\n")
-                INFOS["wfoverlap"] = question(
+                self.setupINFOS["wfoverlap"] = question(
                     "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
                 )
 
@@ -1011,17 +1011,17 @@ mocoef
             except IOError:
                 self.log.error('IOError during prepareMNDO, iconddir=%s' % (workdir))
                 quit(1)
-            string = 'scratchdir %s/\n' % INFOS['scratchdir']
-            string += 'mndodir %s\n' % INFOS['mndodir']
-            string += 'memory %i\n' % (INFOS['memory'])
+            string = 'scratchdir %s/\n' % self.setupINFOS['scratchdir']
+            string += 'mndodir %s\n' % self.setupINFOS['mndodir']
+            string += 'memory %i\n' % (self.setupINFOS['memory'])
             if 'overlap' in INFOS['needed_requests']:
-                string += 'wfoverlap %s\n' % (INFOS['wfoverlap'])
+                string += 'wfoverlap %s\n' % (self.setupINFOS['wfoverlap'])
 
             resources_file.write(string)
             resources_file.close()
             
         create_file = link if INFOS["link_files"] else shutil.copy
-        print(self.files)
+        # print(self.files)
         for file in self.files:
             create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
 
@@ -1118,9 +1118,7 @@ mocoef
         
 
         self._save_files(self.QMin.control["workdir"])
-        
         self.clean_savedir()
-        
         # Run wfoverlap
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             self._run_wfoverlap()

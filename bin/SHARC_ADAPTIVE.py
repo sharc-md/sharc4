@@ -15,7 +15,7 @@ AUTHORS = "Sascha Mausenberger"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 10, 17)
 NAME = "Adaptive sampling"
-DESCRIPTION = "SHARC 4.0 interface for adaptive sampling"
+DESCRIPTION = "   HYBRID interface for adaptive sampling"
 
 CHANGELOGSTRING = """
 """
@@ -287,6 +287,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
         return self.QMout
 
     def create_restart_files(self):
+        super().create_restart_files()
         for child in self._kindergarden.values():
             child.create_restart_files()
 

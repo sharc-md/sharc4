@@ -99,7 +99,7 @@ class SHARC_LVC(SHARC_FAST):
 
     @staticmethod
     def description():
-        return "Linear Vibronic Coupling model calculations"
+        return "     FAST interface for linear/quadratic vibronic coupling models (LVC, QVC, LVC/MM)"
 
     def read_template(self, template_filename="LVC.template"):
         f = open(os.path.abspath(template_filename), "r")
@@ -304,7 +304,7 @@ class SHARC_LVC(SHARC_FAST):
 
     def read_resources(self, resources_filename="LVC.resources"):
         if not os.path.isfile(resources_filename):
-            self.log.warning("LVC.resources not found; continuuing without further settings.")
+            self.log.warning("LVC.resources not found; continuing without further settings.")
             self._read_resources = True
             return
 
@@ -724,6 +724,7 @@ class SHARC_LVC(SHARC_FAST):
             # store U matrix
             if self.persistent:
                 self.savedict[self.QMin.save['step']] = {'U': np.copy(self._U)}
+                # self.savedict["last_step"] = self.QMin.save['step']
             else:
                 with open(os.path.join(self.QMin.save["savedir"], f"U.npy.{self.QMin.save['step']}"), 'wb') as f:
                     np.save(f, self._U)  # writes a binary file (can be read with numpy.load())
@@ -803,6 +804,8 @@ class SHARC_LVC(SHARC_FAST):
         super().create_restart_files()
         if self.persistent:
             for istep in self.savedict:
+                if not isinstance(istep,int):
+                    continue
                 with open( os.path.join(self.QMin.save["savedir"], f'U.npy.{istep}'), 'wb') as f:
                     np.save(f, self.savedict[istep]["U"])  # writes a binary file (can be read with numpy.load())
 
@@ -879,9 +882,10 @@ class SHARC_LVC(SHARC_FAST):
 
     def prepare(self, INFOS: dict, dir_path: str):
         super().prepare(INFOS, dir_path)
-        if not "resources_file" in self.__dict__ and "wants_kabsch" in self.__dict__ and self.wants_kabsch:
-            string = 'do_kabsch true\n'
-            writefile(os.path.join(dir_path, self.name() + ".resources"), string)
+        if not "resources_file" in self.__dict__ or not self.resources_file:
+            if "wants_kabsch" in self.__dict__ and self.wants_kabsch:
+                string = 'do_kabsch true\n'
+                writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
 if __name__ == "__main__":
     from logger import loglevel

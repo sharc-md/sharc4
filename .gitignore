@@ -10,7 +10,6 @@ sharcvars.*
 build_info.inc
 *.tmp
 bin/pysharc_*.py
-wfoverlap/
 *.swp
 bin/__pycache__/*
 lib/__pycache__/*

@@ -102,6 +102,7 @@ class SHARC_INTERFACE(ABC):
         self.density_recipes = {}
         self._setsave = False
         self.states = []
+        self.setupINFOS = {}
 
         logname = logname if isinstance(logname, str) else self.name()
         self.log = logging.getLogger(logname)
@@ -865,7 +866,9 @@ class SHARC_INTERFACE(ABC):
                     if val[0] == "[":
                         raw_value = ast.literal_eval(val)
                         # check if matrix
-                        if isinstance(raw_value[0], str):
+                        if not raw_value:
+                            raw_value = []
+                        elif isinstance(raw_value[0], str):
                             raw_value = [entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)]
                     else:
                         raw_value = val.split() if len(val.split()) > 1 else val
@@ -897,10 +900,13 @@ class SHARC_INTERFACE(ABC):
 
         # TODO: implement previous_step from driver
         self.QMin.save.update({"newstep": False, "init": False, "samestep": False})
-        last_step = None
+        if self.persistent and "savedict" in self.__dict__ and "last_step" in self.savedict:
+            last_step = self.savedict["last_step"]
+        else:
+            last_step = None
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         self.log.debug(f"{stepfile =}")
-        if os.path.isfile(stepfile):
+        if os.path.isfile(stepfile) and last_step == None: # if persistent, we should ignore a STEP file if it exists, because we don't write one every step
             self.log.debug(f"Found stepfile {stepfile}")
             last_step = int(readfile(stepfile)[0])
         self.log.debug(f"{last_step =}, {self.QMin.save['step']=}")
@@ -934,18 +940,19 @@ class SHARC_INTERFACE(ABC):
             raise RuntimeError()
 
     def _set_driver_requests(self, requests: dict) -> None:
+        requests_copy = deepcopy(requests)
         # delete all old requests
         retain = self.QMin.requests["retain"]
         self.QMin.requests = QMin().requests
         self.QMin.requests["retain"] = retain
         self.log.debug(f"getting requests {requests}")
         # logic for raw tasks object from pysharc interface
-        if "tasks" in requests and isinstance(requests["tasks"], str):
+        if "tasks" in requests_copy and isinstance(requests_copy["tasks"], str):
             # task is 'step n <keywords+space'
-            task_list = requests["tasks"].split()
+            task_list = requests_copy["tasks"].split()
             if task_list[0] != "step" or not task_list[1].isdigit():
-                self.log.error(f"task string does not contain steps! {requests['tasks']}")
-                raise ValueError(f"task string does not contain steps! {requests['tasks']}")
+                self.log.error(f"task string does not contain steps! {requests_copy['tasks']}")
+                raise ValueError(f"task string does not contain steps! {requests_copy['tasks']}")
             self.QMin.save["step"] = int(task_list[1])
             self.log.debug(f"Setting step: {self.QMin.save['step']}")
             kw_requests = task_list[2:]
@@ -953,35 +960,35 @@ class SHARC_INTERFACE(ABC):
                 if k.lower() in ["init", "samestep", "newstep", "restart"]:
                     self.log.warning(f"{k.lower()} is deprecated and will be ignored!")
                     continue
-                requests[k.lower()] = True
-            del requests["tasks"]
-        if "soc" in requests and requests["soc"]:
-            requests["h"] = True
+                requests_copy[k.lower()] = True
+            del requests_copy["tasks"]
+        if "soc" in requests_copy and requests_copy["soc"]:
+            requests_copy["h"] = True
         for task in ["nacdr", "overlap", "grad", "ion"]:
-            if task in requests and isinstance(requests[task], str):
-                if requests[task] == "":  # removes task from dict if {'task': ''}
-                    del requests[task]
-                elif task == requests[task].lower() or requests[task] == "all":
+            if task in requests_copy and isinstance(requests_copy[task], str):
+                if requests_copy[task] == "":  # removes task from dict if {'task': ''}
+                    del requests_copy[task]
+                elif task == requests_copy[task].lower() or requests_copy[task] == "all":
                     if task == "nacdr":
-                        requests[task] = [
+                        requests_copy[task] = [
                             (i + 1, j + 1)
                             for i in range(self.QMin.molecule["nmstates"])
                             for j in range(self.QMin.molecule["nmstates"])
                         ]
                     else:
-                        requests[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
+                        requests_copy[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
                 else:
                     if task == "nacdr":
-                        requests[task] = [(int(i[0]), int(i[1])) for i in batched(requests[task].split())]
+                        requests_copy[task] = [(int(i[0]), int(i[1])) for i in batched(requests_copy[task].split())]
                     else:
-                        requests[task] = [int(i) for i in requests[task].split()]
+                        requests_copy[task] = [int(i) for i in requests_copy[task].split()]
 
         if self.QMin.save["step"] == 0:
             for req in ["overlap", "phases"]:
-                if req in requests:
-                    requests[req] = False
-        self.log.debug(f"setting requests {requests}")
-        self.QMin.requests.update(requests)
+                if req in requests_copy:
+                    requests_copy[req] = False
+        self.log.debug(f"setting requests {requests_copy}")
+        self.QMin.requests.update(requests_copy)
         self.log.debug(f"Finished setting requests:\n{self.QMin.requests}")
         self._step_logic()
         self._request_logic()
@@ -995,7 +1002,7 @@ class SHARC_INTERFACE(ABC):
             self.log.debug(f"{request}")
             match request:
                 case ["grad", None | "all"]:
-                    self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
+                    self.QMin.requests[req] = list(range(1, self.QMin.molecule["nmstates"] + 1))
                 case ["nacdr" | "multipolar_fit" | "density_matrices", None | "all"]:
                     self.QMin.requests[req] = ["all"]
                 case ["grad", value]:

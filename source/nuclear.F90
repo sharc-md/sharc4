@@ -184,10 +184,10 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
       ! break the loop when all constraints are satisfied
       if ( all(check_constraints) ) exit
     end do
-  endif
-  if (.not. all(check_constraints) ) then
-    write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (xstep)!'
-    stop 1
+    if (.not. all(check_constraints) ) then
+      write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (xstep)!'
+      stop 1
+    endif
   endif
 
 
@@ -305,10 +305,10 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
       ! break the loop when all constraints are satisfied
       if ( all(check_constraints) ) exit
     end do
-  endif
-  if (.not. all(check_constraints) ) then
-    write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (vstep)!'
-    stop 1
+    if (.not. all(check_constraints) ) then
+      write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (vstep)!'
+      stop 1
+    endif
   endif
   
 

@@ -82,14 +82,15 @@ Interfaces = {
                      'soc': []},
         'pysharc': False
         },
-    3: {'script': 'SHARC_Analytical.py',
+    3: {'script': 'SHARC_ANALYTICAL.py',
         'name': 'analytical',
         'description': 'Analytical PESs',
-        'get_routine': 'get_Analytical',
-        'prepare_routine': 'prepare_Analytical',
+        'get_routine': 'get_ANALYTICAL',
+        'prepare_routine': 'prepare_ANALYTICAL',
         'features': {'overlap': [],
                      'dipolegrad': [],
                      'phases': [],
+                     'nacdr': [],
                      'soc': []},
         'pysharc': False
         },

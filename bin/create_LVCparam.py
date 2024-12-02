@@ -1137,7 +1137,8 @@ def write_LVC_template(INFOS, template_name):
         mat_string = ""
         n_entries = 0
         for (s_i, s_j), fit in QMout_eq["multipolar_fit"].items():
-            if INFOS["no_transition_multipoles"] and s_i != s_j:
+            if "no_transition_multipoles" in INFOS and INFOS["no_transition_multipoles"] and s_i != s_j:
+                # TODO: This option is not written into the json by setup_LVCparam.py
                 continue
             if s_i > s_j:
                 continue

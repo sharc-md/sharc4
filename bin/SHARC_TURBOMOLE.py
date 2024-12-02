@@ -9,12 +9,12 @@ from functools import cmp_to_key
 from io import TextIOWrapper
 
 import numpy as np
-from constants import NUMBERS, rcm_to_Eh, au2a
+from constants import NUMBERS, au2a, rcm_to_Eh
 from pyscf import gto, tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from SHARC_ORCA import SHARC_ORCA
-from utils import expand_path, itmult, mkdir, writefile
+from utils import expand_path, itmult, link, mkdir, question, writefile
 
 __all__ = ["SHARC_TURBOMOLE"]
 
@@ -22,7 +22,7 @@ AUTHORS = "Sascha Mausenberger, Sebastian Mai"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 5, 29)
 NAME = "TURBOMOLE"
-DESCRIPTION = "SHARC interface for TURBOMOLE (RICC2/ADC2)"
+DESCRIPTION = "AB INITIO interface for TURBOMOLE (RICC2/ADC2)"
 
 CHANGELOGSTRING = """
 """
@@ -144,10 +144,10 @@ all_features = set(
         "molden",
         "point_charges",
         "grad_pc",
-        # raw data request
-        "mol",
-        "wave_functions",
-        "density_matrices",
+        # raw data request TODO: need to be implemented
+        # "mol",
+        # "wave_functions",
+        # "density_matrices",
     ]
 )
 
@@ -191,7 +191,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 "spin-scaling": None,
                 "basislib": None,
                 "douglas-kroll": False,
-                "dipolelevel": 0,
+                "dipolelevel": 1,
             }
         )
 
@@ -218,6 +218,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         )
 
         self._ao_labels = None
+        self._resources_file = None
+        self._template_file = None
 
     @staticmethod
     def version() -> str:
@@ -257,10 +259,60 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         return all_features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
-        pass
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'TURBOMOLE interface setup':^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+        
+        if os.path.isfile("TURBOMOLE.template"):
+            self.log.info("Found TURBOMOLE.template in current directory")
+            if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+                self._template_file = "TURBOMOLE.template"
+        else:
+            self.log.info("Specify a path to a TURBOMOLE template file.")
+            while not os.path.isfile(template_file := question("Template path:", str, KEYSTROKES=KEYSTROKES)):
+                self.log.info(f"File {template_file} does not exist!")
+            self._template_file = template_file
+
+        if question("Do you have a TURBOMOLE.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
+            while not os.path.isfile(
+                resources_file := question("Specify path to TURBOMOLE.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+            ):
+                self.log.info(f"File {resources_file} does not exist!")
+            self._resources_file = resources_file
+        else:
+            self.log.info(f"{'TURBOMOLE ressource usage':-^60}\n")
+            self.setupINFOS["turbodir"] = question("Specify path to TURBOMOLE: ", str, KEYSTROKES=KEYSTROKES)
+            if "soc" in INFOS["needed_requests"]:
+                INFOS["orcadir"] = question("Specify path to ORCA (< 5.0.0) to calculate SOCs:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("Please specify the number of CPUs to be used by EACH trajectory.\n")
+            self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0], default=1)
+            self.setupINFOS["memory"] = question(
+                "Specify the amount of RAM to be used.\nMemory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES
+            )[0]
+            if "overlap" in INFOS["needed_requests"]:
+                self.setupINFOS["wfoverlap"] = question(
+                    "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
+                )
+                self.log.info("State threshold for choosing determinants to include in the overlaps")
+                self.setupINFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+
+        self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
+        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+
+        return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str):
-        pass
+        create_file = link if INFOS["link_files"] else shutil.copy
+        if not self._resources_file:
+            with open(os.path.join(dir_path, "TURBOMOLE.resources"), "w", encoding="utf-8") as file:
+                for key in ("turbodir", "orcadir", "scratchdir", "ncpu", "memory", "wfoverlap", "wfthres"):
+                    if key in self.setupINFOS:
+                        file.write(f"{key} {self.setupINFOS[key]}\n")
+        else:
+            create_file(expand_path(self._resources_file), os.path.join(dir_path, "TURBOMOLE.resources"))
+        create_file(expand_path(self._template_file), os.path.join(dir_path, "TURBOMOLE.template"))
 
     def read_template(self, template_file: str = "TURBOMOLE.template", kw_whitelist: list[str] | None = None) -> None:
         super().read_template(template_file, kw_whitelist)
@@ -303,8 +355,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             raise ValueError()
 
         # Check spin-scaling
-        if (scaling := self.QMin.template["spin-scaling"]) and scaling not in ("scs", "sos", "lt-sos"):
-            self.log.error(f"spin-scaling {scaling} invalid. Use scs, sos or lt-sos.")
+        if (scaling := self.QMin.template["spin-scaling"]) and scaling not in ("scs", "sos", "lt-sos", "none"):
+            self.log.error(f"spin-scaling {scaling} invalid. Use none, scs, sos, lt-sos.")
             raise ValueError()
 
         if self.QMin.template["spin-scaling"] == "lt-sos" and self.QMin.template["dipolelevel"] > 1:
@@ -416,6 +468,11 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 self.log.warning("SOCs require S+T states, disable SOCs!")
                 self.QMin.requests["soc"] = False
 
+        if self.QMin.requests["dm"] and self.QMin.template["dipolelevel"] == 2:
+            self.log.info("DM request with dipolelevel 2, requesting all gradients, ignoring initial gradient request.")
+            self.QMin.requests["grad"] = list(range(1, self.QMin.molecule["nmstates"] + 1))
+            self._request_logic()
+
     def _create_aoovl(self) -> None:
         pass
 
@@ -447,6 +504,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     add_section.append(("$ricc2", "scs\n"))
                 case "sos" | "lt-sos":
                     add_section.append(("$ricc2", "sos cos= 1.20000 css= 0.33333\n"))
+                case "none":
+                    pass
             if self.QMin.template["spin-scaling"] == "lt-sos":
                 add_lines.append("$laplace\nconv=5\n")
             add_lines.append("$scfiterlimit 100\n")
@@ -520,12 +579,22 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             codes.append(self.run_program(workdir, "dscf", "dscf.out", "dscf.err"))
             self.log.debug(f"dscf exited with code {codes[-1]}")
 
-            # TODO: dm
+            exc_section = []
             if qmin.requests["soc"] and jobid == 1:
-                self._modify_file(control, None, None, [("$excitations", "tmexc istates=all fstates=all operators=soc\n")])
-            # self._modify_file(control, None, None, [("$excitations", "exprop states=all relaxed operators=diplen\n")])
-            # self._modify_file(control, None, None, [("$excitations", "static relaxed operators=diplen\n")])
-            # self._modify_file(control, None, None, [("$excitations", "spectrum states=all operators=diplen\n")])
+                exc_section.append(
+                    ("$excitations", f"tmexc istates=all fstates=all operators=soc{',diplen' if qmin.requests['dm'] else ''}\n")
+                )
+            elif qmin.requests["dm"] and qmin.template["dipolelevel"] == 2 and qmin.template["method"] != "cc2":
+                exc_section.append(("$excitations", "tmexc istates=all fstates=all operators=diplen\n"))
+
+            if qmin.requests["dm"]:
+                if qmin.template["dipolelevel"] > 0 and qmin.template["method"] != "cc2":
+                    exc_section.append(("$excitations", "spectrum states=all operators=diplen\n"))
+                if qmin.template["dipolelevel"] == 2:
+                    exc_section.append(("$excitations", "exprop states=all relaxed operators=diplen\n"))
+
+            if exc_section:
+                self._modify_file(control, None, None, exc_section)
 
             codes.append(self._run_ricc2(workdir, qmin.resources["ncpu"]))
 
@@ -570,10 +639,15 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 workdir, master_dir=os.path.join(qmin.resources["scratchdir"], f"master_{grad[0] if grad[0] != 3 else 1}")
             )
             if grad[0] != 3 and grad[1] == 1:  # (n,1) groundstate, except (3,1) -> excited state
-                self._modify_file(os.path.join(workdir, "control"), ["$response\n gradient\n"])
+                resp_str = "$response\ngradient\n"
+                if qmin.requests["dm"] and qmin.template["dipolelevel"] == 2:
+                    resp_str += "static relaxed operators=diplen\n"
+                self._modify_file(os.path.join(workdir, "control"), [resp_str])
             else:
                 exgrad = f"xgrad states=(a{{{grad[0] if grad[0] == 3 else 1}}} {grad[1] - (grad[0] != 3)})"
                 self._modify_file(os.path.join(workdir, "control"), None, None, [("$excitations", f"{exgrad}\n")])
+                if qmin.requests["dm"] and qmin.template["dipolelevel"] == 2:
+                    self._modify_file(os.path.join(workdir, "control"), ["$response\nstatic relaxed operators=diplen\n"])
             codes.append(self._run_ricc2(workdir, qmin.resources["ncpu"]))
         return max(codes), datetime.datetime.now() - starttime
 
@@ -786,9 +860,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         Generate an env dict for given number of CPUs
         """
         ricc2_env = deepcopy(os.environ)
-        if hasattr(ricc2_env, "PARA_ARCH"):
+        if "PARA_ARCH" in ricc2_env:
             del ricc2_env["PARA_ARCH"]
-        if hasattr(ricc2_env, "PARANODES"):
+        if "PARANODES" in ricc2_env:
             del ricc2_env["PARANODES"]
         if ncpu > 1:
             ricc2_env["PARA_ARCH"] = "SMP"
@@ -885,7 +959,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         Copy run files from master job
         """
         self.log.debug("Copy run files from master job")
-        files = ("auxbasis", "basis", "mos", "alpha", "beta", "restart.cc")
+        files = ("auxbasis", "basis", "mos", "alpha", "beta", "restart.cc", "energy")
         for f in files:
             try:
                 shutil.copy(os.path.join(master_dir, f), os.path.join(workdir, f))
@@ -965,6 +1039,61 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     ] = np.tile(energies[s_cnt : s_cnt + states[i - 1]], i)
                     s_cnt += states[i - 1]
 
+            if self.QMin.requests["dm"]:
+                # Parse GS->EX dipoles
+                if self.QMin.template["dipolelevel"] > 0:
+                    n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][: mult - 1], 1))
+                    n_states = self.QMin.molecule["states"][mult - 1]
+                    dipoles = self._get_gs_ex_dipole(ricc2_out)
+                    for i in range(mult):
+                        self.QMout["dm"][
+                            :,
+                            n_state + (n_states * i),
+                            n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
+                        ] = dipoles
+                        self.QMout["dm"][
+                            :,
+                            n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
+                            n_state + (n_states * i),
+                        ] = dipoles
+                if (self.QMin.template["dipolelevel"] > 1 and self.QMin.molecule["states"][mult - 1] > 2) or (
+                    mult == 1 and self.QMin.requests["soc"]
+                ):
+                    dipoles = self._get_ex_ex_dipole(ricc2_out)
+                    sub_mat = np.zeros(3 * ((self.QMin.molecule["states"][mult - 1] - 1) ** 2)).reshape(
+                        (3, self.QMin.molecule["states"][mult - 1] - 1, -1)
+                    )
+                    up_idx = np.triu_indices(sub_mat.shape[1], 1)
+                    if mult == 1 and self.QMin.requests["soc"]:
+                        n_trip = self.QMin.molecule["states"][2]
+                        n_sing = self.QMin.molecule["states"][0]
+                        trip_mat = np.zeros(3 * (n_trip**2)).reshape((3, n_trip, -1))
+                        for i in range(3):
+                            sub_mat[i][up_idx] = dipoles[i, : up_idx[0].shape[0]]
+                            sub_mat[i] += sub_mat[i].T
+                            trip_mat[i][np.triu_indices(trip_mat.shape[1], 1)] = dipoles[i, up_idx[0].shape[0] :]
+                            trip_mat[i] += trip_mat[i].T
+                        for i in range(3):
+                            n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][:2], 1))
+                            self.QMout["dm"][
+                                :,
+                                n_state + (i * n_trip) : n_state + ((i + 1) * n_trip),
+                                n_state + (i * n_trip) : n_state + ((i + 1) * n_trip),
+                            ] += trip_mat
+                        self.QMout["dm"][:, 1:n_sing, 1:n_sing] += sub_mat
+                    else:
+                        n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][: mult - 1], 1))
+                        mult_state = self.QMin.molecule["states"][mult - 1]
+                        for i in range(3):
+                            sub_mat[i][up_idx] = dipoles[i, :]
+                            sub_mat[i] += sub_mat[i].T
+                        for i in range(mult):
+                            self.QMout["dm"][
+                                :,
+                                n_state + (i * (mult_state)) + 1 : n_state + ((i + 1) * mult_state),
+                                n_state + (i * (mult_state)) + 1 : n_state + ((i + 1) * mult_state),
+                            ] += sub_mat
+
             # Theodore
             if self.QMin.requests["theodore"]:
                 if self.QMin.control["jobs"][mult]["restr"]:
@@ -1038,7 +1167,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             for grad in self.QMin.maps["gradmap"]:
                 with open(os.path.join(scratchdir, f"grad_{grad[0]}_{grad[1]}/ricc2.out"), "r", encoding="utf-8") as grad_file:
                     self.log.debug(f"Parsing gradient {grad[0]}_{grad[1]}")
-                    grads = self._get_gradients(grad_file.read())
+                    grad_content = grad_file.read()
+                    grads = self._get_gradients(grad_content)
                     for key, val in self.QMin.maps["statemap"].items():
                         if (val[0], val[1]) == grad:
                             self.QMout["grad"][key - 1] = grads
@@ -1051,8 +1181,66 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                                     point_charges = point_charges.split("\n")[1:-2]
                                     point_charges = [c.split() for c in point_charges]
                                     self.QMout["grad_pc"][key - 1] = np.asarray(point_charges, dtype=float)
+                    # Add static dipoles
+                    if self.QMin.requests["dm"] and self.QMin.template["dipolelevel"] == 2:
+                        gs = grad[0] != 3 and grad[1] == 1
+                        n_state = sum(s * m for (m, s) in enumerate(self.QMin.molecule["states"][: grad[0] - 1], 1))
+                        for i in range(grad[0]):
+                            idx = n_state + grad[1] - 1 + (i * self.QMin.molecule["states"][grad[0] - 1])
+                            self.QMout["dm"][:, idx, idx] = self._get_static_dipole(grad_content, gs)
 
         return self.QMout
+
+    def _get_ex_ex_dipole(self, ricc2_out: str) -> np.ndarray:
+        """
+        Get ex->ex dipole moments from ASCII ricc2 output
+        """
+        if not (
+            dipoles := re.findall(
+                r"Transition Strength\n.*?diplen\s+(-?\d+\.\d+).*\n.*?diplen\s+(-?\d+\.\d+).*\n.*?diplen\s+(-?\d+\.\d+)",
+                ricc2_out,
+            )
+        ):
+            self.log.error("EX->EX dipoles not found in ricc2.out!")
+            raise ValueError
+        return np.einsum("ij->ji", np.array(dipoles, dtype=float))
+
+    def _get_gs_ex_dipole(self, ricc2_out: str) -> np.ndarray:
+        """
+        Parse gs->ex dipole moments from ASCII ricc2 output
+        """
+        if not (
+            dipoles := re.findall(r"transition strength \|\n.*\n.*?(-?\d+\.\d+).*\n.*?(-?\d+\.\d+).*\n.*?(-?\d+\.\d+)", ricc2_out)
+        ):
+            self.log.error("GS->EX dipole moments not found in ricc2.out!")
+            raise ValueError
+        return np.einsum("ij->ji", np.array(dipoles, dtype=float))
+
+    def _get_static_dipole(self, ricc2_out: str, ground_state: bool = True) -> np.ndarray:
+        """
+        Parse static dipole from ASCII ricc2 output
+        """
+        if ground_state:
+            if not (
+                dipole := re.findall(
+                    r"CONTRIB\..*?diplen\s+\(relax\).*?(-?\d+\.\d+).*?diplen\s+\(relax\).*?(-?\d+\.\d+).*?diplen\s+\(relax\).*?(-?\d+\.\d+)",
+                    ricc2_out,
+                    re.DOTALL,
+                )
+            ):
+                self.log.error("No static dipole found in ricc2.out!")
+                raise ValueError
+        else:
+            if not (
+                dipole := re.findall(
+                    r"diff to gr\.st\..*?diplen\s+\(relax\).*?(-?\d+\.\d+).*?.*?diplen\s+\(relax\).*?(-?\d+\.\d+).*?diplen\s+\(relax\).*?(-?\d+\.\d+)",
+                    ricc2_out,
+                    re.DOTALL,
+                )
+            ):
+                self.log.error("No static dipole found in ricc2.out!")
+                raise ValueError
+        return np.array(dipole[0], dtype=float)
 
     def _get_gradients(self, ricc2_out: str) -> np.ndarray:
         """
@@ -1269,6 +1457,13 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             with open(os.path.join(workdir, "define.err"), "r", encoding="utf-8") as f:
                 self.log.error(f.read())
             raise RuntimeError()
+
+        # TURBOMOLE returns 0 even on errors
+        with open(os.path.join(workdir, "define.err"), "r", encoding="utf-8") as err:
+            while line := err.readline():
+                if "abnormally" in line.split():
+                    self.log.error("Define failed for some unknown reason.")
+                    raise RuntimeError
         return code
 
     def _modify_file(

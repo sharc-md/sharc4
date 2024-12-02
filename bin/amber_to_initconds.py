@@ -193,6 +193,7 @@ class INITCOND:
         self.statelist = []
         self.nstate = 0
         self.Epot = epot_harm
+        self.molecule_format = "native"
 
     def addstates(self, statelist):
         self.statelist = statelist
