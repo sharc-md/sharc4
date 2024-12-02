@@ -19,8 +19,8 @@ from utils import containsstring, expand_path, question, link, makecmatrix, mkdi
 __all__ = ["SHARC_MNDO"]
 
 AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
-VERSION = "0.2"
-VERSIONDATE = datetime.datetime(2024, 4, 3)
+VERSION = "1.0"
+VERSIONDATE = datetime.datetime(2024, 12, 2)
 NAME = "MNDO"
 DESCRIPTION = "AB INITIO interface for the MNDO program (OM2-MRCI)"
 
@@ -88,7 +88,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ici2": 0,
                 "act_orbs": [1],
                 "movo": 0,
-                #"kharge": 0,
                 "imomap": 0,
                 "disp": 0,
                 "iop": -6,
@@ -107,7 +106,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ici2": int,
                 "act_orbs": list,
                 "movo": int,
-                #"kharge": int,
                 "imomap": int,
                 "disp": int,
                 "iop": int,
@@ -181,20 +179,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         self.log.info("\n")
         self.files = []
 
-        self.log.info(
-            "\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
-        )
-        self.setupINFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
-        self.log.info("")
-
-        # scratch
-        self.log.info(f"{'Scratch directory':-^60}\n")
-        self.log.info(
-            "Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
-        )
-        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
-        self.log.info("")
-
         self.template_file = None
         self.log.info(f"{'MNDO input template file':-^60}\n")
 
@@ -214,6 +198,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         self.files.append(self.template_file)
 
         self.make_resources = False
+        
         # Resources
         # TODO: either ask for resource file at the top of this routine or not at all...
         if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
@@ -227,6 +212,19 @@ class SHARC_MNDO(SHARC_ABINITIO):
                     self.log.info(f"file at {resources_file} does not exist!")
         else:
             self.make_resources = True
+            self.log.info(
+                "\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
+            )
+            INFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("")
+
+            # scratch
+            self.log.info(f"{'Scratch directory':-^60}\n")
+            self.log.info(
+                "Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
+            )
+            INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+
             self.log.info(f"{'MNDO Ressource usage':-^60}\n")
 
             self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
@@ -266,10 +264,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
             shutil.copy(saved_file, orbital_tracking)
 
         # Write MNDO input
-        input_str = self.generate_inputstr(qmin)
+        input_str = self._generate_inputstr()
 
-        # save_input_file = os.path.join(savedir, f"input.{step}.exp")
-        # writefile(save_input_file, input_str)
 
         self.log.debug(f"Generating input string\n{input_str}")
         input_path = os.path.join(workdir, "MNDO.inp")
@@ -331,11 +327,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         mo = os.path.join(savedir, f"mos.{step}")
         writefile(mo, mos)
 
-        # mo_e = os.path.join(savedir, f"mo_energies.{step}.exp")
-        # with open(mo_e, 'w') as f:
-        #     for line in mo_energies:
-        #         f.write(f"{line}\n")
-
         
         #AO_OVL
         aos = self.get_Double_AOovl(NAO)
@@ -355,17 +346,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         det = os.path.join(savedir, f"dets.{step}")
         writefile(det, determinants)
 
-
-        # tofile = os.path.join(savedir, f"MNDO.out.{step}")
-        # shutil.copy(log_file, tofile)
-
-        # out_file = os.path.join(workdir, "fort.15")
-        # tofile = os.path.join(savedir, f"fort.15.{step}")
-        # shutil.copy(out_file, tofile)
-
-        # mm_file = os.path.join(workdir, "fort.20")
-        # tofile = os.path.join(savedir, f"fort.20.{step}")
-        # shutil.copy(mm_file, tofile)
 
         return
 
@@ -610,8 +590,6 @@ mocoef
 
         # add MO occupancy to ci_vector
         active_mos = [*self._get_active_space(log_file)]
-        # ci_vectors["active MOs"] = active_mos
-        # active_mos = [*get_active_space(logfile)]
         ci_vectors["active MOs"] = [*range(1, len(MO_occ)+1)]
 
         # get CSFs from log_file
@@ -869,7 +847,7 @@ mocoef
         # nac = np.fromiter(map(), count=).reshape()
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i]
-            #dE = self.QMout["h"][s2,s2].real - self.QMout["h"][s1,s1].real # In MNDO cannot calculate imaginary energies
+
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
@@ -891,9 +869,6 @@ mocoef
                 iline += 1
             nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
             nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
-            # if (dE != 0.0):
-            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
-            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
         
         return nac
     
@@ -922,7 +897,7 @@ mocoef
         # make nac matrix
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i] 
-            #dE = self.QMout["h"][s2, s2].real - self.QMout["h"][s1, s1].real # In MNDO cannot calculate imaginary energies
+
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
@@ -936,9 +911,7 @@ mocoef
 
             nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
             nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
-            # if (dE != 0.0):
-            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
-            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
+
 
         return nac
 
@@ -1142,7 +1115,7 @@ mocoef
         schedule = [{"mndo_calc" : self.QMin}] #Generate fake schedule
         self.QMin.control["nslots_pool"].append(1)
         self.runjobs(schedule)
-        #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)+
+        
 
         self._save_files(self.QMin.control["workdir"])
         self.clean_savedir()
@@ -1151,8 +1124,6 @@ mocoef
             self._run_wfoverlap()
 
         self.log.debug("All jobs finished successfully")
-
-        # self.saveGeometry()
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
@@ -1202,7 +1173,6 @@ mocoef
         )
 
         # Link files
-        # breakpoint()
         link(
             os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']}"),
             os.path.join(workdir, "det.a"),
@@ -1232,19 +1202,24 @@ mocoef
             raise OSError()
 
 
-    @staticmethod
-    def generate_inputstr(qmin: QMin) -> str:
+    def _generate_inputstr(self) -> str:
         """
         Generate MNDO input file string from QMin object
         """
-
+        qmin = self.QMin
+        ncigrd = 1
+        grads = [1]
+        icross = 1                                              #calc gradients
         natom = qmin["molecule"]["natom"]
-        if qmin.requests["grad"]:
-            ncigrd = len(qmin["maps"]["gradmap"])
-            grads = [y for _,y in qmin["maps"]["gradmap"]]
-        else:
-            ncigrd = 1
-            grads = [1]
+        if qmin.requests["grad"] or qmin.requests["nacdr"]:
+            if qmin.requests["nacdr"]:
+                icross = 7                                      #calc gradients and NACs
+                grads = self._check_grads_request(qmin)
+                ncigrd = len(grads)
+            else:
+                ncigrd = len(qmin["maps"]["gradmap"])
+                grads = [y for _,y in qmin["maps"]["gradmap"]]
+
 
         coords = qmin["coords"]["coords"]
         elements = qmin["molecule"]["elements"]
@@ -1264,11 +1239,9 @@ mocoef
         mciref = qmin["template"]["mciref"]
 
         nfloat = ici1 + ici2
-        icross = 1
 
 
-        if qmin.requests["nacdr"]:
-            icross = 7
+        
 
         if qmin["template"]["fomo"] == 1:
             inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref={mciref} levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
@@ -1298,8 +1271,22 @@ mocoef
             inputstring += str(l) + " "
 
         return inputstring
-    
 
+    @staticmethod
+    def _check_grads_request(qmin: QMin) -> list:
+        
+        grads = [y for _,y in qmin["maps"]["gradmap"]]
+        nac_i = list(map(lambda x: x[1], qmin["maps"]["nacmap"]))
+        nac_j = list(map(lambda x: x[3], qmin["maps"]["nacmap"]))
+        naclist = nac_i + nac_j
+        together = grads + naclist
+        no_duplicates = list(dict.fromkeys(together))
+        ordered = sorted(no_duplicates)
+        
+        return ordered
+
+
+    
     def _create_aoovl(self) -> None:
         #empty function
         pass

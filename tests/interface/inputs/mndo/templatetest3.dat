@@ -34,8 +34,6 @@ act_orbs 4 5 6 7 8
 ## Definition of orbitals involved in the active space. 0 -> False, 1 -> True
 movo -1
 
-## Molecular charge.
-charge 0
 
 ## Definition of active orbitals in consecutive CI runs.  = 0 Keep original definition of 
 ## MO labels according to movo. = 1 Track MO character via file I/O (imomap.dat) for use with single-point calculations
