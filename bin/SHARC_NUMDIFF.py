@@ -237,6 +237,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 default="NUMDIFF.template"
             )
             self.read_template(self.template_file)
+        if not hasattr(self,"ref_interface"):
             qm_program = self.QMin.template['qm-program']
             self.ref_interface = self._load_interface(qm_program)()
             # self.ref_interface.QMin.molecule['states'] = self.QMin.molecule['states']
