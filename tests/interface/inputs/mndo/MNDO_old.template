@@ -37,8 +37,6 @@ numatm 1
 ## Definition of orbitals involved in the active space. 0 -> False, 1 -> True
 movo 1
 
-## Molecular charge.
-kharge 1
 
 ## Definition of active orbitals in consecutive CI runs.  = 0 Keep original definition of 
 ## MO labels according to movo. = 3 Track MO character via file I/O (imomap.dat) for use with single-point calculations
