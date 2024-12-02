@@ -18,13 +18,21 @@ from utils import containsstring, expand_path, question, itmult, link, makecmatr
 
 __all__ = ["SHARC_MOPACPI"]
 
-AUTHORS = "Eduarda Sangiogo Gil"
-VERSION = "0.1"
-VERSIONDATE = datetime.datetime(2024, 7, 30)
+AUTHORS = "Eduarda Sangiogo Gil, Hans Georg Gallmetzer"
+VERSION = "1.0"
+VERSIONDATE = datetime.datetime(2024, 12, 2)
 NAME = "MOPACPI"
 DESCRIPTION = "SHARC interface for the MOPAC-PI program"
 
-CHANGELOGSTRING = """For now, this implementation is the simplest possible...
+CHANGELOGSTRING = """
+30.07.2021:     Initial version 0.1 by Eduarda
+For now, this implementation is the simplest possible....
+Only Singlets are supported. Using local diabatization.
+Will be extended to triplets and NACs int the future.
+
+02.12.2024:     Version 1.0 by Hans Georg
+Added all the needed functionality to run the SHARC pipeline with MOPAC-PI. 
+Minor and cosmetic changes to the code.
 """
 
 all_features = set(
@@ -178,14 +186,6 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         self.files = []
 
 
-        # scratch
-        self.log.info(f"{'Scratch directory':-^60}\n")
-        self.log.info(
-            "Please specify an appropriate scratch directory. This will be used to run the MOPAC-PI calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
-        )
-        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
-        self.log.info("")
-
         self.template_file = None
         self.log.info(f"{'MOPAC-PI input template file':-^60}\n")
 
@@ -221,6 +221,14 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
             "\nPlease specify path to MOPACPI directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
             )
             INFOS["mopacdir"] = question("Path to MOPACPI:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("")
+
+            # scratch
+            self.log.info(f"{'Scratch directory':-^60}\n")
+            self.log.info(
+                "Please specify an appropriate scratch directory. This will be used to run the MOPAC-PI calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
+            )
+            INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
             self.log.info("")
 
         if question("Do you want to run a QM/MM calculation?", bool, KEYSTROKES=KEYSTROKES, default=True):
@@ -446,7 +454,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
             writefile(input_par, par_str)
                 
 
-        # Setup MOPA
+        # Setup MOPAC-PI
         starttime = datetime.datetime.now()
         exec_str = f"{os.path.join(qmin.resources['mopacpidir'],'mopacpi.x')} MOPACPI"
         exit_code = self.run_program(
@@ -471,6 +479,8 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
 
         self._save_files(self.QMin.control["workdir"])
 
+        self.clean_savedir()
+
         self.log.debug("All jobs finished successfully")
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
@@ -489,17 +499,17 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
             try:
                 resources_file = open('%s/MOPACPI.resources' % (workdir), 'w')
             except IOError:
-                self.log.error('IOError during prepareMOPACPI, iconddir=%s' % (workdir))
+                self.log.error('IOError during prepare MOPACPI, iconddir=%s' % (workdir))
                 quit(1)
 
-            #string = 'scratchdir %s/\n' % INFOS['scratchdir']
+            string = 'scratchdir %s/\n' % INFOS['scratchdir']
             string = 'mopacdir %s\n' % INFOS['mopacdir']
 
             resources_file.write(string)
             resources_file.close()
             
         create_file = link if INFOS["link_files"] else shutil.copy
-        #print(self.files)
+        
         for file in self.files:
             create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
 
@@ -683,9 +693,9 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         step = self.QMin.save["step"]
         savedir = self.QMin.save["savedir"]
 
-        #fromfile = os.path.join(workdir, "MOPACPI_nx.mopac_oldvecs")
+        fromfile = os.path.join(workdir, "MOPACPI_nx.mopac_oldvecs")
         tofile = os.path.join(savedir, f"MOPACPI_nx.mopac_oldvecs.{step}")
-        tofile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
+        #tofile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
         shutil.copy(fromfile, tofile)
 
         return

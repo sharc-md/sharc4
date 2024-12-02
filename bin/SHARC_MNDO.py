@@ -19,8 +19,8 @@ from utils import containsstring, expand_path, question, link, makecmatrix, mkdi
 __all__ = ["SHARC_MNDO"]
 
 AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
-VERSION = "0.2"
-VERSIONDATE = datetime.datetime(2024, 4, 3)
+VERSION = "1.0"
+VERSIONDATE = datetime.datetime(2024, 12, 2)
 NAME = "MNDO"
 DESCRIPTION = "SHARC interface for the MNDO program"
 
@@ -179,20 +179,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         self.log.info("\n")
         self.files = []
 
-        self.log.info(
-            "\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
-        )
-        INFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
-        self.log.info("")
-
-        # scratch
-        self.log.info(f"{'Scratch directory':-^60}\n")
-        self.log.info(
-            "Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
-        )
-        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
-        self.log.info("")
-
         self.template_file = None
         self.log.info(f"{'MNDO input template file':-^60}\n")
 
@@ -212,6 +198,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         self.files.append(self.template_file)
 
         self.make_resources = False
+        
         # Resources
         # TODO: either ask for resource file at the top of this routine or not at all...
         if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
@@ -225,6 +212,19 @@ class SHARC_MNDO(SHARC_ABINITIO):
                     self.log.info(f"file at {resources_file} does not exist!")
         else:
             self.make_resources = True
+            self.log.info(
+                "\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
+            )
+            INFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("")
+
+            # scratch
+            self.log.info(f"{'Scratch directory':-^60}\n")
+            self.log.info(
+                "Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
+            )
+            INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+
             self.log.info(f"{'MNDO Ressource usage':-^60}\n")
 
             INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
@@ -1115,18 +1115,17 @@ mocoef
         schedule = [{"mndo_calc" : self.QMin}] #Generate fake schedule
         self.QMin.control["nslots_pool"].append(1)
         self.runjobs(schedule)
-        #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)+
+        
 
         self._save_files(self.QMin.control["workdir"])
-        #self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
+        
         self.clean_savedir()
+        
         # Run wfoverlap
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             self._run_wfoverlap()
 
         self.log.debug("All jobs finished successfully")
-
-        # self.saveGeometry()
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
@@ -1176,7 +1175,6 @@ mocoef
         )
 
         # Link files
-        # breakpoint()
         link(
             os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']}"),
             os.path.join(workdir, "det.a"),
@@ -1291,7 +1289,6 @@ mocoef
 
 
     
-
     def _create_aoovl(self) -> None:
         #empty function
         pass
