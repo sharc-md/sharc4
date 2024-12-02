@@ -725,6 +725,10 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         """
         super().setup_interface()
 
+        if (any(num > 0 for num in self.QMin.molecule["states"][1:]) or self.QMin.molecule["states"][0] == 0):
+            self.log.error("MNDO can only calculate singlets!!")
+            raise ValueError()
+
 
 if __name__ == "__main__":
     SHARC_MOPACPI(loglevel=10).main()

@@ -1,46 +1,46 @@
-# import pytest
-# import os
-# import numpy as np
-# from SHARC_MOPACPI import SHARC_MOPACPI
-# from utils import expand_path
+import pytest
+import os
+import numpy as np
+from SHARC_MOPACPI import SHARC_MOPACPI
+from utils import expand_path
 
-# PATH = expand_path("$SHARC/../tests/interface")
+PATH = expand_path("$SHARC/../tests/interface")
 
-# def setup_interface(path: str, maps: dict):
-#     test_interface = SHARC_MOPACPI()
-#     test_interface.setup_mol(path)
-#     test_interface._read_resources = True
-#     test_interface._read_template = True
-#     test_interface.read_requests(path)
-#     test_interface.setup_interface()
-#     for k, v in maps.items():
-#         assert test_interface.QMin.maps[k] == v, test_interface.QMin.maps[k]
+def setup_interface(path: str, maps: dict):
+    test_interface = SHARC_MOPACPI()
+    test_interface.setup_mol(path)
+    test_interface._read_resources = True
+    test_interface._read_template = True
+    test_interface.read_requests(path)
+    test_interface.setup_interface()
+    for k, v in maps.items():
+        assert test_interface.QMin.maps[k] == v, test_interface.QMin.maps[k]
 
 
     
 
-# def get_energy(outfile: str, template: str, qmin: str, energies: dict):
-#     test_interface = SHARC_MOPACPI()
-#     test_interface.setup_mol(qmin)
-#     test_interface._read_resources = True
-#     test_interface.read_template(template)
-#     test_interface.setup_interface()
-#     test_interface.read_requests(qmin)
-#     with open(outfile, "r", encoding="utf-8") as file:
-#         parsed = test_interface._get_energy(file.read())
-#         for k, v in parsed.items():
-#             assert np.allclose(v ,energies[k], rtol=1e-5)
+def get_energy(outfile: str, template: str, qmin: str, energies: dict):
+    test_interface = SHARC_MOPACPI()
+    test_interface.setup_mol(qmin)
+    test_interface._read_resources = True
+    test_interface.read_template(template)
+    test_interface.setup_interface()
+    test_interface.read_requests(qmin)
+    with open(outfile, "r", encoding="utf-8") as file:
+        parsed = test_interface._get_energy(file.read())
+        for k, v in parsed.items():
+            assert np.allclose(v ,energies[k], rtol=1e-5)
 
 
-# def get_tdm(outfile: str, template: str, qmin: str, tdms: list):
-#     test_interface = SHARC_MOPACPI()
-#     test_interface.setup_mol(qmin)
-#     test_interface._read_resources = True
-#     test_interface.read_template(template)
-#     test_interface.setup_interface()
-#     test_interface.read_requests(qmin)
-#     parsed = test_interface._get_transition_dipoles(outfile)
-#     assert np.allclose(parsed, tdms, rtol=1e-4)
+def get_tdm(outfile: str, template: str, qmin: str, tdms: list):
+    test_interface = SHARC_MOPACPI()
+    test_interface.setup_mol(qmin)
+    test_interface._read_resources = True
+    test_interface.read_template(template)
+    test_interface.setup_interface()
+    test_interface.read_requests(qmin)
+    parsed = test_interface._get_transition_dipoles(outfile)
+    assert np.allclose(parsed, tdms, rtol=1e-4)
     
 
 # def get_grads(outfile: str, template: str, qmin: str, grads: list, grads_pc: list):
@@ -55,15 +55,15 @@
 #     assert np.allclose(parsed, grads, rtol=1e-5)
 #     assert np.allclose(parsed_pc, grads_pc, rtol=1e-5)
 
-# def get_grads_no_pc(outfile: str, template: str, qmin: str, grads: list):
-#     test_interface = SHARC_MOPACPI()
-#     test_interface.setup_mol(qmin)
-#     test_interface._read_resources = True
-#     test_interface.read_template(template)
-#     test_interface.setup_interface()
-#     test_interface.read_requests(qmin)
-#     parsed = test_interface._get_grad(outfile)
-#     assert np.allclose(parsed, grads, rtol=1e-5)
+def get_grads_no_pc(outfile: str, template: str, qmin: str, grads: list):
+    test_interface = SHARC_MOPACPI()
+    test_interface.setup_mol(qmin)
+    test_interface._read_resources = True
+    test_interface.read_template(template)
+    test_interface.setup_interface()
+    test_interface.read_requests(qmin)
+    parsed = test_interface._get_grad(outfile)
+    assert np.allclose(parsed, grads, rtol=1e-5)
 
 # def get_nacs(logfile:str, fortfile: str, template: str, qmin: str, nacs: list, nacs_pc: list):
 #     test_interface = SHARC_MOPACPI()
@@ -100,34 +100,34 @@
 #         test_interface.QMout["h"][i][i] = energies[(1, i + 1)]
 #     parsed = test_interface._get_nacs(fortfile, interstates)
 #     assert np.allclose(parsed, nacs, rtol=1e-5)
-                
 
-# def test_requests1():
-#     tests = [os.path.join(PATH, "inputs/mopacpi/QM2.in")]
-#     for i in tests:
-#         with pytest.raises(ValueError):
-#             test_interface = SHARC_MOPACPI()
-#             test_interface.setup_mol(i)
-#             test_interface._read_template = True
-#             test_interface._read_resources = True
-#             test_interface.read_requests(i)
 
-# def test_requests2():
-#     tests = [os.path.join(PATH, "inputs/mopacpi/QM1.in")]
-#     for i in tests:
-#         test_interface = SHARC_MOPACPI()
-#         test_interface.setup_mol(i)
-#         test_interface._read_template = True
-#         test_interface._read_resources = True
-#         test_interface.read_requests(i)
+def test_requests1():
+    tests = [os.path.join(PATH, "inputs/mopacpi/QM1.in")]
+    for i in tests:
+        test_interface = SHARC_MOPACPI()
+        test_interface.setup_mol(i)
+        test_interface._read_template = True
+        test_interface._read_resources = True
+        test_interface.read_requests(i)                
 
-# def test_requests3():
-#     tests = [os.path.join(PATH, "inputs/mopacpi/QM4.in"), os.path.join(PATH, "inputs/mopacpi/QM5.in")]
-#     for i in tests:
-#         with pytest.raises(ValueError):
-#             test_interface = SHARC_MOPACPI()
-#             test_interface.setup_mol(i)
-#             test_interface.setup_interface()
+def test_requests2():
+    tests = [os.path.join(PATH, "inputs/mopacpi/QM2.in")]
+    for i in tests:
+        with pytest.raises(ValueError):
+            test_interface = SHARC_MOPACPI()
+            test_interface.setup_mol(i)
+            test_interface._read_template = True
+            test_interface._read_resources = True
+            test_interface.read_requests(i)
+
+def test_requests3():
+    tests = [os.path.join(PATH, "inputs/mopacpi/QM4.in"), os.path.join(PATH, "inputs/mopacpi/QM5.in")]
+    for i in tests:
+        with pytest.raises(ValueError):
+            test_interface = SHARC_MOPACPI()
+            test_interface.setup_mol(i)
+            test_interface.setup_interface()
 
 # def test_energies():
 #     tests = [
