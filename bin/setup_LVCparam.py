@@ -489,7 +489,7 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     features = interface.get_features(KEYSTROKES)
     states = INFOS["states"]
 
-    INFOS["needed_requests"] = []
+    INFOS["needed_requests"] = set()
 
     ## -------------------- Setup SOCs -------------------- ##
     print("{:-^60}".format("Spin-orbit couplings (SOCs)") + "\n")
@@ -514,7 +514,7 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     INFOS["soc"] = soc
     INFOS["lambda_soc"] = lambda_soc
     if INFOS["soc"]:
-        INFOS["needed_requests"].append("soc")
+        INFOS["needed_requests"].add("soc")
 
     ## -------------------- whether to do gradients or numerical -------------------- ##
     print("{:-^60}".format("Analytical gradients") + "\n")
@@ -556,7 +556,7 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
 
     print("Do you want to use analytical nonadiabatic coupling vectors for lambdas: %r\n" % INFOS["ana_nac"])
     if INFOS["ana_nac"]:
-        INFOS["needed_requests"].append("nacdr")
+        INFOS["needed_requests"].add("nacdr")
 
     ## -------------------- Whether to do overlaps -------------------- ##
     if (not INFOS["ana_grad"]) or (not INFOS["ana_nac"]):
@@ -570,7 +570,7 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
             sys.exit(1)
 
         INFOS["do_overlaps"] = True
-        INFOS["needed_requests"].append("overlap")
+        INFOS["needed_requests"].add("overlap")
     else:
         INFOS["do_overlaps"] = False
 

@@ -151,12 +151,12 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
     available_requests = sorted(set(standard_requests.keys()).intersection(int_features))
     log.debug(available_requests)
-    requests = ["h"]
+    requests = set(["h"])
     log.info(f"{'Requests on every single point (additional to energy)':-^60}")
     log.info("")
     for i in available_requests:
         if question(f"Calculate {standard_requests[i]}?:", bool, autocomplete=False, default=True):
-            requests.append(i)
+            requests.add(i)
 
     return requests
 

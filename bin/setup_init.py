@@ -478,7 +478,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     log.info("\nThe following features are available from this interface:")
     log.info(int_features)
 
-    INFOS["needed_requests"] = ["h", "dm"]
+    INFOS["needed_requests"] = set(["h", "dm"])
     states = INFOS["states"]
 
     # Setup SOCs
@@ -498,7 +498,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     log.info("")
     INFOS["soc"] = soc
     if INFOS["soc"]:
-        INFOS["needed_requests"].append("soc")
+        INFOS["needed_requests"].add("soc")
 
     # Setup Dyson spectra
     if "ion" in int_features:
@@ -510,7 +510,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             log.info("Do you want to compute Dyson norms between neutral and ionic states?")
             INFOS["ion"] = question("Dyson norms?", bool, False)
             if INFOS["ion"]:
-                INFOS["needed_requests"].append("ion")
+                INFOS["needed_requests"].add("ion")
 
     # Setup initconds with reference overlap
     if "overlap" in int_features:
@@ -520,7 +520,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         )
         INFOS["refov"] = question("Reference overlaps?", bool, False)
         if INFOS["refov"]:
-            INFOS["needed_requests"].append("overlap")
+            INFOS["needed_requests"].add("overlap")
 
     # Setup theodore
     if "theodore" in int_features:
@@ -528,7 +528,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         log.info("Do you want to run TheoDORE to obtain one-electron descriptors for the electronic wave functions?")
         INFOS["theodore"] = question("TheoDORE?", bool, False)
         if INFOS["theodore"]:
-            INFOS["needed_requests"].append("theodore")
+            INFOS["needed_requests"].add("theodore")
 
     return INFOS
 
