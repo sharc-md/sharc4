@@ -2,6 +2,7 @@ ham AM1
 numb_elec 3
 numb_orb 2
 external_par 54
+charge 3
 
 EXTERNAL PARAMETERS 
 USS     C          -49.5362424932
