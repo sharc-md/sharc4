@@ -398,7 +398,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
             for i in qmin.requests["grad"]:
                 qminstr += f" {i}"
             qminstr += "\n"
-        # if (qmin.requests["nacdr"]): ##Still have to think about this!!
+        # if (qmin.requests["nacdr"]): ##Still have to think about this!! I don't think it is necessary, becuase MOPAC-PI only needs this for the coordinates.
         #     qminstr += "NACDR\t"
         #     for i in qmin.requests["nacdr"]:
         #         qminstr += f" {i}"
@@ -694,7 +694,6 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
 
         fromfile = os.path.join(workdir, "MOPACPI_nx.mopac_oldvecs")
         tofile = os.path.join(savedir, f"MOPACPI_nx.mopac_oldvecs.{step}")
-        #tofile = os.path.join(savedir, "MOPACPI_nx.mopac_oldvecs")
         shutil.copy(fromfile, tofile)
 
         return
