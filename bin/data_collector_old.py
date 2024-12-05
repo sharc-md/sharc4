@@ -649,6 +649,9 @@ def get_general():
                 string = allfiles_index[int(string)]
             except ValueError:
                 pass
+            except KeyError:
+                print('I did not understand %s' % string)
+                continue
             if string in allfiles2:
                 INFOS['filepath'] = string
                 break
