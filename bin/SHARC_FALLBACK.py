@@ -58,6 +58,9 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._trial_interface = None
         self._fallback_interface = None
         self._trial_failed = False
+        self._nfails = 0
+        self._nsuccesses = 0
+        self._nfails_total = 0
 
         # Define template keys
         self.QMin.template.update({"trial_interface": None, 
@@ -208,6 +211,8 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 
     def run(self):
         self._trial_failed = False
+        self._trial_interface.QMin.save["step"] = self.QMin.save["step"] - self._nfails_total
+        self._fallback_interface.QMin.save["step"] = self._nfails_total
         try:
             with InDir("trial_interface"):
                 self._trial_interface.run()
@@ -215,6 +220,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         except:  # pylint: disable=bare-except
             self.log.info("Trial interface failed, running fallback.")
             self._trial_failed = True
+            self._nfails_total += 1
             self._nfails += 1
             if self._nfails > self.QMin.template["stop_at_nfails"]:
                 raise
@@ -257,6 +263,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         # Counter of fails
         self._nfails = 0
         self._nsuccesses = 0
+        self._nfails_total = 0
 
         # Instantiate trial and fallback interfaces
         trial = self.QMin.template["trial_interface"]
