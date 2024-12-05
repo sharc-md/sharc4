@@ -128,7 +128,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         
         trial_features = self._trial_interface.get_features(KEYSTROKES=KEYSTROKES)
         fallback_features = self._fallback_interface.get_features(KEYSTROKES=KEYSTROKES)
-        own_features = trial_features & fallback_features
+        own_features = trial_features & fallback_features - set(["overlap", "phases"])
         self.log.debug(own_features) # log features
         return set(own_features)
 
@@ -155,10 +155,15 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     def prepare(self, INFOS: dict, dir_path: str):
         QMin = self.QMin
 
+        # template
         if "link_files" in INFOS:
             os.symlink(expand_path(self.template_file), os.path.join(dir_path, self.name() + ".template"))
         else:
             shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
+
+        # make empty resources file
+        path = os.path.join(dir_path, "FALLBACK.resources")
+        open(path, 'a').close()
 
         # setup dirs
         traildir = os.path.join(dir_path, "trial_interface")
