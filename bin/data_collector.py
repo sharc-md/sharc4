@@ -321,29 +321,6 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 # ======================================================================================================================
 
 
-class histogram:
-    def __init__(self, binlist):
-        """binlist must be a list of floats
-        Later, all floats x with binlist[i-1]<x<=binlist[i] will return i"""
-        self.binlist = sorted(binlist)
-        self.len = len(binlist) + 1
-
-    def put(self, x):
-        i = 0
-        for el in self.binlist:
-            if x <= el:
-                return i
-            else:
-                i += 1
-        return i
-
-    def __repr__(self):
-        s = "Histogram object: "
-        for i in self.binlist:
-            s += "%f " % (i)
-        return s
-
-
 def replace_middle_column_name(name, replace_str):
     v, desc, num = name.split()
     return f"{v} {replace_str:<6s} {num:>3s}"
@@ -597,10 +574,15 @@ def get_general():
     # ---------------------------------------- Analysis procedure --------------------------------------
 
     print("{:-^60}".format("Analysis procedure") + "\n")
-    show = question("Show possible workflow options?", bool, True)
+    show = question("Show possible workflow options?", bool, False)
     if show:
         print("\nThe following diagram shows which workflows are possible with this script:")
         print(PIPELINE)
+
+    # Question 0
+    print("\n" + "{:-^40}".format("0 Collecting") + "\n")
+    INFOS["write_type1"] = question("Do you want to write Type 1 files?", bool, False)
+
 
     # Question 1
     print("\n" + "{:-^40}".format("1 Smoothing") + "\n")
@@ -778,8 +760,11 @@ def do_calc(INFOS):
     all_data = collect_data(INFOS)
     outindex = 1
     filename = make_filename(outindex, INFOS, outstring)
-    print('>>>> Writing output to file "%s"...\n' % filename)
-    write_type1(filename, all_data, INFOS)
+    if INFOS["write_type1"]:
+        print('>>>> Writing output to file "%s"...\n' % filename)
+        write_type1(filename, all_data, INFOS)
+    else:
+        print('>>>> Skipping output to file ...\n')
 
     # ---------------------- apply temporal smoothing -------------------------------
     if INFOS["smoothing"]:
@@ -788,8 +773,11 @@ def do_calc(INFOS):
         outindex = 1
         outstring += "_sm"
         filename = make_filename(outindex, INFOS, outstring)
-        print('>>>> Writing output to file "%s"...\n' % filename)
-        write_type1(filename, all_data, INFOS)
+        if INFOS["write_type1"]:
+            print('>>>> Writing output to file "%s"...\n' % filename)
+            write_type1(filename, all_data, INFOS)
+        else:
+            print('>>>> Skipping output to file ...\n')
 
     # ---------------------- apply synchronization -------------------------------
     if INFOS["synchronizing"]:
@@ -1005,13 +993,6 @@ def synchronize(all_data):
     discretizer = 10000
     all_times = set()
     for filekey in sorted(all_data.keys()):
-        # TODO: The following code does not really work if a trajectory has a "hole"
-        # if (
-        #     len(all_data[filekey]["time"]) != len(all_times)
-        #     and all_data[filekey]["time"][0] not in all_times
-        #     and all_data[filekey]["time"][1] not in all_times
-        # ):
-        #     all_times = all_times.union(set((all_data[filekey]["time"] * 10000).astype(int)))
         all_times = all_times.union(set((all_data[filekey]["time"] * discretizer).astype(int)))
     all_times = np.array(sorted(all_times))
     all_times_idx = {k: i for i, k in enumerate(all_times)}
@@ -1024,16 +1005,15 @@ def synchronize(all_data):
     for i, fk in enumerate(file_keys):
         done = width_bar * (i + 1) // len(file_keys)
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+
         if (
             len(all_data[fk]["time"]) == len(all_times)
             and np.all(np.isclose(all_data[fk]["time"], all_times))
-            # and np.isclose(all_data[fk]["time"][0], all_times[0])
-            # and np.isclose(all_data[fk]["time"][1], all_times[1], rtol=1e-8)
         ):
             arr[i, ...] = all_data[fk]["arr"]
             counts += 1
         else:
-            idx = [all_times_idx[t] for t in (all_data[filekey]["time"] * discretizer).astype(int)]
+            idx = [all_times_idx[t] for t in (all_data[fk]["time"] * discretizer).astype(int)]
             arr[i, idx, ...] = all_data[fk]["arr"]
             counts[idx] += 1
     sys.stdout.write("  Done\n")
@@ -1059,8 +1039,8 @@ def calc_average(INFOS, all_data):
     if INFOS["averaging"]["pre"]:       # apply some function to get, e.g., geometric mean
         X = INFOS["averaging"]["pre"](X)
     X2 = X**2
-    X = np.sum(X, axis=3)
-    X2 = np.sum(X2, axis=3)
+    X = np.nansum(X, axis=3)
+    X2 = np.nansum(X2, axis=3)
     N = all_data["count"]
     sys.stdout.write("\r  Progress: [" + "="*25 + " "*25 + "]  50%")
     mean = X / N[np.newaxis, np.newaxis, :]
@@ -1103,11 +1083,11 @@ def calc_statistics(INFOS, all_data):
     if INFOS["statistics"]["pre"]:       # apply some function to get, e.g., geometric mean
         X = INFOS["statistics"]["pre"](X)
     X2 = X**2
-    X = np.sum(X, axis=3)
-    X2 = np.sum(X2, axis=3)
-    cX = np.cumsum(X, axis=2)
-    cX2 = np.cumsum(X2, axis=2)
-    cN = np.cumsum(N, axis=2)
+    X = np.nansum(X, axis=3)
+    X2 = np.nansum(X2, axis=3)
+    cX = np.nancumsum(X, axis=2)
+    cX2 = np.nancumsum(X2, axis=2)
+    cN = np.nancumsum(N, axis=2)
     sys.stdout.write("\r  Progress: [" + "="*25 + " "*25 + "]  50%")
     mean = cX / cN[np.newaxis, np.newaxis, :]
     variance = cX2 / cN[np.newaxis, np.newaxis, :] - mean**2
@@ -1310,45 +1290,6 @@ def type3_to_type2(INFOS, all_data):
 # ======================================================================================================================
 
 
-# def mean_arith(data: np.ndarray, axis=1):
-#     if axis!=None and data.shape[axis] == 1:
-#         return data
-#     return np.mean(data, axis=axis)
-
-
-# # ======================================== #
-
-
-# def stdev_arith(data: np.ndarray, axis=1):
-#     return data.std(axis=axis)
-
-
-# # ======================================== #
-
-
-# def mean_geom(data: np.ndarray, axis=1):
-#     if data.shape[axis] == 1:
-#         return data
-#     return np.exp(np.log(data).mean(axis=axis))
-
-
-# # ======================================== #
-
-
-# def stdev_geom(data: np.ndarray, axis=1):
-#     res = np.full((data.shape[0]), np.nan, dtype=float)
-#     for i, row in enumerate(data):
-#         row_arr = row.to_numpy()
-#         res[i] = stats.gstd(row_arr[row_arr > 0], axis=axis)
-#     return res
-
-
-# ======================================== #
-
-
-# ======================================================================================================================
-
-
 def write_type1(filename, all_data, INFOS):
     # make header
     longest = max([len(key) for key in all_data])
@@ -1460,34 +1401,15 @@ def write_type3(filename, all_data, INFOS):
 
 # ======================================================================================================================
 
-
 def readType1(strings):
     print("Type1 cannot be read currently!")
     sys.exit(1)
-    # data1={}
-    # for line in strings:
-    # s=line.split()
-    # if len(s)<1:
-    # continue
-    # key=s[1]
-    # values=tuple( [ float(i) for i in s[2:] ] )
-    # if not key in data1:
-    # data1[key]=[]
-    # data1[key].append(values)
-    # for key in data:
-    # data1[key].sort(key=lambda x: x[0])
-    # return data1
-
 
 # ======================================================================================================================
-
-# ======================================================================================================================
-
 
 def readType3(strings):
     print("Type3 cannot be read currently!")
     sys.exit(1)
-
 
 # ======================================================================================================================
 # ======================================================================================================================
