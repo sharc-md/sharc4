@@ -27,6 +27,7 @@ DESCRIPTION = "AB INITIO interface for the MNDO program (OM2-MRCI)"
 CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Only OM2/MRCI
 - Only singlets
+- Not functioning
 
 24.04.2024:     New implementation version 0.2 by Georg
 - also ODM2/MRCI
@@ -34,6 +35,10 @@ CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Overlaps/Phases
 - NACDR
 - Problems with the MO-Tracking through imomap file.
+
+02.12.2024:     Minor fixes/changes, version 1.0 by Georg
+- Fully working version.
+- Problems with MO-Tracking through imomap file could not be resolved.
 """
 
 all_features = set(
@@ -668,6 +673,7 @@ mocoef
 
         #Energies and TDMs are taken from the MNDO.out file
         log_file = os.path.join(self.QMin.control["workdir"], "MNDO.out")
+
         #Gradients and NACs are taken from the fort.15 file, this file has many more significant digits 
         grads_nacs_file = os.path.join(self.QMin.control["workdir"], "fort.15")
         
@@ -702,7 +708,8 @@ mocoef
         # Populate overlaps, only singlets so this function is simpler than normal
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             if "overlap" not in self.QMout:
-                self.QMout["overlap"] = makecmatrix(nmstates, nmstates)
+                self.QMout["overlap"] = np.zeros((nmstates, nmstates))
+                
             outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
             ovlp_mat = self.parse_wfoverlap(outfile)
             for i in range(nmstates):
