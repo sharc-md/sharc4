@@ -386,6 +386,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         env:        Pass environment variables
         """
         current_dir = os.getcwd()
+        os.sched_setaffinity(0, list(range(os.cpu_count())))
         os.chdir(workdir)
         self.log.debug(f"ab-initio call:\t {cmd}")
         self.log.debug(f"Working directory:\t {workdir}")
