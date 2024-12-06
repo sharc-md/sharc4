@@ -119,6 +119,17 @@ Interfaces = {
                      'phases': ['wfoverlap'], 
                      },
          },
+    5: {'script': 'SHARC_PYSCF.py',
+        'name': 'pyscf',
+        'description': 'PYSCF (CASSCF, L/MC/CMS-PDFT)',
+        'get_routine': 'get_PYSCF',
+        'prepare_routine': 'prepare_PYSCF',
+        'features': {'h': [],
+                     'dm': [],
+                     'grad': [],
+                     'nacdr': [],
+                     },
+         },
 }
 
 def centerstring(string, n, pad=' '):
@@ -1142,6 +1153,100 @@ def prepare_BAGEL(INFOS, parent, iconddir):
             shutil.copy(cpfrom, cpto)
 
     return
+
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
+
+
+def get_PYSCF(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
+    '''This routine asks for all questions specific to PySCF
+    '''
+
+    string = '\n  ' + '=' * 80 + '\n'
+    string += '||' + centerstring('PYSCF Interface setup', 80) + '||\n'
+    string += '  ' + '=' * 80 + '\n\n'
+    log.info(string)
+
+
+    log.info(centerstring('Scratch directory', 60, '-') + '\n')
+    log.info('Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
+    parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    log.info('')
+
+
+    log.info(centerstring('PYSCF template file', 60, '-') + '\n')
+    log.info('''Please specify the path to the PYSCF.template file.
+             ''')
+    if os.path.isfile('PYSCF.template'):
+        # if checktemplate_PYSCF('PYSCF.template', INFOS):
+        log.info('Valid file "PYSCF.template" detected. ')
+        usethisone = question('Use this template file?', bool, KEYSTROKES=KEYSTROKES, default=True)
+        if usethisone:
+            parent.setupINFOS['pyscf.template'] = 'PYSCF.template'
+    if 'pyscf.template' not in parent.setupINFOS:
+        while True:
+            filename = question('Template filename:', str, KEYSTROKES=KEYSTROKES)
+            if not os.path.isfile(filename):
+                log.info('File %s does not exist!' % (filename))
+                continue
+            break
+            # if checktemplate_PYSCF(filename, INFOS):
+            #     break
+        parent.setupINFOS['pyscf.template'] = filename
+    log.info('')
+
+
+    log.info(centerstring('Initial wavefunction: MO Guess', 60, '-') + '\n')
+    log.info('''Please specify the path to a MOLCAS JobIph file containing suitable starting MOs for the CASSCF calculation. Please note that this script cannot check whether the wavefunction file and the Input template are consistent!
+''')
+    parent.setupINFOS['pyscf.guess'] = None
+    string = 'Do you have an initial wavefunction file?'
+    if question(string, bool, KEYSTROKES=KEYSTROKES, default=True):
+        filename = question('Initial wavefunction file:', str, KEYSTROKES=KEYSTROKES)
+        parent.setupINFOS['pyscf.guess'] = filename
+    else:
+        log.info('WARNING: Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs.')
+
+    log.info(centerstring('PYSCF Ressource usage', 60, '-') + '\n')  # 
+    parent.setupINFOS['pyscf.mem'] = abs(question('PySCF memory (MB):', int, KEYSTROKES=KEYSTROKES, default=[4000])[0])
+
+
+    return INFOS
+
+# =================================================
+
+
+def prepare_PYSCF(INFOS, parent, iconddir):
+    # write PYSCF.resources
+    try:
+        sh2cas = open('%s/PYSCF.resources' % (iconddir), 'w')
+    except IOError:
+        log.info('IOError during preparePYSCF, iconddir=%s' % (iconddir))
+        quit(1)
+    string = 'scratchdir %s/%s/\nmemory %i\nncpu %i\n' % (
+        parent.setupINFOS['scratchdir'], 
+        iconddir, 
+        parent.setupINFOS['pyscf.mem'], 
+        1
+        )
+    sh2cas.write(string)
+    sh2cas.close()
+
+    # copy template
+    cpfrom = parent.setupINFOS['pyscf.template']
+    cpto = '%s/PYSCF.template' % (iconddir)
+    shutil.copy(cpfrom, cpto)
+
+    # copy MO
+    if parent.setupINFOS['pyscf.guess'] is not None:
+        cpfrom = parent.setupINFOS['pyscf.guess']
+        cpto = '%s/pyscf.init.chk' % (iconddir)
+        shutil.copy(cpfrom, cpto)
+
+    return
+
+
 
 
 # ======================================================================================================================
