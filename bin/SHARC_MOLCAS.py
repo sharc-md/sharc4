@@ -440,11 +440,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 raise ValueError()
 
         for idx, charge in enumerate(self.QMin.molecule["charge"], 1):
+            nactel = self.QMin.template["nactel"][0]
             if (
-                ((nactel := self.QMin.template["nactel"][0]) - idx - charge) % 2 == 0
+                (nactel - idx - charge) % 2 == 0
                 or nactel - charge < 1
                 or nactel - charge >= self.QMin.template["ras2"] * 2
-            ):
+            ) and self.QMin.molecule["states"][idx-1] > 0:
                 self.log.error(f"Charge {charge} not compatible with multiplicity {idx}")
                 raise ValueError()
 

@@ -7,7 +7,7 @@ from io import TextIOWrapper
 from typing import Optional
 from qmin import QMinRequests
 from qmout import QMout
-from constants import ATOMCHARGE
+from constants import ATOMCHARGE ,NUMBERS
 
 import itertools
 import numpy as np
@@ -146,7 +146,7 @@ class SHARC_ECI(SHARC_HYBRID):
         """
         return INFOS
 
-    def read_template(self, template_file: str = "ECI_template.yaml") -> None:
+    def read_template(self, template_file: str = "ECI.template") -> None:
         """
         Parser for ECI template in yaml format
 
@@ -366,26 +366,35 @@ class SHARC_ECI(SHARC_HYBRID):
             return False
         return True
 
-    def _setup_children_mol(self,child,atoms,states) -> None:
-        QMin = self.QMin
-        #  child.QMin.save['step'] = QMin.save['step']
-        child.QMin.molecule['natom'] = len(atoms)
-        child.QMin.molecule['elements'] = [ QMin.molecule['elements'][a] for a in atoms ]
-        child.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], child.QMin.molecule["elements"]))
-        child.QMin.molecule['frozcore'] = 0
-        states_dict = self.parseStates(states)
-        if len(states_dict["states"]) < 1:
-            self.log.error("Number of states must be > 0!")
-            raise ValueError()
-        child.QMin.maps["statemap"] = states_dict["statemap"]
-        child.QMin.molecule["nstates"] = states_dict["nstates"]
-        child.QMin.molecule["nmstates"] = states_dict["nmstates"]
-        child.QMin.molecule["states"] = states_dict["states"]
-        child.QMin.molecule['unit'] = 'bohr'
-        child.QMin.molecule['factor'] = 1. 
-        child.QMin.molecule['point_charges'] = True
-        #  child.QMin.save['savedir'] = os.path.join( QMin.save['savedir'], 'SAVEDIR')
-        child._setup_mol = True
+    def _setup_children_mol(self,child,atoms,states,charges) -> None:
+        basic_infos = {
+            "NAtoms": len(atoms),
+            "states": states,
+            "charge": charges,
+            "IAn": [  NUMBERS[self.QMin.molecule['elements'][a]] for a in atoms ],
+            "retain": "retain 1"
+        }
+        child.setup_mol(basic_infos)
+        # QMin = self.QMin
+        # #  child.QMin.save['step'] = QMin.save['step']
+        # child.QMin.molecule['natom'] = len(atoms)
+        # child.QMin.molecule['elements'] = [ QMin.molecule['elements'][a] for a in atoms ]
+        # child.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], child.QMin.molecule["elements"]))
+        # child.QMin.molecule['frozcore'] = 0
+        # states_dict = self.parseStates(states)
+        # if len(states_dict["states"]) < 1:
+        #     self.log.error("Number of states must be > 0!")
+        #     raise ValueError()
+        # child.QMin.maps["statemap"] = states_dict["statemap"]
+        # child.QMin.molecule["nstates"] = states_dict["nstates"]
+        # child.QMin.molecule["nmstates"] = states_dict["nmstates"]
+        # child.QMin.molecule["states"] = states_dict["states"]
+        # child.QMin.molecule['unit'] = 'bohr'
+        # child.QMin.molecule['factor'] = 1. 
+        # child.QMin.molecule['point_charges'] = True
+        # child.QMin.molecule["charge"] = charges
+        # #  child.QMin.save['savedir'] = os.path.join( QMin.save['savedir'], 'SAVEDIR')
+        # child._setup_mol = True
         return
 
     def setup_interface(self) -> None:
@@ -453,13 +462,15 @@ class SHARC_ECI(SHARC_HYBRID):
             #  print(atoms)
             s = QMin.template['fragments'][label]['embedding_site_state'][C]
             states = ' '.join([ '0' for i in range(s.M-1) ])+' '+str(s.N)
-            self._setup_children_mol(child, atoms, states)
+            charges = ' '.join([ '0' for i in range(s.M-1) ])+' '+str(C)
+            self._setup_children_mol(child, atoms, states, charges)
         for (label,c,C), child in self._kindergarden.items():    
             atoms = QMin.template['fragments'][label]['atoms']
             for charge, site_states in QMin.template['fragments'][label]['site_states'].items():
                 if charge == c:
                     states = ' '.join([str(i) for i in site_states])
-                    self._setup_children_mol(child, atoms, states)
+                    charges = ' '.join([str(c) for i in site_states]) # TODO: HäH?
+                    self._setup_children_mol(child, atoms, states, charges)
 
         # Read children's template and resource files
         for (label,C), child in self.embedding_kindergarden.items():
