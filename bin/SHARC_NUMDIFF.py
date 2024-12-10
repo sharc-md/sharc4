@@ -150,10 +150,12 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # Update resource keys
         self.QMin.resources.update(
             {
+                "use_all_cores_for_ref" : True,
             }
         )
         self.QMin.resources.types.update(
             {
+                "use_all_cores_for_ref" : bool,
             }
         )
 
@@ -344,7 +346,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".resources"))
 
         # write resource file
-        string = 'ncpu %i\nscratchdir %s\n' % (self.setupINFOS['ncpu_numdiff'], self.setupINFOS["scratchdir_numdiff"])
+        string = 'ncpu %i\nscratchdir %s\nuse_all_cores_for_ref True\n' % (self.setupINFOS['ncpu_numdiff'], self.setupINFOS["scratchdir_numdiff"])
         writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
         # Setup sub-dir for the QM calcs
@@ -497,6 +499,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             self.ref_interface.QMin.save['savedir'] = savedir
             self.ref_interface.QMin.resources['pwd'] = pwd
             self.ref_interface.QMin.resources['cwd'] = pwd
+            if self.QMin.resources["use_all_cores_for_ref"]:
+                self.ref_interface.QMin.resources["ncpu"] = self.QMin.resources["ncpu"]
             self.ref_interface.setup_interface()
         
         # --- kindergarden ---
