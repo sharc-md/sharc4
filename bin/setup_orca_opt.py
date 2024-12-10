@@ -306,6 +306,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             INFOS['alpha'] = alpha
         else:
             requests.append("nacdr")
+            INFOS["use_nacs"] = True
 
     log.info('\nPlease enter the values for the maximum allowed displacement per timestep \n(choose smaller value if starting from a good guess and for large sigma or small alpha).')
     INFOS['maxstep'] = question('Maximum allowed step: ', float, [0.3])[0]
@@ -447,7 +448,7 @@ def writeOrcascript(INFOS, iconddir, interface):
     if INFOS['opttype'] == 'cross':
         string += ' %i' % INFOS['cas.root2']
     string += '\n'
-    if INFOS['opttype'] == 'cross' and INFOS['calc_ci']:
+    if INFOS['opttype'] == 'cross' and INFOS['calc_ci'] and not INFOS["use_nacs"]:
         string += '#SHARC: param %f %f\n' % (INFOS['sigma'], INFOS['alpha'])
     string += '''
 ! ExtOpt Opt
@@ -479,7 +480,7 @@ SHARC: opt %s %i''' % (' '.join([str(i) for i in INFOS['states']]),
     if INFOS['opttype'] == 'cross':
         string += ' %i' % INFOS['cas.root2']
     string += '\n'
-    if INFOS['opttype'] == 'cross' and INFOS['calc_ci']:
+    if INFOS['opttype'] == 'cross' and INFOS['calc_ci'] and not INFOS["use_nacs"]:
         string += 'SHARC: param %f %f\n' % (INFOS['sigma'], INFOS['alpha'])
     # runscript = open(filename, 'w')    
     # runscript.write(string)
@@ -510,6 +511,9 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     string += '||' + '{:^80}'.format('Setting up directory...') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     log.info(string)
+
+    # add more things
+    INFOS['link_files'] = False
 
     geometry_data = readfile(INFOS['geom_location'])
     natom = INFOS['natom']

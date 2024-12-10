@@ -28,12 +28,49 @@ import os
 import subprocess as sp
 import math
 from importlib import import_module
-
+from contextlib import redirect_stdout
 
 from constants import NUMBERS
 from utils import readfile, writefile, itnmstates
 from qmout import QMout
 from SHARC_INTERFACE import SHARC_INTERFACE
+
+
+# ======================================================================= #
+# ======================================================================= #
+# ======================================================================= #
+
+# Define the global file path for the output
+OUTPUT_FILE_PATH = "otool_external_all_output.txt"
+
+# Custom print function
+def setup_print():
+    """Redefine the print function to mirror output to a file."""
+    global original_print
+    global mirrored_file
+    original_print = print  # Save the original print function
+    
+    # Open the file in append mode
+    mirrored_file = open(OUTPUT_FILE_PATH, "a")
+
+    def custom_print(*args, **kwargs):
+        """Custom print function that writes to both the console and a file."""
+        # original_print(*args, **kwargs)  # Print to console
+        # print(*args, file=mirrored_file, **kwargs)  # Print to file
+        file_arg = kwargs.pop("file", None)
+        original_print(*args, **kwargs, file=file_arg if file_arg else sys.stdout)
+        if not file_arg:
+            original_print(*args, **kwargs, file=mirrored_file)
+
+    # Override the built-in print with the custom function
+    globals()['print'] = custom_print
+
+def cleanup_print():
+    """Restore the original print function and close the mirrored file."""
+    global print
+    global mirrored_file
+    print = original_print  # Restore the original print function
+    mirrored_file.close()  # Close the file
 
 # ======================================================================= #
 # ======================================================================= #
@@ -51,15 +88,7 @@ def read_infos(ext_in):
     calc_type=1
     xyz=readfile(xyzfile)
     natoms=int(xyz[0])
-    
-    #header = orca_in[0]
-    #natoms, calc_type, charge, mult = header.split()
     INFOS['natom'] = int(natoms)
-    #INFOS['calc_type'] = int(calc_type)
-    #if calc_type == 2:
-    #    print('No Hessian possible!')
-    #    sys.exit(1)
-    # mult and charge are ignored and the it is asumed that the interface files take care
 
     # read geometry
     geom = []
@@ -514,26 +543,30 @@ def write_to_orca(INFOS, QMout, path):
 
 # ============================================
 if __name__ == "__main__":
-    script, ext_in = sys.argv
-    jobname = ext_in.split('.')[0]
-    ext_out = jobname+'.engrad'
-    if os.path.isfile(ext_out):
-        os.remove(ext_out)  # remove so if anything goes wrong, ORCA will not continue
-    print("")
-    print("         *************************************************************")
-    print("         *                    EXTERNAL SHARC JOB                     *")
-    print("         *************************************************************")
-    print("")
-    INFOS = read_infos(ext_in)
-    INFOS = prepare_savedir(INFOS)
-    write_QMin(INFOS)
-    run_interface(INFOS)
-    QMout = get_output(INFOS)
-    write_to_orca(INFOS, QMout, ext_out)
-    print("")
-    print("         *************************************************************")
-    print("         *                  EXTERNAL SHARC JOB DONE                   *")
-    print("         *************************************************************")
-    print("")
+    setup_print() 
+    try:
+        script, ext_in = sys.argv
+        jobname = ext_in.split('.')[0]
+        ext_out = jobname+'.engrad'
+        if os.path.isfile(ext_out):
+            os.remove(ext_out)  # remove so if anything goes wrong, ORCA will not continue
+        print("")
+        print("         *************************************************************")
+        print("         *                    EXTERNAL SHARC JOB                     *")
+        print("         *************************************************************")
+        print("")
+        INFOS = read_infos(ext_in)
+        INFOS = prepare_savedir(INFOS)
+        write_QMin(INFOS)
+        run_interface(INFOS)
+        QMout = get_output(INFOS)
+        write_to_orca(INFOS, QMout, ext_out)
+        print("")
+        print("         *************************************************************")
+        print("         *                  EXTERNAL SHARC JOB DONE                   *")
+        print("         *************************************************************")
+        print("")
+    finally:
+        cleanup_print() 
 
-    #remove = os.system( 'rm gradient' )
+
