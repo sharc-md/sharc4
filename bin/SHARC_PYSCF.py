@@ -135,7 +135,7 @@ def print_header():
     string += "||" + " " * 80 + "||\n"
     string += "||" + " " * 27 + "SHARC - PySCF - Interface" + " " * 28 + "||\n"
     string += "||" + " " * 80 + "||\n"
-    string += "||" + " " * 25 + "Authors: Matthew R. Hennefarth" + " " * 25 + "||\n"
+    string += "||" + " " * 25 + "Authors: Matthew R. Hennefarth" + " " * 25 + "||\n"    # citation: https://pubs.acs.org/doi/10.1021/acs.jctc.4c01061
     string += "||" + " " * 80 + "||\n"
     string += (
         "||"

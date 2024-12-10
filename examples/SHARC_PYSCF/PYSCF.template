@@ -3,6 +3,7 @@ ncas 2               # needed
 nelecas 2            # needed
 roots 1              # effectively needed (defaults are all zero)
 basis cc-pvdz        # needed
+charge 0             # this interface is singlet-only
 
 verbose 3            # as in PySCF: 0 is silent, 9 is crazy, 4-5 are most informative
 
