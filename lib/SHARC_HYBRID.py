@@ -80,9 +80,12 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                 children_dict[label].write_step_file()
                 QMins[label] = children_dict[label].QMin
                 QMouts[label] = children_dict[label].QMout
-            except:  # pylint: disable=bare-except
+            except Exception as exc:
                 logger.error(f"Some exception occured while running child {label}")
+                logger.error(exc)
                 sys.exit(1)  # Indicate failure of child process
+            except:  # pylint: disable=bare-except
+                logger.error(f"Some system-level exception occured while running child {label}")
             finally:
                 n_used_cpu.value -= children_dict[label].QMin.resources["ncpu"]
 

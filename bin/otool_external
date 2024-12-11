@@ -26,243 +26,55 @@
 import sys
 import os
 import subprocess as sp
-import pprint
 import math
-from constants import au2a
-# Periodic Table (symbol->number)
-NUMBERS = {'H': 1, 'He': 2,
-           'Li': 3, 'Be': 4, 'B': 5, 'C': 6, 'N': 7, 'O': 8, 'F': 9, 'Ne': 10,
-           'Na': 11, 'Mg': 12, 'Al': 13, 'Si': 14, 'P': 15, 'S': 16, 'Cl': 17, 'Ar': 18,
-           'K': 19, 'Ca': 20,
-           'Sc': 21, 'Ti': 22, 'V': 23, 'Cr': 24, 'Mn': 25, 'Fe': 26, 'Co': 27, 'Ni': 28, 'Cu': 29, 'Zn': 30,
-           'Ga': 31, 'Ge': 32, 'As': 33, 'Se': 34, 'Br': 35, 'Kr': 36,
-           'Rb': 37, 'Sr': 38,
-           'Y': 39, 'Zr': 40, 'Nb': 41, 'Mo': 42, 'Tc': 43, 'Ru': 44, 'Rh': 45, 'Pd': 46, 'Ag': 47, 'Cd': 48,
-           'In': 49, 'Sn': 50, 'Sb': 51, 'Te': 52, 'I': 53, 'Xe': 54,
-           'Cs': 55, 'Ba': 56,
-           'La': 57,
-           'Ce': 58, 'Pr': 59, 'Nd': 60, 'Pm': 61, 'Sm': 62, 'Eu': 63, 'Gd': 64, 'Tb': 65, 'Dy': 66, 'Ho': 67, 'Er': 68, 'Tm': 69, 'Yb': 70, 'Lu': 71,
-           'Hf': 72, 'Ta': 73, 'W': 74, 'Re': 75, 'Os': 76, 'Ir': 77, 'Pt': 78, 'Au': 79, 'Hg': 80,
-           'Tl': 81, 'Pb': 82, 'Bi': 83, 'Po': 84, 'At': 85, 'Rn': 86,
-           'Fr': 87, 'Ra': 88,
-           'Ac': 89,
-           'Th': 90, 'Pa': 91, 'U': 92, 'Np': 93, 'Pu': 94, 'Am': 95, 'Cm': 96, 'Bk': 97, 'Cf': 98, 'Es': 99, 'Fm': 100, 'Md': 101, 'No': 102, 'Lr': 103,
-           'Rf': 104, 'Db': 105, 'Sg': 106, 'Bh': 107, 'Hs': 108, 'Mt': 109, 'Ds': 110, 'Rg': 111, 'Cn': 112,
-           'Nh': 113, 'Fl': 114, 'Mc': 115, 'Lv': 116, 'Ts': 117, 'Og': 118
-           }
+from importlib import import_module
+from contextlib import redirect_stdout
 
-# Inverse Periodic Table (number->symbol)
-ATOMS = {}
-for i in NUMBERS:
-    ATOMS[NUMBERS[i]] = i
-
-
-
-
-# INTERFACE specs
-INTERFACE = {
-    'molpro': {'script': 'SHARC_MOLPRO.py',
-               'description': 'MOLPRO (CASSCF)',
-               'couplings': [1, 3],
-               'dipolegrad': False,
-               'files': ['MOLPRO.template', 'MOLPRO.resources']
-               },
-    'columbus': {'script': 'SHARC_COLUMBUS.py',
-                 'description': 'COLUMBUS (CASSCF, RASSCF and MRCISD), using SEWARD or DALTON integrals',
-                 'couplings': [3],
-                 'dipolegrad': False,
-                 'files': ['COLUMBUS.resources']
-                 },
-    'analytical': {'script': 'SHARC_ANALYTICAL.py',
-                   'description': 'Analytical PESs',
-                   'couplings': [3],
-                   'dipolegrad': True,
-                   'files': ['ANALYTICAL.template']
-                   },
-    'molcas': {'script': 'SHARC_MOLCAS.py',
-               'description': 'MOLCAS (CASSCF, CASPT2, MS-CASPT2)',
-               'couplings': [3],
-               'dipolegrad': True,
-               'files': ['MOLCAS.template', 'MOLCAS.resources']
-               },
-    'ricc2': {'script': 'SHARC_RICC2.py',
-              'description': 'TURBOMOLE (ricc2 with CC2 and ADC(2))',
-              'couplings': [3],
-              'dipolegrad': False,
-              'files': ['RICC2.template', 'RICC2.resources']
-              },
-    'AMS_ADF': {'script': 'SHARC_AMS_ADF.py',
-            'description': 'AMS_ADF (DFT, TD-DFT)',
-            'couplings': [3],
-            'dipolegrad': False,
-            'files': ['AMS_ADF.template', 'AMS_ADF.resources']
-            },
-    'gaussian': {'script': 'SHARC_GAUSSIAN.py',
-                 'description': 'GAUSSIAN (DFT, TD-DFT)',
-                 'couplings': [3],
-                 'dipolegrad': False,
-                 'files': ['GAUSSIAN.template', 'GAUSSIAN.resources']
-                 },
-    'lvc': {'script': 'SHARC_LVC.py',
-            'description': 'Analytical linear-vibronic coupling model',
-            'couplings': [1, 3],
-            'dipolegrad': False,
-            'files': ['LVC.template', 'V0.txt']
-            },
-    'orca': {'script': 'SHARC_ORCA.py',
-             'description': 'ORCA (HF/CIS, DFT/TDA/TDDFT)',
-             'couplings': [3],
-             'dipolegrad': False,
-             'files': ['ORCA.template', 'ORCA.resources']
-             },
-    'bagel': {'script': 'SHARC_BAGEL.py',
-              'description': 'BAGEL (CASSCF, CASPT2, (X)MS-CASPT2)',
-              'couplings': [1, 3],
-              'dipolegrad': False,
-              'files': ['BAGEL.template', 'BAGEL.resources']
-              },
-    'mndo': {'script': 'SHARC_MNDO.py',
-              'description': 'MNDO (OM2, ODM2)',
-              'couplings': [1],
-              'dipolegrad': False,
-              'files': ['MNDO.template', 'MNDO.resources']
-              },
-    'mopacpi': {'script': 'SHARC_MOPACPI.py',
-              'description': 'MOPAC-PI (AM1, PM3)',
-              'couplings': [1],
-              'dipolegrad': False,
-              'files': ['MOPACPI.template', 'MOPACPI.resources'],
-              'nomolden': []
-              }
-}
+from constants import NUMBERS
+from utils import readfile, writefile, itnmstates
+from qmout import QMout
+from SHARC_INTERFACE import SHARC_INTERFACE
 
 
 # ======================================================================= #
-def readfile(filename):
-    try:
-        f = open(filename)
-        out = f.readlines()
-        f.close()
-    except IOError:
-        print('File %s does not exist!' % (filename))
-        sys.exit(12)
-    return out
-
+# ======================================================================= #
 # ======================================================================= #
 
+# Define the global file path for the output
+OUTPUT_FILE_PATH = "otool_external_all_output.txt"
 
-def writefile(filename, content):
-    # content can be either a string or a list of strings
-    try:
-        f = open(filename, 'w')
-        if isinstance(content, list):
-            for line in content:
-                f.write(line)
-        elif isinstance(content, str):
-            f.write(content)
-        else:
-            print('Content %s cannot be written to file!' % (content))
-        f.close()
-    except IOError:
-        print('Could not write to file %s!' % (filename))
-        sys.exit(13)
+# Custom print function
+def setup_print():
+    """Redefine the print function to mirror output to a file."""
+    global original_print
+    global mirrored_file
+    original_print = print  # Save the original print function
+    
+    # Open the file in append mode
+    mirrored_file = open(OUTPUT_FILE_PATH, "a")
 
-# ======================================================================= #
+    def custom_print(*args, **kwargs):
+        """Custom print function that writes to both the console and a file."""
+        # original_print(*args, **kwargs)  # Print to console
+        # print(*args, file=mirrored_file, **kwargs)  # Print to file
+        file_arg = kwargs.pop("file", None)
+        original_print(*args, **kwargs, file=file_arg if file_arg else sys.stdout)
+        if not file_arg:
+            original_print(*args, **kwargs, file=mirrored_file)
 
+    # Override the built-in print with the custom function
+    globals()['print'] = custom_print
 
-def itnmstates(states):
-    for i in range(len(states)):
-        if states[i] < 1:
-            continue
-        for k in range(i + 1):
-            for j in range(states[i]):
-                yield i + 1, j + 1, k - i / 2.
-    return
-
-# ======================================================================= #
-
-
-def read_QMout(path, nstates, natom, request):
-    targets = {'h': {'flag': 1,
-                     'type': complex,
-                     'dim': (nstates, nstates)},
-               'dm': {'flag': 2,
-                      'type': complex,
-                      'dim': (3, nstates, nstates)},
-               'grad': {'flag': 3,
-                        'type': float,
-                        'dim': (nstates, natom, 3)},
-               'nacdr': {'flag': 5,
-                         'type': float,
-                         'dim': (nstates, nstates, natom, 3)}
-               }
-
-    # read QM.out
-    lines = readfile(path)
-
-    # obtain all targets
-    QMout = {}
-    for t in targets:
-        if t in request:
-            iline = -1
-            while True:
-                iline += 1
-                if iline >= len(lines):
-                    print('Could not find target %s with flag %i in file %s!' % (t, targets[t]['flag'], path))
-                    sys.exit(11)
-                line = lines[iline]
-                if '! %i' % (targets[t]['flag']) in line:
-                    break
-            values = []
-            # =========== single matrix
-            if len(targets[t]['dim']) == 2:
-                iline += 1
-                for irow in range(targets[t]['dim'][0]):
-                    iline += 1
-                    line = lines[iline].split()
-                    if targets[t]['type'] == complex:
-                        row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]['dim'][1])]
-                    elif targets[t]['type'] == float:
-                        row = [float(line[i]) for i in range(targets[t]['dim'][1])]
-                    values.append(row)
-            # =========== list of matrices
-            elif len(targets[t]['dim']) == 3:
-                for iblocks in range(targets[t]['dim'][0]):
-                    iline += 1
-                    block = []
-                    for irow in range(targets[t]['dim'][1]):
-                        iline += 1
-                        line = lines[iline].split()
-                        if targets[t]['type'] == complex:
-                            row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]['dim'][2])]
-                        elif targets[t]['type'] == float:
-                            row = [float(line[i]) for i in range(targets[t]['dim'][2])]
-                        block.append(row)
-                    values.append(block)
-            # =========== matrix of matrices
-            elif len(targets[t]['dim']) == 4:
-                for iblocks in range(targets[t]['dim'][0]):
-                    sblock = []
-                    for jblocks in range(targets[t]['dim'][1]):
-                        iline += 1
-                        block = []
-                        for irow in range(targets[t]['dim'][2]):
-                            iline += 1
-                            line = lines[iline].split()
-                            if targets[t]['type'] == complex:
-                                row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]['dim'][3])]
-                            elif targets[t]['type'] == float:
-                                row = [float(line[i]) for i in range(targets[t]['dim'][3])]
-                            block.append(row)
-                        sblock.append(block)
-                    values.append(sblock)
-            QMout[t] = values
-
-    # pprint.pprint(QMout)
-    return QMout
+def cleanup_print():
+    """Restore the original print function and close the mirrored file."""
+    global print
+    global mirrored_file
+    print = original_print  # Restore the original print function
+    mirrored_file.close()  # Close the file
 
 # ======================================================================= #
-
+# ======================================================================= #
+# ======================================================================= #
 
 def read_infos(ext_in):
     """Parse coordinate file provided by ORCA and convert
@@ -276,15 +88,7 @@ def read_infos(ext_in):
     calc_type=1
     xyz=readfile(xyzfile)
     natoms=int(xyz[0])
-    
-    #header = orca_in[0]
-    #natoms, calc_type, charge, mult = header.split()
     INFOS['natom'] = int(natoms)
-    #INFOS['calc_type'] = int(calc_type)
-    #if calc_type == 2:
-    #    print('No Hessian possible!')
-    #    sys.exit(1)
-    # mult and charge are ignored and the it is asumed that the interface files take care
 
     # read geometry
     geom = []
@@ -293,6 +97,7 @@ def read_infos(ext_in):
         atom = [atype, float(Rx), float(Ry), float(Rz)]
         geom.append(atom)
     INFOS['geom'] = geom
+    INFOS["IAn"] = [ NUMBERS[atom[0]] for atom in geom ]
 
     # get interface and other info from original ORCA input
     jobname = ext_in.split('.')[0]
@@ -315,29 +120,40 @@ def read_infos(ext_in):
                 if 'param' in key.lower():
                     INFOS['sigma'] = float(arg[0])
                     INFOS['alpha'] = float(arg[1])
-    if not 'interface' in INFOS:
-        # try to find interface files
-        for i in INTERFACE:
-            filesthere = True
-            for f in INTERFACE[i]['files']:
-                if not os.path.isfile(f):
-                    filesthere = False
-            if filesthere:
-                INFOS['interface'] = i
-                break
-        if not filesthere:
-            print('Could not figure out which interface to employ.')
-            sys.exit(1)
+
     if not 'states' in INFOS:
         INFOS['states'] = [1]
     if not 'charge' in INFOS:
-        INFOS['charge'] = [1]
+        INFOS['charge'] = [0]
     if not 'opt' in INFOS:
         INFOS['opt'] = ['min', 1]
     if not 'sigma' in INFOS:
         INFOS['sigma'] = 3.5
     if not 'alpha' in INFOS:
         INFOS['alpha'] = 0.02
+
+    # instantiate the interface
+    if not 'interface' in INFOS:
+        print("Interface not given in otool_external.inp!")
+        print('Could not figure out which interface to employ.')
+        exit(1)
+    interface_name = INFOS["interface"].upper()
+    interface_name = interface_name if interface_name.split("_")[0] == "SHARC" else f"SHARC_{interface_name}"
+    module = import_module(interface_name)
+    interface = getattr(module, interface_name)
+    derived_int: SHARC_INTERFACE = interface()
+    basic_infos = {
+        "NAtoms": INFOS['natom'],
+        "states": INFOS['states'],
+        "charge": INFOS['charge'],
+        "IAn": INFOS["IAn"],
+        "retain": "retain 1"
+    }
+    derived_int.setup_mol(basic_infos)
+    derived_int.read_template()
+    int_features = derived_int.get_features()
+    INFOS["features"] = int_features
+    INFOS["interface_name"] = derived_int.__class__.__name__
 
     # calculate state-related quantities
     statemap = {}
@@ -365,7 +181,7 @@ def read_infos(ext_in):
         mult1 = statemap[a][0]
         mult2 = statemap[b][0]
         if mult1 == mult2:
-            if 1 in INTERFACE[INFOS['interface']]['couplings']:
+            if "nacdr" in int_features:
                 INFOS['opt_mode'] = 1             # CI opt with NAC
             else:
                 INFOS['opt_mode'] = 2             # CI opt without NAC
@@ -383,14 +199,15 @@ def read_infos(ext_in):
   Involved state(s):    %s
 
   For all quantum chemistry infos, see these interface files:
-''' % (INTERFACE[INFOS['interface']]['description'],
+''' % (derived_int.name(),
        INFOS['states'],
        ['Minimization', 'CI optimization with NACs', 'CI optimization without NACs', 'MXP optimization'][INFOS['opt_mode']],
        involved_states
        )
-    for i in INTERFACE[INFOS['interface']]['files']:
-        string += '    - %s\n' % (i)
+    # for i in INTERFACE[INFOS['interface']]['files']:
+    #     string += '    - %s\n' % (i)
     string += '    - %s\n' % ('QM.log')
+    string += '    - %s\n' % ('QM.err')
 
     print(string)
     return INFOS
@@ -431,7 +248,7 @@ def write_QMin(INFOS):
     string += 'unit angstrom\n'
     string += 'savedir %s\n' % (INFOS['savedir'])
     string += 'H\n'
-    if 'nomolden' not in INTERFACE[INFOS['interface']]:
+    if 'molden' in INFOS['features']:
         string += 'molden\n'
     if INFOS['opt_mode'] == 0:
         string += 'grad %i\n' % (INFOS['opt'][1])
@@ -449,7 +266,7 @@ def write_QMin(INFOS):
 
 
 def run_interface(INFOS):
-    string = '$SHARC/%s QM.in >> QM.log 2> QM.err' % (INTERFACE[INFOS['interface']]['script'])
+    string = '$SHARC/%s.py QM.in >> QM.log 2> QM.err' % (INFOS['interface_name'])
     print('############## Run section: ##############\nInterface call:')
     print(string)
     error = sp.call(string, shell=True)
@@ -465,12 +282,13 @@ def run_interface(INFOS):
 
 def get_output(INFOS):
     path = 'QM.out'
-    if INFOS['opt_mode'] == 1:
-        QMout = read_QMout(path, INFOS['nmstates'], INFOS['natom'], ['h', 'grad', 'nacdr'])
-    else:
-        QMout = read_QMout(path, INFOS['nmstates'], INFOS['natom'], ['h', 'grad'])
+    QMOUT = QMout(path)
+    # if INFOS['opt_mode'] == 1:
+    #     QMout = read_QMout(path, INFOS['nmstates'], INFOS['natom'], ['h', 'grad', 'nacdr'])
+    # else:
+    #     QMout = read_QMout(path, INFOS['nmstates'], INFOS['natom'], ['h', 'grad'])
     # pprint.pprint(QMout)
-    return QMout
+    return QMOUT
 
 # ======================================================================= #
 # ======================================================================= #
@@ -725,26 +543,30 @@ def write_to_orca(INFOS, QMout, path):
 
 # ============================================
 if __name__ == "__main__":
-    script, ext_in = sys.argv
-    jobname = ext_in.split('.')[0]
-    ext_out = jobname+'.engrad'
-    if os.path.isfile(ext_out):
-        os.remove(ext_out)  # remove so if anything goes wrong, ORCA will not continue
-    print("")
-    print("         *************************************************************")
-    print("         *                    EXTERNAL SHARC JOB                     *")
-    print("         *************************************************************")
-    print("")
-    INFOS = read_infos(ext_in)
-    INFOS = prepare_savedir(INFOS)
-    write_QMin(INFOS)
-    run_interface(INFOS)
-    QMout = get_output(INFOS)
-    write_to_orca(INFOS, QMout, ext_out)
-    print("")
-    print("         *************************************************************")
-    print("         *                  EXTERNAL SHARC JOB DONE                   *")
-    print("         *************************************************************")
-    print("")
+    setup_print() 
+    try:
+        script, ext_in = sys.argv
+        jobname = ext_in.split('.')[0]
+        ext_out = jobname+'.engrad'
+        if os.path.isfile(ext_out):
+            os.remove(ext_out)  # remove so if anything goes wrong, ORCA will not continue
+        print("")
+        print("         *************************************************************")
+        print("         *                    EXTERNAL SHARC JOB                     *")
+        print("         *************************************************************")
+        print("")
+        INFOS = read_infos(ext_in)
+        INFOS = prepare_savedir(INFOS)
+        write_QMin(INFOS)
+        run_interface(INFOS)
+        QMout = get_output(INFOS)
+        write_to_orca(INFOS, QMout, ext_out)
+        print("")
+        print("         *************************************************************")
+        print("         *                  EXTERNAL SHARC JOB DONE                   *")
+        print("         *************************************************************")
+        print("")
+    finally:
+        cleanup_print() 
 
-    #remove = os.system( 'rm gradient' )
+

@@ -321,36 +321,16 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 # ======================================================================================================================
 
 
-class histogram:
-    def __init__(self, binlist):
-        """binlist must be a list of floats
-        Later, all floats x with binlist[i-1]<x<=binlist[i] will return i"""
-        self.binlist = sorted(binlist)
-        self.len = len(binlist) + 1
-
-    def put(self, x):
-        i = 0
-        for el in self.binlist:
-            if x <= el:
-                return i
-            else:
-                i += 1
-        return i
-
-    def __repr__(self):
-        s = "Histogram object: "
-        for i in self.binlist:
-            s += "%f " % (i)
-        return s
-
-
 def replace_middle_column_name(name, replace_str):
     v, desc, num = name.split()
     return f"{v} {replace_str:<6s} {num:>3s}"
 
 
 def prepend_middle_column_name(name, addition):
-    v, desc, num = name.split()
+    try:
+        v, desc, num = name.split()
+    except ValueError:
+        return name
     return f"{v} {addition+desc:<6s} {num:>3s}"
 
 
@@ -440,7 +420,7 @@ def get_general():
         print("Checking for common files...")
         allfiles = {}
         exclude_dirs = {"SCRATCH", "SAVE", "QM", "restart", "MMS", "MML"}
-        exclude = [
+        exclude = {
             "template",
             "resources",
             "runQM.sh",
@@ -466,14 +446,15 @@ def get_general():
             "CRASHED",
             "RUNNING",
             "DONT_ANALYZE",
-            "table" "driver",
+            "table",
+            "driver",
             "rattle",
-        ]
+        }
         for d in dirs:
             for dirpath, dirnames, filenames in os.walk(d, topdown=True):
-                dirnames[:] = [
-                    d for d in dirs if d not in exclude_dirs
-                ]  # from https://stackoverflow.com/questions/19859840/excluding-directories-in-os-walk
+                dirnames[:] = set(dirnames) - exclude_dirs # from https://stackoverflow.com/questions/19859840/excluding-directories-in-os-walk
+                # filenames2 = set(filenames) - exclude    # that is more efficient but only works with exact matches
+                # for f in filenames2:
                 for f in filter(lambda x: not any(ex in x for ex in exclude), filenames):
                     line = os.path.join(os.path.relpath(dirpath, d), f)
                     if line in allfiles:
@@ -498,6 +479,9 @@ def get_general():
                 string = allfiles_index[int(string)]
             except ValueError:
                 pass
+            except KeyError:
+                print('I did not understand %s' % string)
+                continue
             if string in allfiles:
                 INFOS["filepath"] = string
                 break
@@ -590,10 +574,15 @@ def get_general():
     # ---------------------------------------- Analysis procedure --------------------------------------
 
     print("{:-^60}".format("Analysis procedure") + "\n")
-    show = question("Show possible workflow options?", bool, True)
+    show = question("Show possible workflow options?", bool, False)
     if show:
         print("\nThe following diagram shows which workflows are possible with this script:")
         print(PIPELINE)
+
+    # Question 0
+    print("\n" + "{:-^40}".format("0 Collecting") + "\n")
+    INFOS["write_type1"] = question("Do you want to write Type 1 files?", bool, False)
+
 
     # Question 1
     print("\n" + "{:-^40}".format("1 Smoothing") + "\n")
@@ -667,9 +656,13 @@ def get_general():
                 else:
                     print("Choose one of the following: %s" % ("[1, 2]"))
             if av == 1:
-                INFOS["averaging"] = {"mean": mean_arith, "stdev": stdev_arith}
+                INFOS["averaging"] = {"pre": None, "post": None}
             elif av == 2:
-                INFOS["averaging"] = {"mean": mean_geom, "stdev": stdev_geom}
+                INFOS["averaging"] = {"pre": np.log, "post": np.exp}
+            # if av == 1:
+            #     INFOS["averaging"] = {"mean": mean_arith, "stdev": stdev_arith}
+            # elif av == 2:
+            #     INFOS["averaging"] = {"mean": mean_geom, "stdev": stdev_geom}
 
     # Question 4
     if INFOS["synchronizing"] and not INFOS["convolute_X"]:
@@ -685,9 +678,13 @@ def get_general():
                 else:
                     print("Choose one of the following: %s" % ("[1, 2]"))
             if av == 1:
-                INFOS["statistics"] = {"mean": mean_arith, "stdev": stdev_arith}
+                INFOS["statistics"] = {"pre": None, "post": None}
             elif av == 2:
-                INFOS["statistics"] = {"mean": mean_geom, "stdev": stdev_geom}
+                INFOS["statistics"] = {"pre": np.log, "post": np.exp}
+            # if av == 1:
+            #     INFOS["statistics"] = {"mean": mean_arith, "stdev": stdev_arith}
+            # elif av == 2:
+            #     INFOS["statistics"] = {"mean": mean_geom, "stdev": stdev_geom}
 
     # Question 6
     if INFOS["synchronizing"] and INFOS["convolute_X"]:
@@ -763,8 +760,11 @@ def do_calc(INFOS):
     all_data = collect_data(INFOS)
     outindex = 1
     filename = make_filename(outindex, INFOS, outstring)
-    print('>>>> Writing output to file "%s"...\n' % filename)
-    write_type1(filename, all_data, INFOS)
+    if INFOS["write_type1"]:
+        print('>>>> Writing output to file "%s"...\n' % filename)
+        write_type1(filename, all_data, INFOS)
+    else:
+        print('>>>> Skipping output to file ...\n')
 
     # ---------------------- apply temporal smoothing -------------------------------
     if INFOS["smoothing"]:
@@ -773,18 +773,21 @@ def do_calc(INFOS):
         outindex = 1
         outstring += "_sm"
         filename = make_filename(outindex, INFOS, outstring)
-        print('>>>> Writing output to file "%s"...\n' % filename)
-        write_type1(filename, all_data, INFOS)
+        if INFOS["write_type1"]:
+            print('>>>> Writing output to file "%s"...\n' % filename)
+            write_type1(filename, all_data, INFOS)
+        else:
+            print('>>>> Skipping output to file ...\n')
 
     # ---------------------- apply synchronization -------------------------------
     if INFOS["synchronizing"]:
         print("Synchronizing temporal data ...")
         all_data2 = synchronize(all_data)
 
-        n_names = len(INFOS["colnames"]) // 2
-        INFOS["colnames"] = (
-            INFOS["colnames"][:n_names] * all_data2["arr"].shape[1] + INFOS["colnames"][n_names:] * all_data2["arr"].shape[1]
-        )
+        # n_names = len(INFOS["colnames"]) // 2
+        # INFOS["colnames"] = (
+        #     INFOS["colnames"][:n_names] * all_data2["arr"].shape[1] + INFOS["colnames"][n_names:] * all_data2["arr"].shape[1]
+        # )
 
         outindex = 2
         outstring += "_sy"
@@ -800,7 +803,7 @@ def do_calc(INFOS):
         outstring += "_av"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        write_type2(filename, all_data2, INFOS, write_count=True)
+        write_type2(filename, all_data2, INFOS)
 
     # ---------------------- compute averages --------------------
     if INFOS["statistics"]:
@@ -810,7 +813,7 @@ def do_calc(INFOS):
         outstring += "_st"
         filename = make_filename(outindex, INFOS, outstring)
         print('>>>> Writing output to file "%s"...\n' % filename)
-        write_type2(filename, all_data2, INFOS, write_count=True)
+        write_type2(filename, all_data2, INFOS)
 
     # ---------------------- convoluting X --------------------
     if INFOS["convolute_X"]:
@@ -901,10 +904,15 @@ def make_filename(outindex, INFOS, outstring):
 def collect_data(INFOS):
     all_data = {}
     width_bar = 50
-    columns = [i - 1 for i in INFOS["colX"]] + [i - 1 for i in INFOS["colY"]]
+    xcolumns = [i - 1 for i in INFOS["colX"]]
+    ycolumns = [i - 1 for i in INFOS["colY"]]
+    columns = xcolumns + ycolumns
 
-    colnames = [f"X Column {i:3d}" for i in INFOS["colX"]] + [f"Y Column {iy:3d}" for iy in INFOS["colY"]]
+    xcolnames = [f"X Column {i:3d}" for i in INFOS["colX"]]
+    ycolnames = [f"Y Column {iy:3d}" for iy in INFOS["colY"]]
+    # colnames = [f"X Column {i:3d}" for i in INFOS["colX"]] + [f"Y Column {iy:3d}" for iy in INFOS["colY"]]
     # print(columns, colnames)
+
     read_cols = sorted(set(filter(lambda x: x >= 0, [INFOS["colT"] - 1] + columns)))
     indices_data = list(map(read_cols.index, filter(lambda c: c in read_cols, columns)))
     indices_arr = [i for i, col in enumerate(columns) if col >= 0]
@@ -930,11 +938,16 @@ def collect_data(INFOS):
         # arr is aranged over time, XorY, columns -> this makes it easy to access pairs of columns and data points
         all_data[file] = {"arr": arr.reshape(data.shape[0], 2, -1), "time": time}
 
-    sys.stdout.write("\n")
-    INFOS["columns"] = columns
-    INFOS["colnames"] = colnames
+    sys.stdout.write("  Done\n")
+    # INFOS["columns"] = columns
+    INFOS["xcolumns"] = xcolumns
+    INFOS["ycolumns"] = ycolumns
+    # INFOS["colnames"] = colnames
+    INFOS["xcolnames"] = xcolnames
+    INFOS["ycolnames"] = ycolnames
     return all_data
 
+# ===========================================
 
 def smoothing_xy(INFOS, data1: dict):
     data2 = {}
@@ -958,7 +971,7 @@ def smoothing_xy(INFOS, data1: dict):
             arr2 = s / n
         data2[filekey]["arr"] = arr2.reshape(data1[filekey]["arr"].shape)
         data2[filekey]["time"] = time
-    sys.stdout.write("\n")
+    sys.stdout.write("  Done\n")
     return data2
 
 
@@ -977,16 +990,14 @@ def synchronize(all_data):
     4     5  1  5.0  1.0  NaN  NaN
     7     8  2  8.0  2.0  8.0  2.0
     """
+    discretizer = 10000
     all_times = set()
     for filekey in sorted(all_data.keys()):
-        if (
-            len(all_data[filekey]["time"]) != len(all_times)
-            and all_data[filekey]["time"][0] not in all_times
-            and all_data[filekey]["time"][1] not in all_times
-        ):
-            all_times = all_times.union(set((all_data[filekey]["time"] * 10000).astype(int)))
+        all_times = all_times.union(set((all_data[filekey]["time"] * discretizer).astype(int)))
     all_times = np.array(sorted(all_times))
     all_times_idx = {k: i for i, k in enumerate(all_times)}
+
+    counts = np.zeros_like(all_times)
 
     file_keys = sorted(all_data.keys())
     arr = np.full((len(file_keys), len(all_times), 2, all_data[filekey]["arr"].shape[2]), np.nan)
@@ -994,18 +1005,21 @@ def synchronize(all_data):
     for i, fk in enumerate(file_keys):
         done = width_bar * (i + 1) // len(file_keys)
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+
         if (
             len(all_data[fk]["time"]) == len(all_times)
-            and np.isclose(all_data[fk]["time"][0], all_times[0])
-            and np.isclose(all_data[fk]["time"][1], all_times[1], rtol=1e-8)
+            and np.all(np.isclose(all_data[fk]["time"], all_times))
         ):
             arr[i, ...] = all_data[fk]["arr"]
+            counts += 1
         else:
-            idx = [all_times_idx[t] for t in (all_data[filekey]["time"] * 10000).astype(int)]
+            idx = [all_times_idx[t] for t in (all_data[fk]["time"] * discretizer).astype(int)]
             arr[i, idx, ...] = all_data[fk]["arr"]
+            counts[idx] += 1
+    sys.stdout.write("  Done\n")
 
     # arr has shape time, files, XorY, cols
-    return {"arr": np.einsum("ftxc->tfxc", arr), "time": all_times / 10000}
+    return {"arr": np.einsum("ftxc->tfxc", arr), "time": all_times / discretizer, "count": counts}
 
 
 # ===========================================
@@ -1015,25 +1029,39 @@ def calc_average(INFOS, all_data):
     "calculates averages and stdevs over trajectory axis"
     nt, nf, _, nc = all_data["arr"].shape
     arr = np.einsum("tfxc->cxtf", all_data["arr"])  # reorder data for faster calculation
-    # cols, MeanorStdev, XorY, time
-    calc_data = np.zeros((nc, 2, 2, nt), dtype=float)
-    width_bar = 50
-    for ic in range(nc):
-        done = width_bar * (ic + 1) // nc
-        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
-        calc_data[ic, 0, ...] = INFOS["averaging"]["mean"](arr[ic, ...], axis=2)
-        calc_data[ic, 1, ...] = INFOS["averaging"]["stdev"](arr[ic, ...], axis=2)
+    # cols, XorY, time, MeanorStdev
+    calc_data = np.zeros((2*nc, 1, nt, 1), dtype=float)
 
-    sys.stdout.write("  Done\nCalculating count\n")
-    count = np.sum(~np.isnan(arr[0, 0, :, :]), axis=1)  # check for data at time steps
+    # get pre-quantities, here we get rid of the Y values
+    # cols, XorY, time, files
+    sys.stdout.write("  Progress: [" + "="*0 + " "*50 + "]   0%")
+    X = arr[:, 0:1, :, :]
+    if INFOS["averaging"]["pre"]:       # apply some function to get, e.g., geometric mean
+        X = INFOS["averaging"]["pre"](X)
+    X2 = X**2
+    X = np.nansum(X, axis=3)
+    X2 = np.nansum(X2, axis=3)
+    N = all_data["count"]
+    sys.stdout.write("\r  Progress: [" + "="*25 + " "*25 + "]  50%")
+    mean = X / N[np.newaxis, np.newaxis, :]
+    variance = X2 / N[np.newaxis, np.newaxis, :] - mean**2
+    variance *= N[np.newaxis, np.newaxis, :] / (N[np.newaxis, np.newaxis, :] - 1)
+    if INFOS["averaging"]["post"]: 
+        mean = INFOS["averaging"]["post"](mean)
+        variance = INFOS["averaging"]["post"](variance) - 1  # -1 only for geometric!
+    stdev = np.sqrt(variance)
 
-    INFOS["colnames"] = [replace_middle_column_name(INFOS["colnames"][c], "Mean") for c in range(nc)]
-    INFOS["colnames"].extend([replace_middle_column_name(INFOS["colnames"][c], "Stdev") for c in range(nc)])
-    # get Y columns
-    INFOS["colnames"].extend([replace_middle_column_name(INFOS["colnames"][c], "Mean") for c in range(nc, nc * 2)])
-    INFOS["colnames"].extend([replace_middle_column_name(INFOS["colnames"][c], "Stdev") for c in range(nc, nc * 2)])
-    INFOS["colnames"].append("Count")
-    return {"arr": np.einsum("csxt->tsxc", calc_data), "time": all_data["time"], "count": count}
+    calc_data[:nc, :, :, 0] = mean
+    calc_data[nc:, :, :, 0] = stdev
+
+    sys.stdout.write("\r  Progress: [" + "="*50 + "] 100%  Done\n")
+
+    INFOS["xcolnames"] = [replace_middle_column_name(INFOS["xcolnames"][c], "Mean") for c in range(nc)]
+    INFOS["xcolnames"].extend([replace_middle_column_name(INFOS["xcolnames"][c], "Stdev") for c in range(nc)])
+    INFOS["ycolnames"] = []
+
+    arr = {"arr": np.einsum("cxtf->tfxc", calc_data), "time": all_data["time"], "count": N}
+    return arr
 
 
 # ===========================================
@@ -1042,16 +1070,46 @@ def calc_average(INFOS, all_data):
 def calc_statistics(INFOS, all_data):
     "calculates averages and stdevs over expanding time axis"
     nt, nf, _, nc = all_data["arr"].shape
-    arr = all_data["arr"]
-    # times, XorY, MeanorStdev, cols
-    calc_data = np.zeros((nf, 2, 2, nc), dtype=float)
-    for it in range(nt):
-        calc_data[it, :, 0, :] = INFOS["statistics"]["mean"](arr[: it + 1, ...], axis=0)
-        calc_data[it, :, 1, :] = INFOS["statistics"]["stdev"](arr[: it + 1, ...], axis=0)
+    arr = np.einsum("tfxc->cxtf", all_data["arr"])  # reorder data for faster calculation
+    # cols, XorY, time, MeanorStdev
+    calc_data = np.zeros((2*nc, 1, nt, 1), dtype=float)
 
-    INFOS["colnames"] = [prepend_middle_column_name(c, "Mean") for c in INFOS["colnames"]]
-    INFOS["colnames"].extend([prepend_middle_column_name(c, "Stdev") for c in INFOS["colnames"]])
-    return {"arr": calc_data, "time": all_data["time"]}
+    # get pre-quantities, here we get rid of the Y values
+    # cols, XorY, time, files
+    sys.stdout.write("  Progress: [" + "="*0 + " "*50 + "]   0%")
+    np.seterr(invalid='ignore', divide='ignore')
+    X = arr[:, 0:1, :, :]
+    N = np.sum(~np.isnan(X[0:1, 0:1, :, :]), axis=3)
+    if INFOS["statistics"]["pre"]:       # apply some function to get, e.g., geometric mean
+        X = INFOS["statistics"]["pre"](X)
+    X2 = X**2
+    X = np.nansum(X, axis=3)
+    X2 = np.nansum(X2, axis=3)
+    cX = np.nancumsum(X, axis=2)
+    cX2 = np.nancumsum(X2, axis=2)
+    cN = np.nancumsum(N, axis=2)
+    sys.stdout.write("\r  Progress: [" + "="*25 + " "*25 + "]  50%")
+    mean = cX / cN[np.newaxis, np.newaxis, :]
+    variance = cX2 / cN[np.newaxis, np.newaxis, :] - mean**2
+    variance *= cN[np.newaxis, np.newaxis, :] / (cN[np.newaxis, np.newaxis, :] - 1)
+    if INFOS["statistics"]["post"]: 
+        mean = INFOS["statistics"]["post"](mean)
+        variance = INFOS["statistics"]["post"](variance) - 1  # -1 only for geometric!
+        # TODO: What about the stdev??
+    stdev = np.sqrt(variance)
+    np.seterr(all='warn')
+
+    calc_data[:nc, :, :, 0] = mean
+    calc_data[nc:, :, :, 0] = stdev
+
+    sys.stdout.write("\r  Progress: [" + "="*50 + "] 100%  Done\n")
+
+    INFOS["xcolnames"] = [replace_middle_column_name(INFOS["xcolnames"][c], "CMean") for c in range(nc)]
+    INFOS["xcolnames"].extend([replace_middle_column_name(INFOS["xcolnames"][c], "CStdev") for c in range(nc)])
+    INFOS["ycolnames"] = []
+
+    arr = {"arr": np.einsum("cxtf->tfxc", calc_data), "time": all_data["time"], "count": cN[0,0,:]}
+    return arr
 
 
 # ===========================================
@@ -1112,11 +1170,11 @@ def do_x_convolution(INFOS, all_data):
                 # conv_it_col[id1:id2] += conv_func(A, x0, ene_grid[id1:id2])
                 conv_it_col += conv_func(A, x0, ene_grid)
 
-    sys.stdout.write("\n")
+    sys.stdout.write("  Done\n")
 
-    INFOS["colnames"] = [
+    INFOS["xycolnames"] = [
         f"Conv({x},{y})"
-        for x, y in map(lambda c: (INFOS["colnames"][c].split()[2], INFOS["colnames"][c + nc].split()[2]), range(nc))
+        for x, y in map(lambda c: (INFOS["xcolnames"][c].split()[2], INFOS["ycolnames"][c].split()[2]), range(nc))
     ]
 
     return {"arr": conv_data, "time": all_data["time"], "x_axis": ene_grid}
@@ -1164,6 +1222,7 @@ def do_t_convolution(INFOS, all_data):
 
             conv_t[ic, ix, :] += conv_func(v, time[it], t_grid)
 
+    sys.stdout.write("  Done\n")
     all_data["arr"] = np.einsum("cxt->tcx", conv_t)
     all_data["time"] = t_grid
     return all_data
@@ -1175,15 +1234,8 @@ def do_t_convolution(INFOS, all_data):
 def integrate_T(INFOS, all_data):
     # do cumulative sum for all x values
 
-    calc_arr = all_data["arr"].copy()
+    calc_arr = np.cumsum(all_data["arr"], axis=0)
     nt, nc, nx = calc_arr.shape
-
-    width_bar = 50
-    for it in range(1, nt):
-        done = width_bar * (it + 1) // nt
-        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
-        calc_arr[it, ...] += calc_arr[it - 1, ...]
-    sys.stdout.write("\n")
 
     return {**all_data, "arr": calc_arr}
 
@@ -1193,15 +1245,23 @@ def integrate_T(INFOS, all_data):
 
 def integrate_X(INFOS, all_data):
     # sum up for all x values below a, between a and b, and above b
+
+    # set bins
     xmin = INFOS["integrate_X"]["xrange"][0]
     xmax = INFOS["integrate_X"]["xrange"][1]
-    xvalues = np.linspace(-1, 1, 3)
     bins = [xmin, xmax]
+    xvalues = np.linspace(-1, 1, 3)
+
+    # get original x axis
+    xaxis = all_data["x_axis"]
+    idx = np.digitize(xaxis, bins=bins)
+
+    # integrate
     arr = all_data["arr"]
     nt, nc, nx = arr.shape
-    idx = np.digitize(arr, bins=bins)
     int_x_arr = np.zeros((nt, nc, 3), dtype=float)
-    np.add.at(int_x_arr, idx, arr)
+    for ix in range(nx):
+        int_x_arr[:,:,idx[ix]] += arr[:,:,ix]
 
     return {**all_data, "arr": int_x_arr, "x_axis": xvalues}
 
@@ -1210,8 +1270,8 @@ def integrate_X(INFOS, all_data):
 
 
 def do_y_summation(INFOS, all_data):
-    INFOS["colnames"] = ["Time", "X_axis", "Y_sum"]
-    return {**all_data, "arr": np.sum(all_data["arr"], axis=1)}
+    INFOS["xycolnames"] = ["Y_sum"]
+    return {**all_data, "arr": np.sum(all_data["arr"], axis=1, keepdims=True)}
 
 
 # ===========================================
@@ -1220,46 +1280,11 @@ def do_y_summation(INFOS, all_data):
 def type3_to_type2(INFOS, all_data):
     arr = all_data["arr"]
     nt, nc, nx = arr.shape
-    return {f"X={x:8f}": {"arr": arr[..., ix], "time": all_data["time"]} for ix, x in enumerate(all_data["X_axis"])}
-
-
-# ======================================================================================================================
-
-
-def mean_arith(data: np.ndarray, axis=1):
-    if data.shape[axis] == 1:
-        return data
-    return np.mean(data, axis=axis)
-
-
-# ======================================== #
-
-
-def stdev_arith(data: np.ndarray, axis=1):
-    return data.std(axis=axis)
-
-
-# ======================================== #
-
-
-def mean_geom(data: np.ndarray, axis=1):
-    if data.shape[axis] == 1:
-        return data
-    return np.exp(np.log(data).mean(axis=axis))
-
-
-# ======================================== #
-
-
-def stdev_geom(data: np.ndarray, axis=1):
-    res = np.full((data.shape[0]), np.nan, dtype=float)
-    for i, row in enumerate(data):
-        row_arr = row.to_numpy()
-        res[i] = stats.gstd(row_arr[row_arr > 0], axis=axis)
-    return res
-
-
-# ======================================== #
+    arr = arr.reshape(nt, 1, 1, nc * nx)
+    # arr = np.transpose(arr, axes=(0, 2, 1))[:, :, np.newaxis, :]
+    INFOS["xcolnames"] = [ f"{xy} X={int(x): d}" for xy in INFOS["xycolnames"] for x in all_data["x_axis"] ]
+    # INFOS["xcolnames"] = [ f"X={x:8f}" for ix, x in enumerate(all_data["x_axis"]) ]
+    return {"time": all_data["time"], "arr": arr}
 
 
 # ======================================================================================================================
@@ -1268,9 +1293,9 @@ def stdev_geom(data: np.ndarray, axis=1):
 def write_type1(filename, all_data, INFOS):
     # make header
     longest = max([len(key) for key in all_data])
-    string = "#    1 " + " " * (longest - 1) + "2" + " " * 15 + "3"
+    string = f"#{1:>15d}" + " " * (longest + 1) + "2" + " " + f"{3:>16d}"
     for i in range(2 * len(INFOS["colX"])):
-        string += "             %3i" % (i + 4)
+        string += f"{i+4:>17d}"
     # make data string
 
     with open(filename, "w") as f:
@@ -1280,10 +1305,10 @@ def write_type1(filename, all_data, INFOS):
 
             if i == 0:
                 f.write(string + "\n")
-                columns = ["Index", " " * (longest - 8) + "Filename", "Time"] + INFOS["colnames"]
-                f.write("#" + "  ".join(map(lambda x: f"{x:>14s}", columns)) + "\n")
+                columns = ["Index", " " * (longest - 8) + "Filename", "Time"] + INFOS["xcolnames"] + INFOS["ycolnames"]
+                f.write("#" + "  ".join(map(lambda x: f"{x:>15s}", columns)) + "\n")
             for idx, (t, c) in enumerate(zip(time, out)):
-                f.write(f"{i:>15d} {filekey:>14s} {t: 14.8E}  " + "  ".join(map(lambda x: f"{x: 14.8E}", c)) + "\n")
+                f.write(f"{i:>16d}  {filekey:>14s}  {t: 14.8E}  " + "  ".join(map(lambda x: f"{x: 14.8E}", c)) + "\n")
             f.write("\n")
     return
 
@@ -1291,23 +1316,69 @@ def write_type1(filename, all_data, INFOS):
 # ======================================================================================================================
 
 
-def write_type2(filename, all_data, INFOS, write_count=False):
+def write_type2(filename, all_data, INFOS):
+    # prepare
+    nt, nf, nxy, nc = all_data["arr"].shape
+    write_count = "count" in all_data
+    write_y = False
+    if nxy > 1 and any([i > 0 for i in INFOS["colY"]]):
+        write_y = True
+
+    # gather data
     arr = all_data["arr"][:, :, 0, :].reshape(all_data["arr"].shape[0], -1)
-    n_cols = arr.shape[1] + 1 + (1 if write_count else 0)
+    if write_y:
+        yarr = all_data["arr"][:, :, 1, :].reshape(all_data["arr"].shape[0], -1) 
+    
+    # number of columns and names
+    n_cols = 1 + nf * nc
+    column_names = INFOS["xcolnames"] * nf
+    if write_y:
+        column_names += INFOS["ycolnames"] * nf
+        n_cols += nf * nc
+    if write_count:
+        column_names += ["Count"]
+        n_cols += 1
+    
     with open(filename, "w") as f:
         f.write("#" + " ".join(map(lambda i: f"{i + 1:14d} ", range(n_cols))) + "\n")
-        # sort multiindex to level!
-        # get columns
-        column_names = INFOS["colnames"][: arr.shape[1]] + INFOS["colnames"][-1:]
-        f.write(f"{'#Time':<14s} " + "  ".join(map(lambda i: f"{i:>14s}", column_names)) + "\n")
-        if write_count:
-            count = all_data["count"]
-            for idx, (t, c) in enumerate(zip(all_data["time"], arr)):
-                f.write(f"{t: 14.8E} " + " ".join(map(lambda x: f"{x: 14.8E}", c)) + f"  {count[idx]: 14.8E}" + "\n")
+        f.write(f"#{'Time':>14s}  " + "  ".join(map(lambda i: f"{i:>14s}", column_names)) + "\n")
+        if write_y:
+            if write_count:
+                for idx, (t, x, y, c) in enumerate(zip(all_data["time"], arr, yarr, all_data["count"])):
+                    f.write(
+                        f"{t: 14.8E} " 
+                        + " ".join(map(lambda xx: f"{xx: 14.8E}" if not np.isnan(xx) else f"{'NaN':>15s}", x)) 
+                        + " "
+                        + " ".join(map(lambda xx: f"{xx: 14.8E}" if not np.isnan(xx) else f"{'NaN':>15s}", y)) 
+                        + f" {c: 14.8E}"
+                        + "\n"
+                        )
+            else:
+                for idx, (t, x, y) in enumerate(zip(all_data["time"], arr, yarr)):
+                    f.write(
+                        f"{t: 14.8E} " 
+                        + " ".join(map(lambda xx: f"{xx: 14.8E}" if not np.isnan(xx) else f"{'NaN':>15s}", x)) 
+                        + " "
+                        + " ".join(map(lambda xx: f"{xx: 14.8E}" if not np.isnan(xx) else f"{'NaN':>15s}", y)) 
+                        + "\n"
+                        )
         else:
-            for idx, (t, c) in enumerate(zip(all_data["time"], arr)):
-                f.write(f"{t: 14.8E} " + " ".join(map(lambda x: f"{x: 14.8E}", c)) + "\n")
-
+            if write_count:
+                for idx, (t, x, c) in enumerate(zip(all_data["time"], arr, all_data["count"])):
+                    f.write(
+                        f"{t: 14.8E} " 
+                        + " ".join(map(lambda xx: f"{xx: 14.8E}" if not np.isnan(xx) else f"{'NaN':>15s}", x)) 
+                        + f" {c: 14.8E}"
+                        + "\n"
+                        )
+            else:
+                for idx, (t, x) in enumerate(zip(all_data["time"], arr)):
+                    f.write(
+                        f"{t: 14.8E} " 
+                        + " ".join(map(lambda xx: f"{xx: 14.8E}" if not np.isnan(xx) else f"{'NaN':>15s}", x)) 
+                        + "\n"
+                        )
+        
     return
 
 
@@ -1320,7 +1391,7 @@ def write_type3(filename, all_data, INFOS):
     nt, nc, nps = arr.shape
     with open(filename, "w") as f:
         f.write(f"#{1:>14d} " + " ".join(map(lambda i: f"{i + 2:>15d}", range(nc + 1))) + "\n")
-        f.write(f"#{'Time':>14s} " + " ".join(map(lambda i: f"{i:>15s}", ["X_axis"] + INFOS["colnames"])) + "\n")
+        f.write(f"#{'Time':>14s} " + " ".join(map(lambda i: f"{i:>15s}", ["X_axis"] + INFOS["xycolnames"])) + "\n")
         for it, t in enumerate(all_data["time"]):
             for ix, x in enumerate(all_data["x_axis"]):
                 c = arr[it, :, ix]
@@ -1330,34 +1401,15 @@ def write_type3(filename, all_data, INFOS):
 
 # ======================================================================================================================
 
-
 def readType1(strings):
     print("Type1 cannot be read currently!")
     sys.exit(1)
-    # data1={}
-    # for line in strings:
-    # s=line.split()
-    # if len(s)<1:
-    # continue
-    # key=s[1]
-    # values=tuple( [ float(i) for i in s[2:] ] )
-    # if not key in data1:
-    # data1[key]=[]
-    # data1[key].append(values)
-    # for key in data:
-    # data1[key].sort(key=lambda x: x[0])
-    # return data1
-
 
 # ======================================================================================================================
-
-# ======================================================================================================================
-
 
 def readType3(strings):
     print("Type3 cannot be read currently!")
     sys.exit(1)
-
 
 # ======================================================================================================================
 # ======================================================================================================================

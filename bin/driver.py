@@ -36,7 +36,7 @@ import inspect
 import sharc.sharc as sharc
 
 # import sharc
-from factory import factory
+# from factory import factory
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
 from error import Error

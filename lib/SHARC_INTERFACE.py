@@ -417,6 +417,9 @@ class SHARC_INTERFACE(ABC):
             self.log.warning(
                 f"setup_mol() was already called! Continue setup with {qmin_file}",
             )
+
+        # --- three different cases ---
+        
         if isinstance(qmin_file, str):
             self.QMin.molecule["unit"] = "angstrom"  # default
             self.QMin.molecule["factor"] = 1.0 / BOHR_TO_ANG
@@ -527,6 +530,8 @@ class SHARC_INTERFACE(ABC):
             self.log.error(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
             raise TypeError(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
 
+        # --- end of cases ---
+
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
         self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
         # self.QMin.molecule["frozcore"] = 0
@@ -560,7 +565,7 @@ class SHARC_INTERFACE(ABC):
                 ]
 
                 for mult, c in enumerate(self.QMin.molecule["charge"]):
-                    if mult % 2 != (self.QMin.molecule["Atomcharge"] - c) % 2:
+                    if self.QMin.molecule["states"][mult] > 0 and mult % 2 != (self.QMin.molecule["Atomcharge"] - c) % 2:
                         self.log.error(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
                         raise ValueError(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
             else:

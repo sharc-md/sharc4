@@ -122,7 +122,8 @@ class QMout:
                         shape = [int(n) for n in re.search(r"\(((\d+x)+\d+)", line).group(1).split('x')]
                         block_length = reduce(lambda agg, x: agg*x, shape[:-1])
                         if len(shape) > 2:
-                            block_length += shape[0] - 1
+                            # block_length += shape[0] - 1
+                            block_length += reduce(lambda agg, x: agg*x, shape[:-2]) - 1
                     # skip unwanted flags
                     if flags != "all" and flag not in flags:
                         # print(f"skipping flag {flag} with {block_length} lines")

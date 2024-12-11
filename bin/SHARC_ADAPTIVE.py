@@ -14,7 +14,7 @@ __all__ = ["SHARC_ADAPTIVE"]
 AUTHORS = "Sascha Mausenberger"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 10, 17)
-NAME = "Adaptive sampling"
+NAME = "ADAPTIVE"
 DESCRIPTION = "   HYBRID interface for adaptive sampling"
 
 CHANGELOGSTRING = """
