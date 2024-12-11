@@ -1387,22 +1387,28 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     if s > 0:
                         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as mdp:
                             for _ in range(m):
-                                ao_mltpl = [np.array(mdp["AO_MLTPL_X"]),
-                                            np.array(mdp["AO_MLTPL_Y"]),
-                                            np.array(mdp["AO_MLTPL_Z"])]
+                                # ao_mltpl = [np.array(mdp["AO_MLTPL_X"]),
+                                #             np.array(mdp["AO_MLTPL_Y"]),
+                                #             np.array(mdp["AO_MLTPL_Z"])]
                                 sum_states = self.QMin.molecule["states"][m-1]
                                 self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = -1.j*mdp["SFS_ANGMOM"][:]
                                 s_cnt += s
+                self.log.info("STATES")
+                self.log.info(self.states)
                 for i1, s1 in enumerate(self.states, 0):
                     for i2, s2, in enumerate(self.states, 0):
                         spin_p, spin_n, spin_m = 0, 0, 0
                         if s1 // s2:  # floor_div defined in utils.py 
+                            print("s1",s1.N, s1.S, s1.M)
+                            print("s2",s2.N, s2.S, s2.M)
+                            print("-----------------------") 
                             if s1.M == s2.M-2:  # <s1, m1| S+ |s2, m2>
                                 spin_p = np.sqrt(s2.S/2*(s2.S/2+1)-s2.M/2.*(s2.M/2.-1))
                             if s1.M == s2.M+2:  # <s1, m1| S- |s2, m2>
                                 spin_m = np.sqrt(s2.S/2*(s2.S/2+1)-s2.M/2.*(s2.M/2.+1))
                             if s1.M == s2.M:  # <s1, m1| Sz |s2, m2>
                                 spin_n = s2.M/2.
+                            print(spin_p, spin_m, spin_n)
                         # mag_dip_spin_mom[0, i1, i1+i2] *= 1/2.*(spin_p+spin_m)
                         # mag_dip_spin_mom[1, i1, i1+i2] *= 1/2.j*(spin_p-spin_m)
                         # mag_dip_spin_mom[2, i1, i1+i2] *= spin_n 
