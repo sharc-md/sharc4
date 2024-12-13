@@ -203,6 +203,18 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         self.log.info("")
         self.files.append(self.template_file)
 
+        if question("Do you have an 'ext_param' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+            while True:
+                ext_param = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="ext_param")
+                self.files.append(ext_param)
+                if os.path.isfile(ext_param):
+                    break
+                else:
+                    self.log.info(f"file at {ext_param} does not exist!")
+        
+
+
+
         self.make_resources = False
         # Resources
         if question("Do you have a 'MOPACPI.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
@@ -341,9 +353,9 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
                 inpstring += f"{allmicros[i]}\n"
         
         par_str = ""
-        if external_par != None:
+        if external_par != None and external_par > 0:
             allpar = []
-            with open('MOPACPI.template', 'r') as file:
+            with open('ext_param', 'r') as file:
                 for line in file:
                     if 'EXTERNAL PARAMETERS' in line:
                         for _ in range(external_par-1):
@@ -356,7 +368,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         if add_pot:
             inpstring += "\n"
             inpstring += "ADDED POTENTIAL \n"
-            with open('MOPACPI.template', 'r') as file:
+            with open('ext_param', 'r') as file:
                 for line in file:
                     if 'ADDED POTENTIAL' in line:
                             for _ in range(10):
@@ -725,7 +737,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         super().setup_interface()
 
         if (any(num > 0 for num in self.QMin.molecule["states"][1:]) or self.QMin.molecule["states"][0] == 0):
-            self.log.error("MNDO can only calculate singlets!!")
+            self.log.error("MOPAC-PI can only calculate singlets!!")
             raise ValueError()
 
 
