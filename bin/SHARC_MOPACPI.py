@@ -353,30 +353,55 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
                 inpstring += f"{allmicros[i]}\n"
         
         par_str = ""
-        if external_par != None and external_par > 0:
-            allpar = []
-            with open('ext_param', 'r') as file:
-                for line in file:
-                    if 'EXTERNAL PARAMETERS' in line:
-                        for _ in range(external_par-1):
-                            next_line = next(file).strip()
-                            allpar.append(next_line)
-            
-            for i in range(external_par-1):
-                par_str += f"{allpar[i]}\n"
 
+        # Handle external parameters
+        if external_par is not None and external_par > 0:
+            allpar = []
+            lines = readfile('ext_param')  # Assuming readfile() returns a list of lines
+            
+            # Locate the "EXTERNAL PARAMETERS" block
+            found = False
+            for iline, line in enumerate(lines):
+                if 'EXTERNAL PARAMETERS' in line:
+                    found = True
+                    iline += 1  # Move to the next line after "EXTERNAL PARAMETERS"
+                    break
+            
+            # Collect the required number of external parameters
+            if found:
+                for _ in range(external_par - 1):
+                    if iline < len(lines):  # Ensure we don't go out of bounds
+                        allpar.append(lines[iline].strip())
+                        iline += 1
+            
+            # Build the parameter string
+            for par in allpar:
+                par_str += f"{par}\n"
+
+        # Handle added potential
         if add_pot:
             inpstring += "\n"
             inpstring += "ADDED POTENTIAL \n"
-            with open('ext_param', 'r') as file:
-                for line in file:
-                    if 'ADDED POTENTIAL' in line:
-                            for _ in range(10):
-                                next_line = next(file).strip()
-                                if 'END ADDED POTENTIAL' not in next_line:
-                                    inpstring += f"{next_line} \n"
-                                else:
-                                    break
+            added_pot = readfile('ext_param')  # Assuming readfile() returns a list of lines
+
+            # Locate the "ADDED POTENTIAL" block
+            found = False
+            for iline, line in enumerate(added_pot):
+                if 'ADDED POTENTIAL' in line:
+                    found = True
+                    iline += 1  # Move to the next line after "ADDED POTENTIAL"
+                    break
+            
+            # Collect lines in the "ADDED POTENTIAL" block
+            if found:
+                while iline < len(added_pot):  # Ensure we don't go out of bounds
+                    next_line = added_pot[iline].strip()
+                    if 'END ADDED POTENTIAL' not in next_line:
+                        inpstring += f"{next_line} \n"
+                        iline += 1
+                    else:
+                        break
+
         
         return inpstring, par_str
     
