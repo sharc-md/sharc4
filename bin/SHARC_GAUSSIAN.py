@@ -1892,7 +1892,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             #     )
             # )
             nprop = len(self.QMin.resources["theodore_prop"]) + len(self.QMin.resources["theodore_fragment"]) ** 2
-            labels = self.QMin.resources["theodore_prop"][:] + [ 'Om_%i_%i' % (i,j) for i in range(len(self.QMin.resources["theodore_fragment"])) for j in range(len(self.QMin.resources["theodore_fragment"])) ]
+            labels = self.QMin.resources["theodore_prop"][:] + [ 'Om_%i_%i' % (i+1,j+1) for i in range(len(self.QMin.resources["theodore_fragment"])) for j in range(len(self.QMin.resources["theodore_fragment"])) ]
             theodore_arr = [ [labels[j], np.zeros(self.QMin.molecule["nmstates"])] for j in range(nprop)]
             for job in joblist:
                 if not self.QMin.control["jobs"][job]["restr"]:
@@ -2089,8 +2089,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
             while line:
                 for k in filter(lambda k: res[k] is None, res.keys()):
-                    if k in line:
-                        llst = line[len(k) :].split()
+                    if k in line[:len(k)]:
+                        llst = line[len(k):].split()
                         cast = types[llst[0]]
                         n = parse_num(llst, cast)
                         if llst[1] == "N=":
