@@ -526,7 +526,7 @@ def printtheodore(matrix, QMin):
         string += '%6s ' % i
     for i in range(len(QMin['template']['theodore_fragment'])):
         for j in range(len(QMin['template']['theodore_fragment'])):
-            string += '  Om%1i%1i ' % (i + 1, j + 1)
+            string += '  Om_%1i_%1i ' % (i + 1, j + 1)
     string += '\n' + '-------' * (1 + QMin['template']['theodore_n']) + '\n'
     istate = 0
     for imult, i, ms in itnmstates(QMin['states']):

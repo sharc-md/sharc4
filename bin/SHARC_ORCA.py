@@ -310,14 +310,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 # self.log.info("You can use the list-of-lists from dens_ana.in")
                 self.log.info('Enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
                 self.log.info("Atom numbering starts at 1 for TheoDORE.")
-                self.setupINFOS["theodore_frag"] = []
+                self.setupINFOS["theodore_fragment"] = []
                 while True:
                     line = question("TheoDORE fragment:", str, default="end", KEYSTROKES=KEYSTROKES)
                     if "end" in line.lower():
                         break
                     f = [int(i) for i in line.split()]
-                    INFOS["theodore_frag"].append(f)
-                self.setupINFOS["theodore_count"] = len(INFOS["theodore_prop"]) + len(INFOS["theodore_frag"]) ** 2
+                    self.setupINFOS["theodore_fragment"].append(f)
+                self.setupINFOS["theodore_count"] = len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
 
         return INFOS
 
@@ -334,7 +334,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     "scaling",
                     "theodir",
                     "theodore_prop",
-                    "theodore_frag",
+                    "theodore_fragment",
                     "wfoverlap",
                     "wfthres",
                 ):
@@ -626,7 +626,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         )
         if self.QMin.requests["theodore"]:
             nprop = len(self.QMin.resources["theodore_prop"]) + (nfrag := len(self.QMin.resources["theodore_fragment"])) ** 2
-            labels = self.QMin.resources["theodore_prop"][:] + [f"Om_{i}_{j}" for i in range(nfrag) for j in range(nfrag)]
+            labels = self.QMin.resources["theodore_prop"][:] + [f"Om_{i+1}_{j+1}" for i in range(nfrag) for j in range(nfrag)]
             theodore_arr = [[labels[j], np.zeros(self.QMin.molecule["nmstates"])] for j in range(nprop)]
 
         scratchdir = self.QMin.resources["scratchdir"]
