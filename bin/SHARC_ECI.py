@@ -664,13 +664,13 @@ class SHARC_ECI(SHARC_HYBRID):
             for child in self._kindergarden.values():
                 child.QMin.requests[request] = QMin.requests[request] # True/False
 
-        #  Call step_logic and request_logic for each true child
-        for child in self._kindergarden.values():
+        #  Call step_logic and request_logic for each true child  # -> all done in run_children()
+        # for child in self._kindergarden.values():
             #  child._step_logic()
-            child._request_logic()
-        for child in self.embedding_kindergarden.values():
+            # child._request_logic()
+        # for child in self.embedding_kindergarden.values():
             #  child._step_logic()
-            child._request_logic()
+            # child._request_logic()
 
         return
 

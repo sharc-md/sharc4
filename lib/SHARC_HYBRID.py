@@ -29,6 +29,7 @@ import sys
 from importlib import import_module
 from multiprocessing import Manager, Process
 from time import sleep
+import traceback
 
 from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
@@ -82,7 +83,10 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                 QMouts[label] = children_dict[label].QMout
             except Exception as exc:
                 logger.error(f"Some exception occured while running child {label}")
-                logger.error(exc)
+                logger.error(f"Exception type: {type(exc)}")
+                logger.error(f"Exception args: {exc.args}")
+                logger.error(f"Exception message: {str(exc)}")
+                logger.error(traceback.format_exc())
                 sys.exit(1)  # Indicate failure of child process
             except:  # pylint: disable=bare-except
                 logger.error(f"Some system-level exception occured while running child {label}")

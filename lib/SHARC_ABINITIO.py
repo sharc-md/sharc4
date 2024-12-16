@@ -308,8 +308,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 self.QMout.notes["multipolar_fit"] = (
                     f" settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}"
                 )
-                self.QMin.requests.types["multipolar_fit"] = dict
-                self.QMin.requests["multipolar_fit"] = {dme: [] for dme in requested_dmes}
+                # self.QMin.requests.types["multipolar_fit"] = dict          # TODO: wtf?
+                # self.QMin.requests["multipolar_fit"] = {dme: [] for dme in requested_dmes}
+                self.multipolar_fit_list = {dme: [] for dme in requested_dmes}
 
             self.QMin.requests["density_matrices"] = sorted(requested_densities, key=lambda x: (x[0], x[1], x[2]))
             self.get_density_recipes()
@@ -1128,7 +1129,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
         self.log.debug(f"starting pool with {self.QMin.resources['ncpu']} workers")
         set_start_method("fork", force=True)
         with Pool(processes=self.QMin.resources["ncpu"]) as pool:
-            for dens in self.QMin.requests["multipolar_fit"]:
+            # for dens in self.QMin.requests["multipolar_fit"]:
+            for dens in self.multipolar_fit_list:
                 s1, s2 = dens
                 charge = s1.Z if s1 // s2 else 0
                 if (s2, s1) in queued:
