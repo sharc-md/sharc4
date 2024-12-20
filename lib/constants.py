@@ -23,6 +23,7 @@ speed_of_light_au  = 1./const.alpha
 kJpermol_to_Eh     = kJpermol_to_Eh = kj2Eh = const.Avogadro*const.physical_constants["Hartree energy"][0]*1E-3
 lande_g_factor     = const.physical_constants["electron g factor"][0]
 alpha              = 1./speed_of_light_au
+Boltzmann_Eh_K     = const.physical_constants["Boltzmann constant in eV/K"][0]/const.physical_constants["Hartree energy in eV"][0]
 ANG_TO_BOHR        = 1. / (const.physical_constants["Bohr radius"][0]*1E10)
 CM_TO_HARTREE      = 1. / (const.physical_constants["hartree-inverse meter relationship"][0]*1E-2)
 HARTREE_TO_EV      = const.physical_constants["Hartree energy in eV"][0]
