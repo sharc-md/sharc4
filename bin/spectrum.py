@@ -35,10 +35,20 @@ from optparse import OptionParser
 import colorsys
 import re
 from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
+import scipy.constants as const
 
 # =========================================================0
 # some constants
 DEBUG = False
+
+PI = math.pi
+E_CHARGE = const.physical_constants["elementary charge"][0]
+HBAR = const.physical_constants["reduced Planck constant"][0]
+E_MASS = const.physical_constants["electron mass"][0]
+C_LIGHT = const.physical_constants["speed of light in vacuum"][0]
+EPS_ZERO = const.physical_constants["vacuum electric permittivity"][0]
+HARTREE_TO_JOULE = const.physical_constants["Hartree energy"][0]
+AVOGADRO = const.physical_constants["Avogadro constant"][0]
 
 version = '4.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, 3.0, float(version)]
@@ -83,6 +93,7 @@ class lognormal:
         return A * x0 / x * math.exp(-c / (4. * math.log(2.)) - math.log(2.) * (math.log(x) - math.log(x0))**2 / c)
 
 
+
 class spectrum:
     def __init__(self, npts, emin, emax, fwhm, lineshape):
         self.npts = npts
@@ -96,11 +107,21 @@ class spectrum:
         self.spec = [0. for i in range(self.npts + 1)]
         self.fnorm = self.f.norm
 
-    def add(self, A, x0):
+    def add(self, A, x0, abs_cross=False, molar=False):
         if A == 0.:
             return
-        for i in range(self.npts + 1):
-            self.spec[i] += self.f.ev(A, x0, self.en[i])
+        if abs_cross:
+            factor = PI * E_CHARGE**2 * HBAR * 1e20 / ( 2. * E_MASS * C_LIGHT * EPS_ZERO * self.fnorm * HARTREE_TO_JOULE)
+            if molar:
+                factor *= AVOGADRO * 1e-16 / math.log(10.) / 1e3
+            # factor 1e20 is to get cross sections in A^2 rather than m^2, factor HARTREE_TO_JOULE is because e^2*hbar/(m_e*c*eps) has units of Jm^2 
+            for i in range(self.npts + 1):
+                self.spec[i] += self.f.ev(   A*x0/self.en[i],   x0,   self.en[i]  ) * factor
+        else:
+            for i in range(self.npts + 1):
+                self.spec[i] += self.f.ev(   A,                 x0,   self.en[i])
+
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -411,7 +432,11 @@ def get_initconds(INFOS):
 
 
 def make_spectra(statelist, INFOS):
-    speclist = [spectrum(INFOS['npts'], INFOS['erange'][0], INFOS['erange'][1], INFOS['fwhm'], INFOS['lineshape']) for i in range(INFOS['nstate'])]
+    speclist = [spectrum(INFOS['npts'], 
+                         INFOS['erange'][0], 
+                         INFOS['erange'][1], 
+                         INFOS['fwhm'], 
+                         INFOS['lineshape']) for i in range(INFOS['nstate'])]
 
     width = 50
     idone = 0
@@ -427,10 +452,14 @@ def make_spectra(statelist, INFOS):
                 sys.stdout.flush()
 
             if not INFOS['selected'] or cond.Excited:
-                if INFOS['dos_switch']:
+                if INFOS['abscross']:
+                    speclist[istate].add(cond.Fosc/len(states), cond.Eexc, abs_cross=True, molar=INFOS['molar'])
+                elif INFOS['dos_switch']:
                     speclist[istate].add(1., cond.Eexc)
                 else:
                     speclist[istate].add(cond.Fosc, cond.Eexc)
+                
+        
     sys.stdout.write('\n')
 
     return speclist
@@ -862,6 +891,8 @@ date %s
     parser.add_option('-B', dest='B', type=int, nargs=1, default=0, help="Number of bootstrap cycles")
     parser.add_option('-p', dest='p', type=int, nargs=1, default=3, help="Number of standard deviations for bootstrap output (default=3)")
     parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
+    parser.add_option('-c', dest='c', action='store_true', default=False, help="Calculate absorption cross section (A^2/molecule).")
+    parser.add_option('-m', dest='m', action='store_true', default=False, help="Convert absorption cross sections to molar absorption coefficient.")
 
     (options, args) = parser.parse_args()
 
@@ -903,9 +934,20 @@ date %s
     INFOS['bootstrapfile'] = options.b
     INFOS['bootstraps'] = options.B
     INFOS['power'] = options.p
+    INFOS['abscross'] = options.c
+    INFOS['molar'] = options.m
+    if INFOS['dos_switch'] and INFOS['abscross']:
+        print("Error: cannot do DOS and absolute cross sections at the same time!")
+        quit(1)
+
 
     if options.o == '':
-        if INFOS['dos_switch']:
+        if INFOS['abscross']:
+            if INFOS['molar']:
+                outputfile = 'spectrum_molar_abs_coeff.out'
+            else:
+                outputfile = 'spectrum_cross_section.out'
+        elif INFOS['dos_switch']:
             outputfile = 'density_of_states.out'
         else:
             outputfile = ['spectrum.out', 'spectrum_line.out'][options.l]
