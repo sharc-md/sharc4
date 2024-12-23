@@ -936,6 +936,9 @@ date %s
     INFOS['power'] = options.p
     INFOS['abscross'] = options.c
     INFOS['molar'] = options.m
+    if INFOS['molar'] and not INFOS['abscross']:
+        print("Error: -m has to be used together with -c!")
+        quit(1)
     if INFOS['dos_switch'] and INFOS['abscross']:
         print("Error: cannot do DOS and absolute cross sections at the same time!")
         quit(1)
