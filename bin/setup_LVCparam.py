@@ -1087,6 +1087,7 @@ def write_displacement_info(INFOS):
 
     # write INFOS to info file
     # pickle.dump(INFOS, displacement_info)
+    INFOS["needed_requests"] = list(INFOS["needed_requests"])
     json.dump(INFOS, displacement_info, sort_keys=True, indent=4)
 
     # writing header
