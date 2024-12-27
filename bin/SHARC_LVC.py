@@ -140,9 +140,9 @@ class SHARC_LVC(SHARC_FAST):
             c1 = np.array(charges)
             c2 = np.array(self.QMin.molecule["charge"])
             # zero-pad shorter one
-            max_len = max(len(c1), len(c2))
-            c1 = c1 + [0] * (max_len - len(c1))
-            c2 = c2 + [0] * (max_len - len(c2))
+            max_len = max(len(c1), len(c2), len(states))
+            c1 = np.pad(c1, (0, max_len - len(c1)), mode='constant', constant_values=0)
+            c2 = np.pad(c2, (0, max_len - len(c2)), mode='constant', constant_values=0)
             # remove charge for irrelevant multiplicities
             mask = np.array(states) != 0
             c1 = c1[mask]
