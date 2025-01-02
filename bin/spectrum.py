@@ -524,7 +524,7 @@ def make_spectra_bootstrap(statelist, INFOS):
         mean_spec.spec[ipt] = mean_geom(data)
         stdev = stdev_geom(data, mean_spec.spec[ipt])
         stdev_specp.spec[ipt] = mean_spec.spec[ipt] * (stdev**power - 1.)
-        stdev_specm.spec[ipt] = mean_spec.spec[ipt] * (1. // stdev**power - 1.)
+        stdev_specm.spec[ipt] = mean_spec.spec[ipt] * (stdev**(-power) - 1.)
 
     allspec = [mean_spec, stdev_specp, stdev_specm] + allspec
 
@@ -787,15 +787,25 @@ def make_gnuplot(outputfile, INFOS):
 
     if INFOS['dos_switch']:
         title = 'Density-of-states spectrum'
+        ylabel = 'Absorption spectrum (normalized)'
     else:
-        title = 'Absorption spectrum'
+        if INFOS['abscross']:
+            if INFOS['molar']:
+                title = 'Absorption spectrum (molar absorption coefficient)'
+                ylabel = 'Molar absorption coefficient (cm^-1 M^-1)'
+            else:
+                title = 'Absorption spectrum (absolute cross section)'
+                ylabel = 'Absorption cross section (Angstrom^2/molecule)'
+            INFOS["maxsum"] = 1.0
+        title = 'Absorption spectrum (arbitrary units)'
+        ylabel = 'Absorption spectrum (normalized)'
 
     gnustring = '''set title "%s (%s%s)\\n%i Initial conditions, %s representation"
 
 set xrange [%f:%f]
-set yrange [%f:%f]
+set yrange [%f:%s]
 set xlabel 'Energy (eV)'
-set ylabel 'Absorption spectrum (normalized)'
+set ylabel '%s'
 
 set style fill transparent solid 0.25 border
 set term pngcairo size 640,480
@@ -809,7 +819,8 @@ set out '%s.png'
        INFOS['erange'][0] * HARTREE_TO_EV,
        INFOS['erange'][1] * HARTREE_TO_EV,
        0.,
-       1.,
+       '1.' if "normalized" in ylabel else "*",
+       ylabel,
        INFOS['outputfile']
        )
 
