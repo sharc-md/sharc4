@@ -42,9 +42,9 @@ all_features = set(
         "point_charges",
         "grad_pc",
         # raw data request
-        "mol",
-        "wave_functions",
-        "density_matrices",
+        # "mol",
+        # "wave_functions",
+        # "density_matrices",
     ]
 )
 
@@ -93,16 +93,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.template.update(
             {
                 "no_tda": False,
-                # "picture_change": False,
                 "basis": "6-31G",
                 "auxbasis": None,
                 "functional": "PBE",
                 "dispersion": None,
                 "ri": None,
-                "scf": None,
+                # "scf": None,
                 "keys": None,
                 "paste_input_file": None,
-                "frozen": -1,
+                # "frozen": -1,           # TODO: currently has no effect
                 "maxiter": 700,
                 "hfexchange": -1.0,
                 "intacc": -1.0,
@@ -116,16 +115,15 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.template.types.update(
             {
                 "no_tda": bool,
-                "picture_change": bool,
                 "basis": str,
                 "auxbasis": str,
                 "functional": str,
                 "dispersion": str,
                 "ri": str,
-                "scf": str,
+                # "scf": str,
                 "keys": str,
                 "paste_input_file": str,
-                "frozen": int,
+                # "frozen": int,
                 "maxiter": int,
                 "hfexchange": float,
                 "intacc": float,
