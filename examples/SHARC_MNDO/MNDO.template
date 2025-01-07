@@ -1,8 +1,9 @@
 ## This is a commented version of the MNDO.template file 
 ## for version 1.0 of the SHARC_MNDO.py interface.
 
-## Dispersion correction. 0 -> False, normal OM2 Hamiltonian. 1 -> True, ODM2 Hamiltonian.
-disp 0
+
+## You can choose between the OM2 Hamiltonian and the ODM2 Hamiltonian with dispersion correction.
+hamiltonian om2
 
 ## Number of reference occupations. Up to 20 references can be chosen.
 nciref 3
@@ -26,9 +27,6 @@ ici1 2
 
 ## Number of active unoccupied orbitals.
 ici2 1
-
-## Definition of orbitals involved in the active space, defined by act_orbs. 0 -> False, 1 -> True
-movo 1
 
 ## List of Active Orbitals. Only used if movo -> 1.
 act_orbs 4 6 7
