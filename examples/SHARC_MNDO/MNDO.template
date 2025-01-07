@@ -7,9 +7,9 @@ disp 0
 ## Number of reference occupations. Up to 20 references can be chosen.
 nciref 3
 
-## Definition of the reference occupations. = 0 Stardard definition. = 3 Starting from 
-## the reference occupations corresponding to mciref=0, add further references so that 
-## their fraction in all CI roots is at least 85%, and repeat the CI calculation once.
+## Definition of the reference occupations. = 0 Stardard definition. 
+## = 3 Starting from the reference occupations corresponding to mciref=0, add further references 
+## so that their fraction in all CI roots is at least 85%, and repeat the CI calculation once.
 mciref 0
 
 ## Maximum excitation level relative to any of the reference configurations. From 1 to 6.
