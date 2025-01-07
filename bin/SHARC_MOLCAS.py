@@ -106,13 +106,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "imaginary": 0.0,
                 "frozen": None,
                 "gradaccudefault": 1e-4,
-                "gradaccumax": 1e-2,
+                "gradaccumax": 1e-3,
                 "pcmset": None,
                 "pcmstate": None,
                 "iterations": [200, 100],
                 "cholesky_accu": 1e-4,
                 "rasscf_thrs": [1e-8, 1e-4, 1e-4],
-                "density_calculation_methods": [],
+                # "density_calculation_methods": [],
             }
         )
 
