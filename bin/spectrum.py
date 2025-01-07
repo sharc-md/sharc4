@@ -78,6 +78,15 @@ class lorentz:
         return A / ((x - x0)**2 / self.c + 1)
 
 
+class rectangle:
+    def __init__(self, fwhm):
+        self.f = fwhm
+        self.norm = fwhm
+
+    def ev(self, A, x0, x):
+        return A if abs(x-x0)<=self.f/2 else 0.
+
+
 class lognormal:
     def __init__(self, fwhm):
         self.f = fwhm
@@ -116,7 +125,10 @@ class spectrum:
                 factor *= AVOGADRO * 1e-16 / math.log(10.) / 1e3
             # factor 1e20 is to get cross sections in A^2 rather than m^2, factor HARTREE_TO_JOULE is because e^2*hbar/(m_e*c*eps) has units of Jm^2 
             for i in range(self.npts + 1):
-                self.spec[i] += self.f.ev(   A*x0/self.en[i],   x0,   self.en[i]  ) * factor
+                try:
+                    self.spec[i] += self.f.ev(   A*x0/self.en[i],   x0,   self.en[i]  ) * factor
+                except ZeroDivisionError:
+                    pass
         else:
             for i in range(self.npts + 1):
                 self.spec[i] += self.f.ev(   A,                 x0,   self.en[i])
@@ -797,8 +809,9 @@ def make_gnuplot(outputfile, INFOS):
                 title = 'Absorption spectrum (absolute cross section)'
                 ylabel = 'Absorption cross section (Angstrom^2/molecule)'
             INFOS["maxsum"] = 1.0
-        title = 'Absorption spectrum (arbitrary units)'
-        ylabel = 'Absorption spectrum (normalized)'
+        else:
+            title = 'Absorption spectrum (arbitrary units)'
+            ylabel = 'Absorption spectrum (normalized)'
 
     gnustring = '''set title "%s (%s%s)\\n%i Initial conditions, %s representation"
 
