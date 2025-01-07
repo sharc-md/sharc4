@@ -45,7 +45,7 @@ dispersion D3
 
 
     ## uncommenting this keyword activates %rel pictureChange
-picture_change
+#picture_change
 
 
 
