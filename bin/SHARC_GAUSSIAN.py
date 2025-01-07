@@ -114,6 +114,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "basis_external": None,
                 "noneqsolv": False,
                 "state_densities": 'relaxed',
+                "neglected_gradient": "zero",
             }
         )
         self.QMin.template.types.update(
@@ -134,6 +135,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "basis_external": str,
                 "noneqsolv": bool,
                 "state_densities": str,
+                "neglected_gradient": str,
             }
         )
 
@@ -143,7 +145,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "groot": None,
                 "numfrozcore": 0,
                 "schedule_scaling": 0.9,
-                "neglected_gradient": "zero",
                 "dry_run": False,
                 "debug": False,
                 "min_cpu": 1,
@@ -155,7 +156,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 "groot": str,
                 "numfrozcore": int,
                 "schedule_scaling": float,
-                "neglected_gradient": str,
                 "dry_run": bool,
                 "debug": bool,
                 "min_cpu": int,
@@ -462,12 +462,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMin.resources["GAUSS_EXE"] = os.path.join(self.QMin.resources["groot"], "g%s" % self._Gversion)
 
         if self.QMin.requests["grad"]:
-            match self.QMin.resources["neglected_gradient"].lower():
+            match self.QMin.template["neglected_gradient"].lower():
                 case "zero" | "gs" | "closest":
-                    self.QMin.resources["neglected_gradient"] = self.QMin.resources["neglected_gradient"].lower()
+                    self.QMin.template["neglected_gradient"] = self.QMin.template["neglected_gradient"].lower()
                 case _:
                     self.log.error(
-                        f'Argument to "neglected_gradient" not in ["zero", "gs", "closes"]: {self.QMin.resources["neglected_gradient"]}!'
+                        f'Argument to "neglected_gradient" not in ["zero", "gs", "closes"]: {self.QMin.template["neglected_gradient"]}!'
                     )
                     raise ValueError()
 
@@ -1797,13 +1797,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                         self.QMout["grad"][istate - 1] = g
                         if self.QMin.molecule["point_charges"]:
                             self.QMout["grad_pc"][istate - 1] = gpc
-            if self.QMin.resources["neglected_gradient"] != "zero":
+            if self.QMin.template["neglected_gradient"] != "zero":
                 for i in range(nmstates):
                     m1, s1, ms1 = tuple(self.QMin.maps["statemap"][i + 1])
                     if not (m1, s1) in self.QMin.maps["gradmap"]:
-                        if self.QMin.resources["neglected_gradient"] == "gs":
+                        if self.QMin.template["neglected_gradient"] == "gs":
                             j = self.QMin.maps["gsmap"][i + 1] - 1
-                        elif self.QMin.resources["neglected_gradient"] == "closest":
+                        elif self.QMin.template["neglected_gradient"] == "closest":
                             e1 = self.QMout["h"][i][i]
                             de = 999.0
                             for grad in self.QMin.maps["gradmap"]:
