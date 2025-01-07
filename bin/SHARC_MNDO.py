@@ -1082,6 +1082,8 @@ mocoef
         if len(self.QMin["template"]["act_orbs"]) > 0 :
             self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
             self.QMin["template"]["movo"] = 1
+            if len(self.QMin["template"]["act_orbs"]) != (int(self.QMin["template"]["ici1"]) + int(self.QMin["template"]["ici2"])):
+                raise ValueError(f"Number of entries in act_orbs has to be the same as ici1 + ici2.")
         else:
             self.QMin["template"]["movo"] = 0
 
