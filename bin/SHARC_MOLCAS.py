@@ -112,7 +112,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "iterations": [200, 100],
                 "cholesky_accu": 1e-4,
                 "rasscf_thrs": [1e-8, 1e-4, 1e-4],
-                # "density_calculation_methods": [],
+                "density_calculation_methods": [],
             }
         )
 
