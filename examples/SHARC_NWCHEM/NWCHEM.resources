@@ -1,9 +1,9 @@
-    ## This is a commented version of the ORCA.resources file 
+    ## This is a commented version of the NWCHEM.resources file 
 
-    ## ======== ORCA setup ============
+    ## ======== NWCHEM setup ============
 
-    ## 
-orcadir /usr/license/orca42/orca_4_2_1_linux_x86-64_openmpi216/
+    ## Path to the executable of NWChem
+nwchem /path/to/executable/nwchem
 
 
     ## ======== SCRATCH and SAVE ============
@@ -26,7 +26,6 @@ savedir ./SAVEDIR
     ## Number of CPU cores the interface can use.
     ## If several ADF jobs need to be done (several multiplicities, several gradients),
     ## then the interface will distribute the jobs over the cores in a sensible way.
-    ## Note that with ADF>=2017.208, no separate gradient jobs are needed, so each multiplicity spawns at most one ADF run.
 ncpu 4
 
     ## Fraction of parallelizable work in the ADF calculations.
@@ -69,41 +68,6 @@ numocc 0
     ## Must not be used for dynamics runs.
 #nooverlap
 
-
-
-
-    ## ======== TheoDORE ============
-
-    ## Path to the TheoDORE installation.
-theodir /user/mai/SHARC/TheoDORE/TheoDORE_1.7.2/
-#theodir /user/plasserf/programs/TheoDORE/GIT/
-
-
-    ## This keyword defines the properties to be computed by TheoDORE.
-    ## The properties can either be given as space-separated items (the interface will reformat this for proper TheoDORE input:
-theodore_prop Om POSi POSf PR CT PRNTO Z_HE RMSeh
-        ## Or as Python-style list of strings (e.g., from dens_ana.in):
-#theodore_prop ['Om', 'POSi', 'POSf', 'PR', 'CT', 'MC', 'LC', 'MLCT', 'LMCT', 'LLCT', 'PRNTO', 'Z_HE', 'S_HE', 'RMSeh']
-
-    ## This keyword defines fragments for the CT population analysis of TheoDORE.
-    ## The fragments can be either specified one by one on separate lines, 
-theodore_fragment 1
-theodore_fragment 2
-theodore_fragment 3
-    ## or as Python-style list of integers (e.g., from dens_ana.in):
-#theodore_fragment [[1,2,3],[4,5,6,7,8,9,10]]
-    ## It is strongly advised to not mix these two input styles.
-
-
-
-
-    ## ======== OTHERS ============
-
-    ## Always use the provided initial orbitals, even if starting orbitals are present in the savedir.
-#always_orb_init
-
-    ## Always use an orbital guess, even if starting orbitals are present in the savedir.
-#always_guess
 
 
 

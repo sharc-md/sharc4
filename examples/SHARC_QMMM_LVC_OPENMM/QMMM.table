@@ -1,0 +1,304 @@
+qm  C    2 3 4
+qm  S    
+qm  H    
+qm  H    
+mm  O    
+mm  H    5
+mm  H    5 6
+mm  O    
+mm  H    8
+mm  H    8 9
+mm  O    
+mm  H    11
+mm  H    11 12
+mm  O    
+mm  H    14
+mm  H    14 15
+mm  O    
+mm  H    17
+mm  H    17 18
+mm  O    
+mm  H    20
+mm  H    20 21
+mm  O    
+mm  H    23
+mm  H    23 24
+mm  O    
+mm  H    26
+mm  H    26 27
+mm  O    
+mm  H    29
+mm  H    29 30
+mm  O    
+mm  H    32
+mm  H    32 33
+mm  O    
+mm  H    35
+mm  H    35 36
+mm  O    
+mm  H    38
+mm  H    38 39
+mm  O    
+mm  H    41
+mm  H    41 42
+mm  O    
+mm  H    44
+mm  H    44 45
+mm  O    
+mm  H    47
+mm  H    47 48
+mm  O    
+mm  H    50
+mm  H    50 51
+mm  O    
+mm  H    53
+mm  H    53 54
+mm  O    
+mm  H    56
+mm  H    56 57
+mm  O    
+mm  H    59
+mm  H    59 60
+mm  O    
+mm  H    62
+mm  H    62 63
+mm  O    
+mm  H    65
+mm  H    65 66
+mm  O    
+mm  H    68
+mm  H    68 69
+mm  O    
+mm  H    71
+mm  H    71 72
+mm  O    
+mm  H    74
+mm  H    74 75
+mm  O    
+mm  H    77
+mm  H    77 78
+mm  O    
+mm  H    80
+mm  H    80 81
+mm  O    
+mm  H    83
+mm  H    83 84
+mm  O    
+mm  H    86
+mm  H    86 87
+mm  O    
+mm  H    89
+mm  H    89 90
+mm  O    
+mm  H    92
+mm  H    92 93
+mm  O    
+mm  H    95
+mm  H    95 96
+mm  O    
+mm  H    98
+mm  H    98 99
+mm  O    
+mm  H    101
+mm  H    101 102
+mm  O    
+mm  H    104
+mm  H    104 105
+mm  O    
+mm  H    107
+mm  H    107 108
+mm  O    
+mm  H    110
+mm  H    110 111
+mm  O    
+mm  H    113
+mm  H    113 114
+mm  O    
+mm  H    116
+mm  H    116 117
+mm  O    
+mm  H    119
+mm  H    119 120
+mm  O    
+mm  H    122
+mm  H    122 123
+mm  O    
+mm  H    125
+mm  H    125 126
+mm  O    
+mm  H    128
+mm  H    128 129
+mm  O    
+mm  H    131
+mm  H    131 132
+mm  O    
+mm  H    134
+mm  H    134 135
+mm  O    
+mm  H    137
+mm  H    137 138
+mm  O    
+mm  H    140
+mm  H    140 141
+mm  O    
+mm  H    143
+mm  H    143 144
+mm  O    
+mm  H    146
+mm  H    146 147
+mm  O    
+mm  H    149
+mm  H    149 150
+mm  O    
+mm  H    152
+mm  H    152 153
+mm  O    
+mm  H    155
+mm  H    155 156
+mm  O    
+mm  H    158
+mm  H    158 159
+mm  O    
+mm  H    161
+mm  H    161 162
+mm  O    
+mm  H    164
+mm  H    164 165
+mm  O    
+mm  H    167
+mm  H    167 168
+mm  O    
+mm  H    170
+mm  H    170 171
+mm  O    
+mm  H    173
+mm  H    173 174
+mm  O    
+mm  H    176
+mm  H    176 177
+mm  O    
+mm  H    179
+mm  H    179 180
+mm  O    
+mm  H    182
+mm  H    182 183
+mm  O    
+mm  H    185
+mm  H    185 186
+mm  O    
+mm  H    188
+mm  H    188 189
+mm  O    
+mm  H    191
+mm  H    191 192
+mm  O    
+mm  H    194
+mm  H    194 195
+mm  O    
+mm  H    197
+mm  H    197 198
+mm  O    
+mm  H    200
+mm  H    200 201
+mm  O    
+mm  H    203
+mm  H    203 204
+mm  O    
+mm  H    206
+mm  H    206 207
+mm  O    
+mm  H    209
+mm  H    209 210
+mm  O    
+mm  H    212
+mm  H    212 213
+mm  O    
+mm  H    215
+mm  H    215 216
+mm  O    
+mm  H    218
+mm  H    218 219
+mm  O    
+mm  H    221
+mm  H    221 222
+mm  O    
+mm  H    224
+mm  H    224 225
+mm  O    
+mm  H    227
+mm  H    227 228
+mm  O    
+mm  H    230
+mm  H    230 231
+mm  O    
+mm  H    233
+mm  H    233 234
+mm  O    
+mm  H    236
+mm  H    236 237
+mm  O    
+mm  H    239
+mm  H    239 240
+mm  O    
+mm  H    242
+mm  H    242 243
+mm  O    
+mm  H    245
+mm  H    245 246
+mm  O    
+mm  H    248
+mm  H    248 249
+mm  O    
+mm  H    251
+mm  H    251 252
+mm  O    
+mm  H    254
+mm  H    254 255
+mm  O    
+mm  H    257
+mm  H    257 258
+mm  O    
+mm  H    260
+mm  H    260 261
+mm  O    
+mm  H    263
+mm  H    263 264
+mm  O    
+mm  H    266
+mm  H    266 267
+mm  O    
+mm  H    269
+mm  H    269 270
+mm  O    
+mm  H    272
+mm  H    272 273
+mm  O    
+mm  H    275
+mm  H    275 276
+mm  O    
+mm  H    278
+mm  H    278 279
+mm  O    
+mm  H    281
+mm  H    281 282
+mm  O    
+mm  H    284
+mm  H    284 285
+mm  O    
+mm  H    287
+mm  H    287 288
+mm  O    
+mm  H    290
+mm  H    290 291
+mm  O    
+mm  H    293
+mm  H    293 294
+mm  O    
+mm  H    296
+mm  H    296 297
+mm  O    
+mm  H    299
+mm  H    299 300
+mm  O    
+mm  H    302
+mm  H    302 303
