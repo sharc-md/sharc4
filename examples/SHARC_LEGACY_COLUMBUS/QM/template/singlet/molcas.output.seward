@@ -1,0 +1,264 @@
+   This run of MOLCAS is using the pymolcas driver
+
+                             OPE
+                             OPE          NMOL  CASOP  ENMOLC A   SO
+                 OPE        NMOLC        AS  OP EN  MO LC     AS  OP
+                OPENM       OL CA        SO  PE NM  OL CA     SOP EN
+                OP EN      MO   LC       AS  OP ENMOL  CASO   PENMOL
+                OP  EN     MO   LC       AS  OP EN     MO     LC ASO
+               OP   E  NMOL  C  AS       OP  EN MO     LC     AS  OP
+               OP  E   NMO   LC AS        OPEN  MO     LCASOP EN   M
+               O  PEN   MO  LCA  SO
+            OPE   NMO   L   CAS    OP
+        OPENMOL  CASOP     ENMOL   CASOPE
+     OPENMOLCA   SOPENMOLCASOPEN   MOLCASOPE
+    OPENMOLCAS   OP           EN   MOL    CAS
+    OPENMOLCAS       OP  ENM        O     LCA
+    OPENMOLCAS    OPEN  MOLCASO     P  E  NMO
+    OPENMOLCAS     OP               E  N  MOL
+    OPENMOLCA   SO           PENM   O  L  CAS    OPEN    MO    LCAS
+    OPENMOLCA   SOP           ENM   O  L  CAS   OP  EN  MOLC  AS   O
+    OPENMOLCA   SOPE           NM      O  LCA   S      OP  EN MO
+    OPENMOLC                AS         O  PEN   M      OL  CA  SOPE
+    OPENMO        LCASOPE  NMOL        C  ASO   P      ENMOLC     AS
+    OPE     NMO      LCA  SO     P     E   NM   OL  CA SO  PE N   MO
+          OPENMOLCA            SOPE   NMO        LCAS  O    P  ENMO
+     OPENMOLCASOPENMOLCASOPENMOLCASOPENMOLCA
+        OPENMOLCASOPENMOLCASOPENMOLCASOPE
+            OPENMOLCASOPENMOLCASOPENM
+               OPENMOLCASOPENMOLCA        version 18.09
+                   OPENMOLCASO
+                       OPE                tag 2-g433e6e16
+
+ OpenMolcas is free software; you can redistribute it and/or modify it
+ under the terms of the GNU Lesser General Public License version 2.1.
+ OpenMolcas is distributed in the hope that it will be useful, but it
+ is provided "as is" and without any express or implied warranties.
+ For more details see the full text of the license in the file
+ LICENSE or in <http://www.gnu.org/licenses/>.
+
+                 Copyright (C) The OpenMolcas Authors
+           For the author list and the recommended citation,
+                   consult the file CONTRIBUTORS.md
+
+           *************************************************
+           * pymolcas version py2.28                       *
+           *   build c4a6d18ded8cb6cad61d2372a9abd97c      *
+           *   (after the EMIL interpreter by V. Veryazov) *
+           *************************************************
+
+configuration info
+------------------
+C Compiler ID: GNU
+C flags: -std=gnu99
+Fortran Compiler ID: Intel
+Fortran flags: -fpp -i8 -r8 -heap-arrays
+Definitions: _MOLCAS_;_I8_;_LINUX_;_MKL_
+Parallel: OFF (GA=OFF)
+
+
+   --------------------------------------------------------------------------------
+  |
+  |           Project: molcas
+  |    Submitted from: /gpfs/data/fevenak/mrcisd/4def/traj/tsh_nac/template/singlet
+  |      Scratch area: /public/manganese/scratch/tmp/fevenak.87455/molcas
+  |   Save outputs to: /gpfs/data/fevenak/mrcisd/4def/traj/tsh_nac/template/singlet
+  |            Molcas: /usr/license/columbus/OpenMolcas/build
+  |
+  | Scratch area is NOT empty
+  |
+  |    MOLCAS_DRIVER = /usr/local/bin/pymolcas
+  |    MOLCAS_NPROCS = 1
+  |    MOLCAS_SOURCE = /usr/license/columbus/OpenMolcas/build
+  | MOLCAS_STRUCTURE = 0
+  |
+   --------------------------------------------------------------------------------
+
+++ ---------   Input file   ---------
+
+&SEWARD
+ANGMOM
+ 0 0 0
+RELINT
+R02O
+EXPERT
+AMFI
+Basis set
+S.ANO-RCC-VDZP
+S1   -0.65009210   5.04122489   0.07248619
+End of Basis
+Basis set
+O.ANO-RCC-VDZP
+O2   2.07400764   4.90212325   -0.19510936
+O3   -1.79003669   5.82215072   2.43939923
+End of Basis
+ONEONLY
+
+End of input
+
+-- ----------------------------------
+
+*** symbolic link created: INPORB -> molcas.GssOrb
+--- Start Module: seward at Wed Aug 21 15:27:11 2024 ---
+ 
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+
+                                              &SEWARD
+
+                                   only a single process is used
+                       available to each process: 2.0 GB of memory, 1 thread?
+()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()
+ 
+ ###############################################################################
+ ###############################################################################
+ ###                                                                         ###
+ ###                                                                         ###
+ ###                                                                         ###
+ ###    WARNING: EXPERT option is ON!                                        ###
+ ###                                                                         ###
+ ###                                                                         ###
+ ###############################################################################
+ ###############################################################################
+               SEWARD will generate:
+                  Multipole Moment integrals up to order  2
+                  Kinetic Energy integrals
+                  Nuclear Attraction integrals (point charge)
+                  One-Electron Hamiltonian integrals
+                  Mass-Velocity integrals
+                  Darwin One-Electron Contact Term integrals
+                  Velocity integrals
+                  Relativistic Douglas-Kroll-Hess integrals:
+                    - Parametrization         : OPT
+                    - DKH order of Hamiltonian: 2
+                    - DKH order of Properties : 2
+                         - multipole moment operators
+                         - electric potential operators
+                         - contact operators
+                  Orbital angular momentum around ( 0.0000  0.0000  0.0000 )
+                  Atomic mean-field integrals
+ 
+                   Integrals are discarded if absolute value <: 0.10E-13
+                   Integral cutoff threshold is set to       <: 0.10E-15
+ 
+++    Symmetry information:
+      ---------------------
+ 
+                    Character Table for C1 
+ 
+                             E  
+                    a        1  x, y, xy, Rz, z, xz, Ry, yz, Rx, I
+--
+ 
+ 
+++    Basis set information:
+      ----------------------
+ 
+ 
+      Basis set label: S.ANO-RCC...4S3P1D.
+ 
+      Electronic valence basis set:
+      ------------------
+      Associated Effective Charge  16.000000 au
+      Associated Actual Charge     16.000000 au
+      Nuclear Model: Point charge
+ 
+      Shell  nPrim  nBasis  Cartesian Spherical Contaminant
+         s      17       4        X                  
+         p      12       3        X                  
+         d       5       1                 X         
+ 
+ 
+      Basis set label: O.ANO-RCC...3S2P1D.
+ 
+      Electronic valence basis set:
+      ------------------
+      Associated Effective Charge   8.000000 au
+      Associated Actual Charge      8.000000 au
+      Nuclear Model: Point charge
+ 
+      Shell  nPrim  nBasis  Cartesian Spherical Contaminant
+         s      14       3        X                  
+         p       9       2        X                  
+         d       4       1                 X         
+--
+ 
+ 
+++    Molecular structure info:
+      -------------------------
+ 
+                    ************************************************ 
+                    **** Cartesian Coordinates / Bohr, Angstrom **** 
+                    ************************************************ 
+ 
+     Center  Label                x              y              z                     x              y              z
+        1      S1              -0.650092       5.041225       0.072486             -0.344014       2.667701       0.038358
+        2      O2               2.074008       4.902123      -0.195109              1.097518       2.594092      -0.103247
+        3      O3              -1.790037       5.822151       2.439399             -0.947247       3.080949       1.290874
+ 
+                    *************************************** 
+                    *    InterNuclear Distances / Bohr    * 
+                    *************************************** 
+ 
+               1 S1            2 O2            3 O3    
+    1 S1       0.000000
+    2 O2       2.740744        0.000000
+    3 O3       2.740729        4.766332        0.000000
+ 
+                    ******************************************* 
+                    *    InterNuclear Distances / Angstrom    * 
+                    ******************************************* 
+ 
+               1 S1            2 O2            3 O3    
+    1 S1       0.000000
+    2 O2       1.450339        0.000000
+    3 O3       1.450331        2.522234        0.000000
+ 
+                    ************************************** 
+                    *    Valence Bond Angles / Degree    * 
+                    ************************************** 
+                          Atom centers                 Phi
+                      2 O2       1 S1       3 O3       120.81
+--
+ 
+ 
+            Nuclear Potential Energy            106.83306783 au
+ 
+ 
+      Basis set specifications :
+      Symmetry species         a  
+      Basis functions           46
+ 
+ 
+  Input file to MOLDEN was generated!
+ 
+ ###############################################################################
+ ###############################################################################
+ ###                                                                         ###
+ ###                                                                         ###
+ ###    RunFile label nBas                                                   ###
+ ###    was used       46 times                                              ###
+ ###                                                                         ###
+ ###                                                                         ###
+ ###############################################################################
+ ###############################################################################
+ ###############################################################################
+ ###############################################################################
+ ###                                                                         ###
+ ###                                                                         ###
+ ###    There were warnings during the execution                             ###
+ ###    Please, check the output with care!                                  ###
+ ###                                                                         ###
+ ###                                                                         ###
+ ###############################################################################
+ ###############################################################################
+--- Stop Module: seward at Wed Aug 21 15:27:13 2024 /rc=_RC_ALL_IS_WELL_ ---
+*** files: molcas.GssOrb molcas.guessorb.molden xmldump
+    saved to directory /gpfs/data/fevenak/mrcisd/4def/traj/tsh_nac/template/singlet
+--- Module seward spent 2 seconds ---
+
+.########################.
+.# Non-zero return code #.
+.########################.
+
+    Timing: Wall=2.06 User=1.62 System=0.39
+Happy landing 
