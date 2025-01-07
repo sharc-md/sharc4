@@ -1099,10 +1099,17 @@ mocoef
         self.QMin["template"]["levexc"] = int(self.QMin["template"]["levexc"])
         if self.QMin["template"]["levexc"] > 6 or self.QMin["template"]["levexc"] < 1 :
             raise ValueError(f"levexc can only be between 1 (singlets) and 6 (sextets).")
+
+
+
+        if self.QMin["template"]["mciref"] < 0 or self.QMin["template"]["mciref"] > 1:  # Check if mciref is not out of range.
+            raise ValueError(f"mciref can either be 0 (false) or 1 (true). Negative numbers not supported!")
+        if self.QMin["template"]["mciref"] == 1:
+            self.QMin["template"]["mciref"] = 3 
         
-        self.QMin["template"]["mciref"] = int(self.QMin["template"]["mciref"])
-        if self.QMin["template"]["mciref"] != 3 and self.QMin["template"]["mciref"] != 0:
-            raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plus 85% of something).")
+        # self.QMin["template"]["mciref"] = int(self.QMin["template"]["mciref"])
+        # if self.QMin["template"]["mciref"] != 3 and self.QMin["template"]["mciref"] != 0:
+        #     raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plus 85% of something).")
 
 
 
