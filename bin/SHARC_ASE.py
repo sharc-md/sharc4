@@ -74,7 +74,7 @@ class SHARC_ASE(SHARC_HYBRID):
         self.template_file = None
 
     def read_resources(self, resources_file="ASE.resources", kw_whitelist=None):
-        return super().read_resources(resources_file, kw_whitelist)
+        self._read_resources = True
 
     def read_template(self, template_file="ASE.template", kw_whitelist=None):
         self.log.debug(f"Parsing template file {template_file}")
