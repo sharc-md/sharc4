@@ -1,0 +1,59 @@
+    ## This is a commented version of the ORCA.template file 
+    ## for version 1.0 of the SHARC_ORCA.py interface.
+
+    ## ======== BASIS SETS ============
+
+
+    ## This keyword defines the basis set for all atoms.
+    ## copied verbatim to input
+basis def2-svp
+
+    ## To use custom basis sets
+#library_path /gpfs/data/sascha/nwchem/data/libraries/
+
+    ## ======== CHEMISTRY ============
+
+    ## This keyword defines the XC functional.
+    ## copied verbatim to input
+    ## "hf" can also be used and gives TDHF or CIS for excited states
+functional b3lyp
+
+    ## Settings for range-separated functionals
+#cam 
+
+    ## This keyword activates dispersion correction.
+    ## All arguments are written verbatim to input.
+dispersion vdw 3
+
+    ## This keyword deactivates TDA (which the interface will request by default).
+tda true
+
+    ## For implicit solvation
+#cosmo 78.9
+
+
+    ## ======== ACCURACY and CONVERGENCE ============
+
+    ## maximum SCF cycles
+maxiter 700
+
+    ## integration grid
+grid xfine
+
+    ## to force spherical basis functions (needed for overlaps)
+spherical
+
+    ## to force Cartesian basis functions (no overlaps available)
+forcecartesian
+
+
+
+
+
+
+
+
+
+
+
+

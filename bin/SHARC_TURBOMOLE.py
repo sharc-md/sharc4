@@ -285,11 +285,11 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self.log.info(f"{'TURBOMOLE ressource usage':-^60}\n")
             self.setupINFOS["turbodir"] = question("Specify path to TURBOMOLE: ", str, KEYSTROKES=KEYSTROKES)
             if "soc" in INFOS["needed_requests"]:
-                INFOS["orcadir"] = question("Specify path to ORCA (< 5.0.0) to calculate SOCs:", str, KEYSTROKES=KEYSTROKES)
+                self.setupINFOS["orcadir"] = question("Specify path to ORCA (< 5.0.0) to calculate SOCs:", str, KEYSTROKES=KEYSTROKES)
             self.log.info("Please specify the number of CPUs to be used by EACH trajectory.\n")
-            self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0], default=1)
+            self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES, default=[1])[0])
             self.setupINFOS["memory"] = question(
-                "Specify the amount of RAM to be used.\nMemory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES
+                "Specify the amount of RAM to be used (in MB):", int, default=[1000], KEYSTROKES=KEYSTROKES
             )[0]
             if "overlap" in INFOS["needed_requests"]:
                 self.setupINFOS["wfoverlap"] = question(
@@ -298,8 +298,65 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 self.log.info("State threshold for choosing determinants to include in the overlaps")
                 self.setupINFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
 
-        self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
-        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
+            self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+
+            # TheoDORE
+            theodore_spelling = [
+                "Om",
+                "PRNTO",
+                "Z_HE",
+                "S_HE",
+                "RMSeh",
+                "POSi",
+                "POSf",
+                "POS",
+                "PRi",
+                "PRf",
+                "PR",
+                "PRh",
+                "CT",
+                "CT2",
+                "CTnt",
+                "MC",
+                "LC",
+                "MLCT",
+                "LMCT",
+                "LLCT",
+                "DEL",
+                "COH",
+                "COHh",
+            ]
+            # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+            if "theodore" in INFOS["needed_requests"]:
+                self.log.info(f"\n{'Wave function analysis by TheoDORE':-^60}\n")
+
+                self.setupINFOS["theodir"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
+                self.log.info("")
+
+                self.log.info("Please give a list of the properties to calculate by TheoDORE.\nPossible properties:")
+                string = ""
+                for i, p in enumerate(theodore_spelling):
+                    string += "%s " % (p)
+                    if (i + 1) % 8 == 0:
+                        string += "\n"
+                self.log.info(string)
+                line = question("TheoDORE properties:", str, default="Om  PRNTO  S_HE  Z_HE  RMSeh", KEYSTROKES=KEYSTROKES)
+                self.setupINFOS["theodore_prop"] = line.split()
+                self.log.info("")
+
+                self.log.info("Please give a list of the fragments used for TheoDORE analysis.")
+                # self.log.info("You can use the list-of-lists from dens_ana.in")
+                self.log.info('Enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
+                self.log.info("Atom numbering starts at 1 for TheoDORE.")
+                self.setupINFOS["theodore_fragment"] = []
+                while True:
+                    line = question("TheoDORE fragment:", str, default="end", KEYSTROKES=KEYSTROKES)
+                    if "end" in line.lower():
+                        break
+                    f = [int(i) for i in line.split()]
+                    self.setupINFOS["theodore_fragment"].append(f)
+                self.setupINFOS["theodore_count"] = len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
 
         return INFOS
 
@@ -307,7 +364,16 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resources_file:
             with open(os.path.join(dir_path, "TURBOMOLE.resources"), "w", encoding="utf-8") as file:
-                for key in ("turbodir", "orcadir", "scratchdir", "ncpu", "memory", "wfoverlap", "wfthres"):
+                for key in ("turbodir", 
+                            "orcadir", 
+                            "scratchdir", 
+                            "ncpu", 
+                            "memory", 
+                            "wfoverlap", 
+                            "wfthres"
+                            "theodir",
+                            "theodore_prop",
+                            "theodore_fragment",):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
         else:
@@ -992,7 +1058,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Prepare theodore properties
         if self.QMin.requests["theodore"]:
             nprop = len(self.QMin.resources["theodore_prop"]) + (nfrag := len(self.QMin.resources["theodore_fragment"])) ** 2
-            labels = self.QMin.resources["theodore_prop"][:] + [f"Om_{i}_{j}" for i in range(nfrag) for j in range(nfrag)]
+            labels = self.QMin.resources["theodore_prop"][:] + [f"Om_{i+1}_{j+1}" for i in range(nfrag) for j in range(nfrag)]
             theodore_arr = [[labels[j], np.zeros(self.QMin.molecule["nmstates"])] for j in range(nprop)]
 
         # Open master output file

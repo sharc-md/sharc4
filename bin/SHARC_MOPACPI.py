@@ -762,7 +762,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         super().setup_interface()
 
         if (any(num > 0 for num in self.QMin.molecule["states"][1:]) or self.QMin.molecule["states"][0] == 0):
-            self.log.error("MOPAC-PI can only calculate singlets!!")
+            self.log.error("MOPAC-PI interface can only calculate singlets!!")
             raise ValueError()
 
 

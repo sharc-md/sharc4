@@ -204,19 +204,6 @@ dvd_residu 1e-3
 
 
 
-    ## ======== QM/MM ============
-
-    ## This keyword activates a QM/MM calculation, using the NEWQMMM implementation of ADF.
-    ## The default is to not run a QM/MM calculation.
-    ## If activated, the interface will look for two more files:
-    ## - a force field file in Amber95 format
-    ## - connection table file, specifying the "mm_connection_table" and "link_bonds" blocks for the input.
-#qmmm
-
-    ## This keyword sets the QM-MM coupling scheme.
-    ## default is 1 (mechanical embedding), option 2 (electrostatic embedding) only works for ADF>=2018.
-#qmmm_coupling 2
-
 
 
 

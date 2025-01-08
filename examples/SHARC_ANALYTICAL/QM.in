@@ -1,0 +1,21 @@
+2
+
+I    0.00000   0.0   0.0
+Br   6.10463   0.0   0.0
+
+    ## Step info:
+step 0
+
+    ## Settings:
+unit bohr
+states 3
+charges 0
+
+    ## Requests:
+h
+soc
+dm
+grad 
+nacdr
+#overlap
+

@@ -15,21 +15,14 @@ Comment
 
     ## ===============================================
     ## Control keywords:
-Init                    # use for very first calculation
-#Samestep               # additional calculation at same geometry
-#Restart                # additional calculation at same geometry, but with unclear status of the savedir
-                        # for calculations at a new geometry, use neither keyword
-
-#Backup                 # keep savedir content from this timestep
-#Cleanup                # delete complete scratchdir and savedir, only keep QM.out
-#savedir ./SAVE         # overrides the savedir in the resources file
 
     ## ===============================================
     ## Settings:
 
 States 4 0 1            # number of states per multiplicity (singlets, doublets, triplets, ...)
+charge 0 1 0
 Unit Angstrom           # in which units to interpret the above geometry
-#Step 0                 # Optional, used only to name the backup directories
+Step 0                 # Optional, used only to name the backup directories
 
     ## ===============================================
     ## Quantity requests:
@@ -40,8 +33,8 @@ SOC
 DM
 GRAD
 #OVERLAP
-MOLDEN
-THEODORE               # as in ADF interface. If MOLDEN is also active, also generates the NTO files and copies them to the MOLDEN directory
+#MOLDEN
+THEODORE               # If MOLDEN is also active, also generates the NTO files and copies them to the MOLDEN directory
 
     ## Not possible:
     ## ION

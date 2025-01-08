@@ -1,0 +1,4 @@
+INC=/usr/license/columbus/Columbus7/CPAN /usr/license/columbus/Columbus7/perlscripts CODE(0xa70fd0)
+Perlversion:5.012004
+getvector : 4 0 3
+getvector2 : 3, 4 0 3, 0,1 

@@ -508,7 +508,7 @@ def printtheodore(matrix, QMin):
         string += '%6s ' % i
     for i in range(len(QMin['template']['theodore_fragment'])):
         for j in range(len(QMin['template']['theodore_fragment'])):
-            string += '  Om%1i%1i ' % (i + 1, j + 1)
+            string += '  Om_%1i_%1i ' % (i + 1, j + 1)
     string += '\n' + '-------' * (1 + QMin['template']['theodore_n']) + '\n'
     istate = 0
     for imult, i, ms in itnmstates(QMin['states']):
@@ -1532,7 +1532,6 @@ def readQMin(QMinfilename):
              'exactdensity': False,
              'no_tda': False,
              'unrestricted_triplets': False,
-             'qmmm': False,
              'dvd_mblocksmall': False,
              'functional_xcfun': False,
              'fullkernel': False
@@ -1920,7 +1919,7 @@ def readQMin(QMinfilename):
         QMin['initorbs'] = {}
     elif 'init' in QMin or 'always_orb_init' in QMin:
         for job in QMin['joblist']:
-            filename = os.path.join(QMin['pwd'], 'AMS.t21.%i.init' % (job))
+            filename = os.path.join(QMin['pwd'], 'AMS_ADF.t21.%i.init' % (job))
             if os.path.isfile(filename):
                 initorbs[job] = filename
         if 'always_orb_init' in QMin and len(initorbs) < njobs:
@@ -2058,8 +2057,6 @@ def generate_joblist(QMin):
             n = 0
             for gradx in gradjob['master_%i' % ijob]:
                 if gradjob['master_%i' % ijob][gradx]['gs'] is False:
-                    n += 1
-                elif QMin['template']['qmmm']:
                     n += 1
             gradjob['master_%i' % ijob][grad] = {'gs': False}
 

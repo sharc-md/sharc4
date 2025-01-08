@@ -10,7 +10,6 @@ orcadir  /usr/license/orca/latest/
 
     ## Paths to savedir and scratchdir
 scratchdir $TMPDIR/WORK
-savedir $TMPDIR/SAVE/
 
 
     ## ======== RESOURCES ============
@@ -29,16 +28,6 @@ wfthres 0.999
 numfrozcore -1          # only for overlaps. If -1, use values from template's "frozen" keyword
 #nooverlap
 
-    ## ======== Dipole moments ============
-
-    ## As for single-reference methods, many (transition) dipole moment matrix elements might 
-    ## come with extra computational costs (response equations), the interface can reduce
-    ## the number of matrix elements if desired.
-    ## There are three levels of computation for the dipole moments.
-    ## 0: only free matrix elements (mu_00 and mu_xx if gradient of x is computed)
-    ## 1: additionally, all mu_0x elements (oscillator strengths for excitation from ground state)
-    ## 2: all matrix elements are calculated (mu_00, mu_xx, mu_0x, mu_xx)
-dipolelevel 1
 
 
 
@@ -47,10 +36,6 @@ dipolelevel 1
 
     ## Increase verbosity of interface stdout
 DEBUG true
-
-    ## Do not use the ricc2 restart feature when doing multiple ricc2 runs (for gradients, TDMs)
-#no_ricc2_restart
-
 
 
 

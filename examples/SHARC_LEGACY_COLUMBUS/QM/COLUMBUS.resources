@@ -1,0 +1,13 @@
+columbus /usr/license/columbus/Columbus7
+scratchdir $TMPDIR/Singlet_1/TRAJ_00002//
+savedir /gpfs/data/fevenak/mrcisd/4def/traj/tsh_overlap/Singlet_1/TRAJ_00002//restart
+memory 10000
+template ./template 
+integrals seward
+DIR 1 singlet/
+DIR 3 singlet/
+
+MOCOEF singlet/ singlet/
+
+wfoverlap $SHARC/wfoverlap.x
+wfthres 0.970000

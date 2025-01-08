@@ -1,0 +1,73 @@
+    ## This is a commented version of the NWCHEM.resources file 
+
+    ## ======== NWCHEM setup ============
+
+    ## Path to the executable of NWChem
+nwchem /path/to/executable/nwchem
+
+
+    ## ======== SCRATCH and SAVE ============
+
+    ## Sets the path to the scratch directory employed by the interface.
+    ## There, all ORCA and overlap calculations will be launched.
+scratchdir $TMPDIR
+
+    ## Sets the path to the save directory.
+    ## There, all chk, fchk, rwf, determinant, MO coefficient, and AO overlap files are stored between time steps.
+    ## Hence, this should be a persistent directory.
+    ## Note that the savedir from QM.in takes precedence over the one here.
+savedir ./SAVEDIR
+
+
+
+
+    ## ======== RESSOURCES ============
+
+    ## Number of CPU cores the interface can use.
+    ## If several ADF jobs need to be done (several multiplicities, several gradients),
+    ## then the interface will distribute the jobs over the cores in a sensible way.
+ncpu 4
+
+    ## Fraction of parallelizable work in the ADF calculations.
+    ## With a value close to one, the interface will tend to run multiple jobs one after each other with the maximum number of cores.
+    ## With a value close to zero, the interface will tend to run all jobs at the same time, dividing the cores over the jobs.
+schedule_scaling 0.5
+
+    ## Time delay in seconds between the launch of parallel ADF jobs.
+delay 0.
+
+    ## Memory for ORCA and the wfoverlaps code .
+memory 1000
+
+
+
+
+
+
+
+    ## ======== OVERLAPS ============
+
+    ## Path to the wfoverlaps program.
+    ## Needed for overlap and Dyson norm calculations.
+wfoverlap $SHARC/wfoverlap_ascii.x
+
+    ## Truncation threshold for the determinant files.
+    ## Note that for non-TDA hybrid TD-DFT, the response vector norm can be larger than 1.0, so give correspondingly larger values.
+wfthres 2.0
+
+    ## Number of frozen core orbitals for overlap and Dyson norm calculations.
+    ## All ADF calculations are done with all-electron settings.
+    ## A value of -1 will set the number of frozen core orbitals automatically (to ADF's small core convention).
+numfrozcore 0
+
+    ## Number of doubly occupied orbitals for Dyson calculations.
+    ## These orbitals are counted from the first nonfrozen orbital.
+numocc 0
+
+    ## Do not store determinant and MO coefficient files in savedir.
+    ## Must not be used for dynamics runs.
+#nooverlap
+
+
+
+

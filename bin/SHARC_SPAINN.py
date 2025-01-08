@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import datetime
+import os
+import shutil
 from io import TextIOWrapper
 
 import numpy as np
 from SHARC_FAST import SHARC_FAST
 from spainn.calculator import SPaiNNulator
+from utils import link, question, expand_path
 
 __all__ = ["SHARC_SPAINN"]
 
@@ -53,6 +56,8 @@ class SHARC_SPAINN(SHARC_FAST):
         self.QMin.template.types.update({"cutoff": float, "nac_key": str, "properties": list})
 
         self.spainnulator = None
+        self._resources_file = None
+        self._template_file = None
 
     @staticmethod
     def version() -> str:
@@ -92,10 +97,43 @@ class SHARC_SPAINN(SHARC_FAST):
         return all_features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
-        pass
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'SPAINN interface setup':^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+        if os.path.isfile("SPAINN.template"):
+            self.log.info("Found SPAINN.template in current directory")
+            if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+                self._template_file = "SPAINN.template"
+        else:
+            self.log.info("Specify a path to a SPAINN template file.")
+            while not os.path.isfile(template_file := question("Template path:", str, KEYSTROKES=KEYSTROKES)):
+                self.log.info(f"File {template_file} does not exist!")
+            self._template_file = template_file
+
+        if question("Do you have a SPAINN.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
+            while not os.path.isfile(
+                resources_file := question("Specify path to SPAINN.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+            ):
+                self.log.info(f"File {resources_file} does not exist!")
+            self._resources_file = resources_file
+        else:
+            self.log.info(f"{'SPAINN ressource usage':-^60}\n")
+            self.setupINFOS["modelpath"] = question("Specify path to SPaiNN model: ", str, KEYSTROKES=KEYSTROKES)
 
     def prepare(self, INFOS: dict, dir_path: str):
-        pass
+        create_file = link if INFOS["link_files"] else shutil.copy
+        if not self._resources_file:
+            with open(os.path.join(dir_path, "SPAINN.resources"), "w", encoding="utf-8") as file:
+                if "modelpath" in self.setupINFOS:
+                    file.write(f"modelpath {self.setupINFOS['modelpath']}\n")
+                else:
+                    self.log.error("Modelpath not specified!")
+                    raise ValueError
+        else:
+            create_file(expand_path(self._resources_file), os.path.join(dir_path, "SPAINN.resources"))
+        create_file(expand_path(self._template_file), os.path.join(dir_path, "SPAINN.template"))
 
     def read_resources(self, resources_file="SPAINN.resources", kw_whitelist=None):
         return super().read_resources(resources_file, kw_whitelist)

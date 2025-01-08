@@ -13,12 +13,6 @@ basis cc-pVDZ
 #basislib /user/davide/newbasis/
 
 
-    ## ======== Charge ============
-
-    ## Total molecular charge
-charge 0
-
-
     ## ======== General settings ============
 
     ## Method can be either "adc(2)" (default) or "cc2".
@@ -45,6 +39,16 @@ spin-scaling none
     ## Note that this only affects the SCF step, as the ricc2 module does not consider the DKH option.
 #douglas-kroll
 
+    ## ======== Dipole moments ============
+
+    ## As for single-reference methods, many (transition) dipole moment matrix elements might
+    ## come with extra computational costs (response equations), the interface can reduce
+    ## the number of matrix elements if desired.
+    ## There are three levels of computation for the dipole moments.
+    ## 0: only free matrix elements (mu_00 and mu_xx if gradient of x is computed)
+    ## 1: additionally, all mu_0x elements (oscillator strengths for excitation from ground state)
+    ## 2: all matrix elements are calculated (mu_00, mu_xx, mu_0x, mu_xx)
+dipolelevel 1
 
 
 

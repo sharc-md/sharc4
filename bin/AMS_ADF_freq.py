@@ -26,6 +26,15 @@
 import sys
 import os
 
+if os.environ['AMSHOME']:
+    sys.path.append(os.path.join(os.environ['AMSHOME'], 'scripting'))
+    sys.path.append(os.path.join(os.environ['AMSHOME'], 'scripting', 'plams', 'src'))
+else:
+    print("Could not load Python path via $AMSHOME!")
+
+
+
+
 try:
     from scm.plams import KFFile  # import KFFile after $PYTHONPATH is expanded
 except ImportError:

@@ -139,7 +139,14 @@ class SHARC_LVC(SHARC_FAST):
             charges = [int(x) for x in line.split()[1:]]
             c1 = np.array(charges)
             c2 = np.array(self.QMin.molecule["charge"])
-            mask = np.array(states) != 0
+            st = np.array(self.QMin.molecule["states"])
+            # zero-pad shorter one
+            max_len = max(len(c1), len(c2), len(st))
+            c1 = np.pad(c1, (0, max_len - len(c1)), mode='constant', constant_values=0)
+            c2 = np.pad(c2, (0, max_len - len(c2)), mode='constant', constant_values=0)
+            st = np.pad(st, (0, max_len - len(st)), mode='constant', constant_values=0)
+            # remove charge for irrelevant multiplicities
+            mask = np.array(st) != 0
             c1 = c1[mask]
             c2 = c2[mask]
             if not np.array_equal(c1,c2):
@@ -224,7 +231,10 @@ class SHARC_LVC(SHARC_FAST):
             line = f.readline()
 
         while line:
-            factor = 1j if line[-2] == "I" else 1
+            if not line.split():
+                line = f.readline()
+                continue
+            factor = 1j if line.split()[-1] == "I" else 1
             if "SOC" in line:
                 if factor != 1:
                     soc_real = False

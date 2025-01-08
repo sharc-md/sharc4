@@ -105,7 +105,7 @@ class SHARC_QMOUT(SHARC_FAST):
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         "prepare INFOS obj"
         path = question(
-            "Please provide path to QM.out file",
+            "Please provide path to QM.out file or to folder containing ICOND folders",
             str,
             default="QM.out",
             KEYSTROKES=KEYSTROKES,
@@ -118,10 +118,21 @@ class SHARC_QMOUT(SHARC_FAST):
 
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         "setup the folders"
-        if self.setupINFOS["link"]:
-            os.symlink(self.setupINFOS["path"], os.path.join(dir_path, "QMout.template"))
+        if os.path.isdir(self.setupINFOS["path"]):
+            num = int(dir_path.rstrip('/')[-5:])
+            qmoutfile = os.path.join(self.setupINFOS["path"], 'ICOND_%05i' % num, 'QM.out')
+            if os.path.isfile(qmoutfile):
+                if self.setupINFOS["link"]:
+                    os.symlink(qmoutfile, os.path.join(dir_path, "QMout.template"))
+                else:
+                    shutil.copy(qmoutfile, os.path.join(dir_path, "QMout.template"))
+            else:
+                self.log.error('Can not find QM.out file for %s' % dir_path)
         else:
-            shutil.copy(self.setupINFOS["path"], os.path.join(dir_path, "QMout.template"))
+            if self.setupINFOS["link"]:
+                os.symlink(self.setupINFOS["path"], os.path.join(dir_path, "QMout.template"))
+            else:
+                shutil.copy(self.setupINFOS["path"], os.path.join(dir_path, "QMout.template"))
 
     @staticmethod
     def name() -> str:

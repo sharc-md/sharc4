@@ -23,7 +23,7 @@ class EHF:
         self.log = logging.getLogger(output+'.log')
         self.log.propagate = False
         self.log.handlers = []
-        self.log.setLevel('INFO')
+        self.log.setLevel('DEBUG')  # TODO: inherit the global loglevel
         hdlr = (
             logging.FileHandler(filename=output+'.log', mode="w", encoding="utf-8")
         )

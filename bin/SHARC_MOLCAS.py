@@ -106,7 +106,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "imaginary": 0.0,
                 "frozen": None,
                 "gradaccudefault": 1e-4,
-                "gradaccumax": 1e-2,
+                "gradaccumax": 1e-3,
                 "pcmset": None,
                 "pcmstate": None,
                 "iterations": [200, 100],
@@ -275,13 +275,73 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "Remember that CASSCF calculations may run very long and/or yield wrong results without proper starting MOs."
             )
 
+        # TheoDORE
+        theodore_spelling = [
+            "Om",
+            "PRNTO",
+            "Z_HE",
+            "S_HE",
+            "RMSeh",
+            "POSi",
+            "POSf",
+            "POS",
+            "PRi",
+            "PRf",
+            "PR",
+            "PRh",
+            "CT",
+            "CT2",
+            "CTnt",
+            "MC",
+            "LC",
+            "MLCT",
+            "LMCT",
+            "LLCT",
+            "DEL",
+            "COH",
+            "COHh",
+        ]
+        # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
+        if "theodore" in INFOS["needed_requests"]:
+            self.log.info(f"\n{'Wave function analysis by TheoDORE':-^60}\n")
+
+            # self.setupINFOS["theodir"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
+            # self.log.info("")
+
+            self.log.info("Please give a list of the properties to calculate by TheoDORE.\nPossible properties:")
+            string = ""
+            for i, p in enumerate(theodore_spelling):
+                string += "%s " % (p)
+                if (i + 1) % 8 == 0:
+                    string += "\n"
+            self.log.info(string)
+            line = question("TheoDORE properties:", str, default="Om  PRNTO  S_HE  Z_HE  RMSeh", KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["theodore_prop"] = line.split()
+            self.log.info("")
+
+            self.log.info("Please give a list of the fragments used for TheoDORE analysis.")
+            # self.log.info("You can use the list-of-lists from dens_ana.in")
+            self.log.info('Enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
+            self.log.info("Atom numbering starts at 1 for TheoDORE.")
+            self.setupINFOS["theodore_fragment"] = []
+            while True:
+                line = question("TheoDORE fragment:", str, default="end", KEYSTROKES=KEYSTROKES)
+                if "end" in line.lower():
+                    break
+                f = [int(i) for i in line.split()]
+                self.setupINFOS["theodore_fragment"].append(f)
+            self.setupINFOS["theodore_count"] = len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
+
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "MOLCAS.resources"), "w", encoding="utf-8") as file:
-                for key in ("molcas", "scratchdir", "ncpu", "memory"):
+                for key in ("molcas", "scratchdir", "ncpu", "memory", 
+                    # "theodir",
+                    "theodore_prop",
+                    "theodore_fragment"):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
         else:

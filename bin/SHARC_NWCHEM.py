@@ -50,7 +50,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         # Add template keys
         self.QMin.template.update(
             {
-                "tda": False,  # Tamm-Dancoff
+                "tda": True,  # Tamm-Dancoff
                 "maxiter": None,  # Max SCF iterations
                 "basis": "def2-svp",  # Basis set
                 "functional": "b3lyp",  # DFT functional
