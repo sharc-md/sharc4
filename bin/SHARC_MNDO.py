@@ -91,11 +91,9 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf": 5000,
                 "ici1": 0,
                 "ici2": 0,
-                "act_orbs": [1],
-                "movo": 0,
+                "act_orbs": [],
                 "imomap": 0,
-                "disp": 0,
-                "iop": -6,
+                "hamiltonian": None,
                 "fomo": 0,
                 "rohf": 0,
                 "levexc": 2,
@@ -110,10 +108,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ici1": int,
                 "ici2": int,
                 "act_orbs": list,
-                "movo": int,
                 "imomap": int,
-                "disp": int,
-                "iop": int,
+                "hamiltonian": str,
                 "fomo": int,
                 "rohf": int,
                 "levexc": int,
@@ -179,7 +175,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         """
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'MDNO interface setup': ^76}||\n{'||':<78}||")
+        self.log.info(f"||{'MNDO interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
         self.files = []
@@ -1060,25 +1056,37 @@ mocoef
 
         self.QMin["template"]["kharge"] = self.QMin.molecule['charge'][0] #int(self.QMin["template"]["kharge"]) #cast template inputs to int
         self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
-        self.QMin["template"]["disp"] = int(self.QMin["template"]["disp"])
+        # self.QMin["template"]["disp"] = int(self.QMin["template"]["disp"])
         
         if self.QMin["template"]["imomap"] < 0 or self.QMin["template"]["imomap"] > 1:  # Check if imomap is not out of range.
             raise ValueError(f"imomap can either be 0 (false) or 1 (true). Negative numbers not supported!")
         if self.QMin["template"]["imomap"] == 1:
             self.QMin["template"]["imomap"] = 3   #Orbital tracking activated when imomap=3 in the MNDO.inp file.
         
-        if self.QMin["template"]["disp"] < 0 or self.QMin["template"]["disp"] > 1:  # Check if disp is not out of range.
-            raise ValueError(f"disp can either be 0 (false) or 1 (true). Negative numbers not supported!")
-        if self.QMin["template"]["disp"] == 1:
-            self.QMin["template"]["iop"] = -22 
+        if self.QMin["template"]["hamiltonian"] != None:
+            if self.QMin["template"]["hamiltonian"].lower() == "om2":
+                self.QMin["template"]["iop"] = -6
+            elif self.QMin["template"]["hamiltonian"].lower() == "odm2":
+                self.QMin["template"]["iop"] = -22
+            else:
+                raise ValueError(f"Hamiltonian can either be OM2 or ODM2 (with dispersion correction). Other hamiltonians are currently not supported!")
+        else:
+            raise ValueError(f"You have to set the hamiltonian keyword. Hamiltonian can either be OM2 or ODM2 (with dispersion correction). Other hamiltonians are currently not supported!")
+                 
 
         
-        self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
-        if self.QMin["template"]["movo"] > 1 or self.QMin["template"]["movo"] < 0 :
-            raise ValueError(f"movo can only be 0 (false) or 1 (true).")
+        # self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
+        # if self.QMin["template"]["movo"] > 1 or self.QMin["template"]["movo"] < 0 :
+        #     raise ValueError(f"movo can only be 0 (false) or 1 (true).")
         
-        if self.QMin["template"]["movo"] == 1 :
+        if len(self.QMin["template"]["act_orbs"]) > 0 :
             self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
+            self.QMin["template"]["movo"] = 1
+            if len(self.QMin["template"]["act_orbs"]) != (int(self.QMin["template"]["ici1"]) + int(self.QMin["template"]["ici2"])):
+                raise ValueError(f"Number of entries in act_orbs has to be the same as ici1 + ici2.")
+        else:
+            self.QMin["template"]["movo"] = 0
+
         
         self.QMin["template"]["fomo"] = int(self.QMin["template"]["fomo"])
         if self.QMin["template"]["fomo"] > 1 or self.QMin["template"]["fomo"] < 0 :
@@ -1091,10 +1099,17 @@ mocoef
         self.QMin["template"]["levexc"] = int(self.QMin["template"]["levexc"])
         if self.QMin["template"]["levexc"] > 6 or self.QMin["template"]["levexc"] < 1 :
             raise ValueError(f"levexc can only be between 1 (singlets) and 6 (sextets).")
+
+
+
+        if self.QMin["template"]["mciref"] < 0 or self.QMin["template"]["mciref"] > 1:  # Check if mciref is not out of range.
+            raise ValueError(f"mciref can either be 0 (false) or 1 (true). Negative numbers not supported!")
+        if self.QMin["template"]["mciref"] == 1:
+            self.QMin["template"]["mciref"] = 3 
         
-        self.QMin["template"]["mciref"] = int(self.QMin["template"]["mciref"])
-        if self.QMin["template"]["mciref"] != 3 and self.QMin["template"]["mciref"] != 0:
-            raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plus 85% of something).")
+        # self.QMin["template"]["mciref"] = int(self.QMin["template"]["mciref"])
+        # if self.QMin["template"]["mciref"] != 3 and self.QMin["template"]["mciref"] != 0:
+        #     raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plus 85% of something).")
 
 
 

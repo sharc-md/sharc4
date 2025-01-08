@@ -1,6 +1,9 @@
 ## This is a commented version of the MNDO.template file 
 ## for version 0.2 of the SHARC_MNDO.py interface.
 
+##hamiltonian
+hamiltonian om2
+
 ## Number of reference occupations.
 nciref 3 
 
@@ -15,9 +18,6 @@ ici2 1
 
 ## Active Orbitals
 act_orbs 4 6 7
-
-## Definition of orbitals involved in the active space. 0 -> False, 1 -> True
-movo 1
 
 
 ## Definition of active orbitals in consecutive CI runs.  = 0 Keep original definition of 

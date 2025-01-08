@@ -1,0 +1,28 @@
+## Hamiltonian used
+ham AM1
+
+## Number of electrons in active space
+numb_elec 6
+
+## Number of orbitals in active space
+numb_orb 4
+
+## Number of external parameter for the Hamiltonian. If > 0 a file named ext_param has to be provided in the same folder.
+external_par 54
+
+## Number of MM ppoint charges
+qmmm 34
+
+## 
+link_atoms Hx12.0 Hx12.0
+
+##
+link_atom_pos 1 22
+
+## Filename of force field file for QM/MM calculations
+force_field oplsaa.prm
+
+## Additional potential for the QM calculation. Needs to be provided in the ext_param file.
+add_pot False
+
+

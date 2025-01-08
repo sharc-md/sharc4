@@ -203,6 +203,18 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         self.log.info("")
         self.files.append(self.template_file)
 
+        if question("Do you have an 'ext_param' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+            while True:
+                ext_param = question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="ext_param")
+                self.files.append(ext_param)
+                if os.path.isfile(ext_param):
+                    break
+                else:
+                    self.log.info(f"file at {ext_param} does not exist!")
+        
+
+
+
         self.make_resources = False
         # Resources
         if question("Do you have a 'MOPACPI.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
@@ -341,30 +353,55 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
                 inpstring += f"{allmicros[i]}\n"
         
         par_str = ""
-        if external_par != None:
-            allpar = []
-            with open('MOPACPI.template', 'r') as file:
-                for line in file:
-                    if 'EXTERNAL PARAMETERS' in line:
-                        for _ in range(external_par-1):
-                            next_line = next(file).strip()
-                            allpar.append(next_line)
-            
-            for i in range(external_par-1):
-                par_str += f"{allpar[i]}\n"
 
+        # Handle external parameters
+        if external_par is not None and external_par > 0:
+            allpar = []
+            lines = readfile('ext_param')  # Assuming readfile() returns a list of lines
+            
+            # Locate the "EXTERNAL PARAMETERS" block
+            found = False
+            for iline, line in enumerate(lines):
+                if 'EXTERNAL PARAMETERS' in line:
+                    found = True
+                    iline += 1  # Move to the next line after "EXTERNAL PARAMETERS"
+                    break
+            
+            # Collect the required number of external parameters
+            if found:
+                for _ in range(external_par - 1):
+                    if iline < len(lines):  # Ensure we don't go out of bounds
+                        allpar.append(lines[iline].strip())
+                        iline += 1
+            
+            # Build the parameter string
+            for par in allpar:
+                par_str += f"{par}\n"
+
+        # Handle added potential
         if add_pot:
             inpstring += "\n"
             inpstring += "ADDED POTENTIAL \n"
-            with open('MOPACPI.template', 'r') as file:
-                for line in file:
-                    if 'ADDED POTENTIAL' in line:
-                            for _ in range(10):
-                                next_line = next(file).strip()
-                                if 'END ADDED POTENTIAL' not in next_line:
-                                    inpstring += f"{next_line} \n"
-                                else:
-                                    break
+            added_pot = readfile('ext_param')  # Assuming readfile() returns a list of lines
+
+            # Locate the "ADDED POTENTIAL" block
+            found = False
+            for iline, line in enumerate(added_pot):
+                if 'ADDED POTENTIAL' in line:
+                    found = True
+                    iline += 1  # Move to the next line after "ADDED POTENTIAL"
+                    break
+            
+            # Collect lines in the "ADDED POTENTIAL" block
+            if found:
+                while iline < len(added_pot):  # Ensure we don't go out of bounds
+                    next_line = added_pot[iline].strip()
+                    if 'END ADDED POTENTIAL' not in next_line:
+                        inpstring += f"{next_line} \n"
+                        iline += 1
+                    else:
+                        break
+
         
         return inpstring, par_str
     
