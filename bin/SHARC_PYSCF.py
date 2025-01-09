@@ -540,6 +540,9 @@ at least one task"""
     qmin["nstates"] = nstates
     qmin["nmstates"] = nmstates
 
+    if len(qmin["states"]) != 1:
+        raise NotImplementedError("Not implemented for states other than singlets!")
+
     possible_tasks = [
         "h",
         "soc",
@@ -1129,7 +1132,6 @@ def gen_solver(mol, qmin):
             try:
                 from pyscf import mcpdft
                 solver = mcpdft.CASSCF(mf, functional, ncas, nelecas, grids_level=grids_level)
-
             except ImportError as e:
                 print("MC-PDFT requested but pyscf-forge not installed")
                 raise e
@@ -1294,6 +1296,7 @@ def run_calc(qmin):
     err = 0
     result = {}
 
+
     setup_workdir(qmin)
     mol = build_mol(qmin)
 
@@ -1335,6 +1338,10 @@ def run_jobs(joblist, qmin):
 
     lib.param.TMPDIR = qmin["scratchdir"]
     lib.param.MAX_MEMORY = qmin["memory"]
+    os.environ['OMP_NUM_THREADS'] = str(qmin["ncpu"])
+    os.environ['MKL_NUM_THREADS'] = str(qmin["ncpu"])
+    os.environ['OPENBLAS_NUM_THREADS'] = str(qmin["ncpu"])
+    lib.num_threads(qmin["ncpu"])
 
     print(">>>>>>>>>>>>> Starting the job execution")
 
@@ -1431,7 +1438,7 @@ def write_ham(qmin, result):
 def write_dm(qmin, result):
     nmstates = qmin["nmstates"]
     string = f"! 2 Dipole Moment Matrices (3x{nmstates}x{nmstates}, complex)\n"
-    for dipole_xyz in result["dipole"]:
+    for dipole_xyz in result["dipole"][:nmstates,:nmstates]:    # TODO: does not work with several mults
         string += f"{nmstates} {nmstates}\n"
         for bra in dipole_xyz:
             for element in bra:
@@ -1512,15 +1519,19 @@ def write_qmout(qmin, result, qmin_filename):
     # add data
     if "h" in qmin:
         string += write_ham(qmin, result)
+        string += '\n'
 
     if "dm" in qmin:
         string += write_dm(qmin, result)
+        string += '\n'
 
     if "grad" in qmin:
         string += write_grad(qmin, result)
+        string += '\n'
 
     if "nacdr" in qmin:
         string += write_nac(qmin, result)
+        string += '\n'
 
     string += write_qmout_time(result["runtime"])
     with open(os.path.join(qmin["pwd"], outfilename), "w") as f:

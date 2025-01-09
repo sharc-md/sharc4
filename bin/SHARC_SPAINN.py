@@ -7,7 +7,7 @@ from io import TextIOWrapper
 import numpy as np
 from SHARC_FAST import SHARC_FAST
 from spainn.calculator import SPaiNNulator
-from utils import link, question, expand_path
+from utils import expand_path, link, question
 
 __all__ = ["SHARC_SPAINN"]
 
@@ -183,7 +183,7 @@ class SHARC_SPAINN(SHARC_FAST):
         if self.QMin.requests["nacdr"]:
             self.QMout["nacdr"] = np.asarray(prediction["nacdr"])
 
-        if self.QMin.requests["dm"]:
+        if self.QMin.requests["dm"] and "dipoles" in self.QMin.template["properties"]:
             self.QMout["dm"] = np.asarray(prediction["dm"])
 
         return self.QMout

@@ -1,0 +1,17 @@
+    ## This is a commented version of the ORCA.resources file 
+
+    ## ======== ORCA setup ============
+
+    ## 
+orcadir $ORCADIR
+scratchdir $TMPDIR
+savedir ./SAVEDIR
+ncpu 4
+schedule_scaling 0.5
+delay 0.
+memory 1000
+wfoverlap $SHARC/wfoverlap.x
+wfthres 2.0
+numfrozcore 0
+wfnumocc 0
+#nooverlap
