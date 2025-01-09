@@ -283,6 +283,8 @@ class SHARC_LVC(SHARC_FAST):
             self._lambda_soc = self._lambda_soc.real.copy()
         if dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
+        if self.QMin.molecule["point_charges"] and not hasattr(self, '_fits'):
+            raise RuntimeError("Point charges present but could not find 'Multipolar Density Fit' in template file.")
 
         # if self.QMin.save["init"]:
         # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
