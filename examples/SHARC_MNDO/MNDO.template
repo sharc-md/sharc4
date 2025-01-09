@@ -5,19 +5,11 @@
 ## You can choose between the OM2 Hamiltonian and the ODM2 Hamiltonian with dispersion correction.
 hamiltonian om2
 
-## Number of reference occupations. Up to 20 references can be chosen.
-nciref 3
-
-## Definition of the reference occupations. = 0 Stardard definition. 
-## = 1 Starting from the reference occupations corresponding to mciref=0, add further references 
-## so that their fraction in all CI roots is at least 85%, and repeat the CI calculation once.
-mciref 0
-
-## Maximum excitation level relative to any of the reference configurations. From 1 to 6.
-levexc 2
-
 ## Restricted open-shell Hartree-Fock. 0 -> False, restricted Hartree-Fock. 1 -> True, using ROHF.
 rohf 1
+
+## Floating occupation molecular orbitals. Using FOMO procedure. ici1 + ici2 = number of orbitals with floating point occupation.
+fomo 0
 
 ## Maximum number of SCF iterations.
 kitscf 5000
@@ -35,6 +27,15 @@ act_orbs 4 6 7
 ## = 1 Track MO character.
 imomap 0
 
-## Floating occupation molecular orbitals. Using FOMO procedure. ici1 + ici2 = number of orbitals with floating point occupation.
-fomo 0
+## Number of reference occupations. Up to 20 references can be chosen.
+nciref 3
+
+## Definition of the reference occupations. = 0 Stardard definition. 
+## = 1 Starting from the reference occupations corresponding to mciref=0, add further references 
+## so that their fraction in all CI roots is at least 85%, and repeat the CI calculation once.
+mciref 0
+
+## Maximum excitation level relative to any of the reference configurations. From 1 to 6.
+levexc 2
+
 
