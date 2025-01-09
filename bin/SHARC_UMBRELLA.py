@@ -246,7 +246,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
         # process restraint file
         self.restraints = []
         factors = {'kcal/mol': kcal_to_Eh,
-                   'kj/mol': 1./kJpermol_to_Eh,
+                   'kj/mol': kJpermol_to_Eh,
                    'eh': 1.,
                    'cm-1': rcm_to_Eh,
                    'ev': EV_TO_EH,
