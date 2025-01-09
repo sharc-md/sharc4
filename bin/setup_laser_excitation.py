@@ -35,6 +35,7 @@ import stat
 import shutil
 import datetime
 import random
+import json
 from optparse import OptionParser
 from socket import gethostname
 
@@ -499,7 +500,7 @@ def open_keystrokes():
 
 def close_keystrokes():
     KEYSTROKES.close()
-    shutil.move("KEYSTROKES.tmp", "KEYSTROKES.setup_traj")
+    shutil.move("KEYSTROKES.tmp", "KEYSTROKES.setup_laser_excitation")
 
 
 # ===================================
@@ -562,45 +563,45 @@ class init_string:
 # ======================================================================================================================
 
 
-def analyze_initconds(initlist, INFOS):
-    if INFOS["show_content"]:
-        log.info("Contents of the initconds file:")
-        log.info(
-            """\nLegend:
-?       Geometry and Velocity
-.       not selected
-#       selected
-"""
-        )
-    n_hasexc = []
-    n_issel = []
-    display = init_string()
-    for state in range(INFOS["nstates"]):
-        if INFOS["show_content"]:
-            log.info("State %i:" % (state + 1))
-        display.reset()
-        n_hasexc.append(0)
-        n_issel.append(0)
-        for i in initlist:
-            if len(i.statelist) < state + 1:
-                display.add("?")
-            else:
-                n_hasexc[-1] += 1
-                if i.statelist[state].Excited:
-                    display.add("#")
-                    n_issel[-1] += 1
-                else:
-                    display.add(".")
-        if INFOS["show_content"]:
-            log.info(display)
-    log.info("Number of excited states and selections:")
-    log.info("State    #InitCalc       #Selected")
-    for i in range(len(n_hasexc)):
-        s = "% 5i        % 5i           % 5i" % (i + 1, n_hasexc[i], n_issel[i])
-        if not INFOS["isactive"][i]:
-            s += "  inactive"
-        log.info(s)
-    return n_issel
+# def analyze_initconds(initlist, INFOS):
+#     if INFOS["show_content"]:
+#         log.info("Contents of the initconds file:")
+#         log.info(
+#             """\nLegend:
+# ?       Geometry and Velocity
+# .       not selected
+# #       selected
+# """
+#         )
+#     n_hasexc = []
+#     n_issel = []
+#     display = init_string()
+#     for state in range(INFOS["nstates"]):
+#         if INFOS["show_content"]:
+#             log.info("State %i:" % (state + 1))
+#         display.reset()
+#         n_hasexc.append(0)
+#         n_issel.append(0)
+#         for i in initlist:
+#             if len(i.statelist) < state + 1:
+#                 display.add("?")
+#             else:
+#                 n_hasexc[-1] += 1
+#                 if i.statelist[state].Excited:
+#                     display.add("#")
+#                     n_issel[-1] += 1
+#                 else:
+#                     display.add(".")
+#         if INFOS["show_content"]:
+#             log.info(display)
+#     log.info("Number of excited states and selections:")
+#     log.info("State    #InitCalc       #Selected")
+#     for i in range(len(n_hasexc)):
+#         s = "% 5i        % 5i           % 5i" % (i + 1, n_hasexc[i], n_issel[i])
+#         if not INFOS["isactive"][i]:
+#             s += "  inactive"
+#         log.info(s)
+#     return n_issel
 
 
 # ======================================================================================================================
@@ -622,7 +623,7 @@ def get_initconds(INFOS):
     log.info("\nNumber of initial conditions in file:       %5i" % (INFOS["ninit"]))
 
     INFOS["initlist"] = initlist
-    INFOS["n_issel"] = analyze_initconds(initlist, INFOS)
+    # INFOS["n_issel"] = [True]+[False]*(INFOS["nstates"]-1)  # analyze_initconds(initlist, INFOS)
     return INFOS
 
 
@@ -658,7 +659,7 @@ def get_initconds(INFOS):
 
 def get_laser_time(filename):
     data = readfile(filename)
-    return float(data[-1].split()[0]), len(data)-1 
+    return float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])-float(data[-2].split()[0]) 
     
 # ======================================================================================================================
 # ======================================================================================================================
@@ -715,15 +716,23 @@ from the initcond files as provided by wigner.py.
                 log.info("Could not open: %s" % (initfile))
                 continue
             line = initf.readline()
-            if check_initcond_version(line, must_be_excited=True):
+            if check_initcond_version(line, must_be_excited=False):
                 break
             else:
                 log.info("File does not contain initial conditions!")
                 continue
     # read the header
     INFOS["ninit"] = int(initf.readline().split()[1])
-    INFOS["natom"] = int(initf.readline().split()[1])
     log.info("\nFile %s contains %i initial conditions." % (initfile, INFOS["ninit"]))
+    while True:
+        INFOS["icond_sel"] = question("Which initial conditions do you want to take? ", int, ranges=True)
+        if not all(1 <= num <= INFOS["ninit"] for num in INFOS["icond_sel"]):
+            log.info(all(1 <= num <= INFOS["ninit"] for num in INFOS["icond_sel"]))
+            continue
+        else:
+            log.info("Chose %s initconds" % INFOS["icond_sel"])
+            break
+    INFOS["natom"] = int(initf.readline().split()[1])
     log.info("Number of atoms is %i" % (INFOS["natom"]))
     INFOS["repr"] = initf.readline().split()[1]
     if INFOS["repr"].lower() == "mch":
@@ -779,9 +788,6 @@ from the initcond files as provided by wigner.py.
 
     # log.info("Number of states: " + str(states))
     # log.info("Total number of states: %i\n" % (nstates))
-    log.info(
-        "\nNumber of states and molecular charge for each chosen multiplicity: "
-    )
     if os.path.isdir(INFOS["path"]):
         num = int(0)  # Should open the QM.out file from ICOND00000 as standard
         qmoutfile = os.path.join(INFOS["path"], 'ICOND_%05i' % num, 'QM.out')
@@ -795,6 +801,9 @@ from the initcond files as provided by wigner.py.
     INFOS["charge"] = QMoutfile.charges 
     INFOS["states"] = QMoutfile.states
     INFOS["nstates"] = QMoutfile.nstates
+    log.info(
+        "Number of states and molecular charge for each chosen multiplicity: %s %s" % (INFOS["charge"], INFOS["states"])
+    )
     # obtain the statemap
     statemap = {}
     i = 1
@@ -805,8 +814,16 @@ from the initcond files as provided by wigner.py.
 
     # get active states
     INFOS["actstates"] = INFOS["states"]
+    isactive = []
+    for imult in range(len(INFOS["states"])):
+        for ims in range(imult + 1):
+            for istate in range(INFOS["states"][imult]):
+                isactive.append((istate + 1 <= INFOS["actstates"][imult]))
+    INFOS["isactive"] = isactive
+    log.info("")
+
     # ask whether initfile content is shown
-    INFOS["show_content"] = question("Do you want to see the content of the initconds file?", bool, False)
+    # INFOS["show_content"] = question("Do you want to see the content of the initconds file?", bool, False)
 
     # read initlist, analyze it and log.info(content (all in get_initconds))
     INFOS["initf"] = initf
@@ -841,9 +858,9 @@ from the initcond files as provided by wigner.py.
     defsetupstates = []
     nmax = 0
     for i, active in enumerate(INFOS["isactive"]):
-        if active and INFOS["n_issel"][i] > 0:
-            defsetupstates.append(i + 1)
-            nmax += INFOS["n_issel"][i]
+        #if active and INFOS["n_issel"][i] > 0:
+        defsetupstates.append(i + 1)
+        nmax += 1  # INFOS["n_issel"][i]
     if nmax <= 0:
         log.info("\nZero trajectories can be set up!")
         sys.exit(1)
@@ -864,63 +881,69 @@ from the initcond files as provided by wigner.py.
         if not valid:
             continue
         INFOS["setupstates"] = set(setupstates)
-        nsetupable = sum([INFOS["n_issel"][i - 1] for i in INFOS["setupstates"] if INFOS["isactive"][i - 1]])
+        # log.info(INFOS["n_issel"])
+        log.info(INFOS["setupstates"])
+        log.info(INFOS["isactive"])
+        # nsetupable = sum([INFOS["n_issel"][i - 1] for i in INFOS["setupstates"] if INFOS["isactive"][i - 1]])
+        nsetupable = sum([INFOS["isactive"][i - 1] for i in INFOS["setupstates"]])
         log.info("\nThere can be %i trajector%s set up.\n" % (nsetupable, ["y", "ies"][nsetupable != 1]))
         if nsetupable == 0:
             continue
         break
 
-    # select range within initconds file
-    # only start index needed, end index is determined by number of trajectories
-    log.info("Please enter the index of the first initial condition in the initconds file to be setup.")
-    while True:
-        firstindex = question("Starting index:", int, [1])[0]
-        if not 0 < firstindex <= INFOS["ninit"]:
-            log.info("Please enter an integer between %i and %i." % (1, INFOS["ninit"]))
-            continue
-        nsetupable = 0
-        for i, initcond in enumerate(INFOS["initlist"]):
-            if i + 1 < firstindex:
-                continue
-            for state in set(setupstates):
-                try:
-                    nsetupable += initcond.statelist[state - 1].Excited
-                except IndexError:
-                    break
-        log.info(
-            "\nThere can be %i trajector%s set up, starting in %i states."
-            % (nsetupable, ["y", "ies"][nsetupable != 1], len(INFOS["setupstates"]))
-        )
-        if nsetupable == 0:
-            continue
-        break
-    INFOS["firstindex"] = firstindex
+    # while True:
+    #     firstindex = question("Starting index:", int, [1])[0]
+    #     if not 0 < firstindex <= INFOS["ninit"]:
+    #         log.info("Please enter an integer between %i and %i." % (1, INFOS["ninit"]))
+    #         continue
+    #     nsetupable = 0
+    #     log.info(set(setupstates))
+    #     log.info(INFOS["initlist"])
+    #     for i, initcond in enumerate(INFOS["initlist"]):
+    #         #log.info(initcond.statelist)
+    #         if i + 1 < firstindex:
+    #             continue
+    #         for state in set(setupstates):
+    #             #log.info(state, initcond.statelist[state-1])
+    #             try:
+    #                 nsetupable += initcond.statelist[state - 1]
+    #                 #log.info(set(setupstates), initcond.statelist, INFOS["initlist"])
+    #             except IndexError:
+    #                 break
+    #     log.info(
+    #         "\nThere can be %i trajector%s set up, starting in %i states."
+    #         % (nsetupable, ["y", "ies"][nsetupable != 1], len(INFOS["setupstates"]))
+    #     )
+    #     if nsetupable == 0:
+    #         continue
+    #     break
+    # INFOS["firstindex"] = firstindex
 
-    # Number of trajectories
-    log.info("\nPlease enter the total number of trajectories to setup.")
-    while True:
-        ntraj = question("Number of trajectories:", int, [nsetupable])[0]
-        if not 1 <= ntraj <= nsetupable:
-            log.info("Please enter an integer between %i and %i." % (1, nsetupable))
-            continue
-        break
-    INFOS["ntraj"] = ntraj
+    # # Number of trajectories
+    # log.info("\nPlease enter the total number of trajectories to setup.")
+    # while True:
+    #     ntraj = question("Number of trajectories:", int, [nsetupable])[0]
+    #     if not 1 <= ntraj <= nsetupable:
+    #         log.info("Please enter an integer between %i and %i." % (1, nsetupable))
+    #         continue
+    #     break
+    # INFOS["ntraj"] = ntraj
 
-    # Random number seed
-    log.info('\nPlease enter a random number generator seed (type "!" to initialize the RNG from the system time).')
-    while True:
-        line = question("RNG Seed: ", str, "!", False)
-        if line == "!":
-            random.seed()
-            break
-        try:
-            rngseed = int(line)
-            random.seed(rngseed)
-        except ValueError:
-            log.info('Please enter an integer or "!".')
-            continue
-        break
-    log.info("")
+    # # Random number seed
+    # log.info('\nPlease enter a random number generator seed (type "!" to initialize the RNG from the system time).')
+    # while True:
+    #     line = question("RNG Seed: ", str, "!", False)
+    #     if line == "!":
+    #         random.seed()
+    #         break
+    #     try:
+    #         rngseed = int(line)
+    #         random.seed(rngseed)
+    #     except ValueError:
+    #         log.info('Please enter an integer or "!".')
+    #         continue
+    #     break
+    # log.info("")
 
     return INFOS
 
@@ -998,18 +1021,22 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         """
         )
     while True:
-        INFOS["laser_file_path"] = question("Laser filename:", str)
-        if not os.path.isfile(INFOS["laser_file_path"]):
-            log.info("File %s does not exist!" % (INFOS["laser_file_path"]))
+        INFOS["laserfile"] = question("Laser filename:", str)
+        log.info(os.getcwd())
+        log.info(INFOS["laserfile"])
+        if not os.path.isfile(INFOS["laserfile"]):
+            log.info("File %s does not exist!" % (INFOS["laserfile"]))
             continue
-    INFOS["tmax"], INFOS["dtstep"] = get_laser_time(INFOS["laser_file_path"])
+        else:
+            break
+    INFOS["tmax"], INFOS["nsteps"], INFOS["dtstep"] = get_laser_time(INFOS["laserfile"])
     log.info("Total simulation time: %f"  % INFOS["tmax"])
     log.info("\nSimulation will have %i timesteps." % (INFOS["dtstep"]))
 
 
     # Integrator
-    INFOS['integrator'] = "fvv"    
-    log.info("Integrator: %s " % INFOS["integrator"])
+    INFOS['integrator'] = int(2)    
+    log.info("Integrator: %s " % Integrator[INFOS['integrator']]["name"])
     # number of substeps
     INFOS["nsubstep"] = int(1) 
     log.info("NSubstep: %s " % INFOS["nsubstep"])
@@ -1040,23 +1067,24 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
 
 
     states = INFOS["states"]
+    log.info("states found in get_requests")
     # Setup SOCs
-    # if len(states) > 1:
-    #     if "soc" in int_features:
-    #         log.info("Do you want to include spin-orbit couplings in the dynamics?\n")
-    #         soc = question("Spin-Orbit calculation?", bool, True)
-    #         if soc:
-    #             log.info("Will calculate spin-orbit matrix.")
-    #     else:
-    #         log.info("Interface cannot provide SOCs: not calculating spin-orbit matrix.")
-    #         soc = False
-    # else:
-    #     log.info("Only singlets specified: not calculating spin-orbit matrix.")
-    #     soc = False
-    # log.info("")
-    # INFOS["soc"] = soc
-    # if INFOS["soc"]:
-    #     INFOS["needed_requests"].add("soc")
+    if len(states) > 1:
+        if "soc" in int_features:
+            log.info("Do you want to include spin-orbit couplings in the dynamics?\n")
+            soc = question("Spin-Orbit calculation?", bool, True)
+            if soc:
+                log.info("Will calculate spin-orbit matrix.")
+        else:
+            log.info("Interface cannot provide SOCs: not calculating spin-orbit matrix.")
+            soc = False
+    else:
+        log.info("Only singlets specified: not calculating spin-orbit matrix.")
+        soc = False
+    log.info("")
+    INFOS["soc"] = soc
+    if INFOS["soc"]:
+        INFOS["needed_requests"].add("soc")
 
 
 
@@ -1127,45 +1155,6 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     log.info(f"\n\n{'Settings for large systems':-^60}\n")
 
 
-#     # Laser file
-#     log.info("\n\n" + f"{'Laser file':-^60}" + "\n")
-#     INFOS["laser"] = question("Do you want to include a laser field in the simulation?", bool, False)
-#     if INFOS["laser"]:
-#         log.info(
-#             """Please specify the file containing the complete laser field. The timestep in the file and the length of the file must fit to the simulation time, time step and number of substeps given above.
-# 
-# Laser files can be created using $SHARC/laser.x
-# """
-#         )
-#         if os.path.isfile("laser"):
-#             if check_laserfile(
-#                 "laser", int(INFOS["tmax"] / INFOS["dtstep"] * INFOS["nsubstep"] + 1), INFOS["dtstep"] / INFOS["nsubstep"]
-#             ):
-#                 log.info('Valid laser file "laser" detected. ')
-#                 usethisone = question("Use this laser file?", bool, True)
-#                 if usethisone:
-#                     INFOS["laserfile"] = "laser"
-#         if "laserfile" not in INFOS:
-#             while True:
-#                 filename = question("Laser filename:", str)
-#                 if not os.path.isfile(filename):
-#                     log.info("File %s does not exist!" % (filename))
-#                     continue
-#                 if check_laserfile(
-#                     filename, (INFOS["tmax"] / INFOS["dtstep"] * INFOS["nsubstep"] + 1), INFOS["dtstep"] / INFOS["nsubstep"]
-#                 ):
-#                     break
-#             INFOS["laserfile"] = filename
-#         # only the analytical interface can do dipole gradients
-#         if "dipolegrad" in int_features:
-#             INFOS["dipolegrad"] = question("Do you want to use dipole moment gradients?", bool, False)
-#         else:
-#             INFOS["dipolegrad"] = False
-#         log.info("")
-#     else:
-#         INFOS["dipolegrad"] = False
-#     if INFOS["dipolegrad"]:
-#         INFOS["needed_requests"].add("dmdr")
     INFOS["dipolegrad"] = False
 
     # Setup Dyson computation
@@ -1328,10 +1317,8 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
 
     s += "tmax %f\nstepsize %f\nnsubsteps %i\n" % (INFOS["tmax"], INFOS["dtstep"], INFOS["nsubstep"])
     s += 'integrator %s\n' % (Integrator[INFOS['integrator']]["name"])
-    if Integrator[INFOS['integrator']]["name"] == 'avv':
-        s += 'convthre %s\n' % (INFOS['convthre'])
-    if INFOS["kill"]:
-        s += "killafter %f\n" % (INFOS["killafter"])
+    # if Integrator[INFOS['integrator']]["name"] == 'avv':
+    #     s += 'convthre %s\n' % (INFOS['convthre'])
     s += "\n"
 
 
@@ -1339,10 +1326,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     s += 'method %s\n' % (INFOS['method'])
     s += "surf %s\n" % (INFOS["surf"])
     s += "coupling %s\n" % (Couplings[INFOS["coupling"]]["name"])
-    if GradCorrect[INFOS['gradcorrect']]['name'] == 'none':
-        s += 'nogradcorrect\n'
-    else:
-        s += 'gradcorrect %s\n' % (GradCorrect[INFOS['gradcorrect']]['name'])
+    s += 'nogradcorrect\n'
 
     # TSH settings
     if INFOS['method'] == 'tsh':
@@ -1363,39 +1347,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         if "atommaskarray" in INFOS and INFOS["atommaskarray"] is not None:
             s += '\natommask external\natommaskfile "atommask"\n\n'
 
-    # SCP settings
-    if INFOS['method'] == 'scp':
-        s += 'pointer_basis %s\n' % (INFOS['pointer_basis'])
-        s += 'neom_rep %s\n' % (INFOS['neom_rep'])
-        s += 'neom %s\n' % (INFOS['neom'])
-        s += 'decoherence_scheme %s\n' % (INFOS['decoherence'][0])
-        if INFOS['decoherence'][1]:
-            s += 'decoherence_param %s\n' % (INFOS['decoherence'][1])
-        if INFOS['decoherence'][0]=='dom':
-            s += 'switching_procedure %s\n' % (INFOS['switching'])
-        if INFOS['decoherence'][0]=='dom':
-            s += 'decotime_method %s\n' % (INFOS['decotime'])
-            if INFOS['decotime']=='fp2':
-                s += 'gaussian_width %s\n' % (INFOS['width'])
-        if INFOS['damping']:
-            s += 'dampeddyn %f\n' % (INFOS['damping'])
-
-    if INFOS["pysharc"]:
-        s += "notrack_phase\n"
-
-    # TSH settings for selection    
-    if INFOS['method'] == 'tsh':
-        if INFOS["sel_g"]:
-            s += "grad_select\n"
-        else:
-            s += "grad_all\n"
-        if INFOS["sel_t"]:
-            s += "nac_select\n"
-        else:
-            if "nacdr" in INFOS["needed_requests"]:
-                s += "nac_all\n"
-        if "eselect" in INFOS:
-            s += "eselect %f\n" % (INFOS["eselect"])
+    s += "notrack_phase\n"
 
     if INFOS["select_directly"]:
         s += "select_directly\n"
@@ -1403,30 +1355,8 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     if not INFOS["soc"]:
         s += "nospinorbit\n"
 
-    if INFOS["write_grad"]:
-        s += "write_grad\n"
-    if INFOS["write_NAC"]:
-        s += "write_nacdr\n"
-    if INFOS["write_overlap"]:
-        s += "write_overlap\n"
-    if INFOS["write_property1d"]:
-        s += "write_property1d\n"
-        if "theodore.count" in INFOS:
-            s += "n_property1d %i\n" % (INFOS["theodore.count"])
-        else:
-            s += "n_property1d %i\n" % (1)
-    if INFOS["write_property2d"]:
-        s += "write_property2d\n"
-        s += "n_property2d %i\n" % (1)
-
     # NetCDF or ASCII
-    if INFOS["netcdf"]:
-        if INFOS["netcdf_separate"]:
-            out = "netcdf_separate_nuc"
-        else:
-            out = "netcdf"
-    else:
-        out = "ascii"
+    out = "netcdf_separate_nuc"
     s += "output_format %s\n" % out
 
     # stride
@@ -1444,77 +1374,13 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
                 s += " %i" % i
             s += "\n"
 
-    # rattle
-    if INFOS["rattle"]:
-        s += f'rattle\nrattlefile "{INFOS["rattlefile"].split("/")[-1]}"\n'
-
     s += "\n"
 
     # laser
-    if INFOS["laser"]:
-        s += "laser external\n"
-        s += 'laserfile "laser"\n'
-        if INFOS["dipolegrad"]:
-            s += "dipole_gradient\n"
-        s += "\n"
-
-    # Dyson norms
-    if "ion" in INFOS and INFOS["ion"]:
-        s += "ionization\n"
-        s += "ionization_step 1\n"
-
-    # TheoDORE
-    if "theodore" in INFOS and INFOS["theodore"]:
-        s += "theodore\n"
-        s += "theodore_step 1\n"
-
-    # Thermostat
-    if INFOS["use_thermostat"]:
-        s += f"thermostat {INFOS['thermostat']}\n"
-        s += f"temperature {INFOS['thermostat_temp']:.2f}\n"
-        if INFOS["thermostat"] == "langevin":
-            s += f"rngseed_thermostat {INFOS['thermostat_rng']}\n"
-            s += f"thermostat_const {INFOS['thermostat_friction']}\n"
-        s += "\n"
-
-    # Droplet and tether
-    if 'droplet' in INFOS and 'tether' in INFOS:
-        s += "restrictive_potential droplet_tether\n"
-    elif 'droplet' in INFOS:
-        s += "restrictive_potential droplet\n"
-    elif 'tether' in INFOS:
-        s += "restrictive_potential tether\n"
-
-    if 'droplet' in INFOS:
-        s += f"restricted_droplet_force {INFOS['droplet_force']: 8.6e}\n"
-        s += f"restricted_droplet_radius {INFOS['droplet_radius']: .6f}\n"
-        if type(INFOS['droplet_atoms']) is list:
-            if len(INFOS['droplet_atoms']) < 11:
-                s += f"restricted_droplet_atoms {' '.join(map(str, INFOS['droplet_atoms']))}\n"
-            else:
-                with open(iconddir + "/droplet_atoms", "w") as f:
-                    f.write("\n".join(map(lambda x: "T" if x in INFOS['droplet_atoms'] else "F", range(1,
-                            len(initobject.atomlist)+1))))
-                s += "restricted_droplet_atoms file \"droplet_atoms\"\n"
-        else:
-            s += f"restricted_droplet_atoms {INFOS['droplet_atoms']}\n"
-
-    if 'tether' in INFOS:
-        s += f"tethering_force {INFOS['tether_force']: 8.6e}\n"
-        s += f"tethering_radius {INFOS['tether_radius']: 8.6f}\n"
-        if type(INFOS['tether_atoms']) is list:
-            if len(INFOS['tether_atoms']) < 11:
-                s += f"tether_at {' '.join(map(str, INFOS['tether_atoms']))}\n"
-            else:
-                with open(iconddir + "/tether_atoms", "w") as f:
-                    f.write("\n".join(map(lambda x: "T" if x in INFOS['tether_atoms'] else "F", range(1,
-                            len(initobject.atomlist)+1))))
-                s += "tether_at file \"tether_atoms\"\n"
-        else:
-            s += f"tether_at {INFOS['tether_atoms']}\n"
-        s += f"tethering_position {' '.join(map(lambda x: f'{x: 8.6f}', INFOS['tether_position']))}\n"
-
-
+    s += "laser external\n"
+    s += 'laserfile "laser"\n'
+    s += "laserfilepath %s\n" %(INFOS["laserfile"])
+    s += "\n"
 
     # let user look at input and add extra stuff
     if ask:
@@ -1549,11 +1415,6 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     for atom in initobject.atomlist:
         velocf.write(atom[60:])
     velocf.close()
-
-    # laser file
-    if INFOS["laser"]:
-        laserfname = iconddir + "/laser"
-        shutil.copy(INFOS["laserfile"], laserfname)
 
     # atommask file
     if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:
@@ -1738,26 +1599,27 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             quit(1)
 
     width = 50
-    ntraj = INFOS["ntraj"]
+    ntraj = sum(INFOS["icond_sel"])  # INFOS["ntraj"]
     idone = 0
     finished = False
 
     initlist = INFOS["initlist"]
     ask = True
 
-    for icond in range(INFOS["firstindex"], INFOS["ninit"] + 1):
+    for icond in INFOS["icond_sel"]:
+        log.info(INFOS["setupstates"])
         for istate in INFOS["setupstates"]:
-            if len(initlist[icond - 1].statelist) < istate:
-                continue
-            if not initlist[icond - 1].statelist[istate - 1].Excited:
-                continue
-
+            # if len(initlist[icond - 1].statelist) < istate:
+            #     continue
+            # if not initlist[icond - 1].statelist[istate - 1].Excited:
+            #     continue
+            log.info("setupstate %i" % istate)
             idone += 1
 
             done = idone * width // ntraj
             sys.stdout.write("\rProgress: [" + "=" * done + " " * (width - done) + "] %3i%%" % (done * 100 // width))
 
-            dirname = get_iconddir(istate, INFOS) + "/TRAJ_%05i/" % (icond)
+            dirname = get_iconddir(istate, INFOS) + "/TRAJ_%05i" % (icond)
             io = make_directory(dirname)
             if io != 0:
                 log.info("Skipping initial condition %i %i!" % (istate, icond))
@@ -1771,15 +1633,10 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 log.info("Could not make QM or restart directory!")
                 continue
             interface.prepare(INFOS, dirname + "/QM")
-            
-            if not INFOS["pysharc"]:
-                run_qm = open(dirname + "/QM/runQM.sh", "w")
-                string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)                
-                run_qm.write(string)                               
-
+            qmoutfile = "ICOND_%05i/QM.out" % (icond)
+            shutil.copy(qmoutfile, dirname+"/QM/QMout.template")
+   
             writeRunscript(INFOS, dirname, interface)
-            if INFOS["rattle"]:
-                shutil.copy(expand_path(INFOS["rattlefile"]), os.path.join(dirname, INFOS["rattlefile"].split("/")[-1]))
 
             string = "cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n" % (dirname, dirname)
             all_run.write(string)
