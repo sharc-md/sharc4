@@ -179,7 +179,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 # ----------------------------------------------------------------------------------------------
 
     def read_resources(self, resources_file="FALLBACK.resources", kw_whitelist=None):
-        return super().read_resources(resources_file, kw_whitelist)
+        pass
 
     def read_template(self, template_file="FALLBACK.template", kw_whitelist=None):
         self.log.debug(f"Parsing template file {template_file}")
