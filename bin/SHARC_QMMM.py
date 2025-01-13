@@ -230,7 +230,11 @@ class SHARC_QMMM(SHARC_HYBRID):
         if "point_charges" in qmmm_features:
             qmmm_features.remove("point_charges")
         else:
-            self.log.error("Your QM interface needs to be able to include point charges in its calculations")
+            self.log.error("Your QM interface needs to be able to include point charges in its calculations!")
+            raise RuntimeError
+
+        if "multipolar_fit" not in mm_features:
+            self.log.error("Your MM interface needs to be able to provide point charges!")
             raise RuntimeError
 
         if "grad" in qmmm_features and "grad" not in mm_features:
@@ -248,7 +252,8 @@ class SHARC_QMMM(SHARC_HYBRID):
         super().read_template(template_file, kw_whitelist)
 
         # check
-        allowed_embeddings = ["additive", "subtractive"]
+        # allowed_embeddings = ["additive", "subtractive"]
+        allowed_embeddings = ["subtractive"]
         if self.QMin.template["embedding"] not in allowed_embeddings:
             self.log.error(
                 f"Chosen embedding \"{self.QMin.template['embedding']}\" is not available (available: {', '.join(str(i) for i in all)})"
@@ -635,7 +640,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         if self.QMin.requests["dm"]:
             self.QMout.dm = self.qm_interface.QMout.dm.copy()
             if self.QMin.template["mm_dipole"]:
-                np.einsum("xii->xi", self.QMout.dm)[...] += self.mml_interface.QMout.dm[:, :, 0]
+                np.einsum("xii->xi", self.QMout.dm)[...] += self.mml_interface.QMout.dm[:, 0, 0]
 
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = self.qm_interface.QMout.overlap
