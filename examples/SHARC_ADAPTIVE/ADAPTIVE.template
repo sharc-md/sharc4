@@ -4,6 +4,6 @@ exit_on_fail: True
 write_geoms: True
 geom_file: "geoms.xyz"
 interfaces: 
-    - {"label": "lead", "interface": "ORCA", "args": [], "kwargs": {}}
-    - {"label": "advisor", "interface": "ORCA", "args": [], "kwargs": {}}
+    - {"label": "lead", "interface": "LVC", "args": [], "kwargs": {}}
+    - {"label": "advisor", "interface": "LVC", "args": [], "kwargs": {}}
 custom_error: {"name": "custom", "file": "custom", "function": "some_error_func"}

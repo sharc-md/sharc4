@@ -9,4 +9,3 @@
   ## default is true if point charges are present
 do_kabsch true
 
-
