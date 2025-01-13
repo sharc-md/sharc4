@@ -55,7 +55,6 @@ np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"}, t
 
 
 class SHARC_LVC(SHARC_FAST):
-    _read_resources = True
     _do_kabsch = False
     _diagonalize = True
     _gammas = False
