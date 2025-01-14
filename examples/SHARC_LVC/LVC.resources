@@ -1,0 +1,11 @@
+
+  ## whether the LVC Hamiltonian should be diagonalized
+  ## setting this to false allows running directly on diabatic states
+# diagonalize true
+
+
+  ## whether the current geometry should be aligned with the reference geometry
+  ## using the Kabsch algorithm
+  ## default is true if point charges are present
+do_kabsch true
+

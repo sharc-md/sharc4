@@ -863,7 +863,7 @@ at least one task"""
 
     ALLOWED_METHODS = ["casscf", "l-pdft", "mc-pdft", "cms-pdft"]
     for index, method in enumerate(ALLOWED_METHODS):
-        if template_dict["method"] == method:
+        if template_dict["method"].lower() == method.lower():
             qmin["method"] = index
             break
 
