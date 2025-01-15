@@ -192,7 +192,6 @@ class QMinRequests(QMinBase):
         "multipolar_fit": list,
         "theodore": bool,
         "cleanup": bool,
-        "backup": str,
         "retain": int,
         "molden": bool,
         "savestuff": bool,
