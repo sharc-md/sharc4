@@ -15,7 +15,7 @@ AUTHORS = "Sascha Mausenberger"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 10, 15)
 NAME = "SPAINN"
-DESCRIPTION = "SHARC interface for SPaiNN"
+DESCRIPTION = "FAST interface for SPaiNN"
 
 CHANGELOGSTRING = """
 """
