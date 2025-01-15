@@ -61,8 +61,8 @@ except ImportError:
 
 # =========================================================0
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2024, 9, 1)
 
 changelogstring = '''
 
