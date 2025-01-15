@@ -1166,7 +1166,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             if set(GradCorrect[num]["required"]).issubset(INFOS["needed_requests"]):
                 recommended = [num]
         while True:
-            num = question("Coupling number:", int, recommended)[0]
+            num = question("Gradient mixing scheme:", int, recommended)[0]
             if num in GradCorrect and num in available:
                 break
             else:
