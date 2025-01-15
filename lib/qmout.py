@@ -1103,7 +1103,7 @@ class QMout:
         1 string: multiline string with the SOC matrix"""
 
         notes = self.notes
-        string = "! %i Notes\n" % (24)
+        string = "! %i Notes\n" % (999)
         string += "%i    ! number of notes\n" % (len(notes))
 
         string += "! Notes Labels (%i strings)\n" % (len(notes))
