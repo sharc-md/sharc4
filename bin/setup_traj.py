@@ -50,7 +50,7 @@ PI = math.pi
 
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2019, 9, 1)
+versiondate = datetime.date(2024, 9, 1)
 
 
 global KEYSTROKES
