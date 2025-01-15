@@ -338,10 +338,12 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
 
         inpstring += "\n"
         
-        #MICROS
+
+        # Handle external parameters
+        #Microstates
         if micros != None:
             allmicros = []
-            with open('MOPACPI.template', 'r') as file:
+            with open('ext_param', 'r') as file:
                 for line in file:
                     if 'MICROS' in line:
                         for _ in range(micros-1):
@@ -354,7 +356,6 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         
         par_str = ""
 
-        # Handle external parameters
         if external_par is not None and external_par > 0:
             allpar = []
             lines = readfile('ext_param')  # Assuming readfile() returns a list of lines

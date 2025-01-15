@@ -7,9 +7,21 @@ numb_elec 6
 ## Number of orbitals in active space
 numb_orb 4
 
+## Floating occupation parameter.
+flocc 0.1
+
+## Number of CI vectors to be printed.
+meci 20
+
+## Maximum number of CI vectors calculated by MECI.
+mxroot 20
+
 ## Number of external parameter for the Hamiltonian. If > 0 a file named ext_param has to be provided in the same folder.
 external_par 54
 
-
 ## Additional potential for the QM calculation. Needs to be provided in the ext_param file.
-add_pot true
+add_pot True
+
+## Number entries (microstates) to define the active space of configuration interaction calculations.
+#micros 94
+
