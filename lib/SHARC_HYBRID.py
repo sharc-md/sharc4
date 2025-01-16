@@ -26,10 +26,10 @@
 import inspect
 import os
 import sys
+import traceback
 from importlib import import_module
 from multiprocessing import Manager, Process
 from time import sleep
-import traceback
 
 from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
@@ -72,7 +72,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                 children_dict[label]._step_logic()
                 children_dict[label]._request_logic()
                 children_dict[label].QMout.mol = None
-                with InDir(children_dict[label].QMin.resources['pwd']):
+                with InDir(children_dict[label].QMin.resources["pwd"]):
                     children_dict[label].run()
                     children_dict[label].getQMout()
                 if children_dict[label].QMout.mol is not None:
@@ -81,15 +81,13 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                 children_dict[label].write_step_file()
                 QMins[label] = children_dict[label].QMin
                 QMouts[label] = children_dict[label].QMout
-            except Exception as exc:
+            except BaseException as exc:  # pylint: disable=broad-exception-caught
                 logger.error(f"Some exception occured while running child {label}")
                 logger.error(f"Exception type: {type(exc)}")
                 logger.error(f"Exception args: {exc.args}")
                 logger.error(f"Exception message: {str(exc)}")
                 logger.error(traceback.format_exc())
                 sys.exit(1)  # Indicate failure of child process
-            except:  # pylint: disable=bare-except
-                logger.error(f"Some system-level exception occured while running child {label}")
             finally:
                 n_used_cpu.value -= children_dict[label].QMin.resources["ncpu"]
 
