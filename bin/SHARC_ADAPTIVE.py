@@ -281,7 +281,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                 if self.QMin.template["exit_on_fail"]:
                     raise ValueError
             else:
-                self.log.debug(f"Error of {prop} is {max(error)}")
+                self.log.info(f"Error of {prop} is {max(error)}")
 
         self.QMout = next(iter(self._kindergarden.values())).QMout
         return self.QMout
