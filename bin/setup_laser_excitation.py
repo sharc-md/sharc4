@@ -41,12 +41,11 @@ from socket import gethostname
 
 from logger import log
 # import factory
-from utils import question, itnmstates, expand_path
+from utils import question, itnmstates, expand_path, readfile
 from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
 from SHARC_INTERFACE import SHARC_INTERFACE
 from SHARC_QMOUT import SHARC_QMOUT
 from qmout import QMout
-from utils import readfile
 
 # =========================================================0
 PI = math.pi
@@ -691,7 +690,7 @@ from the initcond files as provided by wigner.py.
         initfile = "initconds"
         initf = open(initfile)
         line = initf.readline()
-        if check_initcond_version(line, must_be_excited=True):
+        if check_initcond_version(line, must_be_excited=False):
             log.info('Initial conditions file "initconds" detected. Do you want to use this?')
             if not question('Use file "initconds"?', bool, True):
                 initf.close()
@@ -726,6 +725,7 @@ from the initcond files as provided by wigner.py.
     log.info("\nFile %s contains %i initial conditions." % (initfile, INFOS["ninit"]))
     while True:
         INFOS["icond_sel"] = question("Which initial conditions do you want to take? ", int, ranges=True)
+        INFOS["icond_sel"] = list(set(INFOS["icond_sel"]))  # remove duplicates
         if not all(1 <= num <= INFOS["ninit"] for num in INFOS["icond_sel"]):
             log.info(all(1 <= num <= INFOS["ninit"] for num in INFOS["icond_sel"]))
             continue
@@ -752,6 +752,22 @@ from the initcond files as provided by wigner.py.
     #     guessstates = states
     # else:
     #     guessstates = None
+    
+    # Equi-block from excite.py
+    while True:
+        line = initf.readline()
+        if "Equilibrium" in line:
+            break
+        if line == "":
+            print("File malformatted! No equilibrium geometry!")
+            quit(1)
+    equi = []
+    for i in range(INFOS["natom"]):
+        line = initf.readline()
+        # atom = ATOM()
+        # atom.init_from_str(line)
+        equi.append(line)
+    INFOS["equi"] = equi
 
     log.info("Reference energy %16.12f a.u." % (INFOS["eref"]))
     log.info("Excited states are in %s representation.\n" % (["MCH", "diagonal"][INFOS["diag"]]))
@@ -828,6 +844,7 @@ from the initcond files as provided by wigner.py.
     # read initlist, analyze it and log.info(content (all in get_initconds))
     INFOS["initf"] = initf
     INFOS = get_initconds(INFOS)
+    initf.close()
 
     # Generate random example for setup-states, according to Leti's wishes
     exampleset = set()
@@ -1290,6 +1307,28 @@ def make_directory(iconddir):
 
 
 # ======================================================================================================================
+def json_info(INFOS):
+    setup_laser_excitation_info_filename= "%s/setup_laser_excitation.json" % (os.getcwd())
+
+    # open writable json file
+    try:
+        setup_laser_excitation_info = open(setup_laser_excitation_info_filename, "w")
+    except IOError:
+        log.info(
+            "IOError during opening writeable %s. Quitting."
+            % (setup_laser_excitation_info_filename)
+        )
+        quit(1)
+
+    INFOS["initf"] = INFOS["initf"].name  # write INFOS to info file
+    INFOS.pop("initlist")
+    INFOS["needed_requests"] = list(INFOS["needed_requests"])
+    INFOS["statemap"] = list(INFOS["statemap"])
+    INFOS["setupstates"] = list(INFOS["setupstates"])
+    json.dump(INFOS, setup_laser_excitation_info, sort_keys=True, indent=4)
+    setup_laser_excitation_info.close()
+
+    return 
 
 
 def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
@@ -1415,6 +1454,10 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     for atom in initobject.atomlist:
         velocf.write(atom[60:])
     velocf.close()
+
+    # laser file
+    laserfname = iconddir + "/laser"
+    shutil.copy(INFOS["laserfile"], laserfname)
 
     # atommask file
     if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:
@@ -1582,7 +1625,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     string += "||" + f"{'Setting up directories...':^80}" + "||\n"
     string += "  " + "=" * 80 + "\n\n"
     log.info(string)
-
+    INFOS["setupstates_names"] = []
     all_run = open("all_run_traj.sh", "w")
     string = "#!/bin/bash\n\nCWD=%s\n\n" % (INFOS["cwd"])
     all_run.write(string)
@@ -1606,20 +1649,20 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     initlist = INFOS["initlist"]
     ask = True
 
-    for icond in INFOS["icond_sel"]:
-        log.info(INFOS["setupstates"])
-        for istate in INFOS["setupstates"]:
+    for istate in INFOS["setupstates"]:
+        log.info("setupstate %i" % istate)
+        for icond in INFOS["icond_sel"]:
             # if len(initlist[icond - 1].statelist) < istate:
             #     continue
             # if not initlist[icond - 1].statelist[istate - 1].Excited:
             #     continue
-            log.info("setupstate %i" % istate)
             idone += 1
 
             done = idone * width // ntraj
             sys.stdout.write("\rProgress: [" + "=" * done + " " * (width - done) + "] %3i%%" % (done * 100 // width))
 
             dirname = get_iconddir(istate, INFOS) + "/TRAJ_%05i" % (icond)
+             
             io = make_directory(dirname)
             if io != 0:
                 log.info("Skipping initial condition %i %i!" % (istate, icond))
@@ -1634,8 +1677,10 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 continue
             interface.prepare(INFOS, dirname + "/QM")
             qmoutfile = "ICOND_%05i/QM.out" % (icond)
-            shutil.copy(qmoutfile, dirname+"/QM/QMout.template")
-   
+            # prevent symlinks error
+            if os.path.realpath(os.path.join(INFOS["path"], qmoutfile)) !=  os.path.realpath(dirname+"/QM/QMout.template"): 
+                shutil.copy(os.path.join(INFOS["path"], qmoutfile), dirname+"/QM/QMout.template")
+
             writeRunscript(INFOS, dirname, interface)
 
             string = "cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n" % (dirname, dirname)
@@ -1647,6 +1692,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             if idone == ntraj:
                 finished = True
                 break
+        INFOS["setupstates_names"].append(get_iconddir(istate, INFOS))
         if finished:
             log.info("\n\n%i trajectories setup, last initial condition was %i in state %i.\n" % (ntraj, icond, istate))
             setup_stat = open("setup_traj.status", "a+")
@@ -1685,6 +1731,8 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
 # ======================================================================================================================
 
 
+
+
 def main():
     """Main routine"""
 
@@ -1708,7 +1756,6 @@ This interactive program prepares SHARC dynamics calculations.
     INFOS = get_requests(INFOS, chosen_interface)
     INFOS = get_trajectory_info(INFOS)
     INFOS = get_runscript_info(INFOS)
-
     log.info("\n" + f"{'Full input':#^60}" + "\n")
     for item in INFOS:
         if "initlist" not in item:
@@ -1723,6 +1770,7 @@ This interactive program prepares SHARC dynamics calculations.
             INFOS["link_files"] = True
         setup_all(INFOS, chosen_interface)
 
+    json_info(INFOS) 
     close_keystrokes()
 
 
