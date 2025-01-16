@@ -384,7 +384,6 @@ def gfsh_probs(istate, icond, INFOS):
                     continue
                 else:
                     exc_prob[tstep, exc_state] = np.max([0, gs_fac[tstep]*exc_prob_tdiff[tstep, exc_state]/max_prob[tstep]])
-    print("exc_prob", np.sum(np.isnan(exc_prob)))
     data_to_save = np.column_stack((range(time_steps), exc_prob))
     np.savetxt("exc_state_%05i_traj_%05i" % (istate, icond), data_to_save, fmt="%.2e", delimiter="\t")
     return exc_prob
@@ -593,13 +592,12 @@ def excite(INFOS, initlist, exc_list, setupstate):
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
         if icond.statelist == []:
             continue
+        elif i+1 not in INFOS["icond_sel"]:  # Did not select icond for laser excitation
+            log.info("Initial condition %i not selected!" % i)
         else:
-            log.info("TEST3")
             if exc_list[setupstate, i, 1] != 0:
                 log.info(icond.statelist)
                 for j, jstate in enumerate(icond.statelist):
-                    log.info(j)
-                    log.info(i)
                     if exc_list[setupstate, i, 1]==j:
                         jstate.Excited = True
                     else:
@@ -664,9 +662,7 @@ def excite(INFOS, initlist, exc_list, setupstate):
     #    print("\nNumber of initial states:                   %5i" % (nselected))
 
     # statistics
-    maxprob = 0.0
     nexc = [0]
-    ninrange = [0]
     ntotal = [0]
     for i, icond in enumerate(initlist):
         if icond.statelist == []:
@@ -675,17 +671,15 @@ def excite(INFOS, initlist, exc_list, setupstate):
             for j, jstate in enumerate(icond.statelist):
                 if j + 1 > len(ntotal):
                     ntotal.append(0)
-                if j + 1 > len(ninrange):
-                    ninrange.append(0)
                 if j + 1 > len(nexc):
                     nexc.append(0)
                 ntotal[j] += 1
                 if jstate.Excited:
                     nexc[j] += 1
     print("\nNumber of initial conditions excited:")
-    print("State   Selected   InRange   Total")
+    print("State   Selected     Total")
     for i in range(len(ntotal)):
-        print("  % 3i       % 4i      % 4i    % 4i" % (i + 1, nexc[i], ninrange[i], ntotal[i]))
+        print("  % 3i      % 4i      % 4i" % (i + 1, nexc[i], ntotal[i]))
     return initlist
 
 
@@ -732,17 +726,23 @@ def main():
     log.info(exc_list.shape)
     for istate in INFOS["setupstates"]:
         for icond in INFOS["icond_sel"]:
+            jump_to_next = False
             exc_probs[istate-1, icond-1, :, :] = gfsh_probs(istate, icond, INFOS)
             exc_probs_cumsum[istate-1, icond-1, :, :] = np.cumsum(exc_probs[istate-1, icond-1, :, :], axis=1) 
             for tstep in range(0, INFOS["nsteps"]+1):
+                if jump_to_next:
+                    continue
                 for exc_state in range(1, INFOS["nstates"]+1):
+                    if jump_to_next:
+                        continue
                     if random.random() <= exc_probs_cumsum[istate-1, icond-1, tstep, exc_state-1]:
+                        print(exc_state)
                         exc_list[istate-1, icond-1, :] = tstep, exc_state 
-                        break
-                    else: 
-                        continue 
+                        print(exc_list[istate-1, icond-1, :], istate, icond, tstep)
+                        jump_to_next = True
+    print("FINIHSED")                    
     for i, istate in enumerate(INFOS["setupstates"]):
-        print(i, istate)
+        #print(i, istate)
         initlist[i] = excite(INFOS, initlist[i], exc_list, i)
         writeoutput(initlist[i], i, INFOS) 
     # set manually for old calcs
