@@ -23,6 +23,7 @@
 #
 # ******************************************
 
+import asyncio
 import inspect
 import os
 import sys
@@ -41,14 +42,38 @@ class SHARC_HYBRID(SHARC_INTERFACE):
     Abstract base class for SHARC hybrid interfaces
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, fast_queue: bool = False, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+        # Select queue type
+        self.run_children = SHARC_HYBRID.run_fast if fast_queue else SHARC_HYBRID.run_queue
+        self.log.debug(f"Fast queue: {fast_queue}")
 
         # Dict of child interfaces
         self._kindergarden = {}
 
     @staticmethod
-    def run_children(
+    def run_fast(logger, children_dict: dict[str, SHARC_INTERFACE], *args, **kwargs) -> None:
+        """
+        Run all children in an async queue (prefered option for FAST children!)
+
+        logger:         Logger object
+        children_dict:  Dictionary of children that will be executed
+        """
+
+        async def _run_async(label, child):
+            logger.info(f"Run child {label} in async queue.")
+            child.run()
+            child.getQMout()
+
+        async def _gather():
+            tasks = [_run_async(k, v) for k, v in children_dict.items()]
+            await asyncio.gather(*tasks)
+
+        asyncio.run(_gather())
+
+    @staticmethod
+    def run_queue(
         logger, children_dict: dict[str, SHARC_INTERFACE], ncpu: int, delay: float = 0.1, exit_on_failure: bool = True
     ) -> None:
         """
