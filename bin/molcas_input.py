@@ -48,7 +48,7 @@ version = '2.1'
 versiondate = datetime.date(2019, 9, 1)
 
 # MOLCAS works with g/mol
-MASSES = MASSES.update((el, mass/U_TO_AMU) for (el, mass) in MASSES.items())
+MASSES.update((el, mass/U_TO_AMU) for (el, mass) in MASSES.items())
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -831,9 +831,9 @@ mkdir -p $WorkDir
     string += 'cd $Workdir'
 
     if os.path.isfile(os.path.join(INFOS['molcas'], 'bin', 'pymolcas')):
-        string += '\n$MOLCAS/bin/pymolcas MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
+        string += '\n$MOLCAS/bin/pymolcas $HomeDir/MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
     elif os.path.isfile(os.path.join(INFOS['molcas'], 'bin', 'molcas.exe')):
-        string += '\n$MOLCAS/bin/molcas.exe MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
+        string += '\n$MOLCAS/bin/molcas.exe $HomeDir/MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
     else:
         print('Could not find MOLCAS driver in %s' % os.path.join(INFOS['molcas'], 'bin'))
         sys.exit(1)
@@ -846,6 +846,7 @@ mkdir -p $WorkDir
         string += 'cp $WorkDir/%sOrbitals.* $HomeDir\n' % (IToMult[mult])
 
     string += '#mkdir -p $HomeDir/TRD/\n#cp $WorkDir/TRD2_* $HomeDir/TRD/\n'
+    string += 'cp -r $WorkDir/* $HomeDir\n'
 
     if INFOS['delete_scratch']:
         string += '\nrm -r $SCRATCH_DIR\n'
@@ -856,7 +857,7 @@ mkdir -p $WorkDir
     try:
         runf = open(runscript, 'w')
     except IOError:
-        print('Could not write %s' (runscript))
+        print('Could not write %s' % (runscript))
         return
     runf.write(string)
     runf.close()

@@ -108,6 +108,7 @@ class STATE:
         self.eref = eref.real
         self.dip = dip
         self.Excited = False
+        self.ExcTime = 0.0
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -122,6 +123,7 @@ class STATE:
         self.eref = try_read(f, 2, float, 0.0)
         self.dip = [complex(try_read(f, i, float, 0.0), try_read(f, i + 1, float, 0.0)) for i in [3, 5, 7]]
         self.Excited = try_read(f, 11, bool, False)
+        self.ExcTime = try_read(f, 12, float, 0.0)
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -133,14 +135,14 @@ class STATE:
         s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
-        s += "% 12.8f % 12.8f %s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited)
+        s += "% 12.8f % 12.8f %s % 12.8f" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime)
         return s
 
-    def Excite(self, max_Prob, erange):
-        if erange[0] <= self.Eexc <= erange[1]:
-            self.Excited = random.random() < (self.Prob / max_Prob)
-        else:
-            self.Excited = False
+    # def Excite(self, max_Prob, erange):
+    #     if erange[0] <= self.Eexc <= erange[1]:
+    #         self.Excited = random.random() < (self.Prob / max_Prob)
+    #     else:
+    #         self.Excited = False
 
 
 # ======================================================================= #
@@ -278,9 +280,10 @@ def run_data_extractor(initstate, INFOS):
             sys.exit(1)
         else:
             if not all(traj.startswith("TRAJ_") for traj in os.listdir(dirname)):  # check, if all trajectories start with TRAJ_ 
+                log.info(os.listdir(dirname))
                 log.info("Not all trajectories for state %s start with 'TRAJ_'" % dirname)
                 # sys.exit(1)
-            if not ["TRAJ_%05i" % int(el) for el in INFOS["icond_sel"]] == os.listdir(dirname):
+            if not ["TRAJ_%05i" % int(el) for el in INFOS["icond_sel"]] == sorted(os.listdir(dirname)):
                 log.info("Not all trajectories for the selected initial conditions exist!")
                 # sys.exit(1)
             for itraj in os.listdir(dirname):  # cycle through all TRAJ_directories in initstate folder
@@ -341,12 +344,11 @@ def run_data_extractor(initstate, INFOS):
 
 
 def gfsh_probs(istate, icond, INFOS):
-    print(INFOS["max_prob"])
     if INFOS["diag"]:
         coeff_file = "coeff_diag.out"
     else:
         coeff_file = "coeff_MCH.out"
-    coeff_data =  np.genfromtxt(get_iconddir(istate, INFOS) + "/TRAJ_%05i/output_data/%s" %(icond, coeff_file), comments="#")
+    coeff_data =  np.genfromtxt(get_iconddir(INFOS["setupstates"][istate], INFOS) + "/TRAJ_%05i/output_data/%s" %(INFOS["icond_sel"][icond], coeff_file), comments="#")
     # coeffs = np.zeros((coeff_data.shape[0], int((coeff_data.shape[1]-2)/2)), dtype=complex)
     # TODO Decide, whether coeff_data.shape makes more sense or tsteps, setupstates
     coeffs = np.zeros((INFOS["nsteps"]+1, INFOS["nstates"]), dtype=complex)  # nstates
@@ -407,7 +409,6 @@ def compute_max_prob(INFOS):
     print('Running data_extractor...')
     for istate in INFOS["setupstates"]:  
         for icond in INFOS["icond_sel"]:
-            print(istate, icond)
             p_traj = 0.  # Initialize the accumulated probability to leave the initial state for this trajectory
             coeff_data =  np.genfromtxt(get_iconddir(istate, INFOS) + "/TRAJ_%05i/output_data/%s" %(icond, coeff_file), comments="#")
             # TODO: probably would suffice to only take the initial state - defining a big array is not needed
@@ -415,13 +416,25 @@ def compute_max_prob(INFOS):
             # for n_columns in range(0, len(coeffs[1])):
             # coeffs[:, int(n_columns)] = coeff_data[:, int(2*(n_columns+1))] + 1.j*coeff_data[:, int(2*(n_columns+1)+1)]
             coeff_init = coeff_data[:, int(2*(istate-1+1))] + 1.j*coeff_data[:, int(2*(istate-1+1)+1)]  # skip first two columns containing time and c**2, but istates start at 1
+            pstay = 1. 
             p_init = np.abs(coeff_init)**2
             for tstep in range(len(coeff_init)-1):
-                p_init_tdiff = p_init[tstep]-p_init[tstep+1]
-                if p_init_tdiff > 0.:
-                    p_traj += p_init_tdiff  # if the population of the initial state gets less, add this to the p_traj
-            if p_traj > pmax:
-                pmax = p_traj
+                pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
+                # if istate==5:
+                #     if icond==3:
+                #         print(tstep, pstay, p_init[tstep])
+                # pstay *= 1. - (max(0, p_init[tstep]-p_init[tstep+1]))
+            pleave = 1.-pstay
+            print("ISTATE: %i, ICOND: %i, pleave: %f" % (istate, icond, pleave))
+            if pleave > pmax:
+                pmax = pleave
+            # p_traj = 1
+            # for tstep in range(len(coeff_init)-1):
+            #     p_init_tdiff = p_init[tstep]-p_init[tstep+1]
+            #     if p_init_tdiff > 0:
+            #         p_traj *= (1-p_init_tdiff)  # prob to never hop
+            # if 1-p_traj > pmax:  # prob to hop at least once
+            #     pmax = 1-p_traj
     return pmax 
 
 
@@ -468,7 +481,6 @@ def get_QMout(INFOS, initstate, initlist):
     print("\nReading QM.out data ...")
     ncond = 0
     width_bar = 50
-    print("iconds %i" % INFOS["ninit"])
     for icond in range(1, INFOS["ninit"] + 1):
         # look for a QM.out file
         qmfilename = INFOS["path"]+"/ICOND_%05i/QM.out" % (icond)
@@ -486,7 +498,6 @@ def get_QMout(INFOS, initstate, initlist):
             dip = [DM[i][initstate][istate] for i in range(3)]
             estate = STATE(len(estates) + 1, H[istate][istate], H[initstate][initstate], dip)
             estates.append(estate)
-        print("TESTgetqmout")
         initlist[icond - 1].addstates(estates)
     print("\nNumber of initial conditions with QM.out:   %5i" % (ncond))
     return initlist
@@ -510,7 +521,7 @@ def get_iconddir(istate, INFOS):
 
 
 def writeoutput(initlist, istate, INFOS):
-    dirname = get_iconddir(istate+1, INFOS)
+    dirname = get_iconddir(INFOS["setupstates"][istate], INFOS)
     outfilename = INFOS["initf"] + "_" + dirname + ".excited"
     if os.path.isfile(outfilename):
         overw = question("Overwrite %s? " % (outfilename), bool, False)
@@ -587,19 +598,19 @@ def excite(INFOS, initlist, exc_list, setupstate):
     print("\nSelecting initial states ...")
     width_bar = 50
     nselected = 0
-    for i, icond in enumerate(initlist):
-        done = width_bar * (i + 1) // len(initlist)
-        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
-        if icond.statelist == []:
+    # for i, icond in enumerate(initlist):
+    for ic, icond in enumerate(INFOS["icond_sel"]):
+        # done = width_bar * (i + 1) // len(initlist)
+        done = width_bar * (ic + 1) // len(INFOS["icond_sel"])
+        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%\n" % (done * 100 // width_bar))
+        if initlist[ic].statelist == []:
             continue
-        elif i+1 not in INFOS["icond_sel"]:  # Did not select icond for laser excitation
-            log.info("Initial condition %i not selected!" % i)
         else:
-            if exc_list[setupstate, i, 1] != 0:
-                log.info(icond.statelist)
-                for j, jstate in enumerate(icond.statelist):
-                    if exc_list[setupstate, i, 1]==j:
+            if exc_list[setupstate, ic, 1] != 0:
+                for j, jstate in enumerate(initlist[icond].statelist):
+                    if exc_list[setupstate, ic, 1]==j:
                         jstate.Excited = True
+                        jstate.ExcTime = exc_list[setupstate, ic, 0]
                     else:
                         jstate.Excited = False
     #for i, icond in enumerate(initlist)
@@ -679,6 +690,7 @@ def excite(INFOS, initlist, exc_list, setupstate):
     print("\nNumber of initial conditions excited:")
     print("State   Selected     Total")
     for i in range(len(ntotal)):
+        # TODO Instead of ntotal, write number of initconds in TRAJ folders
         print("  % 3i      % 4i      % 4i" % (i + 1, nexc[i], ntotal[i]))
     return initlist
 
@@ -715,36 +727,31 @@ def main():
     for i, istate in enumerate(INFOS["setupstates"]):
         initlist.append(get_initconds(INFOS))
         initlist[i] = get_QMout(INFOS, i, initlist[i])  # adding excited state information
-        log.info([print("TESTOI %s" % el.statelist for el in initlist[i])])
         run_data_extractor(i, INFOS)
 
-    INFOS["max_prob"] = 1  #  compute_max_prob(INFOS)  # Compute maximum probability to leave initial state
-    print(INFOS["max_prob"])
+    INFOS["max_prob"] = compute_max_prob(INFOS)  # Compute maximum probability to leave initial state
+    print("Computed pmax = %.2f" % INFOS["max_prob"])
     exc_probs = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), INFOS["nsteps"]+1, INFOS["nstates"]))
     exc_probs_cumsum = np.zeros_like(exc_probs) 
     exc_list = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), 2))
-    log.info(exc_list.shape)
-    for istate in INFOS["setupstates"]:
-        for icond in INFOS["icond_sel"]:
+    for ist, istate in enumerate(INFOS["setupstates"]):
+        for ic, icond in enumerate(INFOS["icond_sel"]):
             jump_to_next = False
-            exc_probs[istate-1, icond-1, :, :] = gfsh_probs(istate, icond, INFOS)
-            exc_probs_cumsum[istate-1, icond-1, :, :] = np.cumsum(exc_probs[istate-1, icond-1, :, :], axis=1) 
+            exc_probs[ist, ic, :, :] = gfsh_probs(ist, ic, INFOS)
+            exc_probs_cumsum[ist, ic, :, :] = np.cumsum(exc_probs[ist, ic, :, :], axis=1) 
             for tstep in range(0, INFOS["nsteps"]+1):
                 if jump_to_next:
                     continue
                 for exc_state in range(1, INFOS["nstates"]+1):
                     if jump_to_next:
                         continue
-                    if random.random() <= exc_probs_cumsum[istate-1, icond-1, tstep, exc_state-1]:
-                        print(exc_state)
-                        exc_list[istate-1, icond-1, :] = tstep, exc_state 
-                        print(exc_list[istate-1, icond-1, :], istate, icond, tstep)
+                    if random.random() <= exc_probs_cumsum[ist, ic, tstep, exc_state-1]:
+                        exc_list[ist, ic, :] = tstep, exc_state 
                         jump_to_next = True
-    print("FINIHSED")                    
-    for i, istate in enumerate(INFOS["setupstates"]):
-        #print(i, istate)
-        initlist[i] = excite(INFOS, initlist[i], exc_list, i)
-        writeoutput(initlist[i], i, INFOS) 
+    for ist, istate in enumerate(INFOS["setupstates"]):
+        print(ist, istate)
+        initlist[ist] = excite(INFOS, initlist[ist], exc_list, ist)
+        writeoutput(initlist[ist], ist, INFOS) 
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
     close_keystrokes()

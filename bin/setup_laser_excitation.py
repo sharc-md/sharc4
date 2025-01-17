@@ -1641,16 +1641,17 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             log.info("Could not make directory %s" % (dirname))
             quit(1)
 
-    width = 50
-    ntraj = sum(INFOS["icond_sel"])  # INFOS["ntraj"]
-    idone = 0
-    finished = False
 
-    initlist = INFOS["initlist"]
     ask = True
-
     for istate in INFOS["setupstates"]:
-        log.info("setupstate %i" % istate)
+        width = 50
+        ntraj = len(INFOS["icond_sel"])  # INFOS["ntraj"]
+        idone = 0
+        finished = False
+
+        initlist = INFOS["initlist"]
+        log.info(INFOS["setupstates"])
+        log.info("Trajectory setup for initial state %i" % istate)
         for icond in INFOS["icond_sel"]:
             # if len(initlist[icond - 1].statelist) < istate:
             #     continue
@@ -1706,14 +1707,15 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 datetime.datetime.now(),
                 gethostname(),
                 os.getcwd(),
-                INFOS["firstindex"],
-                icond,
+                # TODO Delete First index / Last index - if trajs are e.g. 1 2 3 6 12 
+                min(INFOS["icond_sel"]),  # INFOS["firstindex"],
+                max(INFOS["icond_sel"]),
                 ntraj,
                 istate,
             )
             setup_stat.write(string)
             setup_stat.close()
-            break
+            continue
 
     all_run.close()
     filename = "all_run_traj.sh"
