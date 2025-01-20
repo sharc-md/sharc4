@@ -108,7 +108,7 @@ class STATE:
         self.eref = eref.real
         self.dip = dip
         self.Excited = False
-        self.ExcTime = 0.0
+        self.ExcTime = ""
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -135,7 +135,10 @@ class STATE:
         s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
-        s += "% 12.8f % 12.8f %s % 12.8f" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime)
+        try: 
+            s += "% 12.8f % 12.8f %s % 12.8f" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime)
+        except:
+            s += "% 12.8f % 12.8f %s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime)
         return s
 
     # def Excite(self, max_Prob, erange):
@@ -610,9 +613,10 @@ def excite(INFOS, initlist, exc_list, setupstate):
                 for j, jstate in enumerate(initlist[icond].statelist):
                     if exc_list[setupstate, ic, 1]==j:
                         jstate.Excited = True
-                        jstate.ExcTime = exc_list[setupstate, ic, 0]
+                        jstate.ExcTime = exc_list[setupstate, ic, 0]*INFOS["tmax"]/INFOS["nsteps"]
                     else:
                         jstate.Excited = False
+                        jstate.ExcTime = ""
     #for i, icond in enumerate(initlist)
     #        # get the maximum oscillator strength
     #        maxprob = 0

@@ -39,6 +39,7 @@ import json
 from optparse import OptionParser
 from socket import gethostname
 
+import subprocess as sp
 from logger import log
 # import factory
 from utils import question, itnmstates, expand_path, readfile
@@ -658,7 +659,7 @@ def get_initconds(INFOS):
 
 def get_laser_time(filename):
     data = readfile(filename)
-    return float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])-float(data[-2].split()[0]) 
+    return float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])-float(data[-2].split()[0])  # tmax, nsteps, dtstep 
     
 # ======================================================================================================================
 # ======================================================================================================================
@@ -1458,7 +1459,19 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     # laser file
     laserfname = iconddir + "/laser"
     shutil.copy(INFOS["laserfile"], laserfname)
+    sharcpath = os.getenv('SHARC')   
+    if sharcpath is None:                                                                
+       print('Please set $SHARC to the directory containing the SHARC executables!')
+       sys.exit(1)
 
+    io = sp.call(sharcpath + '/align_laser_file.py -lf %s -of %s -r %i' % (INFOS["laserfile"], laserfname, random.randint(1,int(1E6))), shell=True)
+    # TODO: proper error treatment
+    # if io != 0:
+    #     print('WARNING: Execution of random align laser field failed for %s! Exit code %i' % (laserfname, io))                                     
+    # else:
+    #     log.info("No file 'output.dat.nc' in %s. Quitting." % traj_path)                                                       
+    #     sys.exit(1)                                                                                                            
+   
     # atommask file
     if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:
         atommfname = iconddir + "/atommask"
