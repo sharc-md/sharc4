@@ -49,7 +49,7 @@ def open_keystrokes():
 
 def close_keystrokes():
     KEYSTROKES.close()
-    shutil.move("KEYSTROKES.tmp", "KEYSTROKES.excite")
+    shutil.move("KEYSTROKES.tmp", "KEYSTROKES.excite_laser_excitation")
 
 # ===================================
 
@@ -356,6 +356,7 @@ def gfsh_probs(istate, icond, INFOS):
     # TODO Decide, whether coeff_data.shape makes more sense or tsteps, setupstates
     coeffs = np.zeros((INFOS["nsteps"]+1, INFOS["nstates"]), dtype=complex)  # nstates
     time_steps, states = coeffs.shape
+    print(time_steps, states)
     for n_columns in range(0, len(coeffs[1])):
         coeffs[:, int(n_columns)] = coeff_data[:, int(2*(n_columns+1))] + 1.j*coeff_data[:, int(2*(n_columns+1)+1)]
     exc_prob = np.zeros((time_steps, int(states)))
@@ -363,6 +364,7 @@ def gfsh_probs(istate, icond, INFOS):
     max_prob = np.zeros(time_steps-1)
     rho = np.zeros_like(coeffs, dtype=float)
     rho[:, 1:] = np.abs(coeffs[:, 1:])**2/INFOS["max_prob"]  # excited state coefficients
+    print(INFOS["max_prob"])
     # rho[:, 0] =  np.abs(coeffs[:, 0])**2  # ground state coefficients
     # norm = np.sum(rho, axis=1)
     # rho=rho/norm[:, np.newaxis]
@@ -409,7 +411,6 @@ def compute_max_prob(INFOS):
         coeff_file = "coeff_diag.out"
     else:
         coeff_file = "coeff_MCH.out"
-    print('Running data_extractor...')
     for istate in INFOS["setupstates"]:  
         for icond in INFOS["icond_sel"]:
             p_traj = 0.  # Initialize the accumulated probability to leave the initial state for this trajectory
@@ -613,6 +614,7 @@ def excite(INFOS, initlist, exc_list, setupstate):
                 for j, jstate in enumerate(initlist[icond].statelist):
                     if exc_list[setupstate, ic, 1]==j:
                         jstate.Excited = True
+                        print("jstate.Excited=True")
                         jstate.ExcTime = exc_list[setupstate, ic, 0]*INFOS["tmax"]/INFOS["nsteps"]
                     else:
                         jstate.Excited = False
@@ -749,11 +751,12 @@ def main():
                 for exc_state in range(1, INFOS["nstates"]+1):
                     if jump_to_next:
                         continue
+                    # print(exc_probs_cumsum[ist, ic, tstep, exc_state-1])
                     if random.random() <= exc_probs_cumsum[ist, ic, tstep, exc_state-1]:
                         exc_list[ist, ic, :] = tstep, exc_state 
                         jump_to_next = True
+    # print(exc_list, exc_list.shape)
     for ist, istate in enumerate(INFOS["setupstates"]):
-        print(ist, istate)
         initlist[ist] = excite(INFOS, initlist[ist], exc_list, ist)
         writeoutput(initlist[ist], ist, INFOS) 
     # set manually for old calcs

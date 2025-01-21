@@ -238,7 +238,7 @@ def rotate_matrix_old(laser_file_path, rot_mat_file_path, INFOS):
                        efield_real[1], efield_imag[1],
                        efield_real[2], efield_imag[2]]+list(line[7:])
         rot_laser_fields.append(result)
-    log.info(rot_laser_fields)
+    # log.info(rot_laser_fields)
     return rot_laser_fields
 
 
@@ -250,7 +250,7 @@ def main():
     Interactive script for the extraction of EM-fields from FDTD simulations to a laser input file for SHARC
     As input it takes an FDTD output (.hdf5), the spatial position of the fields to be extracted and the time step to be interpolated
     '''
-    open_keystrokes()
+    # open_keystrokes()  # Commented because generation of KEYSTROKES.tmp in a subprocess (as happens when called with setup_laser_excitation) causes errors
     head = []
     INFOS = {}
     # description = ''
@@ -313,7 +313,7 @@ def main():
     formatted_laser_file = np.array([[" "]+[custom_formatter(val) for val in row] for row in rot_laser_fields], dtype=str)
     head=''.join(head)
     np.savetxt(INFOS["output_file_path"], formatted_laser_file, fmt="%s", delimiter="", header=head, comments='')
-    close_keystrokes()
+    # close_keystrokes()
 ## ======================================================================================================================
 #
 if __name__ == '__main__':

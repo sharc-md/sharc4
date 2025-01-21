@@ -2299,7 +2299,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             print(len(initlist[icond-1].statelist))
             if initlist[icond-1].statelist[istate-1].ExcTime != "":
                 with open(dirname+"start.time", "w") as tfile:
-                    tfile.write(initlist[icond-1].statelist[istate-1].ExcTime)
+                    tfile.write(f"{float(initlist[icond-1].statelist[istate-1].ExcTime):.3f}")
             writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, ask=ask)
             ask = False
             io = make_directory(dirname + "/QM")
