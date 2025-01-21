@@ -123,7 +123,7 @@ class STATE:
         self.eref = try_read(f, 2, float, 0.0)
         self.dip = [complex(try_read(f, i, float, 0.0), try_read(f, i + 1, float, 0.0)) for i in [3, 5, 7]]
         self.Excited = try_read(f, 11, bool, False)
-        self.ExcTime = try_read(f, 12, float, 0.0)
+        self.ExcTime = try_read(f, 12, str, "")
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:

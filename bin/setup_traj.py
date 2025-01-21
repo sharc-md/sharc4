@@ -315,6 +315,7 @@ class STATE:
         self.eref = eref.real
         self.dip = dip
         self.Excited = False
+        self.ExcTime = ""
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -329,6 +330,7 @@ class STATE:
         self.eref = try_read(f, 2, float, 0.0)
         self.dip = [complex(try_read(f, i, float, 0.0), try_read(f, i + 1, float, 0.0)) for i in [3, 5, 7]]
         self.Excited = try_read(f, 11, bool, False)
+        self.ExcTime = try_read(f, 12, str, "")
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -340,7 +342,7 @@ class STATE:
         s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
-        s += "% 12.8f % 12.8f %s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited)
+        s += "% 12.8f % 12.8f %s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime)
         return s
 
     def Excite(self, max_Prob, erange):
@@ -586,6 +588,9 @@ def analyze_initconds(initlist, INFOS):
                 if i.statelist[state].Excited:
                     display.add("#")
                     n_issel[-1] += 1
+                    log.info(i.statelist[state].Excited)
+                    # with open("start.time", "w") as tfile:
+                    #     tfile.write(i.statelist[state].ExcTime)
                 else:
                     display.add(".")
         if INFOS["show_content"]:
@@ -2290,7 +2295,11 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             if io != 0:
                 log.info("Skipping initial condition %i %i!" % (istate, icond))
                 continue
-
+            print(icond, istate)
+            print(len(initlist[icond-1].statelist))
+            if initlist[icond-1].statelist[istate-1].ExcTime != "":
+                with open(dirname+"start.time", "w") as tfile:
+                    tfile.write(initlist[icond-1].statelist[istate-1].ExcTime)
             writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, ask=ask)
             ask = False
             io = make_directory(dirname + "/QM")
