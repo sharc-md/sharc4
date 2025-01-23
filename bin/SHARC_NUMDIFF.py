@@ -163,13 +163,12 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         self.QMin.template.update(
             {
                 "qm-program"            :   None,
-                "qm-dir"                :   None,             # NEEDED? Yes, that's where the QM template/resource are
-                "numdiff_method"        :   "central-diff",   # pr "central-quad"
+                "qm-dir"                :   None,             # that's where the QM template/resource are
+                "numdiff_method"        :   "central-diff",   # or "central-quad"
                 'numdiff_representation':   "adiabatic",      # or "diabatic"
-                "numdiff_stepsize"      :   0.01,             # should be per-DOF
+                "numdiff_stepsize"      :   0.01,             # TODO: should be a list of displacements per-DOF
                 "coord_type"            :   "cartesian",      # or 'displacement' -> 'normal_modes'
                 "normal_modes_file"     :   None,
-                "properties"            :   [],               # a bit like the planned whitelist, but undesired behavior
                 "whitelist"             :   [],
             }
         )
@@ -182,7 +181,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 "numdiff_stepsize"      :   float,
                 "coord_type"            :   str,
                 "normal_modes_file"     :   None,
-                "properties"            :   list,
                 "whitelist"             :   list,
             }
         )
@@ -350,6 +348,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
         # Setup sub-dir for the QM calcs
+        if self.QMin.template['qm-dir'] is None:
+            raise ValueError("Keyword 'qm-dir' not found in template file!")
         qmdir = dir_path + f"/{self.QMin.template['qm-dir']}"
         mkdir(qmdir)
 
@@ -472,6 +472,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         # paths
         self.QMin.resources["scratchdir"] = os.path.abspath(os.path.expanduser(os.path.expandvars(self.QMin.resources["scratchdir"])))
+        if self.QMin.template['qm-dir'] is None:
+            raise ValueError("Keyword 'qm-dir' not found in template file!")
         self.qmdir = os.path.abspath(os.path.expanduser(os.path.expandvars(self.QMin.template['qm-dir'])))
         qm_program = self.QMin.template['qm-program']
 
@@ -481,6 +483,9 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         mkdir(pwd)
         ref_logfile = os.path.join(pwd,'QM.log')
         self.ref_interface = self._load_interface(qm_program)(logfile = ref_logfile, logname=ref_logname, loglevel = self.log.level, persistent = False)
+        if isinstance(self.ref_interface, SHARC_HYBRID):
+            self.log.error('Currently, Hybrid interfaces cannot be used as children of SHARC_NUMDIFF.py')
+            raise NotImplementedError
 
         # do setup molecule
         self.ref_interface.setup_mol(self.QMin)

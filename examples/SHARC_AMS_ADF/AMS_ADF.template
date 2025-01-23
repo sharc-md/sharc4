@@ -96,12 +96,6 @@ grid beckegrid normal     # Options: basic, normal, good, verygood, excellent
     ## For Voronoi, use:
 #grid integration 4.0    # Options: 4.0, 5.0, 6.0, ...
 
-    ## This keyword controls the integration grid generation around MM point charges.
-    ## grids are only generated for MM charges closer than this distance to any QM atom.
-    ## It only has any effect in QM/MM runs, but it works for both Becke and Voronoi grids.
-    ## The default is 7.5589 Bohr (equal to 4 Angstrom).
-grid_qpnear 7.5589
-
     ## With this keyword, the integration grid quality can be controlled per atom.
     ## This keyword can occur several times, where later lines overwrite earlier lines.
     ## Atoms which are not mentioned are treated with the quality given with the grid keyword.
@@ -178,17 +172,6 @@ dvd_vectors 60
     ## Sets the davidson tolerance (difference in excitation energies between iterations).
     ## Default is 1e-6.
 dvd_tolerance 1e-6
-
-    ## Sets the davidson residual tolerance (norm of the residual vectors).
-    ## Can significantly accelerate the Davidson procedure (if set to ~sqrt(dvd_tolerance) or slightly below ).
-    ## Default is the same value as dvd_tolerance.
-dvd_residu 1e-3
-
-    ## This keyword activates the "MBLOCKSMALL" keyword in the ADF input.
-    ## Without the "MBLOCKSMALL" keyword, ADF's updates multiple states in each iteration, possibly even converged ones.
-    ## With the "MBLOCKSMALL" keyword, states are updated one by one, skipping already converged ones and thus being faster.
-    ## Recommendation: Using "dvd_mblocksmall" will give shorter runtimes, but in some situations convergence might be signalled before all states are actually fully converged.
-#dvd_mblocksmall
 
     ## This keyword requests that triplet states are calculated in a separate job based on an open-shell triplet ground state.
     ## The default is that triplets are calculated based on the closed-shell singlet ground state.

@@ -1,0 +1,4 @@
+reference: {"interface": "ORCA", "args": [], "kwargs": {}}
+props_to_save: ["h", "grad"]
+ase_file: "ase.db"
+format: "sharc"

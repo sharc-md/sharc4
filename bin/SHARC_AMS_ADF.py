@@ -1532,7 +1532,7 @@ def readQMin(QMinfilename):
              'exactdensity': False,
              'no_tda': False,
              'unrestricted_triplets': False,
-             'dvd_mblocksmall': False,
+            #  'dvd_mblocksmall': False,
              'functional_xcfun': False,
              'fullkernel': False
              }
@@ -1553,7 +1553,7 @@ def readQMin(QMinfilename):
                 'linearscaling': 0,
                 }
     floats = {'dvd_tolerance': 1e-6,
-              'dvd_residu': -1.0,
+            #   'dvd_residu': -1.0,
               'cosmo_neql': -1.0,
               'cpks_eps': 0.0001,
               'grid_qpnear': 4.0 / au2a
@@ -2456,18 +2456,17 @@ def writeAMSinput(QMin, WORKDIR):
             if QMin['template']['dvd_vectors'] > 0:
                 string += '  vectors %i\n' % (QMin['template']['dvd_vectors'])
             string += '  tolerance %16.12f\n' % (QMin['template']['dvd_tolerance'])
-            string += '  residu %16.12f\n' % (QMin['template']['dvd_residu'])
-            if QMin['template']['dvd_mblocksmall']:
-                string += '  iterations %i\n' % (max(200, 20 * ncalc))
+            # string += '  residu %16.12f\n' % (QMin['template']['dvd_residu'])
+            # if QMin['template']['dvd_mblocksmall']:
+            #     string += '  iterations %i\n' % (max(200, 20 * ncalc))
             if DEBUG:
                 string += '  nto\n'
             if QMin['template']['fullkernel']:
                 string += 'FULLKERNEL\n'
             string += 'END\n'
-            if QMin['template']['dvd_mblocksmall']:
-                string += 'MBLOCKSMALL\n'
+            # if QMin['template']['dvd_mblocksmall']:
+            #     string += 'MBLOCKSMALL\n'
             if not QMin['template']['no_tda']:
-                # string+='TDA\n'
                 string += '\nTDA\n'
             if QMin['template']['modifyexcitations'] > 0:
                 string += 'MODIFYEXCITATION\n  useoccupied\n    A'

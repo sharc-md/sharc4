@@ -17,6 +17,7 @@ def test_lvc():
     lvc: SHARC_INTERFACE = SHARC_LVC(loglevel=10)
     lvc.setup_mol(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
     lvc.read_template(os.path.join(expand_path(PATH), "inputs/LVC.template"))
+    lvc._read_resources = True
     lvc.read_requests(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
     lvc.setup_interface()
     lvc.set_coords(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
@@ -106,6 +107,7 @@ def test_lvc_pc():
     lvc: SHARC_INTERFACE = SHARC_LVC(loglevel=10)
     lvc.setup_mol(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
     lvc.read_template(os.path.join(expand_path(PATH), "inputs/LVC.template"))
+    lvc._read_resources = True
     lvc.read_requests(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
     lvc.setup_interface()
     lvc.set_coords(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))

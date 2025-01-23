@@ -44,7 +44,7 @@ from qmin import QMinBase
 # internal
 from SHARC_FAST import SHARC_FAST
 from utils import question
-from constants import au2a, kJpermol_to_Eh
+from constants import au2a, kJpermol_per_Eh
 
 date = datetime.date
 
@@ -135,11 +135,11 @@ class SHARC_OPENMM(SHARC_FAST):
         self.simulation.context.setPositions(self.QMin.coords["coords"] * (au2a / 10))
         state: State = self.simulation.context.getState(getEnergy=self.QMin.requests["h"], getForces=self.QMin.requests["grad"])
 
-        energy: float = state.getPotentialEnergy()._value / kJpermol_to_Eh  # kJ/mol -> Hartree
+        energy: float = state.getPotentialEnergy()._value / kJpermol_per_Eh  # kJ/mol -> Hartree
         self.QMout["h"] = np.full((1, 1), energy, dtype=float)
 
         if self.QMin.requests["grad"]:
-            gradients: np.ndarray = -state.getForces(asNumpy=True) / kJpermol_to_Eh * 0.1 * au2a  # kJ/(mol*nm) -> Hartree/bohr
+            gradients: np.ndarray = -state.getForces(asNumpy=True) / kJpermol_per_Eh * 0.1 * au2a  # kJ/(mol*nm) -> Hartree/bohr
             self.QMout["grad"] = gradients._value[np.newaxis, ...]
 
         if self.QMin.requests["multipolar_fit"]:

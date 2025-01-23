@@ -91,7 +91,7 @@ Interfaces = {
                      },
         },
     3: {'script': 'SHARC_AMS_ADF.py',
-        'name': 'AMS_ADF',
+        'name': 'ams_adf',
         'description': 'AMS_ADF (DFT, TD-DFT)',
         'get_routine': 'get_AMS',
         'prepare_routine': 'prepare_AMS',

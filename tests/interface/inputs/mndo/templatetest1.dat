@@ -1,6 +1,9 @@
 ## This is a commented version of the MNDO.template file 
 ## for version 0.2 of the SHARC_MNDO.py interface.
 
+##hamiltonian
+hamiltonian om2
+
 ## Number of reference occupations.
 nciref 3 
 

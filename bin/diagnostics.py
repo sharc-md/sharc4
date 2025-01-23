@@ -50,8 +50,8 @@ except ImportError:
 # some constants
 DEBUG = False
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2024, 9, 1)
 
 
 # ======================================================================= #
@@ -1009,7 +1009,6 @@ def do_calc(INFOS):
                 else:
                     opt = mapping[INFOS['settings']['extractor_mode'].lower()]
                     if os.path.isfile('output.dat.nc'):
-                        opt += ' -xyz '
                         io = sp.call('. $SHARC/sharcvars.sh;' + sharcpath + '/data_extractor_NetCDF.x %s output.dat > /dev/null 2> /dev/null' % opt, shell=True)
                     else:
                         io = sp.call(sharcpath + '/data_extractor.x %s output.dat > /dev/null 2> /dev/null' % opt, shell=True)
