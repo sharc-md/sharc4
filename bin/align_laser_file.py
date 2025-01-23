@@ -185,8 +185,9 @@ def rotate_matrix(laser_file_path, rot_mat_file_path, INFOS):
         write_shift = int(0)                                             
         #log.info(done,laser_file.shape[0])
         #log.info(line_no)
-        sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
-        sys.stdout.flush()
+        if not INFOS["no_print"]:
+            sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
+            sys.stdout.flush()
         result=[line[0]]
         if str(INFOS["e_field"]).lower() in posresponse:
             efield_real = np.matmul(line[1:6:2], rot_mat) 
@@ -229,8 +230,9 @@ def rotate_matrix_old(laser_file_path, rot_mat_file_path, INFOS):
         done = int(line_no * progress_width // laser_file.shape[0])
         #log.info(done,laser_file.shape[0])
         #log.info(line_no)
-        sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
-        sys.stdout.flush()
+        if not INFOS["no_print"]:
+            sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
+            sys.stdout.flush()
         result=[line[0]]
         efield_real = np.matmul(line[1:6:2], rot_mat) 
         efield_imag = np.matmul(line[2:7:2], rot_mat)
@@ -262,8 +264,9 @@ def main():
     parser.add_argument('--rot_matrix','-rm', type=str, help='Path to rotation matrix')
     parser.add_argument('--output_name','-of', type=str, help='Path to output file')
     parser.add_argument('--random', '-r', type=int, help='Perform rotation based on random rotation matrix') 
+    parser.add_argument('--no_print', '-np', type=bool, help='No print in the terminal dialogue')
     args = parser.parse_args()
-    
+
     if args.laser_file is None:
         log.info(f'Laser file path is empty!')
         raise IOError
@@ -292,8 +295,9 @@ def main():
     INFOS["output_file_path"] = args.output_name
     np.random.seed(args.random)
     INFOS["random_numbers"] = np.random.rand(3)#[int(str(args.random)[i]) for i in range(len(str(args.random)))]
-   
-    displaywelcome()
+    INFOS["no_print"] =args.no_print
+    if not args.no_print:
+        displaywelcome()
     #open_keystrokes()
 
     head = get_general(head, INFOS)
@@ -302,14 +306,16 @@ def main():
         INFOS["rot_matrix"] = np.loadtxt(INFOS["rot_mat_file_path"])
     else:
         INFOS["rot_matrix"] = gen_rot_matrix(INFOS)
-    for item in INFOS:
-        log.info(f"{item:25} {INFOS[item]}")  
+    if not INFOS["no_print"]:
+        for item in INFOS:
+            log.info(f"{item:25} {INFOS[item]}")  
     if any([INFOS["e_field"], INFOS["b_field"], INFOS["e_field_gradients"], INFOS["b_field_gradients"]]):
         rot_laser_fields = rotate_matrix(INFOS["laser_file_path"], INFOS["rot_mat_file_path"], INFOS) 
     else:
         rot_laser_fields = rotate_matrix_old(INFOS["laser_file_path"], INFOS["rot_mat_file_path"], INFOS)
-    sys.stdout.write("\rTransformation progress: [" + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))                                   
-    sys.stdout.flush()
+    if not args.no_print:
+        sys.stdout.write("\rTransformation progress: [" + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))                                   
+        sys.stdout.flush()
     formatted_laser_file = np.array([[" "]+[custom_formatter(val) for val in row] for row in rot_laser_fields], dtype=str)
     head=''.join(head)
     np.savetxt(INFOS["output_file_path"], formatted_laser_file, fmt="%s", delimiter="", header=head, comments='')

@@ -659,7 +659,8 @@ def get_initconds(INFOS):
 
 def get_laser_time(filename):
     data = readfile(filename)
-    return float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])-float(data[-2].split()[0])  # tmax, nsteps, dtstep 
+    print( float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])/(len(data)))#-float(data[-2].split()[0])  # tmax, nsteps, dtstep 
+    return float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])/(len(data))#-float(data[-2].split()[0])  # tmax, nsteps, dtstep 
     
 # ======================================================================================================================
 # ======================================================================================================================
@@ -909,92 +910,10 @@ from the initcond files as provided by wigner.py.
             continue
         break
 
-    # while True:
-    #     firstindex = question("Starting index:", int, [1])[0]
-    #     if not 0 < firstindex <= INFOS["ninit"]:
-    #         log.info("Please enter an integer between %i and %i." % (1, INFOS["ninit"]))
-    #         continue
-    #     nsetupable = 0
-    #     log.info(set(setupstates))
-    #     log.info(INFOS["initlist"])
-    #     for i, initcond in enumerate(INFOS["initlist"]):
-    #         #log.info(initcond.statelist)
-    #         if i + 1 < firstindex:
-    #             continue
-    #         for state in set(setupstates):
-    #             #log.info(state, initcond.statelist[state-1])
-    #             try:
-    #                 nsetupable += initcond.statelist[state - 1]
-    #                 #log.info(set(setupstates), initcond.statelist, INFOS["initlist"])
-    #             except IndexError:
-    #                 break
-    #     log.info(
-    #         "\nThere can be %i trajector%s set up, starting in %i states."
-    #         % (nsetupable, ["y", "ies"][nsetupable != 1], len(INFOS["setupstates"]))
-    #     )
-    #     if nsetupable == 0:
-    #         continue
-    #     break
-    # INFOS["firstindex"] = firstindex
-
-    # # Number of trajectories
-    # log.info("\nPlease enter the total number of trajectories to setup.")
-    # while True:
-    #     ntraj = question("Number of trajectories:", int, [nsetupable])[0]
-    #     if not 1 <= ntraj <= nsetupable:
-    #         log.info("Please enter an integer between %i and %i." % (1, nsetupable))
-    #         continue
-    #     break
-    # INFOS["ntraj"] = ntraj
-
-    # # Random number seed
-    # log.info('\nPlease enter a random number generator seed (type "!" to initialize the RNG from the system time).')
-    # while True:
-    #     line = question("RNG Seed: ", str, "!", False)
-    #     if line == "!":
-    #         random.seed()
-    #         break
-    #     try:
-    #         rngseed = int(line)
-    #         random.seed(rngseed)
-    #     except ValueError:
-    #         log.info('Please enter an integer or "!".')
-    #         continue
-    #     break
-    # log.info("")
 
     return INFOS
 
 
-# def get_interface() -> SHARC_INTERFACE:
-#     "asks for interface and instantiates it"
-#     string = "\n  " + "=" * 80 + "\n"
-#     string += "||" + f"{'Quantum chemistry interface':^80}" + "||\n"
-#     string += "  " + "=" * 80 + "\n\n"
-#     log.info(string)
-#     Interfaces = factory.get_available_interfaces()
-#     log.info("")
-#     log.info("{:-^60}".format("Choose the quantum chemistry interface"))
-#     log.info("\nPlease specify the quantum chemistry interface (enter any of the following numbers):")
-#     possible_numbers = []
-#     for i, (name, interface, possible) in enumerate(Interfaces):
-#         if not possible:
-#             log.info("% 3i %-20s %s" % (i+1, name, interface))
-#         else:
-#             log.info("% 3i %-20s %s" % (i+1, name, interface.description()))
-#             possible_numbers.append(i+1)
-#     log.info("")
-#     while True:
-#         num = question("Interface number:", int)[0]
-#         if num in possible_numbers:
-#             break
-#         else:
-#             log.info("Please input one of the following: %s!" % (possible_numbers))
-#     log.info("")
-#     log.info("The following interface was selected:")
-#     log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
-#     log.info("")
-#     return Interfaces[num-1][1]
 
 
 def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
@@ -1464,7 +1383,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
        print('Please set $SHARC to the directory containing the SHARC executables!')
        sys.exit(1)
 
-    io = sp.call(sharcpath + '/align_laser_file.py -lf %s -of %s -r %i' % (INFOS["laserfile"], laserfname, random.randint(1,int(1E6))), shell=True)
+    io = sp.call(sharcpath + '/align_laser_file.py -lf %s -of %s -r %i -np True' % (INFOS["laserfile"], laserfname, random.randint(1,int(1E6))), shell=True)
     # TODO: proper error treatment
     # if io != 0:
     #     print('WARNING: Execution of random align laser field failed for %s! Exit code %i' % (laserfname, io))                                     
@@ -1660,19 +1579,16 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
         width = 50
         ntraj = len(INFOS["icond_sel"])  # INFOS["ntraj"]
         idone = 0
-        finished = False
 
         initlist = INFOS["initlist"]
-        log.info(INFOS["setupstates"])
         log.info("Trajectory setup for initial state %i" % istate)
-        for icond in INFOS["icond_sel"]:
+        for ic, icond in enumerate(INFOS["icond_sel"]):
             # if len(initlist[icond - 1].statelist) < istate:
             #     continue
             # if not initlist[icond - 1].statelist[istate - 1].Excited:
             #     continue
-            idone += 1
 
-            done = idone * width // ntraj
+            done = (ic+1) * width // ntraj
             sys.stdout.write("\rProgress: [" + "=" * done + " " * (width - done) + "] %3i%%" % (done * 100 // width))
 
             dirname = get_iconddir(istate, INFOS) + "/TRAJ_%05i" % (icond)
@@ -1703,14 +1619,11 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 string = "cd $CWD/%s/\n%s run.sh\ncd $CWD\n" % (dirname, INFOS["qsubcommand"])
                 all_qsub.write(string)
 
-            if idone == ntraj:
-                finished = True
-                break
+        sys.stdout.write("\n")
         INFOS["setupstates_names"].append(get_iconddir(istate, INFOS))
-        if finished:
-            log.info("\n\n%i trajectories setup, last initial condition was %i in state %i.\n" % (ntraj, icond, istate))
-            setup_stat = open("setup_traj.status", "a+")
-            string = """*** %s %s %s
+    log.info("\n\n%i trajectories setup, last initial condition was %i in state %i.\n" % (ntraj, icond, istate))
+    setup_stat = open("setup_traj.status", "a+")
+    string = """*** %s %s %s
   First index:          %i
   Last index:           %i
   Trajectories:         %i
@@ -1726,10 +1639,8 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 ntraj,
                 istate,
             )
-            setup_stat.write(string)
-            setup_stat.close()
-            continue
-
+    setup_stat.write(string)
+    setup_stat.close()
     all_run.close()
     filename = "all_run_traj.sh"
     os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)

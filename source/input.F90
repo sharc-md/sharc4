@@ -3064,7 +3064,7 @@ module input
             stop 1
           endif
         endif
-        b=ctrl%dtstep/ctrl%nsubsteps
+        b=ctrl%tmax/(ctrl%nsubsteps*ctrl%nsteps)
         if ( dabs(a-b*(i-1))>0.001d0) then 
           write(0,*) 'Laser field spacing does not match substep spacing!'
           stop 1
