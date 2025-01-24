@@ -685,7 +685,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             qmin.template["gradaccudefault"] *= 10
 
         # Generate MO and det file for dyson
-        if qmin.control["master"] and self._hdf5:
+        if qmin.control["master"] and self._hdf5 and code == 0:
             self._get_dets(workdir)
             self._get_mos(workdir)
 
