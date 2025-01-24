@@ -38,7 +38,7 @@ import random
 import json
 from optparse import OptionParser
 from socket import gethostname
-
+import cProfile
 import subprocess as sp
 from logger import log
 # import factory
@@ -1703,7 +1703,9 @@ This interactive program prepares SHARC dynamics calculations.
 # ======================================================================================================================
 if __name__ == "__main__":
     try:
-        main()
+        with cProfile.Profile() as pr:
+            main()
+        pr.dump_stats("my_profile.pstats")
     except KeyboardInterrupt:
         log.info("\nCtrl+C makes me a sad SHARC ;-(\n")
         quit(0)

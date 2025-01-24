@@ -2360,6 +2360,116 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     log.info("\n")
 
 
+def setup_all_array(INFOS, interface: SHARC_INTERFACE):
+    """This routine sets up the directories for the initial calculations as an array job."""
+
+    string = "\n  " + "=" * 80 + "\n"
+    string += "||" + f"{'Setting up directories...':^80}" + "||\n"
+    string += "  " + "=" * 80 + "\n\n"
+    log.info(string)
+
+    all_run = open("all_run_traj.sh", "w")
+    string = "#!/bin/bash\n\nCWD=%s\n\n" % (INFOS["cwd"])
+    all_run.write(string)
+    # if INFOS["qsub"]:
+    #     all_qsub = open("all_qsub_traj.sh", "w")
+    #     all_qsub.write(string)
+
+    for istate in INFOS["setupstates"]:
+        dirname = get_iconddir(istate, INFOS)
+        io = make_directory(dirname)
+        if io != 0:
+            log.info("Could not make directory %s" % (dirname))
+            quit(1)
+
+    width = 50
+    ntraj = INFOS["ntraj"]
+    idone = 0
+    finished = False
+
+    initlist = INFOS["initlist"]
+    ask = True
+
+    for icond in range(INFOS["firstindex"], INFOS["ninit"] + 1):
+        for istate in INFOS["setupstates"]:
+            if len(initlist[icond - 1].statelist) < istate:
+                continue
+            if not initlist[icond - 1].statelist[istate - 1].Excited:
+                continue
+
+            idone += 1
+
+            done = idone * width // ntraj
+            sys.stdout.write("\rProgress: [" + "=" * done + " " * (width - done) + "] %3i%%" % (done * 100 // width))
+
+            dirname = get_iconddir(istate, INFOS) + "/TRAJ_%05i/" % (icond)
+            io = make_directory(dirname)
+            if io != 0:
+                log.info("Skipping initial condition %i %i!" % (istate, icond))
+                continue
+            print(icond, istate)
+            print(len(initlist[icond-1].statelist))
+            if initlist[icond-1].statelist[istate-1].ExcTime != "":
+                with open(dirname+"start.time", "w") as tfile:
+                    tfile.write(f"{float(initlist[icond-1].statelist[istate-1].ExcTime):.3f}")
+            writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, ask=ask)
+            ask = False
+            io = make_directory(dirname + "/QM")
+            io += make_directory(dirname + "/restart")
+            if io != 0:
+                log.info("Could not make QM or restart directory!")
+                continue
+            interface.prepare(INFOS, dirname + "/QM")
+            
+            if not INFOS["pysharc"]:
+                run_qm = open(dirname + "/QM/runQM.sh", "w")
+                string = "cd QM\n$SHARC/%s.py QM.in >> QM.log 2>>QM.err\nerr=$?\n\nexit $err" % (interface.__class__.__name__)                
+                run_qm.write(string)                               
+
+            writeRunscript(INFOS, dirname, interface)
+            if INFOS["rattle"]:
+                shutil.copy(expand_path(INFOS["rattlefile"]), os.path.join(dirname, INFOS["rattlefile"].split("/")[-1]))
+
+            string = "cd $CWD/%s/\nbash run.sh\ncd $CWD\necho %s >> DONE\n" % (dirname, dirname)
+            all_run.write(string)
+            # if INFOS["qsub"]:
+            #     string = "cd $CWD/%s/\n%s run.sh\ncd $CWD\n" % (dirname, INFOS["qsubcommand"])
+            #     all_qsub.write(string)
+
+            if idone == ntraj:
+                finished = True
+                break
+        if finished:
+            log.info("\n\n%i trajectories setup, last initial condition was %i in state %i.\n" % (ntraj, icond, istate))
+            setup_stat = open("setup_traj.status", "a+")
+            string = """*** %s %s %s
+  First index:          %i
+  Last index:           %i
+  Trajectories:         %i
+  State of last traj.:  %i
+
+""" % (
+                datetime.datetime.now(),
+                gethostname(),
+                os.getcwd(),
+                INFOS["firstindex"],
+                icond,
+                ntraj,
+                istate,
+            )
+            setup_stat.write(string)
+            setup_stat.close()
+            break
+
+    all_run.close()
+    filename = "all_run_traj.sh"
+    os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
+    if INFOS["qsub"]:
+        all_qsub.close()
+        filename = "all_qsub_traj.sh"
+        os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
+
+    log.info("\n")
 # ======================================================================================================================
 # ======================================================================================================================
 # ======================================================================================================================

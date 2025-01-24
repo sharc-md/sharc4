@@ -155,15 +155,93 @@ def check_field_keywords(laser_file_path, INFOS):
                 if "b-field_grad " in line:
                     INFOS["b_field_gradients"] = True if line.split()[2] in posresponse else False
 
+
 def gen_rot_matrix(INFOS):
-    rot_z_mat = np.array([[np.cos(2*np.pi*INFOS["random_numbers"][0]), np.sin(2*np.pi*INFOS["random_numbers"][0]), 0],
-                          [-np.sin(2*np.pi*INFOS["random_numbers"][0]), np.cos(2*np.pi*INFOS["random_numbers"][0]), 0],
-                          [0, 0, 1]])
-    householder_vec = np.array([np.cos(2*np.pi*INFOS["random_numbers"][1])*np.sqrt(INFOS["random_numbers"][2]),
-                                np.sin(2*np.pi*INFOS["random_numbers"][1])*np.sqrt(INFOS["random_numbers"][2]),
-                                np.sqrt(1-INFOS["random_numbers"][2])])
-    householder_mat = np.eye(3, 3)-2*np.outer(householder_vec, householder_vec)
-    return -householder_mat @ rot_z_mat
+    """
+    Generates a rotation matrix using optimized calculations.
+    Args:
+        INFOS: A dictionary containing the necessary random numbers.
+    Returns:
+        A 3x3 NumPy array representing the rotation matrix.
+    """
+
+    rand_num_0 = INFOS["random_numbers"][0]
+    rand_num_1 = INFOS["random_numbers"][1]
+    rand_num_2 = INFOS["random_numbers"][2]
+
+    c0 = np.cos(2 * np.pi * rand_num_0)
+    s0 = np.sin(2 * np.pi * rand_num_0)
+    rot_z_mat = np.array([[c0, s0, 0], [-s0, c0, 0], [0, 0, 1]])
+
+    c1 = np.cos(2 * np.pi * rand_num_1)
+    s1 = np.sin(2 * np.pi * rand_num_1)
+    sqrt_rand_num_2 = np.sqrt(rand_num_2)
+    sqrt_1_minus_rand_num_2 = np.sqrt(1 - rand_num_2)
+    householder_vec = np.array([c1 * sqrt_rand_num_2, s1 * sqrt_rand_num_2, sqrt_1_minus_rand_num_2])
+    householder_mat = np.eye(3, 3) - 2 * np.outer(householder_vec, householder_vec)
+
+    return - householder_mat @ rot_z_mat
+
+
+def rotate_matrix_old(laser_file_path, rot_mat_file_path, INFOS):
+    """
+    Rotates a laser data file based on a rotation matrix and specified fields.
+
+    Args:
+        laser_file_path (str): Path to the laser data file.
+        rot_mat_file_path (str): Path to the rotation matrix file (not used in this optimized version).
+        INFOS (dict): Dictionary containing information about fields to process.
+
+    Returns:
+        list: List of rotated laser data fields.
+    """
+
+    laser_file = np.loadtxt(laser_file_path, comments=("!", "#"))
+
+    # Early exit for invalid data
+    if laser_file.shape[1] < 8:
+        print(f'Number of columns in laser data file is too small!')
+        return []
+
+    rot_mat = INFOS["rot_matrix"]
+
+    # Validate rotation matrix (optional, can be removed if validation is done elsewhere)
+    if not all([
+        rot_mat.shape[0] == rot_mat.shape[1],
+        np.allclose(np.dot(rot_mat, rot_mat.T), np.eye(3)),
+        np.isclose(np.linalg.det(rot_mat), 1) or np.isclose(np.linalg.det(rot_mat), -1)
+    ]):
+        print(f'Invalid rotational matrix!')
+        raise IOError
+
+    progress_width = 50  # Adjust progress bar width as needed
+    rot_laser_fields = []
+
+    # Pre-calculate E-field indices for faster slicing
+    e_field_real_indices = slice(1, 6, 2)
+    e_field_imag_indices = slice(2, 7, 2)
+
+    for line_no, line in enumerate(laser_file):
+        done = int(line_no * progress_width // laser_file.shape[0])
+
+        # Print progress bar (optional, can be removed)
+        if not INFOS["no_print"]:
+            sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
+            sys.stdout.flush()
+
+        result = [line[0]]  # Copy the first element (frequency)
+
+        # Efficient matrix multiplication using NumPy's @ operator
+        efield_real = line[e_field_real_indices] @ rot_mat
+        efield_imag = line[e_field_imag_indices] @ rot_mat
+
+        result.extend(efield_real.tolist() + efield_imag.tolist())
+        result.extend(line[7:])
+
+        rot_laser_fields.append(result)
+
+    return rot_laser_fields
+
 
 def rotate_matrix(laser_file_path, rot_mat_file_path, INFOS):
     laser_file = np.loadtxt(laser_file_path, comments = ("!", "#"))  
@@ -212,35 +290,6 @@ def rotate_matrix(laser_file_path, rot_mat_file_path, INFOS):
         rot_laser_fields.append(result)
         #print(rot_laser_fields, line_no)
     
-    return rot_laser_fields
-
-def rotate_matrix_old(laser_file_path, rot_mat_file_path, INFOS):
-    laser_file = np.loadtxt(laser_file_path, comments = ("!", "#"))  
-    if laser_file.shape[1]<8:
-        log.info(f'Number of columns too small!')
-    rot_laser_fields = []
-    rot_mat = INFOS["rot_matrix"]
-    is_square = rot_mat.shape[0] == rot_mat.shape[1]
-    is_orthogonal = np.allclose(np.dot(rot_mat, rot_mat.T), np.eye(3))
-    determinant = np.linalg.det(rot_mat)
-    if not all([is_square, is_orthogonal, (np.isclose(determinant, 1) or np.isclose(determinant, -1))]):
-        log.info(f'No valid rotational matrix!')
-        raise IOError
-    for line_no, line in enumerate(laser_file):
-        done = int(line_no * progress_width // laser_file.shape[0])
-        #log.info(done,laser_file.shape[0])
-        #log.info(line_no)
-        if not INFOS["no_print"]:
-            sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
-            sys.stdout.flush()
-        result=[line[0]]
-        efield_real = np.matmul(line[1:6:2], rot_mat) 
-        efield_imag = np.matmul(line[2:7:2], rot_mat)
-        result=result+[efield_real[0], efield_imag[0], 
-                       efield_real[1], efield_imag[1],
-                       efield_real[2], efield_imag[2]]+list(line[7:])
-        rot_laser_fields.append(result)
-    # log.info(rot_laser_fields)
     return rot_laser_fields
 
 
