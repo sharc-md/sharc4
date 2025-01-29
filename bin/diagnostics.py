@@ -964,7 +964,7 @@ def do_calc(INFOS):
             print('{:~^80}\n'.format(' ' + path + ' '))
             trajectories[path]['error'] = False
             if "start.time" in os.listdir(path):
-                trajectories[path]['start_time'] = float(np.genfromtxt(path+"/start.time"))
+                trajectories[path]['start_time'] = float(np.genfromtxt(path+"/start.time")[0])
             else:
                 trajectories[path]['start_time'] = False
             trajectories[path]['filelength'] = ''

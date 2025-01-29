@@ -109,6 +109,7 @@ class STATE:
         self.dip = dip
         self.Excited = False
         self.ExcTime = ""
+        self.IState = "" 
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -124,6 +125,8 @@ class STATE:
         self.dip = [complex(try_read(f, i, float, 0.0), try_read(f, i + 1, float, 0.0)) for i in [3, 5, 7]]
         self.Excited = try_read(f, 11, bool, False)
         self.ExcTime = try_read(f, 12, str, "")
+        self.IState = try_read(f, 13, str, "")
+        print("TEST1", self.IState)
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -135,10 +138,11 @@ class STATE:
         s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
-        try: 
-            s += "% 12.8f % 12.8f %s % 12.8f" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime)
+        try:
+            print(self.IState)
+            s += "% 12.8f % 12.8f %s % 12.8f % i" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime, self.IState)
         except:
-            s += "% 12.8f % 12.8f %s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime)
+            s += "% 12.8f % 12.8f %s % s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime, self.IState)
         return s
 
     # def Excite(self, max_Prob, erange):
@@ -397,8 +401,8 @@ def gfsh_probs(istate, ic, INFOS):
                     continue
                 else:
                     exc_prob[tstep, exc_state] = np.max([0, gs_fac[tstep]*exc_prob_tdiff[tstep, exc_state]/max_prob[tstep]])
-    data_to_save = np.column_stack((range(time_steps), exc_prob))
-    np.savetxt("exc_state_%05i_traj_%05i" % (istate, ic+1), data_to_save, fmt="%.5e", delimiter="\t")
+    #data_to_save = np.column_stack((range(time_steps), exc_prob))
+    #np.savetxt("exc_state_%05i_traj_%05i" % (istate, ic+1), data_to_save, fmt="%.5e", delimiter="\t")
     return exc_prob
 
 
@@ -606,6 +610,7 @@ def random_seed():
     print("")
     return rngseed
 
+
 def excite(INFOS, initlist, exc_list, setupstate):
     print("\nSelecting initial states ...")
     width_bar = 50
@@ -623,10 +628,13 @@ def excite(INFOS, initlist, exc_list, setupstate):
                     if exc_list[setupstate, ic, 1]==j:
                         jstate.Excited = True
                         jstate.ExcTime = exc_list[setupstate, ic, 0]*INFOS["tmax"]/INFOS["nsteps"]
+                        jstate.IState = setupstate+1
+                        print(jstate.IState)
                         #print("exclist-1", j)
                     else:
                         jstate.Excited = False
                         jstate.ExcTime = ""
+                        jstate.IState = ""
     #for i, icond in enumerate(initlist)
     #        # get the maximum oscillator strength
     #        maxprob = 0
@@ -770,7 +778,7 @@ def main():
                         print(icond, exc_state, no_random)  # correc  # correctt
                         exc_list[ist, ic, :] = tstep, exc_state-1 
                         jump_to_next = True
-            np.savetxt("random_probs_%05i" % icond, random_probs)
+            # np.savetxt("random_probs_%05i" % icond, random_probs)
     print(INFOS["states"], INFOS["setupstates"], len(INFOS["states"]))
     for ist, istate in enumerate(INFOS["setupstates"]):
         initlist[ist] = excite(INFOS, initlist[ist], exc_list, ist)

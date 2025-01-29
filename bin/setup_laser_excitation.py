@@ -739,8 +739,11 @@ from the initcond files as provided by wigner.py.
     INFOS["repr"] = initf.readline().split()[1]
     if INFOS["repr"].lower() == "mch":
         INFOS["diag"] = False
+        INFOS["repr"] = "MCH"
     else:
         INFOS["diag"] = True
+        INFOS["repr"] = "diag"
+
     INFOS["eref"] = float(initf.readline().split()[1])
     INFOS["eharm"] = float(initf.readline().split()[1])
 
@@ -992,6 +995,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     surf = question("SHARC dynamics?", bool, True)
     if INFOS['method']=='tsh':
         INFOS['surf'] = ['mch', 'diagonal'][surf]
+
     elif INFOS['method']=='scp':
         INFOS['surf'] = 'diagonal'
         if surf==True:
