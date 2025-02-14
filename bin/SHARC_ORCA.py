@@ -15,7 +15,7 @@ from constants import IToMult
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import batched, expand_path, itmult, link, mkdir, question, readfile, writefile, convert_list
+from utils import batched, convert_list, expand_path, itmult, link, mkdir, question, readfile, writefile
 
 __all__ = ["SHARC_ORCA"]
 
@@ -239,7 +239,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
         A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
         Typical values for ORCA are 0.90-0.98."""
                 )
-                self.setupINFOS["scaling"] = max(0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0])
+                self.setupINFOS["scaling"] = max(
+                    0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]
+                )
             else:
                 self.setupINFOS["scaling"] = 0.9
 
@@ -290,7 +292,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if "theodore" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'Wave function analysis by TheoDORE':-^60}\n")
 
-                self.setupINFOS["theodir"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
+                self.setupINFOS["theodir"] = question(
+                    "Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES
+                )
                 self.log.info("")
 
                 self.log.info("Please give a list of the properties to calculate by TheoDORE.\nPossible properties:")
@@ -315,7 +319,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         break
                     f = [int(i) for i in line.split()]
                     self.setupINFOS["theodore_fragment"].append(f)
-                self.setupINFOS["theodore_count"] = len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
+                self.setupINFOS["theodore_count"] = (
+                    len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
+                )
 
         return INFOS
 
@@ -341,8 +347,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         else:
             create_file(expand_path(self.resources_file), os.path.join(dir_path, "ORCA.resources"))
         create_file(expand_path(self.template_file), os.path.join(dir_path, "ORCA.template"))
-
-
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
@@ -748,7 +752,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 grad_mult, _ = self.QMin.control["jobs"][int(job_path.split("_")[1])].values()
                 grad_ext = f"{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}"
                 if ground_state:
-                    gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad"), True)
+                    if self.QMin.resources["orcaversion"] >= (6, 0):
+                        gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad.ground.grad.tmp"))
+                    else:
+                        gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad"), True)
                 else:
                     gradients = self._get_grad(os.path.join(scratchdir, job_path, f"ORCA.engrad.{grad_ext}.grad.tmp"))
 
