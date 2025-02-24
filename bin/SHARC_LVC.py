@@ -211,7 +211,10 @@ class SHARC_LVC(SHARC_FAST):
                     lambda_soc_real = False
 
                 self._lambda_soc[si, sj, i] += v
+                if isinstance(v, complex):
+                    v *= -1.
                 self._lambda_soc[sj, si, i] += v
+                # TODO: Are these correctly transposed/conjugated to have a Hermitian matrix?
             line = f.readline()
 
         if line == "gamma\n":
