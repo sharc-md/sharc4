@@ -313,14 +313,16 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
 
     def run(self):
         self.child_interface.QMin.coords["coords"] = self.QMin.coords["coords"].copy()
+        # self.child_interface.set_coords(self.QMin.coords["coords"].copy(), pc = False)
         if self.QMin.coords["pccoords"]:
             self.child_interface.QMin.coords["pccoords"] = self.QMin.coords["pccoords"].copy()
+            # self.child_interface.set_coords(self.QMin.coords["pccoords"].copy(), pc = True)
 
         for key, value in self.QMin.requests.items():
             if value is not None:
                 self.child_interface.QMin.requests[key] = value
         self.child_interface.QMin.save['step'] = self.QMin.save['step']
-        self.child_interface._request_logic()
+        # self.child_interface._request_logic()
 
         # add h request to child if needed for "de" restraints:
         if not self.QMin.requests["h"] and not self.QMin.requests["soc"]:
@@ -336,8 +338,8 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
                     gradrequests.add(indices[0]+1)
                     gradrequests.add(indices[1]+1)
             self.child_interface.QMin.requests["grad"] = sorted(gradrequests)
-            self.child_interface._step_logic()
-            self.child_interface._request_logic()
+        self.child_interface._step_logic()
+        self.child_interface._request_logic()
             
 
         with InDir(self.QMin.template["child-dir"]) as _:
