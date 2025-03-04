@@ -121,6 +121,7 @@ class SHARC_SPAINN(SHARC_FAST):
         else:
             self.log.info(f"{'SPAINN ressource usage':-^60}\n")
             self.setupINFOS["modelpath"] = question("Specify path to SPaiNN model: ", str, KEYSTROKES=KEYSTROKES)
+        return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str):
         create_file = link if INFOS["link_files"] else shutil.copy

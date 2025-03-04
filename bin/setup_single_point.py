@@ -449,7 +449,6 @@ This interactive program prepares SHARC single point calculations.
 
     description = ""
     parser = OptionParser(usage=usage, description=description)
-
     displaywelcome()
     open_keystrokes()
     INFOS = {}
