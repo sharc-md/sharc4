@@ -1318,10 +1318,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             key = list(occ_a)
                             match mult:
                                 case 1:
+                                    # TODO: Check if relative sign of ab and ba is correct here!
                                     key[occ], key[virt] = 2, 1
                                     dets_exp[tuple(key)] = dets[(occ, virt, dummy)] * math.sqrt(0.5)
                                     key[occ], key[virt] = 1, 2
-                                    dets_exp[tuple(key)] = dets[(occ, virt, dummy)] * math.sqrt(0.5)
+                                    dets_exp[tuple(key)] = -dets[(occ, virt, dummy)] * math.sqrt(0.5)
                                 case 3:
                                     key[occ], key[virt] = 1, 1
                                     dets_exp[tuple(key)] = dets[(occ, virt, dummy)]
