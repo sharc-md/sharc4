@@ -216,9 +216,9 @@ DATA_CONVERTER_TO_ASCII = data_converter_to_ASCII.o data_extractor_NetCDFmodule.
 # -------------------------------------- rules ---------------------------------------
 
 ifeq ($(USE_PYSHARC),true)
-all: sharc data_extractor diagonalizer laser sharcvars libsharc data_extractor_NetCDF data_converter data_converter_to_ASCII
+all: sharc data_extractor laser sharcvars libsharc data_extractor_NetCDF data_converter data_converter_to_ASCII
 else
-all: sharc data_extractor diagonalizer laser sharcvars
+all: sharc data_extractor laser sharcvars
 endif
 
 
