@@ -503,7 +503,7 @@ setup_ncxyz(int natoms, struct sharc_ncxyz* ncxyz)
     // error handler
     int iret = 0;
     // open sharc file
-    ncxyz->id      = create_ncfile("sharc_traj_xyz.nc", NC_CLOBBER);
+    ncxyz->id      = create_ncfile("output_NUC.dat.nc", NC_CLOBBER);
     // define dimensions
     int xyz_id    = define_dimension(ncxyz->id, "spatial", 3);
     int natoms_id = define_dimension(ncxyz->id, "natoms", natoms);

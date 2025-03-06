@@ -1706,7 +1706,7 @@ def get_trajectory_info(INFOS) -> dict:
 
     # separate nuclear stride
     if INFOS["netcdf_separate"]:
-        log.info("\nDo you want to modify the stride for sharc_traj_xyz.nc?")
+        log.info("\nDo you want to modify the stride for output_NUC.dat.nc?")
         stride = question("Modify stride?", bool, False)
         if stride:
             INFOS["stride_nuclear"] = []

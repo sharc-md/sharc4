@@ -72,7 +72,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '  ' + '=' * 80 + '\n\n'
     string += '''
-This script reads output.dat.nc and sharc_traj_xyz.nc files to produce a set of
+This script reads output.dat.nc and output_NUC.dat.nc files to produce a set of
 NetCDF output files with ailgned geometries/velocities from each time step
   '''
     print(string)
@@ -183,14 +183,14 @@ def get_general():
 
 
     # decide on file
-    possible = set(['output.dat.nc', 'sharc_traj_xyz.nc'])
+    possible = set(['output.dat.nc', 'output_NUC.dat.nc'])
     ls = set(os.listdir(INFOS['valid_paths'][0]))
     can_do = possible & ls
     print('{:-^60}'.format('Coordinate data file'))
     print("\nFrom which file do you want to read out the coordinate data?")
     print("Possible files: %s\n" % can_do)
-    if 'sharc_traj_xyz.nc' in can_do:
-        default = 'sharc_traj_xyz.nc' 
+    if 'output_NUC.dat.nc' in can_do:
+        default = 'output_NUC.dat.nc' 
     else:
         default = 'output.dat.nc'
     while True:
@@ -446,9 +446,9 @@ def main():
     usage = '''
 python align_and_reorder_traj.py
 
-This interactive program reads an Amber NetCDF file and computes a 
-kernel density estimation of certain atoms.
-It writes the density to an dx file
+This interactive program reads coordinate files in SHARC NetCDF format 
+and reorganizes them into one Amber-style NetCDF file per time step.
+It also applies alignment operations.
 '''
 
     description = ''
