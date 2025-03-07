@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -492,8 +492,8 @@ def get_general():
         allfiles = []
         for d in dirs:
             f = os.path.join(d, INFOS["filepath"])
-            # if os.path.isfile(f):
-            allfiles.append(f)
+            if os.path.isfile(f):
+                allfiles.append(f)
         INFOS["allfiles"] = allfiles
     else:
         print("\nPlease give the relative file path of the file you want to collect:")
@@ -520,17 +520,22 @@ def get_general():
 
         INFOS["allfiles"] = allfiles
 
+
+    # print(INFOS["allfiles"])
     # ---------------------------------------- Columns --------------------------------------
 
     print("\n" + "{:-^60}".format("Data columns") + "\n")
     # get number of columns
-    filename = allfiles[0]
-    testfile = open(filename, "r")
-    for line in testfile:
-        if "#" not in line:
-            ncol = len(line.split())
+    ncol = None
+    for filename in allfiles:
+        testfile = open(filename, "r")
+        for line in testfile:
+            if "#" not in line:
+                ncol = len(line.split())
+                break
+        testfile.close()
+        if ncol is not None:
             break
-    testfile.close()
     print("Number of columns in the file:   %i" % (ncol))
     INFOS["ncol"] = ncol
 
@@ -927,16 +932,22 @@ def collect_data(INFOS):
             comments="#",
             usecols=read_cols,
         )
-        arr = np.ones((data.shape[0], len(INFOS["colX"]) * 2), dtype=float)
-        # correct the order
-        if INFOS["colT"] == 0:
-            time = np.linspace(0, data.shape[0] - 1, data.shape[0], dtype=float)
+        if any(j == 0 for j in data.shape):
+            # print("Skipping file without data columns!")
+            time = np.array( [0] )
+            data = np.zeros( (1,2,len(indices_data)))
+            all_data[file] = {"arr": data, "time": time}
         else:
-            time = data[:, read_cols.index(INFOS["colT"] - 1)]
+            arr = np.ones((data.shape[0], len(INFOS["colX"]) * 2), dtype=float)
+            # correct the order
+            if INFOS["colT"] == 0:
+                time = np.linspace(0, data.shape[0] - 1, data.shape[0], dtype=float)
+            else:
+                time = data[:, read_cols.index(INFOS["colT"] - 1)]
 
-        arr[:, indices_arr] = data[:, indices_data]
-        # arr is aranged over time, XorY, columns -> this makes it easy to access pairs of columns and data points
-        all_data[file] = {"arr": arr.reshape(data.shape[0], 2, -1), "time": time}
+            arr[:, indices_arr] = data[:, indices_data]
+            # arr is aranged over time, XorY, columns -> this makes it easy to access pairs of columns and data points
+            all_data[file] = {"arr": arr.reshape(data.shape[0], 2, -1), "time": time}
 
     sys.stdout.write("  Done\n")
     # INFOS["columns"] = columns

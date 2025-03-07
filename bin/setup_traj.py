@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -1653,33 +1653,41 @@ def get_trajectory_info(INFOS) -> dict:
     if INFOS["netcdf"]: 
         INFOS["netcdf_separate"] = question("Write nuclear and electronic date to separate NetCDF files?", bool, False)
 
+    if not INFOS["netcdf"]: 
+        # options for writing to output.dat
+        log.info("\nDo you want to write the gradients to the output.dat file ?")
+        write_grad = question("Write gradients?", bool, False)
+        if write_grad:
+            INFOS["write_grad"] = True
+        else:
+            INFOS["write_grad"] = False
 
-    # options for writing to output.dat
-    log.info("\nDo you want to write the gradients to the output.dat file ?")
-    write_grad = question("Write gradients?", bool, False)
-    if write_grad:
-        INFOS["write_grad"] = True
+        log.info("\nDo you want to write the non-adiabatic couplings (NACs) to the output.dat file ?")
+        write_NAC = question("Write NACs?", bool, False)
+        if write_NAC:
+            INFOS["write_NAC"] = True
+        else:
+            INFOS["write_NAC"] = False
+
+        log.info("\nDo you want to write property matrices to the output.dat file  (e.g., Dyson norms)?")
+        if "ion" in INFOS and INFOS["ion"]:
+            INFOS["write_property2d"] = question("Write property matrices?", bool, True)
+        else:
+            INFOS["write_property2d"] = question("Write property matrices?", bool, False)
+
+        log.info("\nDo you want to write property vectors to the output.dat file  (e.g., TheoDORE results)?")
+        if "theodore" in INFOS and INFOS["theodore"]:
+            INFOS["write_property1d"] = question("Write property vectors?", bool, True)
+        else:
+            INFOS["write_property1d"] = question("Write property vectors?", bool, False)
     else:
+        # cannot be saved with NetCDF anyways
         INFOS["write_grad"] = False
-
-    log.info("\nDo you want to write the non-adiabatic couplings (NACs) to the output.dat file ?")
-    write_NAC = question("Write NACs?", bool, False)
-    if write_NAC:
-        INFOS["write_NAC"] = True
-    else:
         INFOS["write_NAC"] = False
+        INFOS["write_property2d"] = False
+        INFOS["write_property1d"] = False
 
-    log.info("\nDo you want to write property matrices to the output.dat file  (e.g., Dyson norms)?")
-    if "ion" in INFOS and INFOS["ion"]:
-        INFOS["write_property2d"] = question("Write property matrices?", bool, True)
-    else:
-        INFOS["write_property2d"] = question("Write property matrices?", bool, False)
 
-    log.info("\nDo you want to write property vectors to the output.dat file  (e.g., TheoDORE results)?")
-    if "theodore" in INFOS and INFOS["theodore"]:
-        INFOS["write_property1d"] = question("Write property vectors?", bool, True)
-    else:
-        INFOS["write_property1d"] = question("Write property vectors?", bool, False)
 
     log.info("\nDo you want to write the overlap matrix to the output.dat file ?")
     INFOS["write_overlap"] = question("Write overlap matrix?", bool, (Couplings[INFOS["coupling"]]["name"] == "overlap"))

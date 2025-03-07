@@ -6,10 +6,10 @@
 #
 #    SHARC-MN Extension
 #
-#    Copyright (c) 2023 University of Vienna
-#    Copyright (c) 2022 University of Minnesota
+#    Copyright (c) 2025 University of Vienna
+#    Copyright (c) 2025 University of Minnesota
 #
-#    This file is part of SHARC-MN.
+#    This file is part of SHARC.
 #
 #    SHARC is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
