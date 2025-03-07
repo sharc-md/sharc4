@@ -70,8 +70,8 @@ if sys.version_info[1] < 5:
     sys.exit(0)
 # ======================================================================= #
 
-version = '2.1'
-versiondate = datetime.date(2021, 4, 15)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 changelogstring = '''
 12.04.21 copied from SHARC_ADF.py

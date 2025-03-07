@@ -69,7 +69,7 @@ __all__ = ["SHARC_GAUSSIAN"]
 
 AUTHORS = "Sebastian Mai, Severin Polonius, Sascha Mausenberger"
 VERSION = "4.0"
-VERSIONDATE = datetime.datetime(2023, 8, 29)
+VERSIONDATE = datetime.datetime(2025, 4, 1)
 NAME = "GAUSSIAN"
 DESCRIPTION = "AB INITIO interface for GAUSSIAN16 for single-reference methods (CIS, TDDFT)"
 

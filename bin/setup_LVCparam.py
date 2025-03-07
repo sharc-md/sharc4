@@ -57,7 +57,7 @@ from SHARC_INTERFACE import SHARC_INTERFACE
 
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2024, 1, 1)
+versiondate = datetime.date(2025, 4, 1)
 
 # ======================================================================================================================
 

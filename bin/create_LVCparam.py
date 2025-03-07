@@ -62,7 +62,7 @@ def _byteify(data, ignore_dicts=False):
 
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2024, 4, 1)
+versiondate = datetime.date(2025, 4, 1)
 
 
 # ======================================================================= #

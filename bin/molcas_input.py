@@ -44,8 +44,8 @@ from constants import IToMult, NUMBERS, MASSES, U_TO_AMU
 # some constants
 DEBUG = False
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 # MOLCAS works with g/mol
 MASSES = MASSES.update((el, mass/U_TO_AMU) for (el, mass) in MASSES.items())

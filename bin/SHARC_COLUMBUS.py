@@ -101,8 +101,8 @@ from constants import au2a, rcm_to_Eh, IToMult, IToPol
 
 # =========================================================0
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 
 changelogstring = '''

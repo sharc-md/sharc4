@@ -44,7 +44,7 @@ from utils import containsstring, expand_path, question, itmult, link, makecmatr
 __all__ = ["SHARC_MOPACPI"]
 
 AUTHORS = "Eduarda Sangiogo Gil, Hans Georg Gallmetzer"
-VERSION = "1.0"
+VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 12, 2)
 NAME = "MOPACPI"
 DESCRIPTION = "AB INITIO interface for the MOPAC-PI program"

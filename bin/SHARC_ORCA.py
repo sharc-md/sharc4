@@ -45,8 +45,8 @@ from utils import batched, convert_list, expand_path, itmult, link, mkdir, quest
 
 __all__ = ["SHARC_ORCA"]
 
-AUTHORS = ""
-VERSION = ""
+AUTHORS = "Sascha Mausenberger and Sebastian Mai"
+VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "ORCA"
 DESCRIPTION = "AB INITIO interface for ORCA v5-6 (CIS/TDDFT)"

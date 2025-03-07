@@ -48,8 +48,8 @@ merge_moles = gto.mole.conc_mol
 __all__ = ["SHARC_ECI"]
 
 AUTHORS = "Tomislav Piteša & Sascha Mausenberger"
-VERSION = "1.0"
-VERSIONDATE = datetime.datetime(2024, 2, 20)
+VERSION = "4.0"
+VERSIONDATE = datetime.datetime(2025, 4, 1)
 NAME = "ECI"
 DESCRIPTION = "   HYBRID interface for excitonic HF/CI with multiple fragments"
 

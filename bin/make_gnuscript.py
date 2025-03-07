@@ -45,8 +45,8 @@ from copy import deepcopy
 import colorsys
 from constants import IToMult
 # =========================================================0
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 # ======================================================================= #
 

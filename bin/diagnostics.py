@@ -51,7 +51,7 @@ except ImportError:
 DEBUG = False
 
 version = '4.0'
-versiondate = datetime.date(2024, 9, 1)
+versiondate = datetime.date(2025, 4, 1)
 
 
 # ======================================================================= #

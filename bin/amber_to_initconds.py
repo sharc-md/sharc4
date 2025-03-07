@@ -41,8 +41,8 @@ from constants import au2fs, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, AMBERVEL_TO_A
 # some constants
 DEBUG = False
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 # =========================================================
 

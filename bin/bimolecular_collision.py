@@ -43,8 +43,8 @@ from constants import NUMBERS, MASSES, ISOTOPES, HARTREE_TO_EV, U_TO_AMU, ANG_TO
 
 DEBUG = False
 
-version = '1.0'
-versiondate = datetime.date(2025, 1, 19)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 
 

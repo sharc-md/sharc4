@@ -59,8 +59,8 @@ from constants import au2a, rcm_to_Eh
 from constants import FROZENS, IToMult, IToPol
 # =========================================================0
 
-version = '3.0'
-versiondate = datetime.date(2023, 4, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 
 changelogstring = '''

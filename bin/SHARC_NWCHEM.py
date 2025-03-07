@@ -41,7 +41,7 @@ from utils import convert_list, expand_path, is_exec, link, mkdir, question, wri
 __all__ = ["SHARC_NWCHEM"]
 
 AUTHORS = "Sascha Mausenberger, Sebastian Mai"
-VERSION = "1.0"
+VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 3, 25)
 NAME = "NWCHEM"
 DESCRIPTION = "AB INITIO interface for NWChem (TDDFT)"

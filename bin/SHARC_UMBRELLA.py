@@ -49,7 +49,7 @@ from utils import (ATOM, InDir, expand_path, itnmstates, mkdir, question,
                    readfile)
 
 VERSION = "4.0"
-VERSIONDATE = datetime.datetime(2023, 8, 24)
+VERSIONDATE = datetime.datetime(2025, 4, 1)
 
 CHANGELOGSTRING = """
 """

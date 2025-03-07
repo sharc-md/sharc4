@@ -52,7 +52,7 @@ PI = math.pi
 
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2023, 8, 24)
+versiondate = datetime.date(2025, 4, 1)
 global KEYSTROKES
 old_question = question
 

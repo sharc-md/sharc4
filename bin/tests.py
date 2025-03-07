@@ -59,8 +59,8 @@ Essential dynamics analysis not possible.''' + '*' * 80 + '\n')
     time.sleep(5)
 
 
-version = '2.1'
-versiondate = datetime.date(2019, 8, 14)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 
 

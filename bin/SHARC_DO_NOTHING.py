@@ -40,8 +40,8 @@ from utils import Error, makecmatrix, question
 __all__ = ["SHARC_DO_NOTHING"]
 
 AUTHORS = "Sebastian Mai"
-VERSION = "3.0"
-VERSIONDATE = datetime.datetime(2023, 8, 29)
+VERSION = "4.0"
+VERSIONDATE = datetime.datetime(2025, 4, 1)
 NAME = "SHARC Do Nothing Interface"
 DESCRIPTION = "     FAST interface for testing (zero E/grad/NAC/DM, unity overlaps/phases)"
 

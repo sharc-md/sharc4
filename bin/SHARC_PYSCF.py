@@ -45,8 +45,8 @@ import time
 
 from pyscf import lib, gto, mcscf
 
-_version_ = "3.0"
-_versiondate_ = datetime.date(2024, 2, 2)
+_version_ = "4.0"
+_versiondate_ = datetime.date(2025, 4, 1)
 _change_log_ = """"""
 
 START_TIME = datetime.datetime.now()

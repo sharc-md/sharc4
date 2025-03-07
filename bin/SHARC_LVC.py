@@ -47,7 +47,7 @@ from numba import njit
 
 authors = "Sebastian Mai and Severin Polonius"
 version = "4.0"
-versiondate = datetime.datetime(2023, 8, 25)
+versiondate = datetime.datetime(2025, 4, 1)
 
 changelogstring = """
 """

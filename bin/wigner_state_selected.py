@@ -55,8 +55,8 @@ DEBUG = False
 PI = math.pi
 KB = Boltzmann_Eh_K               #Boltzmann in hartee/K
 
-version = '3.0'
-versiondate = datetime.date(2023, 4, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 
 

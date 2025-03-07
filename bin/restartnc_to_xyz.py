@@ -46,7 +46,7 @@ from utils import readfile
 DEBUG = False
 
 version = '4.0'
-versiondate = datetime.date(2024, 11, 30)
+versiondate = datetime.date(2025, 4, 1)
 
 
 

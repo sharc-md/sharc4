@@ -44,8 +44,8 @@ from utils import containsstring, expand_path, question, link, makecmatrix, mkdi
 __all__ = ["SHARC_MNDO"]
 
 AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
-VERSION = "1.0"
-VERSIONDATE = datetime.datetime(2024, 12, 2)
+VERSION = "4.0"
+VERSIONDATE = datetime.datetime(2025, 4, 1)
 NAME = "MNDO"
 DESCRIPTION = "AB INITIO interface for the MNDO program (OM2-MRCI)"
 
