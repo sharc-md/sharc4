@@ -1,7 +1,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -557,7 +557,7 @@ module definitions
   !< strings used to represent the multiplicities
   ! =========================================================== !
   
-  character*255, parameter :: version='3.0 (January 26, 2023)'    !< string holding the version number
+  character*255, parameter :: version='4.0 (April 1, 2025)'    !< string holding the version number
   
   integer, parameter :: u_log=1                !< long output file
   integer, parameter :: u_lis=2                !< short output file
