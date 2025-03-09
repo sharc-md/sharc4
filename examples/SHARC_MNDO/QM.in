@@ -27,7 +27,8 @@ init
     ## ===============================================
     # Settings:
 unit angstrom
-states 4 0 0
+states 4 
+charge 1 
 #savedir ./SAVE         # overrides the savedir in the resources file
 
 point_charges pcfile
@@ -39,7 +40,7 @@ grad 1 2 4
 #overlap
 nacdr
 molden
-savestuff
+#savestuff
 
     # note that the "soc" keyword does not work with the MNDO interface
 
