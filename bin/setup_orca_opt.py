@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2023 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -52,7 +52,7 @@ if sys.version_info[0] != 3:
 
 version = '4.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2024, 4, 24)
+versiondate = datetime.date(2025, 4, 1)
 
 
 # =========================================================0

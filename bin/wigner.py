@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -43,8 +43,8 @@ from constants import CM_TO_HARTREE, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, NUMBE
 # some constants
 DEBUG = True
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 # thresholds
 LOW_FREQ = 10.0    # threshold in cm^-1 for ignoring rotational and translational low frequencies

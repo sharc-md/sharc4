@@ -4,9 +4,9 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2023 University of Vienna
-#    Copyright (c) 2023 University of Minnesota
-#    Copyright (c) 2024 University of Chicago
+#    Copyright (c) 2025 University of Vienna
+#    Copyright (c) 2025 University of Minnesota
+#    Copyright (c) 2025 University of Chicago
 #
 #    This file is part of SHARC.
 #
@@ -45,8 +45,8 @@ import time
 
 from pyscf import lib, gto, mcscf
 
-_version_ = "3.0"
-_versiondate_ = datetime.date(2024, 2, 2)
+_version_ = "4.0"
+_versiondate_ = datetime.date(2025, 4, 1)
 _change_log_ = """"""
 
 START_TIME = datetime.datetime.now()

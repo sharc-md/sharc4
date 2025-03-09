@@ -1,4 +1,29 @@
 #!/usr/bin/env python3
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
+
 import datetime
 import os
 import shutil
@@ -60,8 +85,12 @@ class SHARC_ASE(SHARC_HYBRID):
         super().__init__(*args, **kwargs)
 
         # Define template
-        self.QMin.template.update({"reference": None, "props_to_save": None, "ase_file": None, "format": "sharc"})
-        self.QMin.template.types.update({"reference": dict, "props_to_save": list, "ase_file": str, "format": str})
+        self.QMin.template.update(
+            {"reference": None, "props_to_save": None, "ase_file": None, "format": "sharc", "output_steps": 1}
+        )
+        self.QMin.template.types.update(
+            {"reference": dict, "props_to_save": list, "ase_file": str, "format": str, "output_steps": int}
+        )
 
         # Template interface structure
         self._interface_templ = {
@@ -79,6 +108,7 @@ class SHARC_ASE(SHARC_HYBRID):
     def read_template(self, template_file="ASE.template", kw_whitelist=None):
         self.log.debug(f"Parsing template file {template_file}")
 
+        # TODO: sanity checks
         # Open template_file file and parse yaml
         with open(template_file, "r", encoding="utf-8") as tmpl_file:
             tmpl_dict = yaml.safe_load(tmpl_file)
@@ -102,6 +132,9 @@ class SHARC_ASE(SHARC_HYBRID):
             if tmpl_dict["format"].lower() not in ("sharc", "spainn"):
                 self.log.error(f"{tmpl_dict['format']} is not a valid format! Either use SHARC or SPAINN.")
                 raise ValueError
+
+        if "output_steps" in tmpl_dict:
+            self.QMin.template["output_steps"] = tmpl_dict["output_steps"]
 
         for k, v in self._interface_templ.items():
             if k not in tmpl_dict["reference"]:
@@ -129,10 +162,19 @@ class SHARC_ASE(SHARC_HYBRID):
         self._kindergarden["reference"].create_restart_files()
 
     def run(self):
+        self._kindergarden["reference"].QMin.coords["coords"] = self.QMin.coords["coords"].copy()
+        for key, value in self.QMin.requests.items():
+            if value is not None:
+                self._kindergarden["reference"].QMin.requests[key] = value
+        self._kindergarden["reference"].QMin.save['step'] = self.QMin.save['step']
+        self._kindergarden["reference"]._step_logic()
+        self._kindergarden["reference"]._request_logic()
         self._kindergarden["reference"].run()
 
     def getQMout(self):
         self.QMout = self._kindergarden["reference"].getQMout()
+        if self.QMin.save["step"] % self.QMin.template["output_steps"] != 0:
+            return self.QMout
 
         with connect(self.QMin.template["ase_file"]) as db:
             if self.QMin.template["format"].lower() == "spainn":

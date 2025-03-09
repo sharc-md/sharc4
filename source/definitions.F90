@@ -1,7 +1,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -398,8 +398,8 @@ module definitions
     logical,allocatable :: actstates_s(:)     !< mask of the active states
     integer :: output_steps_stride(3)         !< how often output.dat is written
     integer :: output_steps_limits(3)         !< switches stride for output.dat writing
-    integer :: output_steps_stride_nuc(3)     !< how often sharc_traj_xyz.nc is written
-    integer :: output_steps_limits_nuc(3)     !< switches stride for sharc_traj_xyz.nc writing
+    integer :: output_steps_stride_nuc(3)     !< how often output_NUC.dat.nc is written
+    integer :: output_steps_limits_nuc(3)     !< switches stride for output_NUC.dat.nc writing
     integer :: retain_restart_files           !< how many previous time steps should be kept
   
   ! methods and switches
@@ -557,7 +557,7 @@ module definitions
   !< strings used to represent the multiplicities
   ! =========================================================== !
   
-  character*255, parameter :: version='3.0 (January 26, 2023)'    !< string holding the version number
+  character*255, parameter :: version='4.0 (April 1, 2025)'    !< string holding the version number
   
   integer, parameter :: u_log=1                !< long output file
   integer, parameter :: u_lis=2                !< short output file
@@ -573,9 +573,9 @@ module definitions
   integer, parameter :: u_i_laser=16           !< numerical laser field
   integer, parameter :: u_i_atommask=17        !< which atoms are active for rescaling/decoherence/...
   integer, parameter :: u_i_rattle=18          !< atoms for constraints
-integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
-integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
-integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
+  integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
+  integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
+  integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
   
   integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
   integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)

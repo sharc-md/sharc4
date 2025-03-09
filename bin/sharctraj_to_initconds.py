@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -45,8 +45,8 @@ DEBUG = False
 AMBERVEL_TO_AU = 0.0009350161
 PI = math.pi
 
-version = "2.1"
-versiondate = datetime.date(2019, 9, 1)
+version = "4.0"
+versiondate = datetime.date(2025, 4, 1)
 
 
 def try_read(l, index, typefunc, default):

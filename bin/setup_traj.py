@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -50,7 +50,7 @@ PI = math.pi
 
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2019, 9, 1)
+versiondate = datetime.date(2025, 4, 1)
 
 
 global KEYSTROKES
@@ -1166,7 +1166,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             if set(GradCorrect[num]["required"]).issubset(INFOS["needed_requests"]):
                 recommended = [num]
         while True:
-            num = question("Coupling number:", int, recommended)[0]
+            num = question("Gradient mixing scheme:", int, recommended)[0]
             if num in GradCorrect and num in available:
                 break
             else:
@@ -1653,33 +1653,41 @@ def get_trajectory_info(INFOS) -> dict:
     if INFOS["netcdf"]: 
         INFOS["netcdf_separate"] = question("Write nuclear and electronic date to separate NetCDF files?", bool, False)
 
+    if not INFOS["netcdf"]: 
+        # options for writing to output.dat
+        log.info("\nDo you want to write the gradients to the output.dat file ?")
+        write_grad = question("Write gradients?", bool, False)
+        if write_grad:
+            INFOS["write_grad"] = True
+        else:
+            INFOS["write_grad"] = False
 
-    # options for writing to output.dat
-    log.info("\nDo you want to write the gradients to the output.dat file ?")
-    write_grad = question("Write gradients?", bool, False)
-    if write_grad:
-        INFOS["write_grad"] = True
+        log.info("\nDo you want to write the non-adiabatic couplings (NACs) to the output.dat file ?")
+        write_NAC = question("Write NACs?", bool, False)
+        if write_NAC:
+            INFOS["write_NAC"] = True
+        else:
+            INFOS["write_NAC"] = False
+
+        log.info("\nDo you want to write property matrices to the output.dat file  (e.g., Dyson norms)?")
+        if "ion" in INFOS and INFOS["ion"]:
+            INFOS["write_property2d"] = question("Write property matrices?", bool, True)
+        else:
+            INFOS["write_property2d"] = question("Write property matrices?", bool, False)
+
+        log.info("\nDo you want to write property vectors to the output.dat file  (e.g., TheoDORE results)?")
+        if "theodore" in INFOS and INFOS["theodore"]:
+            INFOS["write_property1d"] = question("Write property vectors?", bool, True)
+        else:
+            INFOS["write_property1d"] = question("Write property vectors?", bool, False)
     else:
+        # cannot be saved with NetCDF anyways
         INFOS["write_grad"] = False
-
-    log.info("\nDo you want to write the non-adiabatic couplings (NACs) to the output.dat file ?")
-    write_NAC = question("Write NACs?", bool, False)
-    if write_NAC:
-        INFOS["write_NAC"] = True
-    else:
         INFOS["write_NAC"] = False
+        INFOS["write_property2d"] = False
+        INFOS["write_property1d"] = False
 
-    log.info("\nDo you want to write property matrices to the output.dat file  (e.g., Dyson norms)?")
-    if "ion" in INFOS and INFOS["ion"]:
-        INFOS["write_property2d"] = question("Write property matrices?", bool, True)
-    else:
-        INFOS["write_property2d"] = question("Write property matrices?", bool, False)
 
-    log.info("\nDo you want to write property vectors to the output.dat file  (e.g., TheoDORE results)?")
-    if "theodore" in INFOS and INFOS["theodore"]:
-        INFOS["write_property1d"] = question("Write property vectors?", bool, True)
-    else:
-        INFOS["write_property1d"] = question("Write property vectors?", bool, False)
 
     log.info("\nDo you want to write the overlap matrix to the output.dat file ?")
     INFOS["write_overlap"] = question("Write overlap matrix?", bool, (Couplings[INFOS["coupling"]]["name"] == "overlap"))
@@ -1706,7 +1714,7 @@ def get_trajectory_info(INFOS) -> dict:
 
     # separate nuclear stride
     if INFOS["netcdf_separate"]:
-        log.info("\nDo you want to modify the stride for sharc_traj_xyz.nc?")
+        log.info("\nDo you want to modify the stride for output_NUC.dat.nc?")
         stride = question("Modify stride?", bool, False)
         if stride:
             INFOS["stride_nuclear"] = []

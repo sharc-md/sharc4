@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -49,7 +49,7 @@ PI = math.pi
 
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, 3.0, float(version)]
-versiondate = datetime.date(2024, 3, 17)
+versiondate = datetime.date(2025, 4, 1)
 
 # ======================================================================================================================
 # ======================================================================================================================

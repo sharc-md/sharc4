@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -41,8 +41,8 @@ from constants import ATOMCHARGE, FROZENS
 from SHARC_HYBRID import SHARC_HYBRID
 from utils import InDir, mkdir, question, cleandir, writefile
 
-version = '1.0'
-versiondate = datetime.datetime(2023, 11, 3)
+version = '4.0'
+versiondate = datetime.datetime(2025, 4, 1)
 
 changelogstring = '''
 '''

@@ -1,12 +1,38 @@
 #!/usr/bin/env python3
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
+
 import datetime
 import os
+import shutil
 from io import TextIOWrapper
 import shutil
 
 import yaml
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, question, expand_path, mkdir
+from utils import InDir, expand_path, mkdir, question
 
 __all__ = ["SHARC_FALLBACK"]
 
@@ -63,16 +89,12 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._nfails_total = 0
 
         # Define template keys
-        self.QMin.template.update({"trial_interface": None, 
-                                   "fallback_interface": None, 
-                                   "stop_at_nfails": 2, 
-                                   "reset_fail_counter": 1}
-                                   )
-        self.QMin.template.types.update({"trial_interface": dict, 
-                                         "fallback_interface": dict, 
-                                         "stop_at_nfails": int, 
-                                         "reset_fail_counter": int}
-                                         )
+        self.QMin.template.update(
+            {"trial_interface": None, "fallback_interface": None, "stop_at_nfails": 2, "reset_fail_counter": 1}
+        )
+        self.QMin.template.types.update(
+            {"trial_interface": dict, "fallback_interface": dict, "stop_at_nfails": int, "reset_fail_counter": int}
+        )
 
         # Template interface structure
         self._interface_templ = {
@@ -104,34 +126,30 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     @staticmethod
     def changelogstring() -> str:
         return SHARC_FALLBACK._changelogstring
-    
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
         # return all_features
         if not self._read_template:
-            self.template_file =  question(
-                "Please specify the path to your FALLBACK.template file", 
-                str, 
-                KEYSTROKES=KEYSTROKES, 
-                default="FALLBACK.template"
+            self.template_file = question(
+                "Please specify the path to your FALLBACK.template file", str, KEYSTROKES=KEYSTROKES, default="FALLBACK.template"
             )
             self.read_template(self.template_file)
         if self._trial_interface is None:
-            prog = self.QMin.template['trial_interface']["interface"]
+            prog = self.QMin.template["trial_interface"]["interface"]
             self._trial_interface = self._load_interface(prog)()
         if self._fallback_interface is None:
-            prog = self.QMin.template['fallback_interface']["interface"]
+            prog = self.QMin.template["fallback_interface"]["interface"]
             self._fallback_interface = self._load_interface(prog)()
-        
+
         trial_features = self._trial_interface.get_features(KEYSTROKES=KEYSTROKES)
         fallback_features = self._fallback_interface.get_features(KEYSTROKES=KEYSTROKES)
         own_features = trial_features & fallback_features - set(["overlap", "phases"])
-        self.log.debug(own_features) # log features
+        self.log.debug(own_features)  # log features
         return set(own_features)
-
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         # Setup some output to log
@@ -151,7 +169,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 
         return INFOS
 
-
     def prepare(self, INFOS: dict, dir_path: str):
         QMin = self.QMin
 
@@ -163,7 +180,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 
         # make empty resources file
         path = os.path.join(dir_path, "FALLBACK.resources")
-        open(path, 'a').close()
+        open(path, "a").close()
 
         # setup dirs
         traildir = os.path.join(dir_path, "trial_interface")
@@ -174,12 +191,12 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._trial_interface.prepare(INFOS, traildir)
         self._fallback_interface.prepare(INFOS, fallbackdir)
 
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     def read_resources(self, resources_file="FALLBACK.resources", kw_whitelist=None):
-        pass
+        self._read_resources = True
 
     def read_template(self, template_file="FALLBACK.template", kw_whitelist=None):
         self.log.debug(f"Parsing template file {template_file}")
@@ -210,9 +227,9 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self.QMin.template["trial_interface"] = tmpl_dict["trial_interface"]
         self._read_template = True
 
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     def run(self):
         self._trial_failed = False
@@ -253,9 +270,9 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._trial_interface.clean_savedir()
         self._fallback_interface.clean_savedir()
 
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     def setup_interface(self):
         if not os.path.isdir("fallback_interface"):
@@ -264,7 +281,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         if not os.path.isdir("trial_interface"):
             self.log.error("Path trial_interface does not exist!")
             raise ValueError
-        
+
         # Counter of fails
         self._nfails = 0
         self._nsuccesses = 0
@@ -275,14 +292,14 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         fallback = self.QMin.template["fallback_interface"]
 
         with InDir("trial_interface"):
-            self._trial_interface = self._load_interface(trial["interface"])(trial["args"], trial["kwargs"])
+            self._trial_interface = self._load_interface(trial["interface"])(*trial["args"], **trial["kwargs"])
             self._trial_interface.setup_mol(self.QMin)
             self._trial_interface.read_resources()
             self._trial_interface.read_template()
             self._trial_interface.setup_interface()
 
         with InDir("fallback_interface"):
-            self._fallback_interface = self._load_interface(fallback["interface"])(fallback["args"], fallback["kwargs"])
+            self._fallback_interface = self._load_interface(fallback["interface"])(*fallback["args"], **fallback["kwargs"])
             self._fallback_interface.setup_mol(self.QMin)
             self._fallback_interface.read_resources()
             self._fallback_interface.read_template()

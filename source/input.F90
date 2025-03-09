@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -416,7 +416,7 @@ module input
         write(u_log, '(A)') 'Use data_extractor_NetCDF.x'
       case (2)
         write(u_log, '(A)') 'Saving electronic output data every step in NetCDF format (output.dat [header] + output.dat.nc) for one dummy atom'
-        write(u_log, '(A)') 'Saving coordinates in NetCDF format (sharc_traj_xyz.nc) for all atoms'
+        write(u_log, '(A)') 'Saving coordinates in NetCDF format (output_NUC.dat.nc) for all atoms'
         write(u_log, '(A)') 'Use data_extractor_NetCDF.x'
     endselect
     write(u_log, *) 
@@ -1927,11 +1927,11 @@ module input
       write(u_log,*)
       if (ctrl%output_format == 2) then
           write(u_log,*)
-            write(u_log,'(a,i6,a,i6)') 'First,   writing to sharc_traj_xyz.nc every ',ctrl%output_steps_stride_nuc(1),&
+            write(u_log,'(a,i6,a,i6)') 'First,   writing to output_NUC.dat.nc every ',ctrl%output_steps_stride_nuc(1),&
             &' steps if step is >= ',ctrl%output_steps_limits_nuc(1)
-            write(u_log,'(a,i6,a,i6)') 'Then,    writing to sharc_traj_xyz.nc  every ',ctrl%output_steps_stride_nuc(2),&
+            write(u_log,'(a,i6,a,i6)') 'Then,    writing to output_NUC.dat.nc  every ',ctrl%output_steps_stride_nuc(2),&
             &' steps if step is >= ',ctrl%output_steps_limits_nuc(2)
-            write(u_log,'(a,i6,a,i6)') 'Finally, writing to sharc_traj_xyz.nc every ',ctrl%output_steps_stride_nuc(3),&
+            write(u_log,'(a,i6,a,i6)') 'Finally, writing to output_NUC.dat.nc every ',ctrl%output_steps_stride_nuc(3),&
             &' steps if step is >= ',ctrl%output_steps_limits_nuc(3)
           write(u_log,*)
       endif

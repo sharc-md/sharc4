@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -41,7 +41,7 @@ import factory
 from logger import log
 
 version = "4.0"
-versiondate = datetime.datetime(year=2023, month=8, day=22)
+versiondate = datetime.date(2025, 4, 1)
 
 # =========================================================0
 # some constants

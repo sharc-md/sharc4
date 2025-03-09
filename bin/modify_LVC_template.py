@@ -1,6 +1,32 @@
 #!/usr/bin/env python3
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
+
 from optparse import OptionParser
 import numpy as np
+from utils import itnmstates
 
 
 def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no_es2es_trans_mult_for_mult=None):
@@ -48,6 +74,7 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
             raise ValueError(f"{states} not compatible with {template_states} from template file!")
 
         selected_states = {(im + 1, s + 1) for im, ns in enumerate(states) for s in range(ns) if ns != 0}
+        statemap = {i+1: (im, s) for i, (im, s, _) in enumerate(itnmstates(template_states))}
 
         line = f.readline()
         while line != "epsilon\n":
@@ -113,6 +140,24 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
             for im, si, sj, i, v in map(c, range(z)):
                 if (im, si) in selected_states and (im, sj) in selected_states and i in selected_modes:
                     selected.append(f"{im:3d} {si:3d} {sj:3d} {i:3d} {v: .5e}")
+            new_template.append(f"{len(selected)}")
+            new_template.extend(selected)
+            line = f.readline()
+
+        if line == "lambda_soc\n":
+            new_template.append("lambda_soc")
+            selected = []
+            z = int(f.readline()[:-1])
+
+            def c(_):
+                v = f.readline().split(maxsplit=3)
+                return (int(v[0]), int(v[1]), int(v[2]), v[3][:-1])
+
+            for si, sj, i, v in map(c, range(z)):
+                im, s_i = statemap[si]
+                jm, s_j = statemap[sj]
+                if (im, s_i) in selected_states and (jm, s_j) in selected_states and i in selected_modes:
+                    selected.append(f"{si:3d} {sj:3d} {i:3d} {v}")
             new_template.append(f"{len(selected)}")
             new_template.extend(selected)
             line = f.readline()
