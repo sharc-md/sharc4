@@ -532,6 +532,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 or nactel - charge >= self.QMin.template["ras2"] * 2
             ) and self.QMin.molecule["states"][idx-1] > 0:
                 self.log.error(f"Charge {charge} not compatible with multiplicity {idx}")
+                self.log.error("Please provide the nactel as if the charge was neutral!")
                 raise ValueError()
 
         # Validate method
@@ -1273,7 +1274,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support!")
                 raise ValueError()
         if self.QMin.requests["multipolar_fit"] and self.QMin.molecule["point_charges"]:
-            self.log.error("Multipolar fit not comatible with point charges!")
+            self.log.error("Multipolar fit not compatible with point charges!")
             raise ValueError()
         if self.QMin.requests["phases"]:
             self.QMin.requests["overlap"] = True
