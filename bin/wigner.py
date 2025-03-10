@@ -1015,7 +1015,7 @@ Equilibrium
 # ======================================================================================================================
 
 
-def create_initial_conditions_list(amount, molecule, modes, dummy=False):
+def create_initial_conditions_list(amount, molecule, modes, dummy=False, dummy_el="H"):
     """This function creates 'amount' initial conditions from the
 data given in 'molecule' and 'modes'. Output is returned
 as a list containing all initial condition objects."""
@@ -1038,7 +1038,7 @@ as a list containing all initial condition objects."""
 
     # prepare dummy ic
     if dummy:
-        atom = ATOM(symb='H', num=0, m=1.*U_TO_AMU)
+        atom = ATOM(symb=dummy_el, num=0, m=1.*U_TO_AMU)
         ic0 = INITCOND([atom], 0., 0.)
         
 
@@ -1212,7 +1212,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
         dest='f',
         type=int,
         nargs=1,
-        default='0',
+        default=0,
         help="""Define the type of read normal modes. 
         0 for automatic assignement, 
         1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, AMS, Orca), 
@@ -1235,15 +1235,18 @@ as described in [2] (non-fixed energy, independent mode sampling).
     parser.add_option(
         '--dummy_molecule', dest='DUM', action='store_true', help="Ignore molden file and generate initconds with one atom at origin"
     )
+    parser.add_option(
+        '--single_atom', dest='atom', type=str, nargs=1, default="", help="Ignore molden file and generate initconds with one atom of specified element at origin"
+    )
 
     (options, args) = parser.parse_args()
 
     random.seed(options.r)
     amount = options.n
-    if len(args) == 0 and not options.DUM:
+    if len(args) == 0 and not (options.DUM or options.atom):
         print(usage)
         quit(1)
-    if options.DUM:
+    if options.DUM or options.atom != "":
         filename = None
     else:
         filename = args[0]
@@ -1302,6 +1305,12 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
 
     if options.DUM:
         molecule, modes = [ATOM(symb='H', num=1, m=1.*U_TO_AMU)], [{'freq': 0.}]
+        dummy_el="H"
+        dummy = True
+    elif options.atom != "":
+        molecule, modes = [ATOM(symb=options.atom, num=1, m=1.*U_TO_AMU)], [{'freq': 0.}]
+        dummy_el=options.atom
+        dummy = True
     else:
         molecule, modes = import_from_molden(filename, scaling, flag, options.lvc)
 
@@ -1323,7 +1332,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
         lvc_input(molecule, modes)
     else:
         # print('Generating %i initial conditions' % amount)
-        ic_list = create_initial_conditions_list(amount, molecule, modes, dummy=options.DUM)
+        ic_list = create_initial_conditions_list(amount, molecule, modes, dummy=dummy, dummy_el=dummy_el)
         # print('Writing output to initconds')
         outfile = open(outfile, 'w')
         outstring = create_initial_conditions_string(molecule, modes, ic_list)
