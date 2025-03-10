@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2025 University of Vienna
+!    Copyright (c) 2023 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -63,6 +63,7 @@ module data_extractor_NetCDFmodule
     integer :: have_NAC                     !< whether nonadiabatic couplings are in the dat file (0=no, 1=yes)
     integer :: have_property1d                !< whether property vectors are in the dat file (0=no, 1=yes)
     integer :: have_property2d                !< whether property matrices are in the dat file (0=no, 1=yes)
+    integer :: method
   end type
 
   type Tshdata
@@ -83,6 +84,7 @@ module data_extractor_NetCDFmodule
     complex*16, allocatable :: coeff_MCH_s(:)       !< MCH coefficient vector
     complex*16, allocatable :: laser_td(:,:)        !< laser field for all timesteps
     complex*16, allocatable :: coeff_diab_s(:)      !< diabatic coefficient vector
+    complex*16, allocatable :: den_ss(:,:)
     real*8,allocatable :: expec_s(:)                !< spin expectation value per state
     real*8,allocatable :: expec_dm(:)               !< oscillator strength per state
     real*8,allocatable :: expec_dm_mch(:)           !< oscillator strength per state in MCH basis
@@ -96,7 +98,8 @@ module data_extractor_NetCDFmodule
 
   type Tgeneral_infos
     integer :: maxmult                      !< maximum multiplicity
-    integer :: natom                        !< number of atoms
+    integer :: natom
+    integer :: method                       !< the method used (0=tsh,1=scp) ###
     integer :: n_property1d                !< 
     integer :: n_property2d                !< 
     integer :: laser                        !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
@@ -451,7 +454,7 @@ contains
   prop_info%have_overlap=0
   prop_info%have_property1d=0
   prop_info%have_property2d=0
-
+  prop_info%method=0
 
   if (is_integer) then
     write(*,*) 'Found SHARC v1.0 format'
@@ -477,6 +480,7 @@ contains
     allocate( shdata%overlaps_ss(nstates,nstates), shdata%ref_ovl_ss(nstates,nstates) )
     allocate( shdata%DM_ssd(nstates,nstates,3) )
     allocate( shdata%coeff_diag_s(nstates), shdata%coeff_MCH_s(nstates), shdata%coeff_diab_s(nstates) )
+    allocate( shdata%den_ss(nstates,nstates) )
     allocate( shdata%hopprob_s(nstates) )
     allocate( shdata%A_ss(nstates,nstates) )
     allocate( shdata%expec_s(nstates),shdata%expec_dm(nstates),shdata%expec_dm_mch(nstates),shdata%expec_dm_act(nstates) )
@@ -503,6 +507,14 @@ contains
     ! else we have the format of SHARC 2.0, which is list-based
     ! =====================================================
     call read_input_list_from_file(u_dat)
+
+    ! look up method keyword
+    line=get_value_from_key('method',io) 
+    if (io==0) then
+      read(line,*) prop_info%method
+    else
+      stop 'Error! Method (keyword: method) is required!'
+    endif
 
     ! look up nstates keyword
     line=get_value_from_key('nstates_m',io)
@@ -559,6 +571,7 @@ contains
     allocate( shdata%overlaps_ss(nstates,nstates), shdata%ref_ovl_ss(nstates,nstates) )
     allocate( shdata%DM_ssd(nstates,nstates,3) )
     allocate( shdata%coeff_diag_s(nstates), shdata%coeff_MCH_s(nstates), shdata%coeff_diab_s(nstates) )
+    allocate( shdata%den_ss(nstates,nstates) )
     allocate( shdata%hopprob_s(nstates) )
     allocate( shdata%A_ss(nstates,nstates) )
     allocate( shdata%expec_s(nstates),shdata%expec_dm(nstates),shdata%expec_dm_mch(nstates),shdata%expec_dm_act(nstates) )
@@ -1267,13 +1280,14 @@ contains
 
 ! -----------------------------------------------------------------------------
 
-    subroutine process_data(nstates, step, general_infos, write_options, shdata)
+    subroutine process_data(nstates, step, general_infos, write_options, shdata, prop_info)
         use matrix, only: transform, matvecmultiply, matmultiply
         implicit none
   integer, intent(in) :: nstates, step
   type(Tgeneral_infos), intent(in) :: general_infos
   type(Twrite_options), intent(in) :: write_options
   type(Tshdata), intent(inout)     :: shdata
+  type(Tprop_info), intent(in) :: prop_info
   integer :: i, idir, istate, jstate, time_step
   
     time_step=shdata%time_step
@@ -1289,10 +1303,28 @@ contains
     call transform(nstates,shdata%H_diag_ss,shdata%U_ss,'utau')
 !     call matwrite(nstates,H_diag_ss,0,'Hafter','F12.9')
 
+
+!     compute density matrix
+      do istate=1,nstates
+        do jstate=1,nstates
+          shdata%den_ss(istate,jstate)=shdata%coeff_diag_s(istate)*conjg(shdata%coeff_diag_s(jstate))
+        enddo
+      enddo
+
+
     ! calculate MCH coefficients and potential energy
     call matvecmultiply(nstates,shdata%U_ss,shdata%coeff_diag_s,shdata%coeff_MCH_s,'n')
+    if (prop_info%method == 0) then !TSH
     shdata%Epot=real(shdata%H_diag_ss(shdata%state_diag,shdata%state_diag))
-    
+    elseif (prop_info%method == 1) then !SCP
+    shdata%Epot=0.d0
+    do istate=1,nstates
+      shdata%Epot=shdata%Epot+&
+      &real(shdata%den_ss(istate,istate)*shdata%H_diag_ss(istate,istate))
+    enddo
+    endif
+
+
     if (write_options%write_coeffdiab) then
       ! calculate diabatic coefficients
       if (time_step>0) then
