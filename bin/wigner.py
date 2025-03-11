@@ -1313,6 +1313,8 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
         dummy = True
     else:
         molecule, modes = import_from_molden(filename, scaling, flag, options.lvc)
+        dummy = False
+        dummy_el ="H"
 
     string = '\nGeometry:\n'
     for atom in molecule:
