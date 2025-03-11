@@ -87,7 +87,10 @@ def read_xyz(xyz):
     geom = []
     symbols = []
     for line in lines[2:]:
-        s, x, y, z = line.split()
+        s = line.split()
+        if len(s) < 4:
+            continue
+        s, x, y, z = tuple(s)
         geom.append([float(x), float(y), float(z)])
         symbols.append(s)
     if len(geom) == natom:
