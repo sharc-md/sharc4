@@ -57,14 +57,13 @@ H   -2.3295321   -0.4965568    1.1816027       0.0000515   -0.0002021   -0.00023
 H   -0.1221017    0.4717371    1.9253957       0.0003277    0.0002502   -0.0000849
 H   -0.4489252    1.9462292    1.0136303       0.0001691   -0.0000235    0.0001905
 unit angstrom
-states   1
-charge   0
-dt    20.670687
-step       0
-retain       3
-H
-DM
-GRAD   1
-#OVERLAP
+states   1                  # Number of states depending on multiplicity (singlet, douplet, triplet, ...)
+charge   0                  # Charge depending on the multiplicity
+dt    20.670687     
+step       0                # Current step
+retain       3              # Number steps saved files should be kept
+H                           # Calculation of energies of each state
+DM                          # Calculation of dipole moments between states
+GRAD   1                    # Selection of states for which the gradients should be calculated               
  
  
