@@ -219,14 +219,15 @@ OUT=$NEWBASE.out
 echo "parm $TOP
 " > $INP
 
-for i in $BASE.rst_*;
-do
-    ext="${i##*.}"
+  for i in $BASE.rst_*;
+  do
+    ext="${i##*_}"
+    extt=$(echo "$ext/$NSTEPS_SNAPSHOTS" | bc)
     echo "trajin $i
 autoimage @1 origin
 solvent :$SOLVENT_NAME
 closest $SOLVENTS_TO_KEEP @1 noimage parmout ${TOP%.*}_$SOLVENTS_TO_KEEP.prmtop
-trajout ${NEWBASE}.$ext restartnc
+trajout ${NEWBASE}.$extt restartnc
 run
 clear trajin
 " >> $INP

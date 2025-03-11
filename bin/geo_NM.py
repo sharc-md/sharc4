@@ -196,6 +196,18 @@ def main():
     else:
         qm_list = np.arange(TRAJ.natom)
 
+    # write header
+    nmodes = V0["Km"].shape[0]
+    string = '# % 4i ' % 1
+    for i in range(nmodes):
+        string += " % 12i" % (i+2)
+    string += " %-12i\n" % (nmodes+2)
+    string += '% 6s ' % "# Time"
+    for i in range(nmodes):
+        string += " % 12s" % ("Mode %i" % (i+1))
+    string += " %-12s" % "Comment"
+    print(string)
+
     # iteration
     for igeom, geom in enumerate(TRAJ):
         # process coordinates

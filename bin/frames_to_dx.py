@@ -94,7 +94,7 @@ def main(infile, maskfile, outfile, options):
         for line in mask:
             if '#' in line:
                 continue
-            indices.add(line.split()[1]-1)
+            indices.add(int(line.split()[1])-1)
             mask_indices = np.array(sorted(indices))
     else:
         # raw file

@@ -43,6 +43,9 @@ import factory
 from utils import question, itnmstates, expand_path
 from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
 from SHARC_INTERFACE import SHARC_INTERFACE
+from SHARC_FAST import SHARC_FAST
+from SHARC_ABINITIO import SHARC_ABINITIO
+from SHARC_HYBRID import SHARC_HYBRID
 
 # =========================================================0
 PI = math.pi
@@ -1128,7 +1131,6 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             available.append(i)
     for i in Couplings:
         log.info("%i\t%s%s" % (i, Couplings[i]["description"], [" (not available)", ""][i in available]))
-    log.info('')
     default = [available[-1]]
     while True:
         num = question("Coupling number:", int, default)[0]
@@ -1138,6 +1140,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             log.info("Please input one of the following: %s!" % available)
     INFOS["coupling"] = num
     INFOS["needed_requests"].update(Couplings[num]["required"])
+    log.info('')
 
 
     # Phase tracking
@@ -1157,7 +1160,6 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
                 available.append(i)
         for i in GradCorrect:
             log.info("%i\t%s%s" % (i, GradCorrect[i]["description"], ["(not available)", ""][i in available]))
-        log.info('')
         # recommend ngt if nacdr are already calculated
         recommended = [available[0]]
         priority = ["tdh", "none", "ngt"]
@@ -1165,6 +1167,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             num = next((k for k, v in GradCorrect.items() if v["name"] == name), None)  # TODO: check if that works
             if set(GradCorrect[num]["required"]).issubset(INFOS["needed_requests"]):
                 recommended = [num]
+        log.info("\nPlease choose the gradient mixing scheme for the gradients:")
         while True:
             num = question("Gradient mixing scheme:", int, recommended)[0]
             if num in GradCorrect and num in available:
@@ -1178,6 +1181,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         INFOS["gradcorrect"] = num
         INFOS["needed_requests"].update(GradCorrect[num]["required"])
     INFOS["needed_requests"].update(GradCorrect[INFOS["gradcorrect"]]["required"])
+    log.info('')
 
 
 
@@ -1618,7 +1622,7 @@ Laser files can be created using $SHARC/laser.x
     return INFOS
 
 
-def get_trajectory_info(INFOS) -> dict:
+def get_trajectory_info(INFOS, interface: SHARC_INTERFACE) -> dict:
 
     # PYSHARC
     string = "\n  " + "=" * 80 + "\n"
@@ -1626,14 +1630,22 @@ def get_trajectory_info(INFOS) -> dict:
     string += "  " + "=" * 80 + "\n"
     log.info(string)
     pysharc_possible = True
+    # fast children or hybrids should be run with PySHARC
+    fast_child = isinstance(interface, (SHARC_FAST, SHARC_HYBRID)) 
+    # adaptive integrator is incompatible with PySHARC
     if Integrator[INFOS['integrator']]["name"] == 'avv':
         log.info("Pysharc not possible with adaptive time step integrator.")
         pysharc_possible = False
     if pysharc_possible:
-        log.info("\nThe chosen interface can be run very efficiently with PYSHARC.")
+        if fast_child:
+            log.info("\nThe chosen interface can be run very efficiently with PYSHARC.")
+            default = True
+        else:
+            log.info("\nThe chosen interface can be run with PYSHARC.")
+            default = False
         log.info("PYSHARC runs the SHARC dynamics directly within Python (with C and Fortran extension)")
         log.info("with minimal file I/O for maximum performance.")
-        INFOS["pysharc"] = question("Setup for PYSHARC?", bool, True)
+        INFOS["pysharc"] = question("Setup for PYSHARC?", bool, default)
     else:
         INFOS["pysharc"] = False
 
@@ -1648,7 +1660,12 @@ def get_trajectory_info(INFOS) -> dict:
     # NetCDF
     log.info("\nSHARC or PYSHARC can produce output in ASCII format (all features supported currently)")
     log.info("or in NetCDF format (more efficient file I/O, trajectory restart currently not supported).")
-    INFOS["netcdf"] = question("Write output in NetCDF format?", bool, INFOS["pysharc"])
+    # TheoDORE and Dyson cannot be saved with NetCDF:
+    recommend_netcdf = INFOS["pysharc"]
+    if ("ion" in INFOS and INFOS["ion"])  or  ("theodore" in INFOS and INFOS["theodore"]):
+        recommend_netcdf = False
+        log.info("Warning: TheoDORE and Dyson norm results cannot be saved in NetCDF format!")
+    INFOS["netcdf"] = question("Write output in NetCDF format?", bool, recommend_netcdf)
     INFOS["netcdf_separate"] = False
     if INFOS["netcdf"]: 
         INFOS["netcdf_separate"] = question("Write nuclear and electronic date to separate NetCDF files?", bool, False)
@@ -2128,7 +2145,7 @@ def writeRunscript(INFOS, iconddir, interface):
     # ================================
     if INFOS["pysharc"]:
         driver = ("_".join(interface.__class__.__name__.split("_")[1:])).lower()
-        exestring = ". $SHARC/sharcvars.sh\n$SHARC/driver.py -i %s input" % driver
+        exestring = ". $SHARC/sharcvars.sh\n$SHARC/driver.py -i %s input &> driver.log" % driver
     else:
         exestring = "$SHARC/sharc.x input"
 
@@ -2384,7 +2401,7 @@ This interactive program prepares SHARC dynamics calculations.
     chosen_interface: SHARC_INTERFACE = get_interface()()
     INFOS = get_requests(INFOS, chosen_interface)
     INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES)
-    INFOS = get_trajectory_info(INFOS)
+    INFOS = get_trajectory_info(INFOS, chosen_interface)
     INFOS = get_runscript_info(INFOS)
 
     log.info("\n" + f"{'Full input':#^60}" + "\n")

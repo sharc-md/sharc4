@@ -89,6 +89,7 @@ program data_extractor
   integer :: nargs                        !< number of command line arguments
   integer :: maxmult                      !< maximum multiplicity
   integer :: natom                        !< number of atoms
+  integer :: method                       !< the method used (0=tsh,1=scp) ###
   integer, allocatable :: nstates_m(:)    !< number of states per multiplicity
   real*8 :: dtstep                        !< nuclear timestep
   real*8 :: ezero                         !< reference energy
@@ -135,6 +136,7 @@ program data_extractor
   complex*16, allocatable :: coeff_MCH_s(:)       !< MCH coefficient vector
   complex*16, allocatable :: laser_td(:,:)        !< laser field for all timesteps
   complex*16, allocatable :: coeff_diab_s(:)      !< diabatic coefficient vector
+  complex*16, allocatable :: den_ss(:,:)
   real*8,allocatable :: expec_pop(:)                !< spin expectation value per state
   real*8,allocatable :: expec_s(:)                !< spin expectation value per state
   real*8,allocatable :: expec_dm(:)               !< oscillator strength per state
@@ -493,6 +495,7 @@ program data_extractor
   have_overlap=0
   have_property1d=0
   have_property2d=0
+  method=0
 
 
   if (is_integer) then
@@ -523,6 +526,7 @@ program data_extractor
     allocate( proj_vec_pd(nprojections,3) )
     allocate( norm_proj_vec_p(nprojections) )
     allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
+    allocate( den_ss(nstates,nstates) )
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
@@ -549,6 +553,13 @@ program data_extractor
     ! else we have the format of SHARC 2.0, which is list-based
     ! =====================================================
     call read_input_list_from_file(u_dat)
+
+    ! look up method keyword
+    line=get_value_from_key('method',io) 
+    if (io==0) then
+      read(line,*) method
+    endif
+
 
     ! look up nstates keyword
     line=get_value_from_key('nstates_m',io)
@@ -624,6 +635,7 @@ program data_extractor
     allocate( proj_vec_pd(nprojections,3) )
     allocate( norm_proj_vec_p(nprojections) )
     allocate( coeff_diag_s(nstates), coeff_MCH_s(nstates), coeff_diab_s(nstates) )
+    allocate( den_ss(nstates,nstates) )
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
@@ -1103,10 +1115,28 @@ program data_extractor
     call transform(nstates,H_diag_ss,U_ss,'utau')
 !     call matwrite(nstates,H_diag_ss,0,'Hafter','F12.9')
 
-    ! calculate MCH coefficients and potential energy
-    call matvecmultiply(nstates,U_ss,coeff_diag_s,coeff_MCH_s,'n')
-    Epot=real(H_diag_ss(state_diag,state_diag))
+!     compute density matrix
+      do istate=1,nstates
+        do jstate=1,nstates
+          den_ss(istate,jstate)=coeff_diag_s(istate)*conjg(coeff_diag_s(jstate))
+        enddo
+      enddo
     
+
+! calculate MCH coefficients and potential energy
+    call matvecmultiply(nstates,U_ss,coeff_diag_s,coeff_MCH_s,'n')
+    if (method==0) then !TSH
+    Epot=real(H_diag_ss(state_diag,state_diag))
+    elseif (method==1) then !SCP
+    Epot=0.d0
+    do istate=1,nstates
+      Epot=Epot+&
+      &real(den_ss(istate,istate)*H_diag_ss(istate,istate))
+    enddo
+    endif
+
+
+
     if (write_coeffdiab) then
       ! calculate diabatic coefficients
       if (step>0) then

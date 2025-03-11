@@ -413,12 +413,11 @@ def get_initconds(INFOS):
         # get list of excited states
         initcond = INITCOND()
         initcond.init_from_file(initf, INFOS['eref'], icond)
-        if len(initcond.statelist) == 0:
-            continue
-        for i, state in enumerate(initcond.statelist):
-            if i + 1 > len(statelist):
-                statelist.append([])
-            statelist[i].append(state)
+        if len(initcond.statelist) > 0:
+            for i, state in enumerate(initcond.statelist):
+                if i + 1 > len(statelist):
+                    statelist.append([])
+                statelist[i].append(state)
         idone += 1
         if done < idone * width // imax:
             done = idone * width // imax

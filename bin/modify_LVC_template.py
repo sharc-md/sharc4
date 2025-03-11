@@ -184,13 +184,19 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
         selected_nmstates = [(im + 1, s + 1) for im, ns in enumerate(states) for s in range((im + 1) * ns)]
         idx = [i for i, (im, s) in enumerate(all) if (im, s) in selected_nmstates]
 
+        print(template_nmstates)
+        print(all)
+        print(selected_nmstates)
+        print(idx)
+
+        keywords = {'dm', 'soc', 'multi'}
         while line:
             if "SOC" in line:
                 new_template.append(line[:-1])
                 mat = np.zeros((template_nmstates, template_nmstates), dtype=float)
                 line = f.readline()
                 i = 0
-                while len(line.split()) == template_nmstates:
+                while len(line.split()) == template_nmstates and not any(k in line.lower() for k in keywords): 
                     mat[i, :] += np.asarray(line.split(), dtype=float)
                     i += 1
                     line = f.readline()
@@ -202,7 +208,7 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
                 mat = np.zeros((template_nmstates, template_nmstates), dtype=float)
                 line = f.readline()
                 i = 0
-                while len(line.split()) == template_nmstates:
+                while len(line.split()) == template_nmstates and not any(k in line.lower() for k in keywords):
                     mat[i, :] += np.asarray(line.split(), dtype=float)
                     i += 1
                     line = f.readline()
