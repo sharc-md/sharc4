@@ -390,9 +390,9 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         create_file = link if INFOS["link_files"] else shutil.copy
 
-        create_file(os.path.join(dir_path, self._template_file))
+        create_file(self._template_file, os.path.join(dir_path, "ADAPTIVE.template"))
         if self._resources_file:
-            create_file(os.path.join(dir_path, self._resources_file))
+            create_file(self._resources_file, os.path.join(dir_path, "ADAPTIVE.resources"))
 
         for child, instance in self._kindergarden.items():
             child_dir = os.path.join(dir_path, child)
