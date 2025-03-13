@@ -40,6 +40,7 @@ from optparse import OptionParser
 from socket import gethostname
 import cProfile
 import subprocess as sp
+from align_laser_file import align_laser
 from logger import log
 # import factory
 from utils import question, itnmstates, expand_path, readfile
@@ -615,8 +616,8 @@ def get_initconds(INFOS):
     log.info("Reading initconds file")
     width_bar = 80
     for icond in range(1, INFOS["ninit"] + 1):
-        done = width_bar * (icond) // INFOS["ninit"]
-        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+        # done = width_bar * (icond) // INFOS["ninit"]
+        # sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
         initcond = INITCOND()
         initcond.init_from_file(INFOS["initf"], INFOS["eref"], icond)
         initlist.append(initcond)
@@ -969,6 +970,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             continue
         else:
             break
+    INFOS["rand_laser_pol"] = question("Do you want to have an isotropic laser polarization distribution:", bool, True)
     INFOS["tmax"], INFOS["nsteps"], INFOS["dtstep"] = get_laser_time(INFOS["laserfile"])
     log.info("Total simulation time: %f"  % INFOS["tmax"])
     log.info("\nSimulation will have %i timesteps." % (INFOS["dtstep"]))
@@ -1381,13 +1383,16 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
 
     # laser file
     laserfname = iconddir + "/laser"
-    shutil.copy(INFOS["laserfile"], laserfname)
     sharcpath = os.getenv('SHARC')   
     if sharcpath is None:                                                                
        print('Please set $SHARC to the directory containing the SHARC executables!')
        sys.exit(1)
-
-    io = sp.call(sharcpath + '/align_laser_file.py -lf %s -of %s -r %i -np True' % (INFOS["laserfile"], laserfname, random.randint(1,int(1E6))), shell=True)
+    if INFOS["rand_laser_pol"]:
+        # io = sp.call(sharcpath + '/align_laser_file.py -lf %s -of %s -r %i -np True' % (INFOS["laserfile"], laserfname, random.randint(1,int(1E6))), shell=True, stdout=sp.DEVNULL)
+        #io = sp.run(sharcpath + '/align_laser_file.py -lf %s -of %s -r %i -np True' % (INFOS["laserfile"], laserfname, random.randint(1,int(1E6))), shell=True)  # , capture_output=True, text=True)
+        align_laser(laser_file=INFOS["laserfile"], rot_matrix=None, output_name=laserfname, random_no=random.randint(1, int(1E6)), no_print=True)
+    else: 
+        shutil.copy(INFOS["laserfile"], laserfname)
     # TODO: proper error treatment
     # if io != 0:
     #     print('WARNING: Execution of random align laser field failed for %s! Exit code %i' % (laserfname, io))                                     

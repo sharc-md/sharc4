@@ -33,7 +33,7 @@ import os
 import sys
 import datetime
 import argparse
-import time
+# import time
 from logger import log
 from utils import question                                 
 import shutil
@@ -58,6 +58,9 @@ progress_width = 50
 posresponse = ['y', 'yes', 'true', 't', 'ja', 'si', 'yea', 'yeah', 'aye', 'sure', 'definitely'] 
 negresponse = ['n', 'no', 'false', 'f', 'nein', 'nope']                                         
 
+# Pre-calculate E-field indices for faster slicing
+e_field_real_indices = slice(1, 6, 2)
+e_field_imag_indices = slice(2, 7, 2)
 
 def open_keystrokes():
     global KEYSTROKES
@@ -78,10 +81,11 @@ def custom_formatter(val: float):
     Returns:
        Formatted laser fields files' values 
     """
-    assert isinstance(val, float), "val must be a float!"
+    # assert isinstance(val, float), "val must be a float!"
     if val!=0.0:
         if np.abs(val)<1E-99:
             val=0.0
+    
     val_form = '{:.8e}'.format(val)  # Format with 3 digits for the exponent
     mantissa, exponent = val_form.split('e')
     sign = '  ' if float(mantissa) >= 0 else ' '  # Check if positive
@@ -165,19 +169,21 @@ def gen_rot_matrix(INFOS):
         A 3x3 NumPy array representing the rotation matrix.
     """
 
-    rand_num_0 = INFOS["random_numbers"][0]
-    rand_num_1 = INFOS["random_numbers"][1]
-    rand_num_2 = INFOS["random_numbers"][2]
+    rand_num_0, rand_num_1, rand_num_2 = INFOS["random_numbers"][:3]
 
     c0 = np.cos(2 * np.pi * rand_num_0)
     s0 = np.sin(2 * np.pi * rand_num_0)
-    rot_z_mat = np.array([[c0, s0, 0], [-s0, c0, 0], [0, 0, 1]])
-
     c1 = np.cos(2 * np.pi * rand_num_1)
     s1 = np.sin(2 * np.pi * rand_num_1)
-    sqrt_rand_num_2 = np.sqrt(rand_num_2)
-    sqrt_1_minus_rand_num_2 = np.sqrt(1 - rand_num_2)
-    householder_vec = np.array([c1 * sqrt_rand_num_2, s1 * sqrt_rand_num_2, sqrt_1_minus_rand_num_2])
+    rot_z_mat = np.array([[c0, s0, 0], [-s0, c0, 0], [0, 0, 1]])
+
+    sqrt_2 = np.sqrt(rand_num_2)
+    sqrt_1_minus_2 = np.sqrt(1 - rand_num_2)
+    
+    householder_vec_0 = c1 * sqrt_2
+    householder_vec_1 = s1 * sqrt_2
+
+    householder_vec = np.array([householder_vec_0, householder_vec_1, sqrt_1_minus_2])
     householder_mat = np.eye(3, 3) - 2 * np.outer(householder_vec, householder_vec)
 
     return - householder_mat @ rot_z_mat
@@ -197,56 +203,50 @@ def rotate_matrix_old(laser_file_path, rot_mat_file_path, INFOS):
     """
 
     laser_file = np.loadtxt(laser_file_path, comments=("!", "#"))
-
+    laser_len = laser_file.shape[0]
+    rot_laser_fields = np.zeros((laser_len, (3*2+2)))  # 3*2 efields (real, imaginary), time, energy
     # Early exit for invalid data
     if laser_file.shape[1] < 8:
         print(f'Number of columns in laser data file is too small!')
         return []
 
-    rot_mat = INFOS["rot_matrix"]
-
     # Validate rotation matrix (optional, can be removed if validation is done elsewhere)
-    if not all([
-        rot_mat.shape[0] == rot_mat.shape[1],
-        np.allclose(np.dot(rot_mat, rot_mat.T), np.eye(3)),
-        np.isclose(np.linalg.det(rot_mat), 1) or np.isclose(np.linalg.det(rot_mat), -1)
-    ]):
-        print(f'Invalid rotational matrix!')
-        raise IOError
+    # if not all([
+    #     rot_mat.shape[0] == rot_mat.shape[1],
+    #     np.allclose(np.dot(rot_mat, rot_mat.T), np.eye(3)),
+    #     np.isclose(np.linalg.det(rot_mat), 1) or np.isclose(np.linalg.det(rot_mat), -1)
+    # ]):
+    #     print(f'Invalid rotational matrix!')
+    #     raise IOError
 
-    progress_width = 50  # Adjust progress bar width as needed
-    rot_laser_fields = []
-
-    # Pre-calculate E-field indices for faster slicing
-    e_field_real_indices = slice(1, 6, 2)
-    e_field_imag_indices = slice(2, 7, 2)
-
+    # progress_width = 50  # Adjust progress bar width as needed
     for line_no, line in enumerate(laser_file):
-        done = int(line_no * progress_width // laser_file.shape[0])
+        # done = int(line_no * progress_width // laser_file.shape[0])
 
-        # Print progress bar (optional, can be removed)
-        if not INFOS["no_print"]:
-            sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
-            sys.stdout.flush()
-
-        result = [line[0]]  # Copy the first element (frequency)
+        # # Print progress bar (optional, can be removed)
+        # if not INFOS["no_print"]:
+        #     sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
+        #     sys.stdout.flush()
 
         # Efficient matrix multiplication using NumPy's @ operator
-        efield_real = line[e_field_real_indices] @ rot_mat
-        efield_imag = line[e_field_imag_indices] @ rot_mat
-
-        result.extend(efield_real.tolist() + efield_imag.tolist())
-        result.extend(line[7:])
-
-        rot_laser_fields.append(result)
-
+        efield_real = line[e_field_real_indices] @ INFOS["rot_matrix"]
+        # efield_imag = line[e_field_imag_indices] @ INFOS["rot_matrix"]
+        rot_laser_fields[line_no, :] = np.array([float(line[0]), efield_real[0], 0,  # efield_imag[0],
+                      efield_real[1], 0,  # efield_imag[1],
+                      efield_real[2], 0,  # efield_imag[2],
+                      float(line[7:][0])])
     return rot_laser_fields
 
 
 def rotate_matrix(laser_file_path, rot_mat_file_path, INFOS):
     laser_file = np.loadtxt(laser_file_path, comments = ("!", "#"))  
+    efield = str(INFOS["e_field"]).lower() 
+    bfield = str(INFOS["b_field"]).lower()
+    egrad = str(INFOS["e_field_gradients"]).lower() 
+    laser_len = laser_file.shape[0]
     rot_laser_fields = []
     rot_mat = INFOS["rot_matrix"]
+    rot_mat_T = rot_mat.T
     is_square = rot_mat.shape[0] == rot_mat.shape[1]
     is_orthogonal = np.allclose(np.dot(rot_mat, rot_mat.T), np.eye(3))
     determinant = np.linalg.det(rot_mat)
@@ -258,42 +258,43 @@ def rotate_matrix(laser_file_path, rot_mat_file_path, INFOS):
     # egrad_write_shift = b_write_shift+6*int(INFOS["b_field"])  
     # bgrad_write_shift = egrad_write_shift+18*int(INFOS["e_field_gradients"])
     # no_of_columns = bgrad_write_shift+18*int(INFOS["b_field_gradients"])    
+
     for line_no, line in enumerate(laser_file):
-        done = int(line_no * progress_width // laser_file.shape[0])
+        done = int(line_no * progress_width // laser_len)
         write_shift = int(0)                                             
         #log.info(done,laser_file.shape[0])
         #log.info(line_no)
-        if not INFOS["no_print"]:
-            sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
-            sys.stdout.flush()
+        # if not INFOS["no_print"]:
+        #     sys.stdout.write("\rTransformation progress: [" + "=" * done + " " * (progress_width - done) + "] %3i%% " % (done * 100 // progress_width))
+        #     sys.stdout.flush()
         result=[line[0]]
-        if str(INFOS["e_field"]).lower() in posresponse:
+        if efield in posresponse:
             efield_real = np.matmul(line[1:6:2], rot_mat) 
             efield_imag = np.matmul(line[2:7:2], rot_mat)
-            result=result+[efield_real[0], efield_imag[0], 
+            result.append([efield_real[0], efield_imag[0], 
                            efield_real[1], efield_imag[1],
-                           efield_real[2], efield_imag[2]]
+                           efield_real[2], efield_imag[2]])
             write_shift += 6
-        if str(INFOS["b_field"]).lower() in posresponse:
+        if bfield in posresponse:
             bfield_real = np.matmul(line[1+write_shift:6+write_shift:2], rot_mat) 
             bfield_imag = np.matmul(line[2+write_shift:7+write_shift:2], rot_mat) 
-            result=result+[bfield_real[0], bfield_imag[0],
+            result.append([bfield_real[0], bfield_imag[0],
                            bfield_real[1], bfield_imag[1],
-                           bfield_real[2], bfield_imag[2]]
+                           bfield_real[2], bfield_imag[2]])
             write_shift += 6
-        if str(INFOS["e_field_gradients"]).lower() in posresponse:
-            efield_grad_real =  (rot_mat @ np.reshape(line[1+write_shift:18+write_shift:2], (3, 3)) @ rot_mat.T).flatten() 
-            efield_grad_imag =  (rot_mat @ np.reshape(line[2+write_shift:19+write_shift:2], (3, 3)) @ rot_mat.T).flatten() 
-            result=result+[item for pair in zip(efield_grad_real, efield_grad_imag) for item in pair]
+        if egrad in posresponse:
+            efield_grad_real =  (rot_mat @ np.reshape(line[1+write_shift:18+write_shift:2], (3, 3)) @ rot_mat_T).flatten() 
+            efield_grad_imag =  (rot_mat @ np.reshape(line[2+write_shift:19+write_shift:2], (3, 3)) @ rot_mat_T).flatten() 
+            result.append([item for pair in zip(efield_grad_real, efield_grad_imag) for item in pair])
+            #result=result+[item for pair in zip(efield_grad_real, efield_grad_imag) for item in pair]
             write_shift += 18
         result = result+[freq for freq in line[1+write_shift:]]
         rot_laser_fields.append(result)
         #print(rot_laser_fields, line_no)
-    
     return rot_laser_fields
 
 
-def main():
+def align_laser(laser_file, rot_matrix, output_name, random_no, no_print):
     '''Main routine'''
 
     usage = '''
@@ -308,29 +309,29 @@ def main():
     # parser = OptionParser(usage=usage, description=description)
     #print(INFOS)
 
-    parser = argparse.ArgumentParser(description='Process input for laser file alignment.')
-    parser.add_argument('--laser_file','-lf', type=str, help='Path to laser file')
-    parser.add_argument('--rot_matrix','-rm', type=str, help='Path to rotation matrix')
-    parser.add_argument('--output_name','-of', type=str, help='Path to output file')
-    parser.add_argument('--random', '-r', type=int, help='Perform rotation based on random rotation matrix') 
-    parser.add_argument('--no_print', '-np', type=bool, help='No print in the terminal dialogue')
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(description='Process input for laser file alignment.')
+    # parser.add_argument('--laser_file','-lf', type=str, help='Path to laser file')
+    # parser.add_argument('--rot_matrix','-rm', type=str, help='Path to rotation matrix')
+    # parser.add_argument('--output_name','-of', type=str, help='Path to output file')
+    # parser.add_argument('--random', '-r', type=int, help='Perform rotation based on random rotation matrix') 
+    # parser.add_argument('--no_print', '-np', type=bool, help='No print in the terminal dialogue')
+    # args = parser.parse_args()
 
-    if args.laser_file is None:
+    if laser_file is None:
         log.info(f'Laser file path is empty!')
         raise IOError
-    elif not os.path.exists(args.laser_file):
-        log.info(f'Laser file path "{args.laser_file}" does not exist!')
+    elif not os.path.exists(laser_file):
+        log.info(f'Laser file path "{laser_file}" does not exist!')
         raise IOError
     #laser_file_path = os.path.expanduser(os.path.expandvars(laser_file_path))
-    if all(v is not None for v in [args.rot_matrix, args.random]) or all(v is None for v in [args.rot_matrix, args.random]):
-        log.info(args.rot_matrix)
-        log.info(args.random)
+    if all(v is not None for v in [rot_matrix, random_no]) or all(v is None for v in [rot_matrix, random_no]):
+        log.info(rot_matrix)
+        log.info(random_no)
         log.info(f'Either calculation is performed with rotation matrix file or random rotation matrix')
         raise IOError
-    if args.rot_matrix is not None:
-        if not os.path.isfile(args.rot_matrix):
-            log.info(f'Rotation matrix path "{args.rot_matrix}" does not exist!')
+    if rot_matrix is not None:
+        if not os.path.isfile(rot_matrix):
+            log.info(f'Rotation matrix path "{rot_matrix}" does not exist!')
             raise IOError
     #if args.random is not None:
     #    if len(str(args.random)) != 3:
@@ -339,13 +340,13 @@ def main():
     #    else:
     #        INFOS["random_numbers"] = args.random#[int(str(args.random)[i]) for i in range(len(str(args.random)))]
 
-    INFOS["laser_file_path"] = args.laser_file
-    INFOS["rot_mat_file_path"] = args.rot_matrix
-    INFOS["output_file_path"] = args.output_name
-    np.random.seed(args.random)
+    INFOS["laser_file_path"] = laser_file
+    INFOS["rot_mat_file_path"] = rot_matrix
+    INFOS["output_file_path"] = output_name
+    np.random.seed(random_no)
     INFOS["random_numbers"] = np.random.rand(3)#[int(str(args.random)[i]) for i in range(len(str(args.random)))]
-    INFOS["no_print"] =args.no_print
-    if not args.no_print:
+    INFOS["no_print"] = no_print
+    if not no_print:
         displaywelcome()
     #open_keystrokes()
 
@@ -362,10 +363,15 @@ def main():
         rot_laser_fields = rotate_matrix(INFOS["laser_file_path"], INFOS["rot_mat_file_path"], INFOS) 
     else:
         rot_laser_fields = rotate_matrix_old(INFOS["laser_file_path"], INFOS["rot_mat_file_path"], INFOS)
-    if not args.no_print:
+    if not no_print:
         sys.stdout.write("\rTransformation progress: [" + "=" * progress_width + " " * (0) + "] %3i%% \n" % (100))                                   
         sys.stdout.flush()
-    formatted_laser_file = np.array([[" "]+[custom_formatter(val) for val in row] for row in rot_laser_fields], dtype=str)
+    #formatted_laser_file = np.array([[" "]+[custom_formatter(val) for val in row] for row in rot_laser_fields], dtype=str)
+    vectorized_formatter = np.vectorize(custom_formatter)
+    formatted_laser_file = np.empty((len(rot_laser_fields), len(rot_laser_fields[0]) + 1), dtype="U16")
+    formatted_laser_file[:, 0] = " "  # First column filled with space
+    formatted_laser_file[:, 1:] = vectorized_formatter(rot_laser_fields)
+    
     head=''.join(head)
     np.savetxt(INFOS["output_file_path"], formatted_laser_file, fmt="%s", delimiter="", header=head, comments='')
     # close_keystrokes()
@@ -373,7 +379,14 @@ def main():
 #
 if __name__ == '__main__':
     try:
-        main()
+        parser = argparse.ArgumentParser(description='Process input for laser file alignment.')
+        parser.add_argument('--laser_file','-lf', type=str, help='Path to laser file')
+        parser.add_argument('--rot_matrix','-rm', type=str, help='Path to rotation matrix')
+        parser.add_argument('--output_name','-of', type=str, help='Path to output file')
+        parser.add_argument('--random', '-r', type=int, help='Perform rotation based on random rotation matrix') 
+        parser.add_argument('--no_print', '-np', type=bool, help='No print in the terminal dialogue')
+        args = parser.parse_args()
+        align_laser(args.laser_file, args.rot_matrix, args.output_name, args.random, args.no_print)
     except KeyboardInterrupt:
         log.info('\nCtrl+C makes me a sad SHARC ;-(\n')
         quit(0)

@@ -365,6 +365,7 @@ def gfsh_probs(istate, ic, INFOS):
     coeff_data =  np.genfromtxt(get_iconddir(INFOS["setupstates"][istate], INFOS) + "/TRAJ_%05i/output_data/%s" %(INFOS["icond_sel"][ic], coeff_file), comments="#")
     # coeffs = np.zeros((coeff_data.shape[0], int((coeff_data.shape[1]-2)/2)), dtype=complex)
     # TODO Decide, whether coeff_data.shape makes more sense or tsteps, setupstates
+    # Check, whether every file has same number of time steps, in case data_extractor failed in the middle of extracting
     #coeffs = np.zeros((INFOS["nsteps"]+1, INFOS["nstates"]), dtype=complex)  # nstates
     coeffs = np.zeros((INFOS["nsteps"]+1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))), dtype=complex)  # nstates*multiplicity
     time_steps, states = coeffs.shape
@@ -439,7 +440,7 @@ def compute_max_prob(INFOS):
                 #         print(tstep, pstay, p_init[tstep])
                 # pstay *= 1. - (max(0, p_init[tstep]-p_init[tstep+1]))
             pleave = 1.-pstay
-            print("ISTATE: %i, ICOND: %i, pleave: %f" % (istate, icond, pleave))
+            # print("ISTATE: %i, ICOND: %i, pleave: %f" % (istate, icond, pleave))
             if pleave > pmax:
                 pmax = pleave
             # p_traj = 1
@@ -592,6 +593,7 @@ Eharm     %18.10f
     # outf.write(string)
     outf.close()
 
+
 def random_seed():
     print("{:-^60}".format("Random number seed") + "\n")
     print('Please enter a random number generator seed (type "!" to initialize the RNG from the system time).')
@@ -611,10 +613,24 @@ def random_seed():
     return rngseed
 
 
+def sample_number():
+    print("{:-^60}".format("Sample iterations of initial conditions") + "\n")
+    print('Please enter a the number of iterations to sample the initial conditions.')
+    while True:
+        line = question("Sample iterations: ", int, [1], False)
+        try:
+            sample_number = int(line[0])
+        except ValueError:
+            print('Please enter an integer.')
+            continue
+        break
+    print("")
+    return sample_number
+
+
 def excite(INFOS, initlist, exc_list, setupstate):
     print("\nSelecting initial states ...")
     width_bar = 50
-    nselected = 0
     # for i, icond in enumerate(initlist):
     for ic, icond in enumerate(INFOS["icond_sel"]):
         # done = width_bar * (i + 1) // len(initlist)
@@ -623,76 +639,16 @@ def excite(INFOS, initlist, exc_list, setupstate):
         if initlist[ic].statelist == []:
             continue
         else:
-            if exc_list[setupstate, ic, 1] != 0:
+            if exc_list[setupstate, ic, 2]:
                 for j, jstate in enumerate(initlist[ic].statelist):
                     if exc_list[setupstate, ic, 1]==j:
                         jstate.Excited = True
                         jstate.ExcTime = exc_list[setupstate, ic, 0]*INFOS["tmax"]/INFOS["nsteps"]
                         jstate.IState = setupstate+1
-                        print(jstate.IState)
-                        #print("exclist-1", j)
                     else:
                         jstate.Excited = False
                         jstate.ExcTime = ""
                         jstate.IState = ""
-    #for i, icond in enumerate(initlist)
-    #        # get the maximum oscillator strength
-    #        maxprob = 0
-    #        probs = np.zeros((len(initlist), len(initlist[0].statelist)), dtype=float)
-    #        for i, icond in enumerate(initlist):
-    #            if icond.statelist == []:
-    #                continue
-    #            for j, jstate in enumerate(icond.statelist):
-    #                if emin <= jstate.Eexc <= emax:
-    #                    if -(j + 1) not in INFOS["allowed"]:
-    #                        probs[i, j] = jstate.Prob
-    #                        if jstate.Prob > maxprob:
-    #                            maxprob = jstate.Prob
-    #        np.save("initconds_props.npy", probs)
-
-    #    # set the excitation flags
-    #    print("\nSelecting initial states ...")
-    #    width_bar = 50
-    #    nselected = 0
-    #    for i, icond in enumerate(initlist):
-    #        done = width_bar * (i + 1) // len(initlist)
-    #        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
-    #        if icond.statelist == []:
-    #            continue
-    #        else:
-    #            if INFOS["excite"] == 1:
-    #                for jstate in icond.statelist:
-    #                    jstate.Excited = False
-    #            elif INFOS["excite"] == 2:
-    #                if INFOS["diabatize"]:
-    #                    Diabmap = icond.Diabmap
-    #                    # print(i,Diabmap)
-    #                    allowed = []
-    #                    for q in INFOS["allowed"]:
-    #                        if q - 1 in Diabmap:
-    #                            allowed.append(Diabmap[q - 1] + 1)
-
-    #                else:
-    #                    allowed = INFOS["allowed"]
-    #                for j, jstate in enumerate(icond.statelist):
-    #                    if emin <= jstate.Eexc <= emax and j + 1 in allowed:
-    #                        jstate.Excited = True
-    #                        nselected += 1
-    #                    else:
-    #                        jstate.Excited = False
-    #            elif INFOS["excite"] == 3:
-    #                # and excite
-    #                for j, jstate in enumerate(icond.statelist):
-    #                    if emin <= jstate.Eexc <= emax:
-    #                        if maxprob > 0 and -(j + 1) not in INFOS["allowed"]:
-    #                            jstate.Excite(maxprob, INFOS["erange"])
-    #                            if jstate.Excited:
-    #                                nselected += 1
-    #                        else:
-    #                            jstate.Excited = False
-    #                    else:
-    #                        jstate.Excited = False
-    #    print("\nNumber of initial states:                   %5i" % (nselected))
 
     # statistics
     nexc = [0]
@@ -717,10 +673,10 @@ def excite(INFOS, initlist, exc_list, setupstate):
     return initlist
 
 
+# ======================================================================================================================
+# ======================================================================================================================
+# ======================================================================================================================
 
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
 
 def main():
     """Main routine"""
@@ -743,6 +699,7 @@ def main():
         print("IOError during opening readable %s - file. Quitting." % (setup_laser_excitation_info_filename))
         quit(1)
     INFOS["rng_seed"] = random_seed()
+    INFOS["sample_number"] = sample_number()
     # INFOS = get_initconds(INFOS) - all necessary information in json file?
     # TODO: check that the istates are correctly called - they start with 1, not 0
     initlist = []
@@ -755,33 +712,41 @@ def main():
     print("Computed pmax = %.2f" % INFOS["max_prob"])
     exc_probs = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), INFOS["nsteps"]+1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))))
     exc_probs_cumsum = np.zeros_like(exc_probs) 
-    exc_list = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), 2))
-    for ist, istate in enumerate(INFOS["setupstates"]):
-        for ic, icond in enumerate(INFOS["icond_sel"]):
-            jump_to_next = False
-            exc_probs[ist, ic, :, :] = gfsh_probs(ist, ic, INFOS)
-            exc_probs_cumsum[ist, ic, :, :] = np.cumsum(exc_probs[ist, ic, :, :], axis=1) 
-            random_probs = []
-            for tstep in range(0, INFOS["nsteps"]+1):
-                no_random = random.random()
-                random_probs.append(no_random)
-                #print(no_random)
-                if jump_to_next:
-                    #print("jump")
-                    #np.savetxt("random_probs_%05i" % icond, random_probs)
+    exc_list = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), 3))
+    double_exc = False
+    for isa, isample in enumerate(range(INFOS["sample_number"])):  # Sample up to the point, where double excitations occur; To increase probabilities
+        isa_exc_list = np.zeros_like(exc_list)
+        if double_exc:
+            continue
+        for ist, istate in enumerate(INFOS["setupstates"]):
+            if double_exc:
+                continue
+            for ic, icond in enumerate(INFOS["icond_sel"]):
+                if double_exc:
                     continue
-                for exc_state in range(1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))+1):
+                jump_to_next = False
+                if isa == 0:
+                    exc_probs[ist, ic, :, :] = gfsh_probs(ist, ic, INFOS)
+                    exc_probs_cumsum[ist, ic, :, :] = np.cumsum(exc_probs[ist, ic, :, :], axis=1) 
+                random_probs = []
+                for tstep in range(0, INFOS["nsteps"]+1):
+                    no_random = random.random()
+                    random_probs.append(no_random)
                     if jump_to_next:
                         continue
-                    # print(tstep, icond, exc_state, no_random, exc_probs_cumsum[ist, ic, tstep, exc_state-1])
-                    if no_random <= exc_probs_cumsum[ist, ic, tstep, exc_state-1]:
-                        print(icond, exc_state, no_random)  # correc  # correctt
-                        exc_list[ist, ic, :] = tstep, exc_state-1 
-                        jump_to_next = True
-            # np.savetxt("random_probs_%05i" % icond, random_probs)
-    print(INFOS["states"], INFOS["setupstates"], len(INFOS["states"]))
+                    for exc_state in range(1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))+1):
+                        if jump_to_next:
+                            continue
+                        if no_random <= exc_probs_cumsum[ist, ic, tstep, exc_state-1]:
+                            isa_exc_list[ist, ic, :] = tstep, exc_state-1, 1.0 
+                            jump_to_next = True
+                if isa_exc_list[ist, ic, 2] == 1.0 and exc_list[ist, ic, 2] == 1.0:
+                    print("Double excitation @ run: %i. Only keep excitations up to sampling iteration %i" %(isa+1, isa))
+                    print
+                    double_exc = True  # Skip all further iterations of isa - one TRAJ would be excited twice
+        exc_list += isa_exc_list
     for ist, istate in enumerate(INFOS["setupstates"]):
-        initlist[ist] = excite(INFOS, initlist[ist], exc_list, ist)
+        initlist[ist] = excite(INFOS, initlist[ist], exc_list[:, :, :], ist)
         writeoutput(initlist[ist], ist, INFOS) 
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True

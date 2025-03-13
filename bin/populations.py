@@ -697,7 +697,7 @@ def do_calc(INFOS):
     if ntraj == 0:
         print('No valid trajectories found, exiting...')
         sys.exit(0)
-    t0_list = [None] * ntraj
+    t0_list = [0.0] * ntraj
 
     # get timestep
     if INFOS['mode'] in [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
