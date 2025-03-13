@@ -108,7 +108,7 @@ program data_extractor
 !    call read_properties_from_output(nstates, step, u_dat, general_infos, prop_info, shdata, io)
 !    if (io/=0) exit
     ! ========== Reading is done for this time step =============
-    call process_data(nstates, istep, general_infos, write_options, shdata)
+    call process_data(nstates, istep, general_infos, write_options, shdata, prop_info)
     ! ========== Calculating is done for this time step =============
     call write_data_to_file(nstates, istep, general_infos, write_options, shdata)
     ! write progress to screen
