@@ -2310,7 +2310,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             done = idone * width // ntraj
             sys.stdout.write("\rProgress: [" + "=" * done + " " * (width - done) + "] %3i%%" % (done * 100 // width))
 
-            dirname = get_iconddir(istate, INFOS) + "/TRAJ_%05i/" % (icond)
+            dirname = get_iconddir(istate, INFOS) + "/TRAJ_%05i" % (icond)
             io = make_directory(dirname)
             if io != 0:
                 log.info("Skipping initial condition %i %i!" % (istate, icond))
