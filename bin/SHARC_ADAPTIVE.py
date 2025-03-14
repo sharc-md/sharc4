@@ -26,13 +26,14 @@
 
 import datetime
 import os
+import shutil
 from importlib import import_module
 from io import TextIOWrapper
 
 import numpy as np
 import yaml
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir
+from utils import InDir, link, mkdir, question
 
 __all__ = ["SHARC_ADAPTIVE"]
 
@@ -124,6 +125,9 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
             "mse_max": SHARC_ADAPTIVE._mse_max,
             "rmse": SHARC_ADAPTIVE._rmse,
         }
+
+        self._template_file = None
+        self._resources_file = None
 
     @staticmethod
     def _rmse(a: np.ndarray, b: np.ndarray) -> float:
@@ -353,13 +357,47 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
         return SHARC_ADAPTIVE._changelogstring
 
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
-        return all_features
+        features = all_features
+        if not self._read_template:
+            self._template_file = question(
+                "Please specify the path to your ADAPTIVE.template file", str, KEYSTROKES=KEYSTROKES, default="ADAPTIVE.template"
+            )
+            self.read_template(self._template_file)
+            for child in self.QMin.template["interfaces"]:
+                self.instantiate_children({child["label"]: (child["interface"], child["args"], child["kwargs"])})
+
+            for instance in self._kindergarden.values():
+                features = features & instance.get_features(KEYSTROKES=KEYSTROKES)
+        return features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
-        return None
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'ADAPTIVE interface setup':^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
 
-    def prepare(self, INFOS: dict, dir_path: str):
-        return
+        if question("Do you have an ADAPTIVE.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
+            self._resources_file = question(
+                "Specify path to ADAPTIVE.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True, default="ADAPTIVE.resources"
+            )
+
+        for child, instance in self._kindergarden.items():
+            self.log.info(f"Setting up interface {child}")
+            instance.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
+        return INFOS
+
+    def prepare(self, INFOS: dict, dir_path: str) -> None:
+        create_file = link if INFOS["link_files"] else shutil.copy
+
+        create_file(self._template_file, os.path.join(dir_path, "ADAPTIVE.template"))
+        if self._resources_file:
+            create_file(self._resources_file, os.path.join(dir_path, "ADAPTIVE.resources"))
+
+        for child, instance in self._kindergarden.items():
+            child_dir = os.path.join(dir_path, child)
+            mkdir(child_dir)
+            instance.prepare(INFOS, child_dir)
 
 
 if __name__ == "__main__":
