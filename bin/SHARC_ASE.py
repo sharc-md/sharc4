@@ -42,7 +42,7 @@ AUTHORS = "Sascha Mausenberger"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 12, 2)
 NAME = "ASE"
-DESCRIPTION = "HYBRID interface for saveing data to ASE db"
+DESCRIPTION = "   HYBRID interface for saveing data to ASE db"
 
 CHANGELOGSTRING = """
 """
