@@ -455,16 +455,16 @@ def get_infos(INFOS):
             print(
                 """\nThis script can calculate the excited-state energies and oscillator strengths in two representations.
 These representations are:
-- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option is usually sufficient for systems with small SOC (below 300 cm^-1).
-- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
+- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option should be used if the ground state is spin-pure.
+- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. 
 """
             )
         else:
             print(
                 """\nThis script needs to set the electronic state representation.
 There are two representations:
-- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option is usually sufficient for systems with small SOC (below 300 cm^-1).
-- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
+- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option should be used if the ground state is spin-mixed.
+- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. 
 """
             )
         INFOS["diag"] = question("Do you want to use the diagonal representation (True=diag, False=MCH)?", bool, default = False)
