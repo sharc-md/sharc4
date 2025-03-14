@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -47,7 +47,7 @@ from numba import njit
 
 authors = "Sebastian Mai and Severin Polonius"
 version = "4.0"
-versiondate = datetime.datetime(2023, 8, 25)
+versiondate = datetime.datetime(2025, 4, 1)
 
 changelogstring = """
 """
@@ -211,7 +211,10 @@ class SHARC_LVC(SHARC_FAST):
                     lambda_soc_real = False
 
                 self._lambda_soc[si, sj, i] += v
+                if isinstance(v, complex):
+                    v *= -1.
                 self._lambda_soc[sj, si, i] += v
+                # TODO: Are these correctly transposed/conjugated to have a Hermitian matrix?
             line = f.readline()
 
         if line == "gamma\n":

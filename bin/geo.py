@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -34,8 +34,8 @@ from optparse import OptionParser
 from constants import MASSES
 
 # =========================================================0
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 allowedreq = ['a', 'd', 'r', 's', 'p', 'q', 'x', 'y', 'z', '5', '6', 'c', 'i', 'j', 'k', 'l']
 

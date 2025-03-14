@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -62,7 +62,7 @@ except ImportError:
 # =========================================================0
 
 version = '4.0'
-versiondate = datetime.date(2024, 9, 1)
+versiondate = datetime.date(2025, 4, 1)
 
 changelogstring = '''
 
@@ -1239,7 +1239,7 @@ def make_fit(INFOS):
 
     # bounds
     if INFOS['bounds']:
-        bounds = (1e-6, np.inf)
+        bounds = (1e-7, np.inf)
     else:
         bounds = (-np.inf, np.inf)
 

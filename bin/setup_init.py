@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -52,7 +52,7 @@ PI = math.pi
 
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2023, 8, 24)
+versiondate = datetime.date(2025, 4, 1)
 global KEYSTROKES
 old_question = question
 
@@ -287,7 +287,7 @@ def displaywelcome():
     string += "  " + "=" * 80 + "\n"
     input = [
         " ",
-        "Setup trajectories for SHARC dynamics",
+        "Setup initial conditions for SHARC dynamics",
         " ",
         "Authors: Sebastian Mai, Severin Polonius",
         " ",

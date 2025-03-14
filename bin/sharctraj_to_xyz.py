@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -46,7 +46,7 @@ from utils import readfile
 DEBUG = False
 
 version = '4.0'
-versiondate = datetime.date(2024, 11, 30)
+versiondate = datetime.date(2025, 4, 1)
 
 
 

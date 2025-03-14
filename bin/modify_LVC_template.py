@@ -1,6 +1,32 @@
 #!/usr/bin/env python3
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
+
 from optparse import OptionParser
 import numpy as np
+from utils import itnmstates
 
 
 def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no_es2es_trans_mult_for_mult=None):
@@ -48,6 +74,7 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
             raise ValueError(f"{states} not compatible with {template_states} from template file!")
 
         selected_states = {(im + 1, s + 1) for im, ns in enumerate(states) for s in range(ns) if ns != 0}
+        statemap = {i+1: (im, s) for i, (im, s, _) in enumerate(itnmstates(template_states))}
 
         line = f.readline()
         while line != "epsilon\n":
@@ -117,6 +144,24 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
             new_template.extend(selected)
             line = f.readline()
 
+        if line == "lambda_soc\n":
+            new_template.append("lambda_soc")
+            selected = []
+            z = int(f.readline()[:-1])
+
+            def c(_):
+                v = f.readline().split(maxsplit=3)
+                return (int(v[0]), int(v[1]), int(v[2]), v[3][:-1])
+
+            for si, sj, i, v in map(c, range(z)):
+                im, s_i = statemap[si]
+                jm, s_j = statemap[sj]
+                if (im, s_i) in selected_states and (jm, s_j) in selected_states and i in selected_modes:
+                    selected.append(f"{si:3d} {sj:3d} {i:3d} {v}")
+            new_template.append(f"{len(selected)}")
+            new_template.extend(selected)
+            line = f.readline()
+
         if line == "gamma\n":
             new_template.append("gamma")
             selected = []
@@ -139,13 +184,19 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
         selected_nmstates = [(im + 1, s + 1) for im, ns in enumerate(states) for s in range((im + 1) * ns)]
         idx = [i for i, (im, s) in enumerate(all) if (im, s) in selected_nmstates]
 
+        print(template_nmstates)
+        print(all)
+        print(selected_nmstates)
+        print(idx)
+
+        keywords = {'dm', 'soc', 'multi'}
         while line:
             if "SOC" in line:
                 new_template.append(line[:-1])
                 mat = np.zeros((template_nmstates, template_nmstates), dtype=float)
                 line = f.readline()
                 i = 0
-                while len(line.split()) == template_nmstates:
+                while len(line.split()) == template_nmstates and not any(k in line.lower() for k in keywords): 
                     mat[i, :] += np.asarray(line.split(), dtype=float)
                     i += 1
                     line = f.readline()
@@ -157,7 +208,7 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
                 mat = np.zeros((template_nmstates, template_nmstates), dtype=float)
                 line = f.readline()
                 i = 0
-                while len(line.split()) == template_nmstates:
+                while len(line.split()) == template_nmstates and not any(k in line.lower() for k in keywords):
                     mat[i, :] += np.asarray(line.split(), dtype=float)
                     i += 1
                     line = f.readline()

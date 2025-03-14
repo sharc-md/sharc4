@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2024 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -52,7 +52,7 @@ AVOGADRO = const.physical_constants["Avogadro constant"][0]
 
 version = '4.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, 3.0, float(version)]
-versiondate = datetime.date(2024, 4, 24)
+versiondate = datetime.date(2025, 4, 1)
 
 
 # =========================================================0
@@ -413,12 +413,11 @@ def get_initconds(INFOS):
         # get list of excited states
         initcond = INITCOND()
         initcond.init_from_file(initf, INFOS['eref'], icond)
-        if len(initcond.statelist) == 0:
-            continue
-        for i, state in enumerate(initcond.statelist):
-            if i + 1 > len(statelist):
-                statelist.append([])
-            statelist[i].append(state)
+        if len(initcond.statelist) > 0:
+            for i, state in enumerate(initcond.statelist):
+                if i + 1 > len(statelist):
+                    statelist.append([])
+                statelist[i].append(state)
         idone += 1
         if done < idone * width // imax:
             done = idone * width // imax

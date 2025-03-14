@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -59,8 +59,8 @@ Essential dynamics analysis not possible.''' + '*' * 80 + '\n')
     time.sleep(5)
 
 
-version = '2.1'
-versiondate = datetime.date(2019, 8, 14)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 
 

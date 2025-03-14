@@ -1,4 +1,30 @@
 #!/usr/bin/env python3
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
+
+
 import datetime
 import math
 import os
@@ -15,12 +41,12 @@ from constants import IToMult
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import batched, expand_path, itmult, link, mkdir, question, readfile, writefile, convert_list
+from utils import batched, convert_list, expand_path, itmult, link, mkdir, question, readfile, writefile
 
 __all__ = ["SHARC_ORCA"]
 
-AUTHORS = ""
-VERSION = ""
+AUTHORS = "Sascha Mausenberger and Sebastian Mai"
+VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "ORCA"
 DESCRIPTION = "AB INITIO interface for ORCA v5-6 (CIS/TDDFT)"
@@ -239,7 +265,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
         A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
         Typical values for ORCA are 0.90-0.98."""
                 )
-                self.setupINFOS["scaling"] = max(0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0])
+                self.setupINFOS["scaling"] = max(
+                    0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]
+                )
             else:
                 self.setupINFOS["scaling"] = 0.9
 
@@ -290,7 +318,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if "theodore" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'Wave function analysis by TheoDORE':-^60}\n")
 
-                self.setupINFOS["theodir"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
+                self.setupINFOS["theodir"] = question(
+                    "Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES
+                )
                 self.log.info("")
 
                 self.log.info("Please give a list of the properties to calculate by TheoDORE.\nPossible properties:")
@@ -315,7 +345,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         break
                     f = [int(i) for i in line.split()]
                     self.setupINFOS["theodore_fragment"].append(f)
-                self.setupINFOS["theodore_count"] = len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
+                self.setupINFOS["theodore_count"] = (
+                    len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
+                )
 
         return INFOS
 
@@ -341,8 +373,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         else:
             create_file(expand_path(self.resources_file), os.path.join(dir_path, "ORCA.resources"))
         create_file(expand_path(self.template_file), os.path.join(dir_path, "ORCA.template"))
-
-
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
@@ -703,19 +733,38 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                     # Offdiagonals
                     if states[mults[0]] > 1:
-                        dipoles_trans = self._get_transition_dipoles(log_file)
-                        for idx, val in enumerate(dipoles_trans[: states[mults[0]] - 1], 1):  # States
-                            for m in range(mults[0]):  # Make copies for multiplicities
-                                self.QMout["dm"][
-                                    :,
-                                    sum(nm_states[: mults[0]]) + m * states[mults[0]],
-                                    sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
-                                ] = val[:]
-                                self.QMout["dm"][
-                                    :,
-                                    sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
-                                    sum(nm_states[: mults[0]]) + m * states[mults[0]],
-                                ] = val[:]
+                        if self.QMin.resources["orcaversion"] >= (6, 0):
+                            dipoles_trans_dict = self._get_transition_dipoles_orca6(log_file)
+                            for i in range(self.QMin.molecule["nmstates"]):
+                                m1,s1,ms1 = self.QMin.maps["statemap"][i+1]
+                                for j in range(self.QMin.molecule["nmstates"]):
+                                    m2,s2,ms2 = self.QMin.maps["statemap"][j+1]
+                                    if m1 != m2:
+                                        continue
+                                    if ms1 != ms2:
+                                        continue
+                                    if i == j:
+                                        continue
+                                    # self.log.info(str([i,j,m1,s1,m2,s2]))
+                                    try:
+                                        self.QMout["dm"][:,i,j] = dipoles_trans_dict[ (m1,s1), (m2,s2) ]
+                                        # self.log.info(str([i,j,m1,s1,m2,s2,'OK']))
+                                    except KeyError:
+                                        pass
+                        else:
+                            dipoles_trans = self._get_transition_dipoles(log_file)
+                            for idx, val in enumerate(dipoles_trans[: states[mults[0]] - 1], 1):  # States
+                                for m in range(mults[0]):  # Make copies for multiplicities
+                                    self.QMout["dm"][
+                                        :,
+                                        sum(nm_states[: mults[0]]) + m * states[mults[0]],
+                                        sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
+                                    ] = val[:]
+                                    self.QMout["dm"][
+                                        :,
+                                        sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
+                                        sum(nm_states[: mults[0]]) + m * states[mults[0]],
+                                    ] = val[:]
 
                 # TheoDORE
                 if self.QMin.requests["theodore"]:
@@ -748,7 +797,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 grad_mult, _ = self.QMin.control["jobs"][int(job_path.split("_")[1])].values()
                 grad_ext = f"{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}"
                 if ground_state:
-                    gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad"), True)
+                    if self.QMin.resources["orcaversion"] >= (6, 0):
+                        gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad.ground.grad.tmp"))
+                    else:
+                        gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad"), True)
                 else:
                     gradients = self._get_grad(os.path.join(scratchdir, job_path, f"ORCA.engrad.{grad_ext}.grad.tmp"))
 
@@ -893,7 +945,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         # Extract transition dipole table from output
         find_transition_dipoles = re.search(
-            r"ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS(.*?)ABS", output, re.DOTALL
+            r"  ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS(.*?)ABS", output, re.DOTALL
         )
         if not find_transition_dipoles:
             self.log.error("Cannot find transition dipoles in ORCA output!")
@@ -901,6 +953,42 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Filter dipole vectors, (states, (xyz))
         transition_dipoles = re.findall(r"([-\d.]+\s+[-\d.]+\s+[-\d.]+)\n", find_transition_dipoles.group(1))
         return np.asarray([list(map(float, x.split())) for x in transition_dipoles])
+
+    def _get_transition_dipoles_orca6(self, output: str) -> dict:
+        """
+        """
+        # extract the table
+        find_transition_dipoles = re.search(
+            r"  ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS(.*?)ABS", output, re.DOTALL
+        )
+        if not find_transition_dipoles:
+            self.log.error("Cannot find transition dipoles in ORCA output!")
+            raise ValueError()
+
+        def parse_label(string):
+            "N-MA"
+            s = string.replace("A","").split("-")
+            n = int(s[0])+1
+            m = int(s[1])
+            return (m,n)
+
+        dictionary = {}
+        for line in find_transition_dipoles.group(1).split("\n")[5:]:
+            # self.log.info(line)
+            if not line:
+                break
+            s = line.split()
+            s0 = s[0]
+            si = s[2]
+            d = np.asarray([ float(i) for i in s[-3:] ])
+            m1,n1 = parse_label(s0)
+            m2,n2 = parse_label(si)
+            if m1 == m2:
+                dictionary[(m1,n1),(m2,n2)] = d
+                dictionary[(m2,n2),(m1,n1)] = d
+        # self.log.info(dictionary)
+        return dictionary
+
 
     def _get_socs(self, output: str) -> np.ndarray:
         """
@@ -1311,10 +1399,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             key = list(occ_a)
                             match mult:
                                 case 1:
+                                    # TODO: Check if relative sign of ab and ba is correct here!
                                     key[occ], key[virt] = 2, 1
                                     dets_exp[tuple(key)] = dets[(occ, virt, dummy)] * math.sqrt(0.5)
                                     key[occ], key[virt] = 1, 2
-                                    dets_exp[tuple(key)] = dets[(occ, virt, dummy)] * math.sqrt(0.5)
+                                    dets_exp[tuple(key)] = -dets[(occ, virt, dummy)] * math.sqrt(0.5)
                                 case 3:
                                     key[occ], key[virt] = 1, 1
                                     dets_exp[tuple(key)] = dets[(occ, virt, dummy)]

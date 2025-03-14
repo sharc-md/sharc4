@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -52,7 +52,7 @@ except ImportError:
 DEBUG = False
 
 version = '4.0'
-versiondate = datetime.date(2024, 9, 1)
+versiondate = datetime.date(2025, 4, 1)
 
 
 # ======================================================================= #

@@ -1,4 +1,29 @@
 #!/usr/bin/env python3
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
+
 import datetime
 import os
 import re
@@ -507,6 +532,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 or nactel - charge >= self.QMin.template["ras2"] * 2
             ) and self.QMin.molecule["states"][idx-1] > 0:
                 self.log.error(f"Charge {charge} not compatible with multiplicity {idx}")
+                self.log.error("Please provide the nactel as if the charge was neutral!")
                 raise ValueError()
 
         # Validate method
@@ -1248,7 +1274,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support!")
                 raise ValueError()
         if self.QMin.requests["multipolar_fit"] and self.QMin.molecule["point_charges"]:
-            self.log.error("Multipolar fit not comatible with point charges!")
+            self.log.error("Multipolar fit not compatible with point charges!")
             raise ValueError()
         if self.QMin.requests["phases"]:
             self.QMin.requests["overlap"] = True

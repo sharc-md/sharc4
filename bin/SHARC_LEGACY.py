@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -48,7 +48,7 @@ from logger import log
 # TODO: define __all__
 
 VERSION = "4.0"
-VERSIONDATE = datetime.datetime(2023, 8, 24)
+VERSIONDATE = datetime.datetime(2025, 4, 1)
 
 CHANGELOGSTRING = """
 """

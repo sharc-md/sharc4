@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2023 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -64,8 +64,8 @@ PRINT = True
 
 # =========================================================0
 
-version = '1.1'
-versiondate = datetime.date(2021, 10, 25)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 changelogstring = '''
 25.10.2021: 
 - removed PyQuante dependency in get_smat_from_Molden

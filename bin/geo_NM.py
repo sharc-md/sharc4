@@ -1,6 +1,28 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
-from __future__ import print_function
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
 import numpy
 import sys
 from optparse import OptionParser
@@ -173,6 +195,18 @@ def main():
         qm_list = np.array(qm_list) - 1
     else:
         qm_list = np.arange(TRAJ.natom)
+
+    # write header
+    nmodes = V0["Km"].shape[0]
+    string = '# % 4i ' % 1
+    for i in range(nmodes):
+        string += " % 12i" % (i+2)
+    string += " %-12i\n" % (nmodes+2)
+    string += '% 6s ' % "# Time"
+    for i in range(nmodes):
+        string += " % 12s" % ("Mode %i" % (i+1))
+    string += " %-12s" % "Comment"
+    print(string)
 
     # iteration
     for igeom, geom in enumerate(TRAJ):
