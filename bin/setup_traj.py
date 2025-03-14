@@ -2305,12 +2305,12 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
 
             writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, ask=ask)
             ask = False
-            io = make_directory(dirname + "/QM")
-            io += make_directory(dirname + "/restart")
+            io = make_directory(os.path.join(dirname, "QM"))
+            io += make_directory(os.path.join(dirname, "restart"))
             if io != 0:
                 log.info("Could not make QM or restart directory!")
                 continue
-            interface.prepare(INFOS, dirname + "/QM")
+            interface.prepare(INFOS, os.path.join(dirname, "QM"))
             
             if not INFOS["pysharc"]:
                 run_qm = open(dirname + "/QM/runQM.sh", "w")
