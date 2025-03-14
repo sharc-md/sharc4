@@ -733,19 +733,38 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
                     # Offdiagonals
                     if states[mults[0]] > 1:
-                        dipoles_trans = self._get_transition_dipoles(log_file)
-                        for idx, val in enumerate(dipoles_trans[: states[mults[0]] - 1], 1):  # States
-                            for m in range(mults[0]):  # Make copies for multiplicities
-                                self.QMout["dm"][
-                                    :,
-                                    sum(nm_states[: mults[0]]) + m * states[mults[0]],
-                                    sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
-                                ] = val[:]
-                                self.QMout["dm"][
-                                    :,
-                                    sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
-                                    sum(nm_states[: mults[0]]) + m * states[mults[0]],
-                                ] = val[:]
+                        if self.QMin.resources["orcaversion"] >= (6, 0):
+                            dipoles_trans_dict = self._get_transition_dipoles_orca6(log_file)
+                            for i in range(self.QMin.molecule["nmstates"]):
+                                m1,s1,ms1 = self.QMin.maps["statemap"][i+1]
+                                for j in range(self.QMin.molecule["nmstates"]):
+                                    m2,s2,ms2 = self.QMin.maps["statemap"][j+1]
+                                    if m1 != m2:
+                                        continue
+                                    if ms1 != ms2:
+                                        continue
+                                    if i == j:
+                                        continue
+                                    # self.log.info(str([i,j,m1,s1,m2,s2]))
+                                    try:
+                                        self.QMout["dm"][:,i,j] = dipoles_trans_dict[ (m1,s1), (m2,s2) ]
+                                        # self.log.info(str([i,j,m1,s1,m2,s2,'OK']))
+                                    except KeyError:
+                                        pass
+                        else:
+                            dipoles_trans = self._get_transition_dipoles(log_file)
+                            for idx, val in enumerate(dipoles_trans[: states[mults[0]] - 1], 1):  # States
+                                for m in range(mults[0]):  # Make copies for multiplicities
+                                    self.QMout["dm"][
+                                        :,
+                                        sum(nm_states[: mults[0]]) + m * states[mults[0]],
+                                        sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
+                                    ] = val[:]
+                                    self.QMout["dm"][
+                                        :,
+                                        sum(nm_states[: mults[0]]) + m * states[mults[0]] + idx,
+                                        sum(nm_states[: mults[0]]) + m * states[mults[0]],
+                                    ] = val[:]
 
                 # TheoDORE
                 if self.QMin.requests["theodore"]:
@@ -926,7 +945,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         """
         # Extract transition dipole table from output
         find_transition_dipoles = re.search(
-            r"ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS(.*?)ABS", output, re.DOTALL
+            r"  ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS(.*?)ABS", output, re.DOTALL
         )
         if not find_transition_dipoles:
             self.log.error("Cannot find transition dipoles in ORCA output!")
@@ -934,6 +953,42 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Filter dipole vectors, (states, (xyz))
         transition_dipoles = re.findall(r"([-\d.]+\s+[-\d.]+\s+[-\d.]+)\n", find_transition_dipoles.group(1))
         return np.asarray([list(map(float, x.split())) for x in transition_dipoles])
+
+    def _get_transition_dipoles_orca6(self, output: str) -> dict:
+        """
+        """
+        # extract the table
+        find_transition_dipoles = re.search(
+            r"  ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS(.*?)ABS", output, re.DOTALL
+        )
+        if not find_transition_dipoles:
+            self.log.error("Cannot find transition dipoles in ORCA output!")
+            raise ValueError()
+
+        def parse_label(string):
+            "N-MA"
+            s = string.replace("A","").split("-")
+            n = int(s[0])+1
+            m = int(s[1])
+            return (m,n)
+
+        dictionary = {}
+        for line in find_transition_dipoles.group(1).split("\n")[5:]:
+            # self.log.info(line)
+            if not line:
+                break
+            s = line.split()
+            s0 = s[0]
+            si = s[2]
+            d = np.asarray([ float(i) for i in s[-3:] ])
+            m1,n1 = parse_label(s0)
+            m2,n2 = parse_label(si)
+            if m1 == m2:
+                dictionary[(m1,n1),(m2,n2)] = d
+                dictionary[(m2,n2),(m1,n1)] = d
+        # self.log.info(dictionary)
+        return dictionary
+
 
     def _get_socs(self, output: str) -> np.ndarray:
         """
