@@ -1,0 +1,14 @@
+#!/bin/bash
+
+cd source
+make clean
+cd ../pysharc
+make clean
+make install
+cd ../source
+make install
+cd ../pysharc/sharc
+\cp sharc.cpython-311-x86_64-linux-gnu.so /user/lorenz/miniconda3/envs/smilei_env/sharc_develop/lib/sharc.so
+cd ../lib
+\cp * /user/lorenz/miniconda3/envs/smilei_env/sharc_develop/lib/
+cd ../../

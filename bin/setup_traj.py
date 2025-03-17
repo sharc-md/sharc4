@@ -2323,7 +2323,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 log.info("Skipping initial condition %i %i!" % (istate, icond))
                 continue
             if initlist[icond-1].statelist[istate-1].ExcTime != "":
-                with open(dirname+"start.time", "w") as tfile:
+                with open(os.path.join(dirname, "start.time"), "w") as tfile:
                     exc_time_rd = np.ceil(float(initlist[icond-1].statelist[istate-1].ExcTime)/INFOS["dtstep"])*INFOS["dtstep"]
                     tfile.write(f"{exc_time_rd:.3f}\n")
                     tfile.write(f"{int(initlist[icond-1].statelist[istate-1].IState)}\n")
