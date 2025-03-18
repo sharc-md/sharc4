@@ -826,8 +826,8 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     Bohrs = options.b
     Radians = options.r
     dt = options.t
-    if os.path.exists("start.time"):
-        Tshift = float(np.genfromtxt("start.time")[0])
+    if os.path.exists("start.time") and options.T==0:
+        Tshift = float(np.genfromtxt("start.time")[0]/options.t)
     else:
         Tshift = options.T
 

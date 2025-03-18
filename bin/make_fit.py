@@ -954,7 +954,7 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
     p0 = [1. / (100 + 20 * i) for i in range(INFOS['nrates'])]
 
     # initial guesses
-    y0 = [1. for i in range(INFOS['ninitial'])]
+    y0 = [1./INFOS['ninitial'] for i in range(INFOS['ninitial'])]
 
     print('''Please check the initial guesses for the parameters
 
