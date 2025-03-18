@@ -27,7 +27,6 @@
 #******************************************
 
 # This script is a wrapper for sampling initial conditions for bimolecular processes. 
-# This script will use state_selected.py script 
 # by Yinan Shu, Jan. 19, 2025. 
 
 import os
@@ -39,17 +38,12 @@ import math
 import sys
 import numpy
 
-from constants import NUMBERS, MASSES, ISOTOPES, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR
+from constants import CM_TO_HARTREE, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, Boltzmann_Eh_K, NUMBERS, MASSES, ISOTOPES
 
 DEBUG = False
 
 version = '4.0'
-versiondate = datetime.date(2025, 4, 1)
-
-
-
-
-
+versiondate = datetime.date(2025, 3, 14)
 
 def write_xyz_coordinates(combined_data, output_xyz_file):
     """
@@ -483,7 +477,7 @@ def parse_initconds_file(filename):
                 state_line = lines[i].strip().split()
                 condition["states"][state_line[0]] = {
                     "value_au": float(state_line[1]),
-                    "value_ev": float(state_line[3])
+                    "value_ev": float(state_line[1])*HARTREE_TO_EV
                 }
                 i += 1
             data["conditions"].append(condition)
@@ -549,76 +543,16 @@ def delete_files(files):
             print(f"Error deleting file {file}: {e}")
 
 
-def check_state_selected_path():
-    """
-    Check if state_selected.py is in the same folder as bimolecular_collision.py.
-    If not found, raise an error.
-    """
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    state_selected_path = os.path.join(script_dir, "wigner_state_selected.py")
-    if not os.path.isfile(state_selected_path):
-        raise FileNotFoundError(f"Error: wigner_state_selected.py not found in the same folder as bimolecular_collision.py ({script_dir}).")
-    return state_selected_path
-
-
-def construct_args(options, molecule_suffix, input_file, mapping):
-    """
-    Construct the command-line arguments for state_selected.py for a specific molecule.
-    - options: Parsed options from bimolecular_collision.py
-    - molecule_suffix: '1' or '2', indicating the molecule
-    - input_file: The input file (e.g., a.molden for molecule 1, b.molden for molecule 2)
-    - mapping: Dictionary mapping molecule-specific options to wigner_state_selected.py generic options
-    """
-    args = ["python", os.path.join(os.path.dirname(__file__), "wigner_state_selected.py")]
-
-    # Add the shared option
-    if options.n is not None:
-        args.append("-n")
-        args.append(str(options.n))
-
-    # Add molecule-specific options
-    options_dict = vars(options)
-    molecule_options = [key for key in options_dict.keys() if key.endswith(molecule_suffix)]
-    for key in molecule_options:
-        value = options_dict[key]
-        base_key = key[:-1]  # Remove the suffix (e.g., "vibselect1" -> "vibselect")
-        if base_key in mapping:
-            generic_option = mapping[base_key]
-            if isinstance(value, bool):
-                if value:  # Add flags for boolean options
-                    args.append(generic_option)
-            elif value is not None:  # Add key-value pairs for other options
-                if isinstance(value, list):  # Handle nargs=1 options
-                    args.append(generic_option)
-                    args.append(str(value[0]))
-                else:
-                    args.append(generic_option)
-                    args.append(str(value))
-
-    args.append(input_file)
-
-    return args
-
-
 def main():
   '''Main routine'''
 
   usage='''
-bimolecular_collision.py [options] filename1.molden filename2.molden
-
-Notice that if one of the systems is an atom, one only needs a single molden file.
-For example, 
-
-bimolecular_collision.py --system '1+2' filename2.molden
-bimolecular_collision.py --system '2+1' filename1.molden
-
-where "--system '1+2'" is for atom + diatom; "--system '2+1'" is for diatom + atom 
+bimolecular_collision.py [options] initconds1 initconds2
 
 NOTICE:
     Our convention is using second molecule to collide towards the first molecule.
 
-This script reads two MOLDEN files containing frequencies and normal modes [1]
-and generates a state selected distribution of geometries and velocities for each molecule
+This script reads two initconds files and arranges them for molecular collision
 
 Part of the code is adopted from wigner.py
 
@@ -644,71 +578,7 @@ Author: Yinan Shu
   parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
   parser.add_option('-x', dest='X', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file")
 
-  #options for molecule 1
-  parser.add_option('--vibselect1', dest='vibselect1', type=int, nargs=1, default=6, help="Method of selection of vibrational mode energy (integer, default=1) for MOLECULE 1. 1 The user provides vibrational quantum numbers by the keyword vibstate1=(n1,n2,...,n3N-6) for a local minimum and vibstate1=(n1,n2,...,n3N-7) for a saddle point. 2 The program assigns vibrational quantum numbers at random, selected out of a Boltzmann distribution at a user-specified temperature that is specified by the keyword -t. 3 The program  generates an initial velocity from a Maxwell thermal distribution at a given temperature by -t keyword. This is an option for canonical ensemble, not an option for state selected ensemble. 4 The amount of energy in each mode is the same for each mode and is E1 by settting keyword --vibene1 E1. The unit for E1 is eV. 5 The amount of energy in mode m is Em, which can be different for each mode. Set --vibene1 E1, E2, ..., E3N-6 or --vibene1 E1, E2, ..., E3N-7. The units for Em are eV. 6 Like vibselect1=4 except that Em is calculated by the program as min[0.5hv, input E1]. 7 Like --vibselect1 5 except that Em is calculated by the program as  min[0.5hv, input Em]. 8 The user provides vibrational quantum numbers by keyword viblist1=(m1,n1;m2,n2;...,m3N-6,n3N-6), which only specifies the modes with non-zero vibrational quantum numbers, the vibrational quantum number of rest modes not specified in viblist1 are set to 0")
-  parser.add_option('--vibdist1', dest='vibdist1', type=int, nargs=1, default=0, help="vibdist1 determines the type of phase space distribution for MOLECULE 1. 0 Default, classical or quasiclassical distribution. Uniform distribution. This distribution is quasiclassical if vibselect1 = 1 or 2, and it is classical if vibselect1>=4. 1 ground-state harmonic oscillator distribution. 2 wigner distribution.")
-  parser.add_option('--vibstate1', dest='vibstate1', nargs=1, default="0", help="vibstate1 is a list of level of vibrational state for each mode, separated by comma, required by vibselect1=1. Example: --vibstate1 0,0,0,1,5")
-  parser.add_option('--viblist1', dest='viblist1', nargs=1, default="0", help="viblist1 is a list of modes whose vibrational quantum numbers are non-zero, each pair (index of modes, vibrational quantum number, which are separated by comma) is separated question mark. Notice viblist1 is only used when set vibselect1 to 8, the modes that are not provided in viblist1 will have zero vibrational quantum number. Also notice that if a non-integer vibrational quantum number is provided, it will convert to the lower integer. Example: --viblist1 1,1?5,3")
-  parser.add_option('--vibene1', dest='vibene1', nargs=1, default="0.0", help="vibene1 is a list of energies for each mode, separated by comma, required by vibselect1=4,5,6,7. Example: --vibene1 1.2,3.1,2.3")
-  parser.add_option('--method1', dest='method1', type=int, nargs=1, default=0, help="method1 determins the level of energy approximation for MOLECULE 1. 0 use harmonic oscillator. 1 use directly computed potential energy (requires a lot calculations)")
-  parser.add_option('--template1', dest='template1', type=str, nargs=1, default='MOLPRO.template1', help="Template filename")
-  parser.add_option('--m1', dest='m1', action='store_true',help="Enter non-default atom masses for MOLECULE 1")
-  parser.add_option('--s1', dest='s1', type=float, nargs=1, default=1.0, help="Scaling factor for the energies (float, default=1.0) for MOLECULE 1")
-  parser.add_option('--t1', dest='t1', type=float, nargs=1, default=0., help="Temperature (float, default=0.0) for MOLECULE 1")
-  parser.add_option('--T1', dest='T1', action='store_true', help="Discard high vibrational states in the temperature sampling for MOLECULE 1")
-  parser.add_option('--L1', dest='L1', type=float, nargs=1, default=10.0, help="Discard frequencies below this value in cm-1 (float, default=10.) for MOLECULE 1")
-  parser.add_option('--r1', dest='r1', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661) for MOLECULE 1")
-  parser.add_option('--f1', dest='f1', type=int, nargs=1, default='0', help="Define the type of read normal modes for MOLECULE 1. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)")
-  parser.add_option('--o1', dest='o1', type=str, nargs=1, default='initconds1', help="Output filename for MOLECULE 1 (string, default=""initconds"")")
-  parser.add_option('--x1', dest='x1', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file for MOLECULE 1")
-  parser.add_option('--keep_trans_rot1', dest='KTR1', action='store_true',help="Keep translational and rotational components for MOLECULE 1")
-  parser.add_option('--use_eq_geom1',    dest='UEG1', action='store_true',help="For all samples, use the equilibrium geometry (only sampled velocities are used, therefore, the mode energies are not correct) for MOLECULE 1")
-  parser.add_option('--use_zero_veloc1', dest='UZV1', action='store_true',help="For all samples, set velocities to zero (only sampled geometries are used, therefore, the the mode energies are not correct) for MOLECULE 1")
-
-  #options for molecule 2
-  parser.add_option('--vibselect2', dest='vibselect2', type=int, nargs=1, default=6, help="Method of selection of vibrational mode energy (integer, default=1) for MOLECULE 2. 1 The user provides vibrational quantum numbers by the keyword vibstate2=(n1,n2,...,n3N-6) for a local minimum and vibstate2=(n1,n2,...,n3N-7) for a saddle point. 2 The program assigns vibrational quantum numbers at random, selected out of a Boltzmann distribution at a user-specified temperature that is specified by the keyword -t. 3 The program  generates an initial velocity from a Maxwell thermal distribution at a given temperature by -t keyword. This is an option for canonical ensemble, not an option for state selected ensemble. 4 The amount of energy in each mode is the same for each mode and is E1 by settting keyword --vibene2 E1. The unit for E1 is eV. 5 The amount of energy in mode m is Em, which can be different for each mode. Set --vibene2 E1, E2, ..., E3N-6 or --vibene2 E1, E2, ..., E3N-7. The units for Em are eV. 6 Like vibselect2=4 except that Em is calculated by the program as min[0.5hv, input E1]. 7 Like --vibselect2 5 except that Em is calculated by the program as  min[0.5hv, input Em]. 8 The user provides vibrational quantum numbers by keyword viblist2=(m1,n1;m2,n2;...,m3N-6,n3N-6), which only specifies the modes with non-zero vibrational quantum numbers, the vibrational quantum number of rest modes not specified in viblist2 are set to 0")
-  parser.add_option('--vibdist2', dest='vibdist2', type=int, nargs=1, default=0, help="vibdist2 determines the type of phase space distribution for MOLECULE 2. 0 Default, classical or quasiclassical distribution. Uniform distribution. This distribution is quasiclassical if vibselect2 = 1 or 2, and it is classical if vibselect2>=4. 1 ground-state harmonic oscillator distribution. 2 wigner distribution.")
-  parser.add_option('--vibstate2', dest='vibstate2', nargs=1, default="0", help="vibstate2 is a list of level of vibrational state for each mode, separated by comma, required by vibselect2=1. Example: --vibstate2 0,0,0,1,5")
-  parser.add_option('--viblist2', dest='viblist2', nargs=1, default="0", help="viblist2 is a list of modes whose vibrational quantum numbers are non-zero, each pair (index of modes, vibrational quantum number, which are separated by comma) is separated question mark. Notice viblist2 is only used when set vibselect2 to 8, the modes that are not provided in viblist2 will have zero vibrational quantum number. Also notice that if a non-integer vibrational quantum number is provided, it will convert to the lower integer. Example: --viblist2 1,1?5,3")
-  parser.add_option('--vibene2', dest='vibene2', nargs=1, default="0.0", help="vibene2 is a list of energies for each mode, separated by comma, required by vibselect2=4,5,6,7. Example: --vibene2 1.2,3.1,2.3")
-  parser.add_option('--method2', dest='method2', type=int, nargs=1, default=0, help="method2 determins the level of energy approximation for MOLECULE 2. 0 use harmonic oscillator. 1 use directly computed potential energy (requires a lot calculations)")
-  parser.add_option('--template2', dest='template2', type=str, nargs=1, default='MOLPRO.template2', help="Template filename")
-  parser.add_option('--m2', dest='m2', action='store_true',help="Enter non-default atom masses for MOLECULE 2")
-  parser.add_option('--s2', dest='s2', type=float, nargs=1, default=1.0, help="Scaling factor for the energies (float, default=1.0) for MOLECULE 2")
-  parser.add_option('--t2', dest='t2', type=float, nargs=1, default=0., help="Temperature (float, default=0.0) for MOLECULE 2")
-  parser.add_option('--T2', dest='T2', action='store_true', help="Discard high vibrational states in the temperature sampling for MOLECULE 2")
-  parser.add_option('--L2', dest='L2', type=float, nargs=1, default=10.0, help="Discard frequencies below this value in cm-1 (float, default=10.) for MOLECULE 2")
-  parser.add_option('--r2', dest='r2', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661) for MOLECULE 2")
-  parser.add_option('--f2', dest='f2', type=int, nargs=1, default='0', help="Define the type of read normal modes for MOLECULE 2. 0 for automatic assignement, 1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, ADF, Orca), 2 for cartesian normal modes (Molcas, Molpro), 3 for Columbus-type (Columbus), or 4 for mass-weighted. (integer, default=0)")
-  parser.add_option('--o2', dest='o2', type=str, nargs=1, default='initconds2', help="Output filename for MOLECULE 1 (string, default=""initconds"")")
-  parser.add_option('--x2', dest='x2', action='store_true',help="Generate a xyz file with the sampled geometries in addition to the initconds file for MOLECULE 2")
-  parser.add_option('--keep_trans_rot2', dest='KTR2', action='store_true',help="Keep translational and rotational components for MOLECULE 2")
-  parser.add_option('--use_eq_geom2',    dest='UEG2', action='store_true',help="For all samples, use the equilibrium geometry (only sampled velocities are used, therefore, the mode energies are not correct) for MOLECULE 2")
-  parser.add_option('--use_zero_veloc2', dest='UZV2', action='store_true',help="For all samples, set velocities to zero (only sampled geometries are used, therefore, the the mode energies are not correct) for MOLECULE 2")
-
   (options, args) = parser.parse_args()
-
-  mapping = {
-    "vibselect": "--vibselect",
-    "vibdist": "--vibdist",
-    "vibstate": "--vibstate",
-    "viblist": "--viblist",
-    "vibene": "--vibene",
-    "method": "--method",
-    "template": "--template",
-    "m": "-m",
-    "s": "-s",
-    "t": "-t",
-    "T": "-T",
-    "L": "-L",
-    "r": "-r",
-    "f": "-f",
-    "o": "-o",
-    "x": "-x"
-  }
-
-  # check if state_selected.py exists
-  state_selected_path = check_state_selected_path()
 
   system=options.system
 
@@ -730,31 +600,16 @@ Author: Yinan Shu
       print("Initial Condition Sampling for MOLECULE + MOLECULE")
       print("====================================================")
       if len(args) != 2:
-          parser.error("You must provide exactly two input files (two molden files for two molecules)")
+          parser.error("You must provide exactly two input files (two initial condition files)")
       input_file1, input_file2 = args
-      print("perform initial condition sampling for MOLECULE 1 using wigner_state_selected.py")
-      args1 = construct_args(options, "1", input_file1, mapping)
-      print("commend:", args1)
-      subprocess.run(args1)
-      print("perform initial condition sampling for MOLECULE 2 using wigner_state_selected.py")
-      args2 = construct_args(options, "2", input_file2, mapping)
-      print("commend:", args2)
-      subprocess.run(args2)
-      o1=options.o1
-      o2=options.o2
-      molecule1_data, molecule2_data = read_initconds_files(o1, o2)
+      molecule1_data, molecule2_data = read_initconds_files(input_file1, input_file2)
       #move molecule 1 to origin 
       print("center of mass of MOLECULE 1 is moved to (0, 0, 0)")
       move_to_origin(molecule1_data["conditions"])
       #move molecule 2 to (x,y,0)
       print("center of mass of MOLECULE 2 is moved to (impact_parameter, 0, initial_separation)")
       move_to_z_x(molecule2_data["conditions"], z_x_values)
-      if not DEBUG:
-          delete_files([o1, o2])
-      if options.x1 and not DEBUG:
-          delete_files([options.o1+'.xyz'])
-      if options.x2 and not DEBUG:
-          delete_files([options.o2+'.xyz'])
+
   elif system=='1+2' or system=='1+3': 
       print("====================================================")
       print("Initial Condition Sampling for ATOM + MOLECULE")
@@ -762,24 +617,16 @@ Author: Yinan Shu
       atom=options.atom
       print("Involved atom is:", atom)
       if len(args) !=1:
-          arser.error("You must provide exactly one input file (one molden file for the second molecule)")
+          parser.error("You must provide exactly one input file (one initial condition file)")
       input_file2 = args[0]
       # generate atom data (molecule 1)
       print("place atom at (0, 0, 0)")
       molecule1_data = generate_atom_data(n, atom, 1, z_x_values)
-      print("perform initial condition sampling for MOLECULE 2 using wigner_state_selected.py")
-      args2 = construct_args(options, "2", input_file2, mapping)
-      print("commend:", args2)
-      subprocess.run(args2)
-      o2=options.o2    
-      molecule2_data = read_initconds_files1(o2)
+    #   print("perform initial condition sampling for MOLECULE 2 using state_selected.py")
+      molecule2_data = read_initconds_files1(input_file2)
       # move molecule 2 to (x,y,0)
       print("center of mass of MOLECULE 2 is moved to (impact_parameter, 0, initial_separation)")
       move_to_z_x(molecule2_data["conditions"], z_x_values)
-      if not DEBUG:
-          delete_files([o2])
-      if options.x2 and not DEBUG:
-          delete_files([options.o2+'.xyz'])
 
   elif system=='2+1' or system=='3+1':
       print("====================================================")
@@ -788,27 +635,18 @@ Author: Yinan Shu
       atom=options.atom
       print("Involved atom is:", atom)
       if len(args) !=1:
-          arser.error("You must provide exactly one input file (one molden file for the first molecule)") 
+          parser.error("You must provide exactly one input file (one initial condition file)")
       input_file1 = args[0]
-      print("perform initial condition sampling for MOLECULE 1 using wigner_state_selected.py")
-      args1 = construct_args(options, "1", input_file1, mapping)
-      print("commend:", args1)
-      subprocess.run(args1)
-      o1=options.o1
-      molecule1_data = read_initconds_files1(o1)
+      molecule1_data = read_initconds_files1(input_file1)
       # move molecule 1 to origin 
       print("center of mass of MOLECULE 1 is moved to (0, 0, 0)")
       move_to_origin(molecule1_data["conditions"])
       # generate atom data (molecule 2)
       print("place atom at (impact_parameter, 0, initial_separation)")
       molecule2_data = generate_atom_data(n, atom, 2, z_x_values)
-      if not DEBUG:
-          delete_files([o1])
-      if options.x1 and not DEBUG:
-          delete_files([options.o1+'.xyz'])
 
   if not DEBUG:
-      delete_files(['KEYSTROKES.wigner_state_selected'])
+      delete_files(['KEYSTROKES.bimolecular_collision'])
 
   #==============
   # Randomly orient the molecule
@@ -823,8 +661,6 @@ Author: Yinan Shu
           print("Random orient MOLECUL 2")
           rotate_molecule_with_random_rotation(molecule2_data, 2, z_x_values)
             
-
-
   #==============
   # Sampling collision velocity
   #==============
