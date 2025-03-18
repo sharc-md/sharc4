@@ -915,7 +915,7 @@ date %s
     parser.add_option('-p', dest='p', type=int, nargs=1, default=3, help="Number of standard deviations for bootstrap output (default=3)")
     parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
     parser.add_option('-c', dest='c', action='store_true', default=False, help="Calculate absorption cross section (A^2/molecule).")
-    parser.add_option('-m', dest='m', action='store_true', default=False, help="Convert absorption cross sections to molar absorption coefficient.")
+    parser.add_option('-m', dest='m', action='store_true', default=False, help="Convert absorption cross sections to molar absorption coefficient (M^-1cm^-1).")
 
     (options, args) = parser.parse_args()
 
@@ -964,6 +964,9 @@ date %s
         quit(1)
     if INFOS['dos_switch'] and INFOS['abscross']:
         print("Error: cannot do DOS and absolute cross sections at the same time!")
+        quit(1)
+    if INFOS['lineshape'] == 3 and INFOS['abscross']:
+        print("Error: cannot do line spectrum and absolute cross sections at the same time!")
         quit(1)
 
 
