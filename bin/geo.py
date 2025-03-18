@@ -26,6 +26,7 @@
 import os
 import sys
 import math
+import numpy as np
 import copy
 import re
 import datetime
@@ -825,7 +826,10 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     Bohrs = options.b
     Radians = options.r
     dt = options.t
-    Tshift = options.T
+    if os.path.exists("start.time"):
+        Tshift = float(np.genfromtxt("start.time")[0])
+    else:
+        Tshift = options.T
 
     geofilename = options.g
     try:
