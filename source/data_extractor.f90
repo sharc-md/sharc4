@@ -1304,7 +1304,7 @@ program data_extractor
 
     if (write_geometry) then  
       write(u_xyz,'(I12)') natom                                                                                
-      write(u_xyz,'(A5, 1X, F14.5, 1X, I4, 1X, i4)') 't= ',step*dtstep+time_shift, state_diag, state_MCH
+      write(u_xyz,'(A5, 1X, F14.5, 1X, I4, 1X, i4)') 't= ',step*dtstep, state_diag, state_MCH
       do iatom=1,natom                                                                                          
         write(u_xyz,'(A2,3(1X,F16.9))') element_a(iatom), (geom_ad(iatom,idir)*au2a,idir=1,3)                   
       enddo                                                                                                                   
