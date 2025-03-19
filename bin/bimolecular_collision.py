@@ -141,7 +141,7 @@ def combine_molecule_data(molecule1_data, molecule2_data, E_col):
             "states": {
                 "Ekin": {
                     "value_au": cond1["states"]["Ekin"]["value_au"] + cond2["states"]["Ekin"]["value_au"] + E_col,
-                    "value_ev": cond1["states"]["Ekin"]["value_ev"] + cond2["states"]["Ekin"]["value_ev"] + E_col*27.211396132,
+                    "value_ev": cond1["states"]["Ekin"]["value_ev"] + cond2["states"]["Ekin"]["value_ev"] + E_col*HARTREE_TO_EV,
                 },
                 "Epot": {
                     "value_au": cond1["states"]["Epot"]["value_au"] + cond2["states"]["Epot"]["value_au"],
@@ -149,7 +149,7 @@ def combine_molecule_data(molecule1_data, molecule2_data, E_col):
                 },
                 "Etot": {
                     "value_au": cond1["states"]["Etot"]["value_au"] + cond2["states"]["Etot"]["value_au"] + E_col,
-                    "value_ev": cond1["states"]["Etot"]["value_ev"] + cond2["states"]["Etot"]["value_ev"] + E_col*27.211396132,
+                    "value_ev": cond1["states"]["Etot"]["value_ev"] + cond2["states"]["Etot"]["value_ev"] + E_col*HARTREE_TO_EV,
                 },
             }
         }
@@ -395,14 +395,14 @@ def compute_center_of_mass(conditions):
     return com_results
 
 
-def move_to_z_x(conditions, z_x_values):
+def move_to_z_x(initconds_data, z_x_values):
     """
     Moves the center of mass of the molecule to the specified (x, 0, z) for each initial condition.
     Args:
         conditions (list): List of initial conditions, where each condition contains atom data.
         z_x_values (list): List of (z, x) tuples for each initial condition.
     """
-    for condition, (z, x) in zip(conditions, z_x_values):
+    for condition, (z, x) in zip(initconds_data["conditions"], z_x_values):
         current_com = compute_center_of_mass([condition])[0]
         shift_x = current_com["com_x"] - x
         shift_y = current_com["com_y"]
@@ -412,6 +412,18 @@ def move_to_z_x(conditions, z_x_values):
             atom["x"] -= shift_x
             atom["y"] -= shift_y
             atom["z"] -= shift_z
+    # also equilibrium
+    equilibrium = {'index': 0}
+    equilibrium["atoms"] = initconds_data["equilibrium"]
+    current_com = compute_center_of_mass([equilibrium])[0]
+    shift_x = current_com["com_x"] - z_x_values[0][1]
+    shift_y = current_com["com_y"]
+    shift_z = current_com["com_z"] - z_x_values[0][0]
+
+    for atom in equilibrium["atoms"]:
+        atom["x"] -= shift_x
+        atom["y"] -= shift_y
+        atom["z"] -= shift_z
 
 
 def parse_initconds_file(filename):
@@ -563,8 +575,8 @@ Author: Yinan Shu
 
   parser = OptionParser(usage=usage, description=description)
   parser.add_option('-n', dest='n', type=int, nargs=1, default=3, help="Number of geometries to be generated (integer, default=3)")
-  parser.add_option('--system', dest='system', type=str, nargs=1, default='3+3', help="type of the two systems, default is '3+3' which means its polyatomic molecules collides with polyatomic molecules, and '3' stands for polyatomic molecules with 3 or more atoms; options can be '1+2', '1+3', '2+1', '2+2', '2+3', '3+2', and '3+3', where 1 and 2 stand for atom and diatom respectively")
-  parser.add_option('--atom', dest='atom', type=str, nargs=1, default='H', help="the atom involved in 1+2, 1+3, 2+1, and 3+1 systems")
+  parser.add_option('--system', dest='system', type=str, nargs=1, default=None, help="type of the two systems, default is '3+3' which means its polyatomic molecules collides with polyatomic molecules, and '3' stands for polyatomic molecules with 3 or more atoms; options can be '1+2', '1+3', '2+1', '2+2', '2+3', '3+2', and '3+3', where 1 and 2 stand for atom and diatom respectively")
+  parser.add_option('--atom', dest='atom', type=str, nargs=1, default=None, help="the element involved in 1+2, 1+3, 2+1, and 3+1 systems")
 
 
   parser.add_option('--bmin', dest='bmin', type=float, nargs=1, default=0.0, help="minimal value of impact parameter in unit of angstrom")
@@ -580,7 +592,25 @@ Author: Yinan Shu
 
   (options, args) = parser.parse_args()
 
-  system=options.system
+  # detect --system keyword
+  if options.system is None:
+      if len(args) == 1:
+          print("Only one initial condition file is used, setting up molecule + atom collision dynamics")
+          system='3+1'
+      elif len(args) == 2:
+          print("Two initial condition files are used, setting up molecule + molecule collision dynamics")
+          system='3+3'
+      else:
+          parser.error("Invalid number of arguments. You must provide either 1 or 2 initial condition files.")
+  else:
+      system=options.system
+
+
+  if system=='1+3' or system=='1+2' or system=='3+1' or system=='2+1':
+      if options.atom is None:
+          print("No atom was provided, using hydrogen atom as defaut")
+          options.atom = "H"
+
 
   #==============
   # Sampling coordinates
@@ -608,7 +638,7 @@ Author: Yinan Shu
       move_to_origin(molecule1_data["conditions"])
       #move molecule 2 to (x,y,0)
       print("center of mass of MOLECULE 2 is moved to (impact_parameter, 0, initial_separation)")
-      move_to_z_x(molecule2_data["conditions"], z_x_values)
+      move_to_z_x(molecule2_data, z_x_values)
 
   elif system=='1+2' or system=='1+3': 
       print("====================================================")
@@ -626,7 +656,7 @@ Author: Yinan Shu
       molecule2_data = read_initconds_files1(input_file2)
       # move molecule 2 to (x,y,0)
       print("center of mass of MOLECULE 2 is moved to (impact_parameter, 0, initial_separation)")
-      move_to_z_x(molecule2_data["conditions"], z_x_values)
+      move_to_z_x(molecule2_data, z_x_values)
 
   elif system=='2+1' or system=='3+1':
       print("====================================================")
@@ -654,11 +684,11 @@ Author: Yinan Shu
   if not options.no_random_orient:
       # rotate the first molecule
       if system!='1+2' and system!='1+3':
-          print("Random orient MOLECUL 1")
+          print("Random orient MOLECULE 1")
           rotate_molecule_with_random_rotation(molecule1_data, 1, z_x_values)
       # rotate the second molecule
       elif system!='2+1' and system!='3+1':
-          print("Random orient MOLECUL 2")
+          print("Random orient MOLECULE 2")
           rotate_molecule_with_random_rotation(molecule2_data, 2, z_x_values)
             
   #==============
