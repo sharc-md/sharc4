@@ -2145,7 +2145,7 @@ def writeRunscript(INFOS, iconddir, interface):
     # ================================
     if INFOS["pysharc"]:
         driver = ("_".join(interface.__class__.__name__.split("_")[1:])).lower()
-        exestring = ". $SHARC/sharcvars.sh\n$SHARC/sharc.py -i %s input &> pysharc.log" % driver
+        exestring = ". $SHARC/sharcvars.sh\n$SHARC/driver.py -i %s input &> driver.log" % driver
     else:
         exestring = "$SHARC/sharc.x input"
 
