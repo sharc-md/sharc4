@@ -25,6 +25,7 @@
 
 
 import datetime
+import importlib.metadata
 import os
 import shutil
 from io import TextIOWrapper
@@ -75,9 +76,7 @@ class SHARC_SPAINN(SHARC_FAST):
         self.QMin.resources.types.update({"modelpath": str})
 
         # Add template keys
-        self.QMin.template.update(
-            {"cutoff": 10.0, "nac_key": "smooth_nacs", "properties": ["energy", "forces", "smooth_nacs", "dipoles"]}
-        )
+        self.QMin.template.update({"cutoff": 10.0, "nac_key": "smooth_nacs", "properties": ["energy", "forces"]})
         self.QMin.template.types.update({"cutoff": float, "nac_key": str, "properties": list})
 
         self.spainnulator = None
