@@ -788,7 +788,6 @@ def do_calc(INFOS):
     if INFOS["synchronizing"]:
         print("Synchronizing temporal data ...")
         all_data2 = synchronize(all_data)
-
         # n_names = len(INFOS["colnames"]) // 2
         # INFOS["colnames"] = (
         #     INFOS["colnames"][:n_names] * all_data2["arr"].shape[1] + INFOS["colnames"][n_names:] * all_data2["arr"].shape[1]
@@ -1016,17 +1015,22 @@ def synchronize(all_data):
     for i, fk in enumerate(file_keys):
         done = width_bar * (i + 1) // len(file_keys)
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
-
         if (
+            len(all_data[fk]["time"]) == len(all_times)
+            and np.all(np.isclose(all_data[fk]["time"], all_times)) and not np.any(np.isnan(all_data[fk]["arr"]))
+        ):
+            arr[i, ...] = all_data[fk]["arr"]
+            counts += 1
+        elif (
             len(all_data[fk]["time"]) == len(all_times)
             and np.all(np.isclose(all_data[fk]["time"], all_times))
         ):
             arr[i, ...] = all_data[fk]["arr"]
-            counts += 1
+            counts += ~np.any(np.isnan(all_data[fk]["arr"]), axis=1).reshape(-1)
         else:
             idx = [all_times_idx[t] for t in (all_data[fk]["time"] * discretizer).astype(int)]
             arr[i, idx, ...] = all_data[fk]["arr"]
-            counts[idx] += 1
+            counts[idx] += ~np.any(np.isnan(all_data[fk]["arr"]), axis=1).reshape(-1)
     sys.stdout.write("  Done\n")
 
     # arr has shape time, files, XorY, cols
@@ -1129,8 +1133,8 @@ def calc_statistics(INFOS, all_data):
 def do_x_convolution(INFOS, all_data):
     # set up xrange
     width = INFOS["convolute_X"]["function"].fwhm
-    xmin = np.min(all_data["arr"][:, :, 0, :])
-    xmax = np.max(all_data["arr"][:, :, 0, :])
+    xmin = np.nanmin(all_data["arr"][:, :, 0, :])
+    xmax = np.nanmax(all_data["arr"][:, :, 0, :])
     if not INFOS["convolute_X"]["xrange"]:
         xmin = xmin - 2.0 * width
         xmax = xmax + 2.0 * width
