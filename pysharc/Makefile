@@ -39,6 +39,7 @@ install: lib/libsharc.so lib/libsharcnc.so build_ext
 clean:
 	python sharc_setup clean --all
 	rm -f lib/libsharc.so lib/libsharcnc.so
+	rm -f ../lib/*.so
 	rm -f sharc/sharc.*.so
 	rm -f netcdf/*.o
 
