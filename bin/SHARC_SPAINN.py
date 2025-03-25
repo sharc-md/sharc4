@@ -30,6 +30,9 @@ import os
 import shutil
 from io import TextIOWrapper
 
+if int(importlib.metadata.version("schnetpack").split(".")[0]) < 2:
+    raise ImportError("SPaiNN requires schnetpack version >= 2!")
+
 import numpy as np
 from SHARC_FAST import SHARC_FAST
 from spainn.calculator import SPaiNNulator
