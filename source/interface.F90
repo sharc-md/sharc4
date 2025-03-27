@@ -378,7 +378,7 @@ subroutine get_tasks(string, ICALL)
 
     ! write step into tasks
     string = 'step'
-    write(string,'(A,1X,I)') trim(string), traj%step
+    write(string,'(A,1X,I0)') trim(string), traj%step
     ! TODO: add retain
 
 
