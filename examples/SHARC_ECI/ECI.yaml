@@ -1,0 +1,52 @@
+---
+charge: [-2, -1, -6]
+fragments:
+  Fe:
+    atoms: 0
+    interface: GAUSSIAN
+    embedding_interface : GAUSSIAN
+    frozen : false # false
+    refcharge: {-2: 2, -1: 3}
+    embedding_site_state:
+      -2: {Z: 2, M: 1, N: 1}
+      -1: {Z: 3, M: 1, N: 1}
+    aufbau_site_states: [{Z: 2, M: 1, N: 1}, {Z: 3, M: 1, N: 1}]
+    site_states:
+      1: [0, 1, 0]
+      2: [3, 0, 1]
+      3: [0, 7, 0]
+  CN1:
+    atoms: 1-2
+    interface: GAUSSIAN
+    embedding_interface: GAUSSIAN
+    frozen: false
+      ...
+calculation:
+  EHF_maxcycle: 20
+  tQ: 1.e-4
+  tO: 0.95
+  read_children: false
+  excitonic_basis:
+    ECI:
+      0: true
+      1: all
+      2: [ [Fe,CN1], [Fe,CN2], [Fe,CN3], [Fe,CN4], [Fe,bipy] ] # commutative
+    CT:
+      0: true
+      1: [ [Fe,bipy] ] # donor,acceptor (not commutative)
+      2: [ [Fe,Fe, CN1, CN1], [Fe,Fe,CN1,CN2],...] # DDAA
+  active_integrals:
+    J: all
+    K: all
+      # [0,0]: [ [Fe, all], [CN1,all], [CN2,all], ] 
+      # [0,1]: [ [Fe, all], [CN1,all], [CN2,all], ] 
+      # [0,2]: [ [Fe, all], [CN1,all], [CN2,all], ] 
+      # [1,0]: [ [Fe, all], [CN1,all], [CN2,all], ] 
+      # [1,1]: [ [Fe, all], [CN1,all], [CN2,all], ] 
+  # ri: false
+  # auxbasis: def2-svp-jkfit
+
+
+
+
+

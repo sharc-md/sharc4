@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2025 University of Vienna
+#    Copyright (c) 2024 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -23,15 +23,13 @@
 #
 # ******************************************
 
-
-import asyncio
 import inspect
 import os
 import sys
-import traceback
 from importlib import import_module
 from multiprocessing import Manager, Process
 from time import sleep
+import traceback
 
 from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
@@ -43,39 +41,15 @@ class SHARC_HYBRID(SHARC_INTERFACE):
     Abstract base class for SHARC hybrid interfaces
     """
 
-    def __init__(self, *args, fast_queue: bool = False, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-
-        # Select queue type
-        self.run_children = SHARC_HYBRID.run_fast if fast_queue else SHARC_HYBRID.run_queue
-        self.log.debug(f"Fast queue: {fast_queue}")
 
         # Dict of child interfaces
         self._kindergarden = {}
 
     @staticmethod
-    def run_fast(logger, children_dict: dict[str, SHARC_INTERFACE], *args, **kwargs) -> None:
-        """
-        Run all children in an async queue (prefered option for FAST children!)
-
-        logger:         Logger object
-        children_dict:  Dictionary of children that will be executed
-        """
-
-        async def _run_async(label, child):
-            logger.info(f"Run child {label} in async queue.")
-            child.run()
-            child.getQMout()
-
-        async def _gather():
-            tasks = [_run_async(k, v) for k, v in children_dict.items()]
-            await asyncio.gather(*tasks)
-
-        asyncio.run(_gather())
-
-    @staticmethod
-    def run_queue(
-        logger, children_dict: dict[str, SHARC_INTERFACE], ncpu: int, delay: float = 0.1, exit_on_failure: bool = True, indent: str = "" 
+    def run_children(
+        logger, children_dict: dict[str, SHARC_INTERFACE], ncpu: int, delay: float = 0.1, exit_on_failure: bool = True
     ) -> None:
         """
         Run all children in a parallel queue
@@ -86,7 +60,6 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         delay:              Delay time to check if a child can be added to queue, setting it to 0.0 will result
                             in high CPU ussage of the main Python process, but might be desired for very fast children
         exit_on_failure:    Kill all currently running jobs if one job in queue raises exception
-        indent:             String to be prepended to all info prints coming from run_children
         """
         manager = Manager()
         n_used_cpu = manager.Value("i", 0)
@@ -94,12 +67,12 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         qmouts = manager.dict()
 
         def run_a_child(label, n_used_cpu, QMins, QMouts):
-            logger.info(indent+f"Running child {label} on {os.uname()[1]} with pid {os.getpid()} on "+str(children_dict[label].QMin.resources["ncpu"])+" cores")
+            logger.info(f"Run child {label} on {os.uname()[1]} with pid: {os.getpid()}")
             try:
                 children_dict[label]._step_logic()
                 children_dict[label]._request_logic()
                 children_dict[label].QMout.mol = None
-                with InDir(children_dict[label].QMin.resources["pwd"]):
+                with InDir(children_dict[label].QMin.resources['pwd']):
                     children_dict[label].run()
                     children_dict[label].getQMout()
                 if children_dict[label].QMout.mol is not None:
@@ -108,13 +81,15 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                 children_dict[label].write_step_file()
                 QMins[label] = children_dict[label].QMin
                 QMouts[label] = children_dict[label].QMout
-            except BaseException as exc:  # pylint: disable=broad-exception-caught
+            except Exception as exc:
                 logger.error(f"Some exception occured while running child {label}")
                 logger.error(f"Exception type: {type(exc)}")
                 logger.error(f"Exception args: {exc.args}")
                 logger.error(f"Exception message: {str(exc)}")
-                logger.error(indent+traceback.format_exc())
+                logger.error(traceback.format_exc())
                 sys.exit(1)  # Indicate failure of child process
+            except:  # pylint: disable=bare-except
+                logger.error(f"Some system-level exception occured while running child {label}")
             finally:
                 n_used_cpu.value -= children_dict[label].QMin.resources["ncpu"]
 
@@ -127,7 +102,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
         # Add jobs to queue until finished
         processes = []
-        logger.debug("Entering main loop ...")
+        logger.info("Entering main loop ...")
         for label, child in children_dict.items():
             logger.debug(f"Waiting to start child {label}")
             while True:

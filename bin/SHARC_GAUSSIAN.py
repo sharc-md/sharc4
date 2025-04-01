@@ -1123,7 +1123,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             data.append("GFINPUT")
         if QMin.molecule['point_charges']:
             data.append('charge')
-            data.append('prop=(field,read)')
+            if dograd:
+                data.append('prop=(field,read)')
             # TODO: also add prop=(field, read) and give the point charges a second time to get gradients
 
         # data.append("GFPRINT")
@@ -1147,10 +1148,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 pccharge = QMin.coords['pccharge'][a]
                 string += f"{pccoord[0]:16.15f} {pccoord[1]:16.15f} {pccoord[2]:16.15f} {pccharge:16.15f}\n"
             string += "\n"
-            for a in range(len(QMin.coords['pccharge'])):
-                pccoord = QMin.coords['pccoords'][a,:]
-                string += f"{pccoord[0]*au2a:16.15f} {pccoord[1]*au2a:16.15f} {pccoord[2]*au2a:16.15f}\n"
-            string += "\n"
+            if dograd:
+                for a in range(len(QMin.coords['pccharge'])):
+                    pccoord = QMin.coords['pccoords'][a,:]
+                    string += f"{pccoord[0]*au2a:16.15f} {pccoord[1]*au2a:16.15f} {pccoord[2]*au2a:16.15f}\n"
+                string += "\n"
         if QMin.template["functional"].lower() == "dftba":
             string += "@GAUSS_EXEDIR:dftba.prm\n"
         if QMin.template["basis_external"]:
@@ -2497,7 +2499,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
             for keyword, raw_data in raw_matrices.items():
                 self.log.debug(f"{keyword} is {'found' if raw_data is not None else None}")
-                print(keyword, raw_data)
                 match (keyword, raw_data):
                     case (_, None):
                         self.log.warning(f"'{keyword}' not found in:\n\t {fchkfile}")

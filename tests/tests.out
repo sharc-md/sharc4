@@ -1,0 +1,1726 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-8.0.0, pluggy-1.4.0 -- /user/pitesa/miniconda3/bin/python
+cachedir: .pytest_cache
+rootdir: /user/pitesa/sharc_main/tests
+configfile: pytest.ini
+plugins: anyio-4.2.0
+collecting ... collected 70 items
+
+interface/test_abinitio.py::test_setupinterface1 PASSED                  [  1%]
+interface/test_abinitio.py::test_setupinterface2 PASSED                  [  2%]
+interface/test_abinitio.py::test_clean_savedir PASSED                    [  4%]
+interface/test_abinitio.py::test_parsedyson PASSED                       [  5%]
+interface/test_eci.py::test_template SKIPPED (unconditional skip)        [  7%]
+interface/test_eci.py::test_template2 SKIPPED (unconditional skip)       [  8%]
+interface/test_gaussian.py::test_schedule PASSED                         [ 10%]
+interface/test_hybrid.py::test_instantiate_childs PASSED                 [ 11%]
+interface/test_hybrid.py::test_instantiate_childs2 PASSED                [ 12%]
+interface/test_hybrid.py::test_instantiate_childs3 PASSED                [ 14%]
+interface/test_hybrid.py::test_instantiate_args PASSED                   [ 15%]
+interface/test_hybrid.py::test_instantiate_args2 PASSED                  [ 17%]
+interface/test_interface.py::test_states1 PASSED                         [ 18%]
+interface/test_interface.py::test_states2 PASSED                         [ 20%]
+interface/test_interface.py::test_requests1 PASSED                       [ 21%]
+interface/test_interface.py::test_reqests2 PASSED                        [ 22%]
+interface/test_interface.py::test_driver_requests PASSED                 [ 24%]
+interface/test_interface.py::test_resources1 PASSED                      [ 25%]
+interface/test_interface.py::test_resources2 PASSED                      [ 27%]
+interface/test_interface.py::test_save_resources PASSED                  [ 28%]
+interface/test_lvc.py::test_lvc FAILED                                   [ 30%]
+interface/test_lvc.py::test_lvc_pc FAILED                                [ 31%]
+interface/test_mndo.py::test_requests1 PASSED                            [ 32%]
+interface/test_mndo.py::test_requests2 FAILED                            [ 34%]
+interface/test_mndo.py::test_requests3 PASSED                            [ 35%]
+interface/test_mndo.py::test_energies FAILED                             [ 37%]
+interface/test_mndo.py::test_tdms FAILED                                 [ 38%]
+interface/test_mndo.py::test_grads FAILED                                [ 40%]
+interface/test_mndo.py::test_grads_no_pc FAILED                          [ 41%]
+interface/test_mndo.py::test_nacs FAILED                                 [ 42%]
+interface/test_mndo.py::test_nacs_no_pc FAILED                           [ 44%]
+interface/test_mndo.py::test_template PASSED                             [ 45%]
+interface/test_mndo.py::test_template_error PASSED                       [ 47%]
+interface/test_molcas.py::test_molcasversion PASSED                      [ 48%]
+interface/test_molcas.py::test_molcasversion1 PASSED                     [ 50%]
+interface/test_molcas.py::test_get_features PASSED                       [ 51%]
+interface/test_molcas.py::test_get_features2 PASSED                      [ 52%]
+interface/test_molcas.py::test_generate_schedule FAILED                  [ 54%]
+interface/test_molcas.py::test_gettasks_init FAILED                      [ 55%]
+interface/test_molcas.py::test_write_geom PASSED                         [ 57%]
+interface/test_molcas.py::test_get_energy PASSED                         [ 58%]
+interface/test_molcas.py::test_get_socs PASSED                           [ 60%]
+interface/test_molcas.py::test_get_grad PASSED                           [ 61%]
+interface/test_molcas.py::test_get_nac PASSED                            [ 62%]
+interface/test_molcas.py::test_get_dipoles PASSED                        [ 64%]
+interface/test_molcas.py::test_get_overlaps PASSED                       [ 65%]
+interface/test_molcas.py::test_theodore PASSED                           [ 67%]
+interface/test_molcas.py::test_dyson PASSED                              [ 68%]
+interface/test_nwchem.py::test_civecs PASSED                             [ 70%]
+interface/test_nwchem.py::test_movecs PASSED                             [ 71%]
+interface/test_nwchem.py::test_energy PASSED                             [ 72%]
+interface/test_nwchem.py::test_gradients PASSED                          [ 74%]
+interface/test_nwchem.py::test_dm PASSED                                 [ 75%]
+interface/test_orca.py::test_orcaversion PASSED                          [ 77%]
+interface/test_orca.py::test_requests1 PASSED                            [ 78%]
+interface/test_orca.py::test_requests2 FAILED                            [ 80%]
+interface/test_orca.py::test_maps FAILED                                 [ 81%]
+interface/test_orca.py::test_resources PASSED                            [ 82%]
+interface/test_orca.py::test_energies FAILED                             [ 84%]
+interface/test_orca.py::test_buildjobs1 FAILED                           [ 85%]
+interface/test_orca.py::test_buildjobs2 PASSED                           [ 87%]
+interface/test_orca.py::test_read_mos PASSED                             [ 88%]
+interface/test_orca.py::test_get_dets PASSED                             [ 90%]
+interface/test_orca.py::test_ao_matrix PASSED                            [ 91%]
+interface/test_orca.py::test_ao_matrix_overlap PASSED                    [ 92%]
+interface/test_orca.py::test_template PASSED                             [ 94%]
+interface/test_orca.py::test_orb_init PASSED                             [ 95%]
+interface/test_qmin.py::test_copy PASSED                                 [ 97%]
+interface/test_qmin.py::test_copy_recursive PASSED                       [ 98%]
+other/test_resp.py::test_fit_ch2s PASSED                                 [100%]
+
+=================================== FAILURES ===================================
+___________________________________ test_lvc ___________________________________
+
+    def test_lvc():
+        lvc: SHARC_INTERFACE = SHARC_LVC(loglevel=10)
+        lvc.setup_mol(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
+        lvc.read_template(os.path.join(expand_path(PATH), "inputs/LVC.template"))
+>       lvc.read_requests(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
+
+interface/test_lvc.py:20: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_LVC.SHARC_LVC object at 0x145e91c0d390>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+DEBUG: [SHARC_INTERFACE.py:setup_mol():430] Setting up molecule from /user/pitesa/sharc_main/tests/interface/inputs/QM_lvc.in
+DEBUG: [SHARC_INTERFACE.py:setup_mol():485] SAVEDIR set to ./SAVE/
+DEBUG: [SHARC_INTERFACE.py:setup_mol():535] Setup successful.
+including Gammas in calculation: False
+DEBUG: [SHARC_LVC.py:read_template():189] gammas: False
+DEBUG: [SHARC_LVC.py:read_template():207] Reading SOC 1j
+DEBUG: [SHARC_LVC.py:read_template():225] multipolar_fit 24
+DEBUG: [SHARC_INTERFACE.py:read_requests():738] Reading requests from /user/pitesa/sharc_main/tests/interface/inputs/QM_lvc.in
+WARNING: request 'savedir ./SAVE/' not specified! Will not be applied!
+DEBUG: [SHARC_INTERFACE.py:read_requests():770] Parsing request h
+DEBUG: [SHARC_INTERFACE.py:read_requests():770] Parsing request grad
+DEBUG: [SHARC_INTERFACE.py:read_requests():770] Parsing request nacdr
+DEBUG: [SHARC_INTERFACE.py:read_requests():770] Parsing request soc
+WARNING: init request is deprecated and will be ignored!
+DEBUG: [SHARC_INTERFACE.py:_step_logic():801] Starting step logic
+DEBUG: [SHARC_INTERFACE.py:_step_logic():811] stepfile ='/user/pitesa/sharc_main/tests/SAVE/STEP'
+DEBUG: [SHARC_INTERFACE.py:_step_logic():815] last_step =None, self.QMin.save['step']=None
+DEBUG: [SHARC_INTERFACE.py:_request_logic():939] Starting request logic
+DEBUG: [SHARC_INTERFACE.py:_request_logic():942] Creating savedir /user/pitesa/sharc_main/tests/SAVE
+DEBUG: [SHARC_INTERFACE.py:_request_logic():945] LVC: step: 0
+DEBUG: [SHARC_INTERFACE.py:_request_logic():946] overlap: False, phases: False, init: True
+ERROR: Found unsupported request mol, supported requests are {'multipolar_fit', 'overlap', 'point_charges', 'soc', 'dm', 'grad', 'h', 'nacdr'}
+_________________________________ test_lvc_pc __________________________________
+
+    @pytest.mark.slow
+    def test_lvc_pc():
+        lvc: SHARC_INTERFACE = SHARC_LVC(loglevel=10)
+        lvc.setup_mol(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
+        lvc.read_template(os.path.join(expand_path(PATH), "inputs/LVC.template"))
+>       lvc.read_requests(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
+
+interface/test_lvc.py:106: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_LVC.SHARC_LVC object at 0x145e91c0c970>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+DEBUG: [SHARC_INTERFACE.py:setup_mol():430] Setting up molecule from /user/pitesa/sharc_main/tests/interface/inputs/QM_lvc.in
+DEBUG: [SHARC_INTERFACE.py:setup_mol():485] SAVEDIR set to ./SAVE/
+DEBUG: [SHARC_INTERFACE.py:setup_mol():535] Setup successful.
+including Gammas in calculation: False
+DEBUG: [SHARC_LVC.py:read_template():189] gammas: False
+DEBUG: [SHARC_LVC.py:read_template():207] Reading SOC 1j
+DEBUG: [SHARC_LVC.py:read_template():225] multipolar_fit 24
+DEBUG: [SHARC_INTERFACE.py:read_requests():738] Reading requests from /user/pitesa/sharc_main/tests/interface/inputs/QM_lvc.in
+WARNING: request 'savedir ./SAVE/' not specified! Will not be applied!
+DEBUG: [SHARC_INTERFACE.py:read_requests():770] Parsing request h
+DEBUG: [SHARC_INTERFACE.py:read_requests():770] Parsing request grad
+DEBUG: [SHARC_INTERFACE.py:read_requests():770] Parsing request nacdr
+DEBUG: [SHARC_INTERFACE.py:read_requests():770] Parsing request soc
+WARNING: init request is deprecated and will be ignored!
+DEBUG: [SHARC_INTERFACE.py:_step_logic():801] Starting step logic
+DEBUG: [SHARC_INTERFACE.py:_step_logic():811] stepfile ='/user/pitesa/sharc_main/tests/SAVE/STEP'
+DEBUG: [SHARC_INTERFACE.py:_step_logic():815] last_step =None, self.QMin.save['step']=None
+DEBUG: [SHARC_INTERFACE.py:_request_logic():939] Starting request logic
+DEBUG: [SHARC_INTERFACE.py:_request_logic():945] LVC: step: 0
+DEBUG: [SHARC_INTERFACE.py:_request_logic():946] overlap: False, phases: False, init: True
+ERROR: Found unsupported request mol, supported requests are {'multipolar_fit', 'overlap', 'point_charges', 'soc', 'dm', 'grad', 'h', 'nacdr'}
+________________________________ test_requests2 ________________________________
+
+    def test_requests2():
+        tests = [os.path.join(PATH, "inputs/mndo/QM1.in")]
+        for i in tests:
+            test_interface = SHARC_MNDO()
+            test_interface.setup_mol(i)
+            test_interface._read_template = True
+            test_interface._read_resources = True
+>           test_interface.read_requests(i)
+
+interface/test_mndo.py:153: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_MNDO.SHARC_MNDO object at 0x145e76e9ff40>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: init request is deprecated and will be ignored!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'molden', 'dm', 'grad', 'phases', 'h', 'nacdr'}
+________________________________ test_energies _________________________________
+
+    def test_energies():
+        tests = [
+            (
+                os.path.join(PATH, "inputs/mndo/MNDO1.out"),
+                os.path.join(PATH, "inputs/mndo/MNDO1.template"),
+                os.path.join(PATH, "inputs/mndo/QM1.in"),
+                {
+                    (1, 1): -14.455173216195169,
+                    (1, 2): -14.174554972348169,
+                    (1, 3): -14.14113048726381,
+                    (1, 4): -13.90633425352368
+                },
+            ),
+            (
+                os.path.join(PATH, "inputs/mndo/MNDO3.out"),
+                os.path.join(PATH, "inputs/mndo/MNDO3.template"),
+                os.path.join(PATH, "inputs/mndo/QM3.in"),
+                {
+                    (1, 1): -14.455209046767495,
+                    (1, 2): -14.174552951136395,
+                    (1, 3): -14.141157534752255,
+                    (1, 4): -13.906299966422159}
+            )
+        ]
+        for outfile, template, qmin, energies in tests:
+>           get_energy(outfile, template, qmin, energies)
+
+interface/test_mndo.py:188: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+interface/test_mndo.py:57: in get_energy
+    test_interface.read_requests(qmin)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_MNDO.SHARC_MNDO object at 0x145e76e9e320>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: 'dstep' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'grads' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'mminp' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'numatm' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+paddingstates not specified setting default, [0]
+WARNING: init request is deprecated and will be ignored!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'molden', 'dm', 'grad', 'phases', 'h', 'nacdr'}
+__________________________________ test_tdms ___________________________________
+
+    def test_tdms():
+        tests = [
+            (
+                os.path.join(PATH, "inputs/mndo/MNDO1.out"),
+                os.path.join(PATH, "inputs/mndo/MNDO1.template"),
+                os.path.join(PATH, "inputs/mndo/QM1.in"),
+                np.array([[[0.0, 0.0, 0.0, -0.0], [0.0, 0.0, -0.0, -0.0], [0.0, -0.0, 0.0, -0.0], [-0.0, -0.0, -0.0, 0.0]], [[0.0, 0.0, 0.12200519721599998, 0.0], [0.0, 0.0, 0.07015635244799999, -0.0], [0.12200519721599998, 0.07015635244799999, -0.0, 0.013038738384], [0.0, -0.0, 0.013038738384, 0.0]], [[1.475570561136, -1.4476048890239999, 0.0, -0.26226557246399995], [-1.4476048890239999, 1.210667259648, 0.0, 1.1842998058079999], [0.0, 0.0, 1.5170195769119998, 0.0], [-0.26226557246399995, 1.1842998058079999, 0.0, 4.330066692672]]]),
+            )
+        ]
+        for outfile, template, qmin, tdms in tests:
+>           get_tdm(outfile, template, qmin, tdms)
+
+interface/test_mndo.py:200: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+interface/test_mndo.py:70: in get_tdm
+    test_interface.read_requests(qmin)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_MNDO.SHARC_MNDO object at 0x145e77152ec0>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: 'dstep' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'grads' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'mminp' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'numatm' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+paddingstates not specified setting default, [0]
+WARNING: init request is deprecated and will be ignored!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'molden', 'dm', 'grad', 'phases', 'h', 'nacdr'}
+__________________________________ test_grads __________________________________
+
+    def test_grads():
+        tests = [
+            (
+                os.path.join(PATH, "inputs/mndo/fort1.15"),
+                os.path.join(PATH, "inputs/mndo/MNDO1.template"),
+                os.path.join(PATH, "inputs/mndo/QM1_pc.in"),
+                np.array([[[0.0, -0.0, -0.09494103284884164], [-0.0, -0.0, 0.06534109398831474], [-0.001668924263116929, 0.0, 0.0038429067260890206], [0.03751611538637951, -0.0, 0.010957058487696165], [-0.03751611538637951, -0.0, 0.010957058487696165], [0.001668924263116929, -0.0, 0.0038429067260890206]], [[-0.0, -0.0, 0.14141621162988025], [-0.0, -0.0, -0.1747717086527036], [-0.004582898662060879, 0.0, 0.004437826510784253], [0.040076504350755215, 0.0, 0.012239922000627434], [-0.040076504350755215, 0.0, 0.012239922000627434], [0.004582898662060879, -0.0, 0.004437826510784253]], [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[-0.0, -0.0, 0.21335615313775658], [0.0, 0.0, -0.20293514396518275], [0.020592529326051, 0.0, -0.006759098992601753], [0.00980264576871046, -0.0, 0.00154859440631485], [-0.00980264576871046, -0.0, 0.00154859440631485], [-0.020592529326051, 0.0, -0.006759098992601753]]]),
+                np.array([[[0., 0., 0.]], [[0., 0., 0.]], [[0., 0., 0.]], [[0., 0., 0.]]]),
+            )
+        ]
+        for outfile, template, qmin, grads, grads_pc in tests:
+>           get_grads(outfile, template, qmin, grads, grads_pc)
+
+interface/test_mndo.py:213: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+interface/test_mndo.py:83: in get_grads
+    test_interface.read_requests(qmin)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_MNDO.SHARC_MNDO object at 0x145e9223ffd0>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: 'dstep' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'grads' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'mminp' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'numatm' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+paddingstates not specified setting default, [0]
+WARNING: init request is deprecated and will be ignored!
+WARNING: request 'point_charges $SHARC/../tests/interface/inputs/mndo/pcfile' not specified! Will not be applied!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'molden', 'dm', 'grad', 'phases', 'h', 'nacdr'}
+_______________________________ test_grads_no_pc _______________________________
+
+    def test_grads_no_pc():
+        tests = [
+            (
+                os.path.join(PATH, "inputs/mndo/fort1_no_pc.15"),
+                os.path.join(PATH, "inputs/mndo/MNDO1_no_pc.template"),
+                os.path.join(PATH, "inputs/mndo/QM1.in"),
+                np.array([[[0.0, -0.0, -0.09494103284884164], [-0.0, -0.0, 0.06534109398831474], [-0.001668924263116929, 0.0, 0.0038429067260890206], [0.03751611538637951, -0.0, 0.010957058487696165], [-0.03751611538637951, -0.0, 0.010957058487696165], [0.001668924263116929, -0.0, 0.0038429067260890206]], [[-0.0, -0.0, 0.14141621162988025], [-0.0, -0.0, -0.1747717086527036], [-0.004582898662060879, 0.0, 0.004437826510784253], [0.040076504350755215, 0.0, 0.012239922000627434], [-0.040076504350755215, 0.0, 0.012239922000627434], [0.004582898662060879, -0.0, 0.004437826510784253]], [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[-0.0, -0.0, 0.21335615313775658], [0.0, 0.0, -0.20293514396518275], [0.020592529326051, 0.0, -0.006759098992601753], [0.00980264576871046, -0.0, 0.00154859440631485], [-0.00980264576871046, -0.0, 0.00154859440631485], [-0.020592529326051, 0.0, -0.006759098992601753]]]),
+            )
+        ]
+        for outfile, template, qmin, grads in tests:
+>           get_grads_no_pc(outfile, template, qmin, grads)
+
+interface/test_mndo.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+interface/test_mndo.py:95: in get_grads_no_pc
+    test_interface.read_requests(qmin)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_MNDO.SHARC_MNDO object at 0x145e76b65030>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: 'dstep' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'grads' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'mminp' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'numatm' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+paddingstates not specified setting default, [0]
+WARNING: init request is deprecated and will be ignored!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'molden', 'dm', 'grad', 'phases', 'h', 'nacdr'}
+__________________________________ test_nacs ___________________________________
+
+    def test_nacs():
+        tests = [
+            (
+                os.path.join(PATH, "inputs/mndo/MNDO1.out"),
+                os.path.join(PATH, "inputs/mndo/fort1.15"),
+                os.path.join(PATH, "inputs/mndo/MNDO1.template"),
+                os.path.join(PATH, "inputs/mndo/QM1_pc.in"),
+                np.array([[[[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 1.06982799e-10,  0.00000000e+00,  6.69198835e-04],
+                            [-2.76472403e-11,  0.00000000e+00,  1.06435412e-03],
+                            [ 2.41882180e-04,  0.00000000e+00, -9.87740665e-05],
+                            [-2.80138012e-04, -0.00000000e+00, -1.05674212e-04],
+                            [ 2.80138013e-04, -0.00000000e+00, -1.05674213e-04],
+                            [-2.41882260e-04, -0.00000000e+00, -9.87740728e-05]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 1.98209578e-11, -0.00000000e+00, -3.18993011e-04],
+                            [-5.22412842e-12, -0.00000000e+00,  5.85948506e-04],
+                            [ 1.13467467e-05,  0.00000000e+00, -5.02385224e-06],
+                            [-1.27851694e-05,  0.00000000e+00, -5.34252637e-06],
+                            [ 1.27851696e-05, -0.00000000e+00, -5.34252668e-06],
+                            [-1.13467616e-05,  0.00000000e+00, -5.02385347e-06]]],
+    
+    
+                            [[[-1.06982799e-10, -0.00000000e+00, -6.69198835e-04],
+                            [ 2.76472403e-11, -0.00000000e+00, -1.06435412e-03],
+                            [-2.41882180e-04, -0.00000000e+00,  9.87740665e-05],
+                            [ 2.80138012e-04,  0.00000000e+00,  1.05674212e-04],
+                            [-2.80138013e-04,  0.00000000e+00,  1.05674213e-04],
+                            [ 2.41882260e-04,  0.00000000e+00,  9.87740728e-05]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[-8.96050321e-11,  0.00000000e+00,  2.02505686e-03],
+                            [ 2.32658680e-11,  0.00000000e+00, -3.49317977e-03],
+                            [-2.26166025e-04,  0.00000000e+00,  8.34285497e-05],
+                            [ 2.53549841e-04, -0.00000000e+00,  9.74009746e-05],
+                            [-2.53549841e-04,  0.00000000e+00,  9.74009755e-05],
+                            [ 2.26166091e-04, -0.00000000e+00,  8.34285551e-05]]],
+    
+    
+                            [[[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]]],
+    
+    
+                            [[[-1.98209578e-11,  0.00000000e+00,  3.18993011e-04],
+                            [ 5.22412842e-12,  0.00000000e+00, -5.85948506e-04],
+                            [-1.13467467e-05, -0.00000000e+00,  5.02385224e-06],
+                            [ 1.27851694e-05, -0.00000000e+00,  5.34252637e-06],
+                            [-1.27851696e-05,  0.00000000e+00,  5.34252668e-06],
+                            [ 1.13467616e-05, -0.00000000e+00,  5.02385347e-06]],
+    
+                            [[ 8.96050321e-11, -0.00000000e+00, -2.02505686e-03],
+                            [-2.32658680e-11, -0.00000000e+00,  3.49317977e-03],
+                            [ 2.26166025e-04, -0.00000000e+00, -8.34285497e-05],
+                            [-2.53549841e-04,  0.00000000e+00, -9.74009746e-05],
+                            [ 2.53549841e-04, -0.00000000e+00, -9.74009755e-05],
+                            [-2.26166091e-04,  0.00000000e+00, -8.34285551e-05]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]]]]),
+                np.array([[[[ 0. , 0. , 0.]],
+                            [[ 0. , 0. , 0.]],
+                            [[ 0. , 0. , 0.]],
+                            [[ 0. , 0. , 0.]]],
+    
+                            [[[-0. ,-0. ,-0.]],
+                            [[ 0. , 0. , 0.]],
+                            [[ 0.  ,0.  ,0.]],
+                            [[ 0. , 0. , 0.]]],
+    
+                            [[[ 0. , 0. , 0.]],
+                            [[ 0.  ,0.  ,0.]],
+                            [[ 0. , 0. , 0.]],
+                            [[ 0. , 0. , 0.]]],
+    
+                            [[[-0., -0. ,-0.]],
+                            [[-0. ,-0. , -0.]],
+                            [[ 0. , 0.  ,0.]],
+                            [[ 0.  ,0. , 0.]]]]),
+            )
+        ]
+        for logfile, fortfile, template, qmin, nacs, nacs_pc in tests:
+>           get_nacs(logfile, fortfile, template, qmin, nacs, nacs_pc)
+
+interface/test_mndo.py:370: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+interface/test_mndo.py:105: in get_nacs
+    test_interface.read_requests(qmin)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_MNDO.SHARC_MNDO object at 0x145e91c0fd90>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: 'dstep' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'grads' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'mminp' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'numatm' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+paddingstates not specified setting default, [0]
+WARNING: init request is deprecated and will be ignored!
+WARNING: request 'point_charges $SHARC/../tests/interface/inputs/mndo/pcfile' not specified! Will not be applied!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'molden', 'dm', 'grad', 'phases', 'h', 'nacdr'}
+_______________________________ test_nacs_no_pc ________________________________
+
+    def test_nacs_no_pc():
+        tests = [
+            (
+                os.path.join(PATH, "inputs/mndo/MNDO1_no_pc.out"),
+                os.path.join(PATH, "inputs/mndo/fort1_no_pc.15"),
+                os.path.join(PATH, "inputs/mndo/MNDO1_no_pc.template"),
+                os.path.join(PATH, "inputs/mndo/QM1.in"),
+                np.array([[[[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 1.06982799e-10,  0.00000000e+00,  6.69198835e-04],
+                            [-2.76472403e-11,  0.00000000e+00,  1.06435412e-03],
+                            [ 2.41882180e-04,  0.00000000e+00, -9.87740665e-05],
+                            [-2.80138012e-04, -0.00000000e+00, -1.05674212e-04],
+                            [ 2.80138013e-04, -0.00000000e+00, -1.05674213e-04],
+                            [-2.41882260e-04, -0.00000000e+00, -9.87740728e-05]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 1.98209578e-11, -0.00000000e+00, -3.18993011e-04],
+                            [-5.22412842e-12, -0.00000000e+00,  5.85948506e-04],
+                            [ 1.13467467e-05,  0.00000000e+00, -5.02385224e-06],
+                            [-1.27851694e-05,  0.00000000e+00, -5.34252637e-06],
+                            [ 1.27851696e-05, -0.00000000e+00, -5.34252668e-06],
+                            [-1.13467616e-05,  0.00000000e+00, -5.02385347e-06]]],
+    
+    
+                            [[[-1.06982799e-10, -0.00000000e+00, -6.69198835e-04],
+                            [ 2.76472403e-11, -0.00000000e+00, -1.06435412e-03],
+                            [-2.41882180e-04, -0.00000000e+00,  9.87740665e-05],
+                            [ 2.80138012e-04,  0.00000000e+00,  1.05674212e-04],
+                            [-2.80138013e-04,  0.00000000e+00,  1.05674213e-04],
+                            [ 2.41882260e-04,  0.00000000e+00,  9.87740728e-05]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[-8.96050321e-11,  0.00000000e+00,  2.02505686e-03],
+                            [ 2.32658680e-11,  0.00000000e+00, -3.49317977e-03],
+                            [-2.26166025e-04,  0.00000000e+00,  8.34285497e-05],
+                            [ 2.53549841e-04, -0.00000000e+00,  9.74009746e-05],
+                            [-2.53549841e-04,  0.00000000e+00,  9.74009755e-05],
+                            [ 2.26166091e-04, -0.00000000e+00,  8.34285551e-05]]],
+    
+    
+                            [[[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]]],
+    
+    
+                            [[[-1.98209578e-11,  0.00000000e+00,  3.18993011e-04],
+                            [ 5.22412842e-12,  0.00000000e+00, -5.85948506e-04],
+                            [-1.13467467e-05, -0.00000000e+00,  5.02385224e-06],
+                            [ 1.27851694e-05, -0.00000000e+00,  5.34252637e-06],
+                            [-1.27851696e-05,  0.00000000e+00,  5.34252668e-06],
+                            [ 1.13467616e-05, -0.00000000e+00,  5.02385347e-06]],
+    
+                            [[ 8.96050321e-11, -0.00000000e+00, -2.02505686e-03],
+                            [-2.32658680e-11, -0.00000000e+00,  3.49317977e-03],
+                            [ 2.26166025e-04, -0.00000000e+00, -8.34285497e-05],
+                            [-2.53549841e-04,  0.00000000e+00, -9.74009746e-05],
+                            [ 2.53549841e-04, -0.00000000e+00, -9.74009755e-05],
+                            [-2.26166091e-04,  0.00000000e+00, -8.34285551e-05]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]],
+    
+                            [[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00],
+                            [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00]]]]),
+            )
+        ]
+        for logfile, fortfile, template, qmin, nacs in tests:
+>           get_nacs_no_pc(logfile, fortfile, template, qmin, nacs)
+
+interface/test_mndo.py:496: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+interface/test_mndo.py:124: in get_nacs_no_pc
+    test_interface.read_requests(qmin)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_MNDO.SHARC_MNDO object at 0x145e770e8040>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: 'dstep' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'grads' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'mminp' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+WARNING: 'numatm' not in template keywords: charge, paddingstates, density_calculation_methods, tCI, nciref, kitscf, ici1, ici2, act_orbs, movo, kharge, imomap, disp, iop
+paddingstates not specified setting default, [0]
+WARNING: init request is deprecated and will be ignored!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'molden', 'dm', 'grad', 'phases', 'h', 'nacdr'}
+____________________________ test_generate_schedule ____________________________
+
+    def test_generate_schedule():
+        """
+        Test if joblist contains all job keys
+        """
+        tests = [
+            (
+                os.path.join(PATH, "inputs/molcas/schedule/QM1.in"),
+                [{"master"}, {"grad_1_1", "grad_1_2", "grad_1_3", "grad_1_4", "grad_2_1", "grad_2_2"}],
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/schedule/QM2.in"),
+                [
+                    {"master"},
+                    {
+                        "grad_1_1",
+                        "grad_1_2",
+                        "grad_1_3",
+                        "grad_1_4",
+                        "grad_2_1",
+                        "grad_2_2",
+                        "nacdr_1_1_1_2",
+                        "nacdr_1_1_1_3",
+                        "nacdr_1_1_1_4",
+                        "nacdr_1_2_1_3",
+                        "nacdr_1_2_1_4",
+                        "nacdr_1_3_1_4",
+                        "nacdr_2_1_2_2",
+                    },
+                ],
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/schedule/QM3.in"),
+                [{"master"}, {"grad_1_1", "grad_1_2", "grad_1_3", "grad_1_4", "grad_2_1", "grad_2_2", "nacdr_1_1_1_2"}],
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/schedule/QM4.in"),
+                [{"master"}, {"grad_1_1", "grad_2_1", "nacdr_1_1_1_2"}],
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/schedule/QM5.in"),
+                [{"master"}],
+            ),
+        ]
+    
+        for qmin, ref in tests:
+            test_interface = SHARC_MOLCAS()
+            test_interface.setup_mol(qmin)
+            test_interface._read_template = True
+            test_interface._read_resources = True
+            test_interface.setup_interface()
+>           test_interface.read_requests(qmin)
+
+interface/test_molcas.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../bin/SHARC_MOLCAS.py:956: in read_requests
+    super().read_requests(requests_file)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_MOLCAS.SHARC_MOLCAS object at 0x145e91c0d720>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+charge not specified setting default, [0, 1]
+paddingstates not specified setting default, [0, 0]
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'multipolar_fit', 'point_charges', 'ion', 'density_matrices', 'basis_set', 'theodore', 'wave_functions', 'molden', 'dm', 'grad', 'phases', 'grad_pc', 'h', 'soc', 'nacdr'}
+______________________________ test_gettasks_init ______________________________
+
+    def test_gettasks_init():
+        # Test different requests from INIT
+        # Currently no always_guess, always_orb_init
+        tests = [
+            (
+                os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+                os.path.join(PATH, "inputs/molcas/tasks/template_casscf"),
+                {
+                    "master": (
+                        0,
+                        [
+                            ["gateway"],
+                            ["seward"],
+                            ["rasscf", 1, 4, False, False],
+                            ["copy", "MOLCAS.rasscf.molden", "MOLCAS.1.molden"],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
+                            ["rasscf", 2, 2, False, False],
+                            ["copy", "MOLCAS.rasscf.molden", "MOLCAS.2.molden"],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["rassi", "dm", [4]],
+                            ["link", "MOLCAS.2.JobIph", "JOB001"],
+                            ["rassi", "dm", [2]],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.2.JobIph", "JOB002"],
+                            ["rassi", "soc", [4, 2]],
+                        ],
+                    ),
+                    "grad_1_1": (
+                        1,
+                        [
+                            ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
+                            ["rasscf", 1, 4, True, False],
+                            ["mclr", 0.0001, "sala=1"],
+                            ["alaska"],
+                        ],
+                    ),
+                },
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/tasks/QM2.in"),
+                os.path.join(PATH, "inputs/molcas/tasks/template_casscf"),
+                {
+                    "master": (
+                        0,
+                        [
+                            ["gateway"],
+                            ["seward"],
+                            ["rasscf", 1, 4, False, False],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
+                            ["rasscf", 2, 2, False, False],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.2.JobIph", "JOB002"],
+                            ["rassi", "", [4, 2]],
+                        ],
+                    )
+                },
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/tasks/QM3.in"),
+                os.path.join(PATH, "inputs/molcas/tasks/template_casscf"),
+                {
+                    "master": (
+                        0,
+                        [
+                            ["gateway"],
+                            ["seward"],
+                            ["rasscf", 1, 4, False, False],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
+                            ["rasscf", 2, 2, False, False],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.2.JobIph", "JOB002"],
+                            ["rassi", "", [4, 2]],
+                        ],
+                    ),
+                    "grad_1_2": (
+                        1,
+                        [
+                            ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
+                            ["rasscf", 1, 4, True, False],
+                            ["mclr", 0.0001, "sala=2"],
+                            ["alaska"],
+                        ],
+                    ),
+                },
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/tasks/QM4.in"),
+                os.path.join(PATH, "inputs/molcas/tasks/template_casscf"),
+                {
+                    "master": (
+                        0,
+                        [
+                            ["gateway"],
+                            ["seward"],
+                            ["rasscf", 1, 4, False, False],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
+                            ["rasscf", 2, 2, False, False],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["rassi", "dm", [4]],
+                            ["link", "MOLCAS.2.JobIph", "JOB001"],
+                            ["rassi", "dm", [2]],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.2.JobIph", "JOB002"],
+                            ["rassi", "soc", [4, 2]],
+                        ],
+                    ),
+                    "grad_1_1": (
+                        1,
+                        [
+                            ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
+                            ["rasscf", 1, 4, True, False],
+                            ["mclr", 0.0001, "sala=1"],
+                            ["alaska"],
+                        ],
+                    ),
+                    "nacdr_1_1_1_2": (
+                        1,
+                        [
+                            ["copy", "$master_path/MOLCAS.1.JobIph", "MOLCAS.1.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                            ["rasscf", 1, 4, True, False],
+                            ["mclr", 0.0001, "nac=1 2"],
+                            ["alaska"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.JobIph", "JOB002"],
+                            ["rassi", "overlap", [4, 4]],
+                        ],
+                    ),
+                    "nacdr_1_1_1_3": (
+                        1,
+                        [
+                            ["copy", "$master_path/MOLCAS.1.JobIph", "MOLCAS.1.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOBOLD"],
+                            ["rasscf", 1, 4, True, False],
+                            ["mclr", 0.0001, "nac=1 3"],
+                            ["alaska"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.JobIph", "JOB002"],
+                            ["rassi", "overlap", [4, 4]],
+                        ],
+                    ),
+                },
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/schedule/QM5.in"),
+                os.path.join(PATH, "inputs/molcas/tasks/template_caspt2"),
+                {
+                    "master": (
+                        0,
+                        [
+                            ["gateway"],
+                            ["seward"],
+                            ["rasscf", 1, 4, False, False],
+                            ["caspt2", 1, 4, "caspt2"],
+                            ["copy", "MOLCAS.JobMix", "MOLCAS.1.JobIph"],
+                            ["rasscf", 2, 2, False, False],
+                            ["caspt2", 2, 2, "caspt2"],
+                            ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["rassi", "dm", [4]],
+                            ["link", "MOLCAS.2.JobIph", "JOB001"],
+                            ["rassi", "dm", [2]],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.2.JobIph", "JOB002"],
+                            ["rassi", "soc", [4, 2]],
+                        ],
+                    ),
+                },
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/tasks/QM4.in"),
+                os.path.join(PATH, "inputs/molcas/tasks/template_mscaspt2"),
+                {
+                    "master": (
+                        0,
+                        [
+                            ["gateway"],
+                            ["seward"],
+                            ["rasscf", 1, 4, False, False],
+                            ["caspt2", 1, 4, "ms-caspt2"],
+                            ["copy", "MOLCAS.JobMix", "MOLCAS.1.JobIph"],
+                            ["rasscf", 2, 2, False, False],
+                            ["caspt2", 2, 2, "ms-caspt2"],
+                            ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["rassi", "dm", [4]],
+                            ["link", "MOLCAS.2.JobIph", "JOB001"],
+                            ["rassi", "dm", [2]],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.2.JobIph", "JOB002"],
+                            ["rassi", "soc", [4, 2]],
+                        ],
+                    ),
+                    "grad_1_3": (
+                        1,
+                        [
+                            ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
+                            ["rasscf", 1, 4, True, False],
+                            ["caspt2", 1, 4, "ms-caspt2", "GRDT\nrlxroot = 3"],
+                            ["mclr", 0.0001],
+                            ["alaska"],
+                        ],
+                    ),
+                    "nacdr_2_1_2_2": (
+                        1,
+                        [
+                            ["copy", "$master_path/MOLCAS.2.JobIph", "MOLCAS.2.JobIph"],
+                            ["link", "MOLCAS.2.JobIph", "JOBOLD"],
+                            ["rasscf", 2, 2, True, False],
+                            ["caspt2", 2, 2, "ms-caspt2", "GRDT\nnac = 1 2"],
+                            ["alaska", 1, 2],
+                            ["link", "MOLCAS.2.JobIph", "JOB001"],
+                            ["link", "MOLCAS.JobIph", "JOB002"],
+                            ["rassi", "overlap", [2, 2]],
+                        ],
+                    ),
+                },
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+                os.path.join(PATH, "inputs/molcas/tasks/template_cmspdft"),
+                {
+                    "master": (
+                        0,
+                        [
+                            ["gateway"],
+                            ["seward"],
+                            ["rasscf", 1, 4, False, False, ["CMSI"]],
+                            ["copy", "MOLCAS.rasscf.molden", "MOLCAS.1.molden"],
+                            ["mcpdft", ["KSDFT=t:pbe", "noGrad", "MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.1.JobIph"],
+                            ["rasscf", 2, 2, False, False, ["CMSI"]],
+                            ["copy", "MOLCAS.rasscf.molden", "MOLCAS.2.molden"],
+                            ["mcpdft", ["KSDFT=t:pbe", "noGrad", "MSPDFT", "WJOB", "CMMI=0", "CMSS=Do_Rotate.txt", "CMTH=1.0d-10"]],
+                            ["copy", "MOLCAS.JobIph", "MOLCAS.2.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["rassi", "dm", [4]],
+                            ["link", "MOLCAS.2.JobIph", "JOB001"],
+                            ["rassi", "dm", [2]],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.2.JobIph", "JOB002"],
+                            ["rassi", "soc", [4, 2]],
+                        ],
+                    ),
+                    "grad_1_1": (
+                        1,
+                        [
+                            ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
+                            ["rasscf", 1, 4, True, False, ["RLXROOT=1", "CMSI"]],
+                            ["mcpdft", ["KSDFT=t:pbe", "GRAD", "MSPDFT", "WJOB"]],
+                            ["alaska", 1],
+                        ],
+                    ),
+                },
+            ),
+            (
+                os.path.join(PATH, "inputs/molcas/tasks/QM1.in"),
+                os.path.join(PATH, "inputs/molcas/tasks/template_xmscaspt2"),
+                {
+                    "master": (
+                        0,
+                        [
+                            ["gateway"],
+                            ["seward"],
+                            ["rasscf", 1, 4, False, False],
+                            ["copy", "MOLCAS.rasscf.molden", "MOLCAS.1.molden"],
+                            ["caspt2", 1, 4, "xms-caspt2"],
+                            ["copy", "MOLCAS.JobMix", "MOLCAS.1.JobIph"],
+                            ["rasscf", 2, 2, False, False],
+                            ["copy", "MOLCAS.rasscf.molden", "MOLCAS.2.molden"],
+                            ["caspt2", 2, 2, "xms-caspt2"],
+                            ["copy", "MOLCAS.JobMix", "MOLCAS.2.JobIph"],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["rassi", "dm", [4]],
+                            ["link", "MOLCAS.2.JobIph", "JOB001"],
+                            ["rassi", "dm", [2]],
+                            ["link", "MOLCAS.1.JobIph", "JOB001"],
+                            ["link", "MOLCAS.2.JobIph", "JOB002"],
+                            ["rassi", "soc", [4, 2]],
+                        ],
+                    ),
+                    "grad_1_1": (
+                        1,
+                        [
+                            ["copy", "$master_path/MOLCAS.1.JobIph", "JOBOLD"],
+                            ["rasscf", 1, 4, True, False],
+                            ["caspt2", 1, 4, "xms-caspt2", "GRDT\nrlxroot = 1"],
+                            ["mclr", 0.0001],
+                            ["alaska"],
+                        ],
+                    ),
+                },
+            ),
+        ]
+    
+        with open("SAVE/MOLCAS.1.JobIph", "w") as one, open("SAVE/MOLCAS.2.JobIph", "w") as two:
+            one.write("1")
+            two.write("1")
+        for qmin, templ, ref in tests:
+            test_interface = SHARC_MOLCAS()
+            test_interface.setup_mol(qmin)
+            test_interface.read_template(templ)
+            test_interface.QMin.template["ipea"] = 0.0
+            test_interface._read_resources = True
+>           test_interface.read_requests(qmin)
+
+interface/test_molcas.py:426: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../bin/SHARC_MOLCAS.py:956: in read_requests
+    super().read_requests(requests_file)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_MOLCAS.SHARC_MOLCAS object at 0x145e76dc39a0>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: 'rootpad' not in /user/pitesa/sharc_main/tests/interface/inputs/molcas/tasks/template_casscf keywords: charge, paddingstates, density_calculation_methods, tCI, basis, baslib, nactel, ras1, ras2, ras3, inactive, roots, method, functional, ipea, imaginary, frozen, gradaccudefault, gradaccumax, pcmset, pcmstate, iterations, cholesky_accu, rasscf_thrs
+WARNING: init request is deprecated and will be ignored!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'multipolar_fit', 'point_charges', 'ion', 'density_matrices', 'basis_set', 'theodore', 'wave_functions', 'molden', 'dm', 'grad', 'phases', 'grad_pc', 'h', 'soc', 'nacdr'}
+________________________________ test_requests2 ________________________________
+
+    def test_requests2():
+        tests = ["inputs/orca_requests"]
+        for i in tests:
+            test_interface = SHARC_ORCA()
+            test_interface.setup_mol(os.path.join(PATH, i))
+            print(test_interface.QMin.maps["statemap"])
+            test_interface._read_template = True
+            test_interface._read_resources = True
+>           test_interface.read_requests(os.path.join(PATH, i))
+
+interface/test_orca.py:74: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../bin/SHARC_ORCA.py:1024: in read_requests
+    super().read_requests(requests_file)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_ORCA.SHARC_ORCA object at 0x145e77153250>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: No Unit specified assuming Angstrom!
+{1: [1, 1, 0.0], 2: [3, 1, -1.0], 3: [3, 1, 0.0], 4: [3, 1, 1.0]}
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'ion', 'density_matrices', 'basis_set', 'theodore', 'wave_functions', 'molden', 'dm', 'grad', 'phases', 'grad_pc', 'h', 'soc'}
+__________________________________ test_maps ___________________________________
+
+    def test_maps():
+        tests = [
+            (
+                "inputs/QM0.in",
+                {
+                    "multmap": {1: 1, 3: 1, -1: [1, 3], 2: 2, -2: [2]},
+                    "ionmap": [(1, 1, 2, 2), (2, 2, 3, 1)],
+                    "gsmap": {
+                        1: 1,
+                        2: 1,
+                        3: 1,
+                        4: 4,
+                        5: 4,
+                        6: 6,
+                        7: 6,
+                        8: 1,
+                        9: 1,
+                        10: 1,
+                        11: 1,
+                        12: 1,
+                        13: 1,
+                        14: 1,
+                        15: 1,
+                        16: 1,
+                        17: 1,
+                        18: 1,
+                        19: 1,
+                        20: 1,
+                        21: 1,
+                        22: 1,
+                    },
+                },
+            )
+        ]
+    
+        for path, maps in tests:
+>           setup_interface(os.path.join(PATH, path), maps)
+
+interface/test_orca.py:113: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+interface/test_orca.py:17: in setup_interface
+    test_interface.read_requests(path)
+../bin/SHARC_ORCA.py:1024: in read_requests
+    super().read_requests(requests_file)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_ORCA.SHARC_ORCA object at 0x145e76b66590>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: init request is deprecated and will be ignored!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'ion', 'density_matrices', 'basis_set', 'theodore', 'wave_functions', 'molden', 'dm', 'grad', 'phases', 'grad_pc', 'h', 'soc'}
+________________________________ test_energies _________________________________
+
+    def test_energies():
+        tests = [
+            (
+                "inputs/orca1.out",
+                "inputs/orca_template",
+                "inputs/QM1.in",
+                [1, 3],
+                {
+                    (1, 1): -550.164846079,
+                    (1, 2): -550.065349079,
+                    (1, 3): -550.051038079,
+                    (1, 4): -549.960953079,
+                    (1, 5): -549.902495079,
+                    (3, 1): -550.096449079,
+                    (3, 2): -550.090568079,
+                    (3, 3): -550.074080079,
+                    (3, 4): -549.942447079,
+                    (3, 5): -549.936124079,
+                },
+            ),
+            (
+                "inputs/orca1-2.out",
+                "inputs/orca_template",
+                "inputs/QM1.in",
+                [2],
+                {(2, 1): -549.725632289},
+            ),
+            (
+                "inputs/orca3.out",
+                "inputs/orca_template",
+                "inputs/orca3.in",
+                [2],
+                {
+                    (2, 1): -549.725632289,
+                    (2, 2): -549.691766289,
+                    (2, 3): -549.690712289,
+                    (2, 4): -549.639773289,
+                    (2, 5): -549.631470289,
+                },
+            ),
+            ("inputs/orca4.out", "inputs/orca_template", "inputs/orca4.in", [4], {(4, 1): -549.649784479, (4, 2): -549.641911479}),
+        ]
+        for outfile, template, qmin, mults, energies in tests:
+>           get_energy(
+                os.path.join(PATH, outfile),
+                os.path.join(PATH, template),
+                os.path.join(PATH, qmin),
+                mults,
+                energies,
+            )
+
+interface/test_orca.py:176: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+interface/test_orca.py:40: in get_energy
+    test_interface.read_requests(qmin)
+../bin/SHARC_ORCA.py:1024: in read_requests
+    super().read_requests(requests_file)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_ORCA.SHARC_ORCA object at 0x145e76ea1f30>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: 'grid' not in /user/pitesa/sharc_main/tests/interface/inputs/orca_template keywords: charge, paddingstates, density_calculation_methods, tCI, no_tda, picture_change, basis, auxbasis, functional, dispersion, ri, scf, keys, paste_input_file, frozen, maxiter, hfexchange, intacc, unrestricted_triplets, neglected_gradient, basis_per_element, basis_per_atom, ecp_per_element
+WARNING: 'gridx' not in /user/pitesa/sharc_main/tests/interface/inputs/orca_template keywords: charge, paddingstates, density_calculation_methods, tCI, no_tda, picture_change, basis, auxbasis, functional, dispersion, ri, scf, keys, paste_input_file, frozen, maxiter, hfexchange, intacc, unrestricted_triplets, neglected_gradient, basis_per_element, basis_per_atom, ecp_per_element
+WARNING: 'gridxc' not in /user/pitesa/sharc_main/tests/interface/inputs/orca_template keywords: charge, paddingstates, density_calculation_methods, tCI, no_tda, picture_change, basis, auxbasis, functional, dispersion, ri, scf, keys, paste_input_file, frozen, maxiter, hfexchange, intacc, unrestricted_triplets, neglected_gradient, basis_per_element, basis_per_atom, ecp_per_element
+WARNING: Template key range_sep_settings is deprecated and will be ignored!
+WARNING: Template key grid is deprecated and will be ignored!
+WARNING: Template key gridx is deprecated and will be ignored!
+WARNING: Template key gridxc is deprecated and will be ignored!
+WARNING: Template key picture_change is deprecated and will be ignored!
+paddingstates not specified setting default, [0, 0, 0]
+WARNING: init request is deprecated and will be ignored!
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'ion', 'density_matrices', 'basis_set', 'theodore', 'wave_functions', 'molden', 'dm', 'grad', 'phases', 'grad_pc', 'h', 'soc'}
+_______________________________ test_buildjobs1 ________________________________
+
+    def test_buildjobs1():
+        tests = [
+            (
+                "inputs/orca3.in",
+                "inputs/job_template1",
+                {"joblist": [2], "states_to_do": [0, 5], "jobs": {2: {"mults": [2], "restr": False}}},
+            ),
+            (
+                "inputs/orca4.in",
+                "inputs/job_template1",
+                {
+                    "joblist": [2, 4],
+                    "states_to_do": [0, 2, 0, 2],
+                    "jobs": {2: {"mults": [2], "restr": False}, 4: {"mults": [4], "restr": False}},
+                },
+            ),
+            (
+                "inputs/orca5.in",
+                "inputs/job_template1",
+                {
+                    "joblist": [1, 2],
+                    "states_to_do": [4, 2, 3],
+                    "jobs": {1: {"mults": [1, 3], "restr": True}, 2: {"mults": [2], "restr": False}},
+                },
+            ),
+            (
+                "inputs/orca6.in",
+                "inputs/job_template2",
+                {
+                    "joblist": [2, 3],
+                    "states_to_do": [0, 2, 3],
+                    "jobs": {2: {"mults": [2], "restr": False}, 3: {"mults": [3], "restr": False}},
+                },
+            ),
+            (
+                "inputs/orca7.in",
+                "inputs/job_template2",
+                {
+                    "joblist": [1, 2, 3],
+                    "states_to_do": [1, 2, 3],
+                    "jobs": {1: {"mults": [1], "restr": True}, 2: {"mults": [2], "restr": False}, 3: {"mults": [3], "restr": False}},
+                },
+            ),
+        ]
+    
+        for path, template, maps in tests:
+>           build_jobs(os.path.join(PATH, path), os.path.join(PATH, template), maps)
+
+interface/test_orca.py:231: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+interface/test_orca.py:28: in build_jobs
+    test_interface.read_requests(path)
+../bin/SHARC_ORCA.py:1024: in read_requests
+    super().read_requests(requests_file)
+../lib/SHARC_INTERFACE.py:795: in read_requests
+    self._request_logic()
+../lib/SHARC_ABINITIO.py:180: in _request_logic
+    super()._request_logic()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <SHARC_ORCA.SHARC_ORCA object at 0x145e76e78430>
+
+    def _request_logic(self) -> None:
+        """
+        Checks for conflicting options, generates requested maps
+        and sets path variables according to requests
+        """
+        self.log.debug("Starting request logic")
+    
+        if not os.path.isdir(self.QMin.save["savedir"]):
+            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
+            os.mkdir(self.QMin.save["savedir"])
+    
+        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
+        self.log.debug(
+            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
+        )
+        assert not (
+            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+        ), '"overlap" and "phases" cannot be calculated in the first timestep!'
+    
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in self.get_features():
+                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+>               raise ValueError()
+E               ValueError
+
+../lib/SHARC_INTERFACE.py:956: ValueError
+----------------------------- Captured stdout call -----------------------------
+WARNING: Template key range_sep_settings is deprecated and will be ignored!
+WARNING: Template key grid is deprecated and will be ignored!
+WARNING: Template key gridx is deprecated and will be ignored!
+WARNING: Template key gridxc is deprecated and will be ignored!
+WARNING: Template key picture_change is deprecated and will be ignored!
+WARNING: init request is deprecated and will be ignored!
+WARNING: SOCs requested but only 1 multiplicity given! Disable SOCs
+ERROR: Found unsupported request mol, supported requests are {'overlap', 'point_charges', 'ion', 'density_matrices', 'basis_set', 'theodore', 'wave_functions', 'molden', 'dm', 'grad', 'phases', 'grad_pc', 'h', 'soc'}
+=============================== warnings summary ===============================
+../../miniconda3/lib/python3.10/site-packages/pyscf/__init__.py:93
+  /user/pitesa/miniconda3/lib/python3.10/site-packages/pyscf/__init__.py:93: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(numpy.__version__) <= '1.8.0':
+
+../../miniconda3/lib/python3.10/site-packages/setuptools/_distutils/version.py:346
+../../miniconda3/lib/python3.10/site-packages/setuptools/_distutils/version.py:346
+../../miniconda3/lib/python3.10/site-packages/setuptools/_distutils/version.py:346
+  /user/pitesa/miniconda3/lib/python3.10/site-packages/setuptools/_distutils/version.py:346: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+../../miniconda3/lib/python3.10/site-packages/pyscf/__init__.py:99
+  /user/pitesa/miniconda3/lib/python3.10/site-packages/pyscf/__init__.py:99: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    elif '1.16.2' <= LooseVersion(numpy.__version__) < '1.18':
+
+../../miniconda3/lib/python3.10/site-packages/pyscf/lib/numpy_helper.py:917
+../../miniconda3/lib/python3.10/site-packages/pyscf/lib/numpy_helper.py:917
+  /user/pitesa/miniconda3/lib/python3.10/site-packages/pyscf/lib/numpy_helper.py:917: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(numpy.__version__) <= LooseVersion('1.6.0'):
+
+interface/test_orca.py:47
+  /user/pitesa/sharc_main/tests/interface/test_orca.py:47: PytestUnknownMarkWarning: Unknown pytest.mark.dependency - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.dependency()
+
+interface/test_orca.py:116
+  /user/pitesa/sharc_main/tests/interface/test_orca.py:116: PytestUnknownMarkWarning: Unknown pytest.mark.dependency - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.dependency(depends=["test_orcaversion"])
+
+interface/test_orca.py:245
+  /user/pitesa/sharc_main/tests/interface/test_orca.py:245: PytestUnknownMarkWarning: Unknown pytest.mark.dependency - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.dependency(depends=["test_orcaversion"])
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED interface/test_lvc.py::test_lvc - ValueError
+FAILED interface/test_lvc.py::test_lvc_pc - ValueError
+FAILED interface/test_mndo.py::test_requests2 - ValueError
+FAILED interface/test_mndo.py::test_energies - ValueError
+FAILED interface/test_mndo.py::test_tdms - ValueError
+FAILED interface/test_mndo.py::test_grads - ValueError
+FAILED interface/test_mndo.py::test_grads_no_pc - ValueError
+FAILED interface/test_mndo.py::test_nacs - ValueError
+FAILED interface/test_mndo.py::test_nacs_no_pc - ValueError
+FAILED interface/test_molcas.py::test_generate_schedule - ValueError
+FAILED interface/test_molcas.py::test_gettasks_init - ValueError
+FAILED interface/test_orca.py::test_requests2 - ValueError
+FAILED interface/test_orca.py::test_maps - ValueError
+FAILED interface/test_orca.py::test_energies - ValueError
+FAILED interface/test_orca.py::test_buildjobs1 - ValueError
+============ 15 failed, 53 passed, 2 skipped, 10 warnings in 7.80s =============

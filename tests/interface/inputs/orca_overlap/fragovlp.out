@@ -1,0 +1,12 @@
+Entering ORCA_FRAGOVL
+
+Reading 1st GBW file    ... /user/pitesa/sharc_main/tests/interface/inputs/orca_overlap/gbw1.1.2
+
+
+WARNING!!!!!!!
+Your GBWFile is either corrupt or from a different ORCA version!
+Please be VERY careful with your calculation results!!!
+
+Data_size, sizeof( TOrcaInfo ): 651728, 871248
+[file orca_tools/Tool-GTO-Bases/basissets.cpp, line 823]: Wrong number of basis-sets stored!
+

@@ -1,28 +1,3 @@
-
-
-# ******************************************
-#
-#    SHARC Program Suite
-#
-#    Copyright (c) 2025 University of Vienna
-#
-#    This file is part of SHARC.
-#
-#    SHARC is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    SHARC is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
-#
-# ******************************************
-
 import math
 from itertools import chain
 
@@ -67,9 +42,9 @@ class QMout:
     nacdr: ndarray[float, 4]
     nacdr_pc: ndarray[float, 4]
     overlap: ndarray[float, 2]
-    phases: ndarray[float,1]
-    prop0d: list[tuple[str, float,1]]
-    prop1d: list[tuple[str, ndarray[float,1]]]
+    phases: ndarray[float]
+    prop0d: list[tuple[str, float]]
+    prop1d: list[tuple[str, ndarray[float]]]
     prop2d: list[tuple[str, ndarray[float, 2]]]
     socdr: ndarray[float, 4]
     socdr_pc: ndarray[float, 4]
@@ -147,8 +122,7 @@ class QMout:
                         shape = [int(n) for n in re.search(r"\(((\d+x)+\d+)", line).group(1).split('x')]
                         block_length = reduce(lambda agg, x: agg*x, shape[:-1])
                         if len(shape) > 2:
-                            # block_length += shape[0] - 1
-                            block_length += reduce(lambda agg, x: agg*x, shape[:-2]) - 1
+                            block_length += shape[0] - 1
                     # skip unwanted flags
                     if flags != "all" and flag not in flags:
                         # print(f"skipping flag {flag} with {block_length} lines")
@@ -564,7 +538,8 @@ class QMout:
         if requests["multipolar_fit"]:
             string += self.writeQMoutmultipolarfit()
         if requests["density_matrices"]:
-            string += self.writeQMoutDensityMatrices()
+            pass
+            # string += self.writeQMoutDensityMatrices()
         if requests["dyson_orbitals"]:
             string += self.writeQMoutDysonOrbitals()
         if "mol" in requests and requests["mol"]:
@@ -1127,7 +1102,7 @@ class QMout:
         1 string: multiline string with the SOC matrix"""
 
         notes = self.notes
-        string = "! %i Notes\n" % (999)
+        string = "! %i Notes\n" % (24)
         string += "%i    ! number of notes\n" % (len(notes))
 
         string += "! Notes Labels (%i strings)\n" % (len(notes))
@@ -1144,7 +1119,7 @@ class QMout:
     # ======================================================================= #
 
     def writeQmoutPhases(self):
-        string = "! 7 Wave function phases (%ix1, complex)\n%i\n" % (self.nmstates, self.nmstates)
+        string = "! 7 Phases\n%i ! for all nmstates\n" % (self.nmstates)
         for i in range(self.nmstates):
             string += "%s %s\n" % (
                 eformat(self.phases[i].real, 9, 3),
@@ -1375,7 +1350,7 @@ class QMout:
         # Multipolar fit
         if QMin.requests["multipolar_fit"]:
             string += "=> Multipolar fit:\n\n"
-            for (s1, s2), val in sorted(self["multipolar_fit"].items()):
+            for (s1, s2), val in self["multipolar_fit"].items():
                 istate, imult, ims = s1.N, s1.S, s1.M
                 jstate, jmult, jms = s2.N, s2.S, s2.M
                 if imult == jmult and ims == jms:
