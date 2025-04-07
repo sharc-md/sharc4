@@ -626,11 +626,10 @@ class SHARC_ECI(SHARC_HYBRID):
                         pccharge = pccharge + [ np.zeros(child2.QMin.coords['coords'].shape[0]) ] # True values are gonna be set in EHF
                 if QMin.coords['pccoords'] != None: 
                     pccoords = pccoords + [ self.QMin.coords['pccoords'] ]
-                    pccharge = pccharge + self.QMin.coords['pccharge'] # These are the true values already
+                    pccharge.extend(self.QMin.coords['pccharge']) # These are the true values already
                 pccoords = np.concatenate( pccoords, axis=0 )
                 child1.set_coords( pccoords, pc=True)
-                pccharge = np.concatenate( pccharge )
-                child1.QMin.coords['pccharge'] = pccharge.copy()
+                child1.QMin.coords['pccharge'] = pccharge[:]
                 # SSC children
                 for z1 in self.QMin.template["fragments"][label1]["SSC"]["states"].keys(): 
                     # Remove try after CT is added
@@ -644,11 +643,10 @@ class SHARC_ECI(SHARC_HYBRID):
                                 pccharge = pccharge + [ np.zeros(child2.QMin.coords['coords'].shape[0]) ] # True values are gonna be set in EHF
                         if QMin.coords['pccoords'] != None: 
                             pccoords = pccoords + [ self.QMin.coords['pccoords'] ]
-                            pccharge = pccharge + self.QMin.coords['pccharge'] # These are the true values already
+                            pccharge.extend(self.QMin.coords['pccharge']) # These are the true values already
                         pccoords = np.concatenate( pccoords, axis=0 )
                         child1.set_coords( pccoords, pc=True)
-                        pccharge = np.concatenate( pccharge )
-                        child1.QMin.coords['pccharge'] = pccharge.copy()
+                        child1.QMin.coords['pccharge'] = pccharge[:]
                     except:
                         pass
 
