@@ -310,6 +310,7 @@ class SHARC_ECI(SHARC_HYBRID):
           self.log.debug(f"Parsing yaml file:\n{res_dict}")
 
         self.QMin.resources.data.update(res_dict)
+        self.QMin.resources["scratchdir"] = expand_path(self.QMin.resources["scratchdir"])
         self._check_type_recursively( self.QMin.resources.data, self._resources_types )
 
         self.QMin.resources['sitejobs'] = [ tuple(job) for job  in self.QMin.resources['sitejobs'] ]
