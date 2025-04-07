@@ -548,16 +548,15 @@ class SHARC_ECI(SHARC_HYBRID):
 
         # Set inevitable requests to the children
         # Set point-charge request to all embedding children
+        mkdir(self.QMin.save["savedir"], force=False)
         for (label,Z), child in self._kindergarden["EHF"].items():
             s = QMin.template['fragments'][label]["EHF"]['embedding_site_state'][Z] 
-            child.QMin.requests['multipolar_fit'] = [ (s.S+1, s.N, s.S+1, s.N) ]
+            child.read_requests({"h": True, "multipolar_fit": [ (s.S+1, s.N, s.S+1, s.N) ]})
             #  child.QMin.requests['mol'] = True 
 
         # Set density requests 
         for (label,z,Z), child in self._kindergarden["SSC"].items():
-            child.QMin.requests['h'] = True
-            child.QMin.requests['density_matrices'] = ['all']
-            child.QMin.requests['mol'] = True
+            child.read_requests({"h": True, "density_matrices": ["all"], "mol": True})
 
         #  Setup children interfaces
         #  for (label,C), child in self.embedding_kindergarden.items():
