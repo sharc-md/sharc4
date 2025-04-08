@@ -28,7 +28,7 @@
 import importlib.metadata
 
 if int(importlib.metadata.version("schnetpack").split(".")[0]) > 1:
-    raise ImportError("SchNarc requires schnetpack version >= 1!")
+    raise ImportError("SchNarc requires schnetpack version < 2!")
 
 import datetime
 from io import TextIOWrapper
