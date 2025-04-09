@@ -37,7 +37,7 @@ from io import TextIOWrapper
 from itertools import chain, count
 
 import numpy as np
-from constants import IToMult
+from constants import IToMult, au2a
 from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -407,7 +407,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.molecule["point_charges"]:
             pc_str = f"{self.QMin.molecule['npc']}\n"
             for atom, coords in zip(self.QMin.coords["pccharge"], self.QMin.coords["pccoords"]):
-                pc_str += f"{atom} {' '.join(str(i) for i in coords)}\n"
+                pc_str += f"{atom} {' '.join(str(i*au2a) for i in coords)}\n"
             writefile(os.path.join(workdir, "ORCA.pc"), pc_str)
 
         # Copy wf files
