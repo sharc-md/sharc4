@@ -32,6 +32,7 @@ import sys
 # from utils import readfile
 # import time
 import os
+from os.path import abspath, realpath
 import math
 from scipy.integrate import simpson
 
@@ -128,6 +129,7 @@ def main():
     default_data_path = os.path.join(sharc_env, "..", "lib", "formfactor_gaussian.txt") if sharc_env else None
     if not os.path.isfile(default_data_path):
         default_data_path = None
+    # the data file is taken from https://lampz.tugraz.at/~hadley/ss1/crystaldiffraction/atomicformfactors/formfactors.php
 
     parser = argparse.ArgumentParser(description="Compute S(Q) from pair distribution functions and atomic form factors.")
     if default_data_path:
@@ -160,6 +162,11 @@ def main():
     #     # Add more elements as needed
     # }
 
+    if args.qmax > 25.0:
+        if realpath(abspath(args.data)) == realpath(abspath(default_data_path)):
+            raise ValueError("Q_max >25 Å⁻¹: not supported by default form factor data file.")
+        else:
+            print("Q_max >25 Å⁻¹: please make sure that the used form factor data supports this.")
 
     element_data = parse_atomic_data(args.data)
     if args.alpha not in element_data or args.beta not in element_data:

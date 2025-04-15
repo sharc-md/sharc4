@@ -1,3 +1,4 @@
+# https://lampz.tugraz.at/~hadley/ss1/crystaldiffraction/atomicformfactors/formfactors.php
 # Element a1 b1 a2 b2 a3 b3 a4 b4 c
  H 	 0.489918 	 20.6593 	 0.262003 	 7.74039 	 0.196767 	 49.5519 	 0.049879 	 2.20159 	 0.001305 
  H1- 	 0.897661 	 53.1368 	 0.565616 	 15.187 	 0.415815 	 186.576 	 0.116973 	 3.56709 	 0.002389 
