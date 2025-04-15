@@ -1941,6 +1941,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             self.log.debug(f"{m1} {s1}: {i} {j} {len(props[(m1,s1)])}")
                             theodore_arr[j][1][i] = props[(m1,s1)][j]
                             # theodore_arr[i, j] = props[(m1, s1)][j]
+            self.QMout["prop1d"].extend(theodore_arr)
             self.log.info(self.QMout["prop1d"])
 
         endtime = datetime.datetime.now()
