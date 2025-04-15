@@ -59,7 +59,6 @@ def validate_mask(mask, maskname, natom):
         raise ValueError(f"Mask '{maskname}' contains out-of-range indices: {invalid}")
 
 
-# @njit
 def process_frame_broadcast(c1, c2, hist, nhist, rhist, same_group):
     # (natom1, natom2, 3)
     dist_vectors = c1[:, np.newaxis, :] - c2[np.newaxis, :, :]
@@ -87,7 +86,7 @@ def process_frame_broadcast(c1, c2, hist, nhist, rhist, same_group):
 
 try:
     from numba import njit
-    process_frame_broadcast = njit(process_frame_broadcast)
+    process_frame_broadcast = njit(process_frame_broadcast, cache = True)
     print("Using numba-accelerated frame processing.")
 except ImportError:
     print("Numba not found — using slower fallback mode.")
@@ -142,20 +141,6 @@ def main(infile, maskfile1, maskfile2, outfile, options):
     # compute RDFs
     try:
         for iframe in range(nframe):
-            # dist_vectors = coord1[iframe, :, np.newaxis, :] - coord2[iframe, np.newaxis, :, :]
-            # dist_vectors **=2
-            # dist_squared = np.sum(dist_vectors, axis=-1)
-            # if same_group:
-            #     # Zero out self-pairs (diagonal elements)
-            #     np.fill_diagonal(dist_squared, np.inf)
-            # dist_vectors /= dist_squared[..., np.newaxis]   # contains now the cos^2 values
-            # np.sqrt(dist_squared, out=dist_squared)
-            # with np.errstate(invalid='ignore'):
-            #     indices = np.floor((dist_squared / rhist) * nhist).astype(int)
-            # indices = np.clip(indices, 0, nhist)
-            # indices = indices.flatten()
-            # for idir in range(3):
-            #     np.add.at(hist[idir], indices, dist_vectors[..., idir].flatten())
             process_frame_broadcast(coord1[iframe], coord2[iframe], hist, nhist, rhist, same_group)
             if (iframe+1) % 100 == 0:
                 print(f"Processed frame {iframe+1}/{nframe} after {time.time() - start:.1f}s")
@@ -166,9 +151,14 @@ def main(infile, maskfile1, maskfile2, outfile, options):
         print(f"Will write output now assuming nframe = {nframe}")
 
     # write to txt file
-    norm_factor = nframe * npairs
-    for idir in range(3):
-        hist[idir, :-1] /= (norm_factor * shell_volumes)
+    if options.rawhist:
+        norm_factor = nframe
+        for idir in range(3):
+            hist[idir, :-1] /= (norm_factor)
+    else:
+        norm_factor = nframe * npairs
+        for idir in range(3):
+            hist[idir, :-1] /= (norm_factor * shell_volumes)
     with open(outfile, 'w') as f:
         for i in range(nhist):
             # Write the distance and the corresponding accumulated value to the file
@@ -183,9 +173,9 @@ def main(infile, maskfile1, maskfile2, outfile, options):
 if __name__ == "__main__":
 
     parser = OptionParser()
-    parser.add_option("-w", "--cell_width",  dest="w", type="float", default=0.5, help="specify the cell width in Angstrom")
-    parser.add_option("-n", "--cell_number", dest="n", type="int",   default=40,  help="specify the number of cells")
-    # parser.add_option("-a", "--angstrom", dest='ang', action='store_true', help="Output in Angstrom (default in Bohr)")
+    parser.add_option("-w", "--cell_width",  dest="w", type="float", default=0.1, help="specify the cell width in Angstrom")
+    parser.add_option("-n", "--cell_number", dest="n", type="int",   default=100,  help="specify the number of cells")
+    parser.add_option("-r", "--rawhist", dest='rawhist', action='store_true', help="Return raw histograms rather than normalized RDFs")
 
 
     (options, args) = parser.parse_args()
@@ -200,6 +190,10 @@ if __name__ == "__main__":
     print(f"  Output file:         {outfile}")
     print(f"  Bin width (-w):      {options.w:.3f} Å")
     print(f"  Number of bins (-n): {options.n}")
+    if options.rawhist:
+        print(f"  Mode (-r)          : Raw histograms (normalized by frame number)")
+    else:
+        print(f"  Mode (-r)          : RDF (normalized by frame number, atom pairs, and shell volume)")
     print()
     main(infile, maskfile1, maskfile2, outfile, options)
 
