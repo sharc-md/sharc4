@@ -31,7 +31,7 @@ import numpy as np
 import sys
 # from utils import readfile
 # import time
-# import os
+import os
 import math
 from scipy.integrate import simpson
 
@@ -124,10 +124,18 @@ def compute_SQ(element_data, element_alpha, element_beta, file_hist, file_hist_r
 
 
 def main():
+    sharc_env = os.environ.get("SHARC")
+    default_data_path = os.path.join(sharc_env, "..", "lib", "formfactor_gaussian.txt") if sharc_env else None
+    if not os.path.isfile(default_data_path):
+        default_data_path = None
+
     parser = argparse.ArgumentParser(description="Compute S(Q) from pair distribution functions and atomic form factors.")
+    if default_data_path:
+        parser.add_argument('--data', default=default_data_path, help='File path for atomic form factor data')
+    else:
+        parser.add_argument('--data', required=True, help='File path for atomic form factor data')
     parser.add_argument('--alpha', required=True, help='Element alpha key')
     parser.add_argument('--beta', required=True, help='Element beta key')
-    parser.add_argument('--data', required=True, help='File path for atomic form factor data')
     parser.add_argument('--hist', required=True, help='File path for H_alpha_beta(r)')
     parser.add_argument('--hist-ref', required=True, help='File path for H_alpha_beta^ref(r)')
     parser.add_argument('--column', type=int, default=2, help='Column index to use from histogram files (1-based, default=2)')
