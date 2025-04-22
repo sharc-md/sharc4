@@ -623,7 +623,7 @@ class SHARC_ECI(SHARC_HYBRID):
                     if label2 != label1:
                         child2 = self._kindergarden["EHF"][(label2,Z)]
                         pccoords = pccoords + [ child2.QMin.coords['coords'] ]
-                        pccharge = pccharge + [ np.zeros(child2.QMin.coords['coords'].shape[0]) ] # True values are gonna be set in EHF
+                        pccharge = pccharge + [0.]*child2.QMin.coords['coords'].shape[0] # True values are gonna be set in EHF
                 if QMin.coords['pccoords'] != None: 
                     pccoords = pccoords + [ self.QMin.coords['pccoords'] ]
                     pccharge.extend(self.QMin.coords['pccharge']) # These are the true values already
@@ -640,7 +640,7 @@ class SHARC_ECI(SHARC_HYBRID):
                             if label2 != label1:
                                 child2 = self._kindergarden["EHF"][(label2,Z)]
                                 pccoords = pccoords + [ child2.QMin.coords['coords'] ]
-                                pccharge = pccharge + [ np.zeros(child2.QMin.coords['coords'].shape[0]) ] # True values are gonna be set in EHF
+                                pccharge = pccharge + [0.]*child2.QMin.coords['coords'].shape[0] # True values are gonna be set in EHF
                         if QMin.coords['pccoords'] != None: 
                             pccoords = pccoords + [ self.QMin.coords['pccoords'] ]
                             pccharge.extend(self.QMin.coords['pccharge']) # These are the true values already
