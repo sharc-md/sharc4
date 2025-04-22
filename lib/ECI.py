@@ -43,6 +43,7 @@ from pyscf import df as density_fitting
 from pyscf import lib as pyscflib
 from utils import density_representation
 
+
 merge_moles = gto.mole.conc_mol
 
 #----START of calculation class------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
@@ -1119,6 +1120,8 @@ class ECI:
                     if len(big_aux) > 0 and len(big1) > 0 and len(big2) > 0:
                     #  if True:
                         t1 = time.time()
+                        self.log.print('             Allocating LP12 tensor of '+str(round(8*rhos1.shape[0]*L.shape[2]**2/1024**2,1))+' MB')
+                        LP12 = np.zeros((rhos1.shape[0],L.shape[2],L.shape[2]))
                         used_mem = psutil.Process(os.getpid()).memory_info().rss
                         free_mem = job.mem - used_mem
                         needed_mem = rhos1.shape[0]*rhos1.shape[2]*L.shape[0]*L.shape[2]*8 # In bytes
@@ -1130,15 +1133,15 @@ class ECI:
                         if needed_mem % free_mem == 0: nchunks -= 1
                         self.log.print('             The first contraction that is going to be done is '+str(rhos1.shape)+'x'+str(L.shape)+'x'+str(L.shape))
                         self.log.print('             with the biggest intermediate tensor taking '+str(round(needed_mem/1024**3,1))+' GB, so it is gonna be done in '+str(nchunks)+' chunks.')
-                        LP12 = []
+                        #  LP12 = []
                         for chunk in range(nchunks):
-                            self.log.print('             Doing chunk '+str(chunk+1))
                             start = chunk*chunk_size
                             end = start + chunk_size
                             if chunk == nchunks - 1: end = rhos1.shape[0]
-                            LP12.append( oe.contract('mij,pil,pjk->mkl', rhos1[start:end,:,:], L, L, optimize=True) )
-                        #  LP12 = np.einsum('mij,pil,pjk->mkl', rhos1, L, L, optimize=['einsum_path', (0,1), (0,1)])
-                        LP12 = np.concatenate( LP12, axis=0 )
+                            self.log.print(f"             Doing chunk {chunk+1:3d} size {(end-start)*rhos1.shape[1]*rhos1.shape[2]} doubles.")
+                            #  LP12.append( oe.contract('mij,pil,pjk->mkl', rhos1[start:end,:,:], L, L, optimize=True) )
+                            LP12[start:end,:,:] = oe.contract('mij,pil,pjk->mkl', rhos1[start:end,:,:], L, L, optimize=True)
+                        #  LP12 = np.concatenate( LP12, axis=0 )
                         t2 = time.time()
                         self.log.print('             First contraction took '+str(round(t2-t1,3))+' sec.')
                         t1 = time.time()
