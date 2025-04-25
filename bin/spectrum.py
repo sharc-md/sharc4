@@ -826,7 +826,7 @@ set out '%s.png'
 ''' % (title,
        ['Gaussian', 'Lorentzian', 'Lines', 'Log-normal'][INFOS['lineshape'] - 1],
        [', FWHM=%f eV' % (INFOS['fwhm'] * HARTREE_TO_EV), ''][INFOS['lineshape'] == 3],
-       INFOS['ninit'],
+       INFOS['irange'][1] - INFOS['irange'][0]+1,
        ['MCH', 'diagonal'][INFOS['diag']],
        INFOS['erange'][0] * HARTREE_TO_EV,
        INFOS['erange'][1] * HARTREE_TO_EV,
