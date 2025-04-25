@@ -265,7 +265,7 @@ module restart
  
      ! write everything
      write(u,*) traj%RNGseed
-     write(u,*) traj%RNGseed_thermostat
+     write(u,*) traj%RNGseed_thermostat, '! RNG seed for thermostat'
      write(u,*) traj%traj_hash
      write(u,*) traj%state_MCH
      write(u,*) traj%state_MCH_old
