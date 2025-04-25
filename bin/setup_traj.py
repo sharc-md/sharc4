@@ -1483,15 +1483,19 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
 
 
     # thermostat
-    INFOS["use_thermostat"] = question("Do you want to use a thermostat?", bool, False)
-    if INFOS["use_thermostat"]:
-        INFOS["thermostat"] = question("Specify the thermostat (available: 'langevin')", str, default="langevin").lower()
-        INFOS["thermostat_temp"] = question("Please specify the desired temperature in Kelvin:", float, default=[298.15])[0]
-        if INFOS["thermostat"] == "langevin":
-            INFOS["thermostat_rng"] = question("Please enter an rng seed:", int, default=[1234])[0]
-            INFOS["thermostat_friction"] = question("Please enter the friction coefficient [fs^-1]:", float, default=[0.02])[0]
-            log.debug("regions not implemented")
-            # if question("Do you want to use ", bool, False)
+    if Integrator[INFOS['integrator']]["name"] == 'avv':
+        INFOS["use_thermostat"] = False
+        log.info(f"\nThermostat turned off due to adaptive velocity-Verlet algorithm")
+    else:
+        INFOS["use_thermostat"] = question("Do you want to use a thermostat?", bool, False)
+        if INFOS["use_thermostat"]:
+            INFOS["thermostat"] = question("Specify the thermostat (available: 'langevin')", str, default="langevin").lower()
+            INFOS["thermostat_temp"] = question("Please specify the desired temperature in Kelvin:", float, default=[298.15])[0]
+            if INFOS["thermostat"] == "langevin":
+                INFOS["thermostat_rng"] = question("Please enter an rng seed:", int, default=[1234])[0]
+                INFOS["thermostat_friction"] = question("Please enter the friction coefficient [fs^-1]:", float, default=[0.02])[0]
+                log.debug("regions not implemented")
+                # if question("Do you want to use ", bool, False)
 
 
     # droplet potential
@@ -1521,7 +1525,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
                 f"droplet_radius (potential free radius) = {INFOS['droplet_radius']} Å; droplet force {INFOS['droplet_force']} Hartree/Bohr^2"
             )
         else:
-            INFOS["droplet_force"] = question("Specify the force in Hartree/Bohr^2", float)[0]
+            INFOS["droplet_force"] = question("Specify the force constant in Hartree/Bohr^2", float)[0]
             INFOS["droplet_radius"] = question(
                 "Specify the offset-radius for the droplet (beyond which the force is applied) [Angstrom]", float
             )[0]
@@ -1534,7 +1538,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     # tether
     if question("Do you want to use a tether? (restraints groups of atoms to a certian absolute coordinate)", bool, default=False):
         INFOS["tether"] = True
-        INFOS["tether_force"] = question("Specify the force in Hartree/Bohr^2", float)[0]
+        INFOS["tether_force"] = question("Specify the force constant in Hartree/Bohr^2", float)[0]
         while True:
             INFOS["tether_position"] = question("Specify the tether position as 'x y z' in Å", float, default=[0., 0., 0.])
             if len(INFOS["tether_position"]) != 3:
