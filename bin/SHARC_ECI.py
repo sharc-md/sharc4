@@ -29,29 +29,26 @@ import datetime
 import copy
 from io import TextIOWrapper
 from typing import Optional
-from qmin import QMinRequests
 from qmout import QMout
-from constants import ATOMCHARGE ,NUMBERS
+from constants import NUMBERS
 
 import itertools
+from ast import literal_eval as make_tuple
 import numpy as np
-from multiprocessing import Pool
 import yaml
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, electronic_state, mkdir, itnmstates, expand_path
-import ECI
-import EHF
+from utils import InDir, mkdir, itnmstates, expand_path, question
 from pyscf import gto
-from ast import literal_eval as make_tuple
+import EHF
+import ECI
 merge_moles = gto.mole.conc_mol
-
 
 
 __all__ = ["SHARC_ECI"]
 
 AUTHORS = "Tomislav Piteša & Sascha Mausenberger"
 VERSION = "4.0"
-VERSIONDATE = datetime.datetime(2025, 4, 1)
+VERSIONDATE = datetime.datetime(2025, 5, 1)
 NAME = "ECI"
 DESCRIPTION = "   HYBRID interface for EHF/ECI calculations of multichromophoric systems"
 
@@ -62,7 +59,8 @@ all_features = set(  # TODO: Depends on child
     [
         "h",
         "dm",
-        "mol"
+        "mol",
+        "point_charges"
     ]
 )
 
@@ -107,7 +105,8 @@ class SHARC_ECI(SHARC_HYBRID):
                                          "Jauxbasis": str,
                                          "Kauxbasis": str,
                                          "tS": float,
-                                         "tC": float
+                                         "tC": float,
+                                         "chunksize": int
                                         },
                                 "excitonic_basis": { "ECI": { "key": int, "value": (bool,str,list) }#,
                                                      #  "CT": { "key": int, "value": (bool,str,list) } 
@@ -139,7 +138,8 @@ class SHARC_ECI(SHARC_HYBRID):
                                        "Jauxbasis": "augccpvdzri",
                                          "Kauxbasis": "augccpvdzri",
                                          "tS": 0.0001,
-                                         "tC": 0.001
+                                         "tC": 0.001,
+                                         "chunksize": -1 
                                         },
                                  "excitonic_basis": { "ECI": {0: True, 1: "all" }},#, "CT": {0: True} },  # Default is ECIS
                                  "active_integrals": "all"
@@ -197,6 +197,56 @@ class SHARC_ECI(SHARC_HYBRID):
         KEYSTROKES: object as returned by open() to be used with question()
         """
         return all_features
+        self.template_file = question(
+            "Please specify the path to your ECI.template file", str, KEYSTROKES=KEYSTROKES, default="ECI.template"
+        )
+
+        self.read_template(self.template_file)
+        QMin = self.QMin
+
+        self.charges_to_do = set([ Z for fdict in self.QMin.template["fragments"].values() for Z in fdict["EHF"]["embedding_site_state"].keys() ])
+        # Instatiate all children
+        child_dict = {}
+        for Z in self.charges_to_do: # Full-system charge
+            for label, fragment in QMin.template["fragments"].items():
+                interface = fragment["EHF"]["interface"] 
+                child_dict[(label,'embedding',Z)] = (interface, [], {"logfile": os.path.join(label+"_embedding_Z"+str(Z), "QM.log"),"logname": label+"_embedding_Z"+str(Z) })
+                interface = fragment["SSC"]["interface"] 
+                for z in fragment["SSC"]["states"].keys(): # Fragment's charge
+                    child_dict[(label,z,Z)] = (interface, [], {"logfile": os.path.join(label+"_z"+str(z)+"_Z"+str(Z), "QM.log"), "logname": label+"_z"+str(z)+"_Z"+str(Z)}) 
+
+
+        num_to_key = {}
+        print("Based on the template file, the following EHF and SSC children of ECI interface will be instantiated:")
+        for i, (key, value) in enumerate(child_dict.items()):
+            print(" ["+str(i+1)+"] "+str(key)+" "+str(value[0]))
+            num_to_key[i+1] = key
+        answer = question("Would you like to delete (i.e., not instantiate) some of them? If so, type the comma-separated list of children's numbers in one line:", 
+                          str, KEYSTROKES=KEYSTROKES, autocomplete=False, default="")
+        if not answer == "":
+            nums = [int(num) for num in answer.split(',')]
+            for num in nums:
+                del child_dict[num_to_key[num]]
+        print("Instantiating the following EHF and SSC children of ECI interface:")
+        for i, (key, value) in enumerate(child_dict.items()):
+            print(str(key)+" "+str(value[0]))
+            if key[1] == 'embedding':
+                mkdir(key[0]+"_"+key[1]+"_Z"+str(key[2]))
+            else:
+                mkdir(key[0]+"_z"+str(key[1])+"_Z"+str(key[2]))
+        self.instantiate_children(child_dict)
+        for (label,z,Z), child in self._kindergarden.items():
+            child_features = child.get_features(KEYSTROKES)
+            if not "point_charges" in child_features:
+                print("Child "+str(label,z,Z)+" does not have point_charges feature and thus cannot be a child of ECI interface. Aborting.")
+                raise ValueError
+            if z == "embedding" and not "multipolar_fit" in child_features:
+                print("Child "+str(label,z,Z)+" does not have multipolar_fit feature and thus cannot be a child of ECI interface. Aborting.")
+                raise ValueError
+            if isinstance(z,int) and not "density_matrices" in child_features:
+                print("Child "+str(label,z,Z)+" does not have density_matrices feature and thus cannot be a child of ECI interface. Aborting.")
+                raise ValueError
+        return all_features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         """prepare INFOS obj
@@ -206,6 +256,13 @@ class SHARC_ECI(SHARC_HYBRID):
         INFOS: dictionary with all previously collected infos during setup
         KEYSTROKES: object as returned by open() to be used with question()
         """
+
+        INFOS["resources_file"] = question("Please specify path to the resource file of the ECI interface:", str, default="ECI.resrouces", KEYSTROKES=KEYSTROKES)
+        #  INFOS["children_infos"] = {label:{} for label in self._kindergarden.keys()}
+        for label, child in self._kindergarden.items():
+            print("Getting infos of the child "+str(label))
+            child.get_infos(INFOS,KEYSTROKES=KEYSTROKES)
+            #child.get_infos(INFOS["children_infos"][label],KEYSTROKES=KEYSTROKES)
         return INFOS
 
     @staticmethod
@@ -314,6 +371,7 @@ class SHARC_ECI(SHARC_HYBRID):
         self._check_type_recursively( self.QMin.resources.data, self._resources_types )
 
         self.QMin.resources['sitejobs'] = [ tuple(job) for job  in self.QMin.resources['sitejobs'] ]
+        self.QMin.resources["scratchdir"] = expand_path(self.QMin.resources["scratchdir"])
 
         # TODO sanity checks
 
@@ -556,7 +614,10 @@ class SHARC_ECI(SHARC_HYBRID):
 
         # Set density requests 
         for (label,z,Z), child in self._kindergarden["SSC"].items():
-            child.read_requests({"h": True, "density_matrices": ["all"], "mol": True})
+            #  child.read_requests({"h": True, "density_matrices": ["all"], "mol": True})
+            child.QMin.requests['h'] = True
+            child.QMin.requests['density_matrices'] = ["all"]
+            child.QMin.requests['mol'] = True
 
         #  Setup children interfaces
         #  for (label,C), child in self.embedding_kindergarden.items():
@@ -579,7 +640,6 @@ class SHARC_ECI(SHARC_HYBRID):
         # Make requests for all children, depending on which requests ECI interface got
         # Inevitable requests (energies and densities) are already given in setup_interface
         QMin = self.QMin
-        QMout = self.QMout
 
         for (label,Z), child in self._kindergarden["EHF"].items():
             with InDir(QMin.save['savedir']):
@@ -765,8 +825,6 @@ class SHARC_ECI(SHARC_HYBRID):
             self.log.print(self._format_header("End of site-state calculations"))
             self.log.print("")
 
-            #  exit()
-
 #            # Calculate or read site-specific Dyson orbitals if needed
 #            # Dyson orbitals cannot be read from children's QM.out because even if read_children = true, CT level is changed
 #            for label in QMin.template['fragments']:
@@ -917,7 +975,7 @@ class SHARC_ECI(SHARC_HYBRID):
         states = QMin.molecule["states"]
         nmstates = QMin.molecule["nmstates"]
         natom = QMin.molecule["natom"]
-        QMout.allocate(
+        self.QMout.allocate(
             states, natom, QMin.molecule["npc"], {r for r in QMin.requests.keys() if QMin.requests[r]}
         )
 
@@ -927,21 +985,20 @@ class SHARC_ECI(SHARC_HYBRID):
             if value:
                 if request == 'h':
                     for i, s in enumerate(self.states):
-                        QMout['h'][i,i] = ECIjobs[s.Z].E[s.S+1][s.N-1].astype(complex)
+                        self.QMout['h'][i,i] = ECIjobs[s.Z].E[s.S+1][s.N-1].astype(complex)
                 if request == 'dm':
                     for i1, s1 in enumerate(self.states):
                         for i2, s2 in enumerate(self.states):
                             if s1.Z == s2.Z and s1.S == s2.S:
-                                QMout['dm'][:,i1,i2] = ECIjobs[s1.Z].mu[s1.S+1][:,s1.N-1,s2.N-1]
+                                self.QMout['dm'][:,i1,i2] = ECIjobs[s1.Z].mu[s1.S+1][:,s1.N-1,s2.N-1]
                 if request == 'mol':
                     Z = list(self.charges_to_do)[0]
                     for i, flabel in enumerate(QMin.template['fragments']):
                         child = [ child for (label,z,Z), child in self._kindergarden["SSC"].items() if label == flabel ][0]
-                        #  child = self._kindergarden['SSC'][(label,QMin.template['fragments'][label]['refcharge'][Z],Z)]
                         if i == 0:
-                            QMout['mol'] = child.QMout['mol']
+                            self.QMout['mol'] = child.QMout['mol']
                         else:
-                            QMout['mol'] = merge_moles( QMout['mol'], child.QMout['mol'] )
+                            self.QMout['mol'] = merge_moles( self.QMout['mol'], child.QMout['mol'] )
 
         return 
 
@@ -963,10 +1020,8 @@ class SHARC_ECI(SHARC_HYBRID):
     def dyson_orbitals_with_other(self, other):
         pass
 
-    #  def getQMout(self) -> dict[str, np.ndarray]:
-        #  pass
-
     def prepare(self, INFOS: dict, dir_path: str):
+        print("Tu sam prepare")
         pass
 
 if __name__ == "__main__":

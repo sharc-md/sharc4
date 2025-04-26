@@ -24,27 +24,18 @@
 # ******************************************
 
 
-import os
-import sys
-import psutil
 import time
 import itertools
+from threadpoolctl import threadpool_limits
+
 import math
 import numpy as np
 import scipy as sp
 import opt_einsum as oe
-import sympy
-from multiprocessing import Pool, Manager, Process
-import multiprocessing
 
-from logger import logging, CustomFormatter
 from pyscf import gto
-from pyscf import df as density_fitting
-from pyscf import lib as pyscflib
-from utils import density_representation
-
-
 merge_moles = gto.mole.conc_mol
+
 
 #----START of calculation class------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 class calculation:
@@ -262,24 +253,23 @@ class excitonic_basis:
 #----END of excitonic_basis class------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
 #----START of ECI_integral class------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
-class ECI_integral():
-    def __init__( self, **kwargs ):
-        for key, value in kwargs.items():
-            setattr(self,key,value)
-        #  self.index = index
-        return
+#  class ECI_integral():
+    #  def __init__( self, **kwargs ):
+        #  for key, value in kwargs.items():
+            #  setattr(self,key,value)
+        #  #  self.index = index
+        #  return
 
-    def __hash__(self):
-        s = ''
-        for atribute, value in vars(self):
-            if atribute in ['ECItype', 'pattern', 'nucs', 'f', 'f1', 'f2', 'f3']:
-                s += repr(value)+' '  
-        return s.__hash__()
+    #  def __hash__(self):
+        #  s = ''
+        #  for atribute, value in vars(self):
+            #  if atribute in ['ECItype', 'pattern', 'nucs', 'f', 'f1', 'f2', 'f3']:
+                #  s += repr(value)+' '  
+        #  return s.__hash__()
 #----END of ECI_integral class------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
 #----START of ECI class--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 class ECI:
-    #  def __init__(self, job, sites, outputlogname="ECI", logfile="ECI.log", loglevel=log.root.level):
     def __init__(self, job, sites, log):
         # Input
         self.job = job 
@@ -342,9 +332,8 @@ class ECI:
         sites = self.sites
         job = self.job
 
-        # Sets num of CPUs for all libraries used by numpy
-        for variable in ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "BLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"]: 
-            os.environ[variable] = str(job.ncpu)
+        # Sets num of cores for numpy and pyscf
+        threadpool_limits(limits=job.ncpu)
 
         job.mem *= 1024**3
 
@@ -550,9 +539,6 @@ class ECI:
         else:
             ESDs = excitedESDs
         self.log.print('       Number of aufbau and excited ESDs before overlap criterion: '+str(len(ESDs)))
-        #  self.log.print('       Aufbau and excited ESDs ( # = '+str(len(ESDs))+'):')
-        #  for ESD in ESDs:
-            #  self.log.print('          '+repr(ESD))
         self.log.print('')
         return ESDs                        
     #----END of ECI.make_excitations------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
@@ -629,10 +615,7 @@ class ECI:
         self.log.print('       Spin adaptation for multiplicity '+str(m)+':')
         ESDs = [ ESD for ESD in allESDs if ESD.M == (m-1) ]
         self.log.print('          Found '+str(len(ESDs))+ ' ESDs with MS = '+str(ESDs[0].M/2))
-        #  for ESD in ESDs:
-            #  self.log.print('     '+repr(ESD))
 
-        #  t1 = time.time()
         groups = {}
         for ESD in ESDs:
             found = False
@@ -643,10 +626,7 @@ class ECI:
                     break
             if not found:
                 groups[ESD] = [ ESD ]
-        #  t2 = time.time()
-        #  self.log.print(' Grouping took '+str(round(t2-t1,3))+' sec.')
 
-        #  t1 = time.time()
         ECSFs = []
         for keyESD, groupESDs in groups.items():
             S2mat = self.calculate_S2mat(groupESDs)
@@ -657,22 +637,16 @@ class ECI:
                     ECSFs.append( excitonic_configuration_state_function( m, groupESDs, groupU[:,i] ) )
         if len(ECSFs) == 0:
             raise ValueError(f"          No ECSF that can be generated from given states and chosen ECI expansion corresponds to the requested multiplicity {m}")
-        #  t2 = time.time()
-        #  self.log.print(' Diagonalization of S^2 matrices took '+str(round(t2-t1,3))+' sec.')
 
         ESDs = list(set([ ESD for ECSF in ECSFs for ESD in ECSF.ESDs ]))
         self.log.print('          Constructed '+str(len(ECSFs))+' ECSFs spanned by '+str(len(ESDs))+' ESDs:')
 
         # Build big U
-        #  t1 = time.time()
         U = np.zeros((len(ESDs),len(ECSFs)))
         for j, ECSF in enumerate(ECSFs):
             for i, ESD in enumerate(ECSF.ESDs):
                 U[ESDs.index(ESD),j] = ECSF.U[i]
-        #  t2 = time.time()
-        #  self.log.print(' Building total U-matrix took '+str(round(t2-t1,3))+' sec.')
 
-        #  self.log.print(' Constructed '+str(len(ECSFs))+' ECSFs of multiplicity '+str(m)+', spanned by '+str(len(ESDs))+' ESDs')
         for i, ECSF in enumerate(ECSFs):
             self.log.print('')
             self.log.print('             '+repr(ECSF)+' = ')
@@ -740,17 +714,6 @@ class ECI:
         return F
     #----END of ECI.calculate_Fmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
-    #----START of ECI.calculate_Fmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
-    def calculate_Fmat_noAPCs( self, nucs, mol ):
-        F = np.zeros((mol.nao, mol.nao))
-        for g in nucs:
-            for a in range(g.mol.natm):
-                Z, R = g.mol.atom_charge(a), g.mol.atom_coord(a)
-                mol.set_rinv_orig(R)
-                F += Z*mol.intor('int1e_rinv')
-        return F
-    #----END of ECI.calculate_Fmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
-
     #----START of ECI.calculate_Gtensor------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
     def calculate_Gtensor(self,moles ):
         starts = {}
@@ -770,29 +733,8 @@ class ECI:
                                             starts[moles[1]], ends[moles[1]], 
                                             starts[moles[2]], ends[moles[2]], 
                                             starts[moles[3]], ends[moles[3]] ) )
-        #  self.log.print('    Dimension of G-tensor I just calculated: '+str(np.shape(G)))
         return G
     #----END of ECI.calculate_Gtensor------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
-
-    @staticmethod
-    def do_a_pair_of_pairs(p1, p2, atom_pairs, slices_1, slices_2, rhos1, rhos2, auxmol_packed):
-        ai, al = atom_pairs[p1]
-        aj, ak = atom_pairs[p2]
-        sh_istart, sh_iend, ao_istart, ao_iend = slices_1[ai]
-        sh_jstart, sh_jend, ao_jstart, ao_jend = slices_1[aj]
-        sh_kstart, sh_kend, ao_kstart, ao_kend = slices_2[ak]
-        sh_lstart, sh_lend, ao_lstart, ao_lend = slices_2[al]
-        slices = (sh_istart,sh_iend,
-                  sh_lstart + slices_1[-1][1], sh_lend + slices_1[-1][1],
-                  sh_jstart, sh_jend,
-                  sh_kstart + slices_1[-1][1], sh_kend + slices_1[-1][1])
-        mol = gto.Mole.unpack(auxmol_packed)
-        mol.build()
-        G = mol.intor('int2e',shls_slice=slices) 
-        G1 = np.einsum( 'mij,iljk->mkl', rhos1[:,ao_istart:ao_iend,ao_jstart:ao_jend], G, optimize=['einsum_path', (0, 1)] )
-        values = [ np.einsum( 'kl,nkl->n', G1[i,:,:], rhos2[i][:,ao_kstart:ao_kend,ao_lstart:ao_lend], optimize=['einsum_path', (0, 1)] ) 
-                  for i in range(rhos1.shape[0]) ]
-        return values
 
     @staticmethod
     def extract_subbasis_from_global_indices(logger, mole_basis, atoms, global_indices):
@@ -966,23 +908,7 @@ class ECI:
                     G = self.calculate_Gtensor( [f1.mol, f2.mol, f1.mol, f2.mol] ) 
                     t2 = time.time()
                     self.log.print('             Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
-
-                    # Comment this to return to the real full calculation 
-                    #  t1 = time.time()
-                    #  Gabs = np.abs(G)
-                    #  big1 = np.nonzero( np.any( Gabs > job.tL, axis=(1,2,3) ) )[0]
-                    #  big2 = np.nonzero( np.any( Gabs > job.tL, axis=(0,1,2) ) )[0]
-                    #  G = np.take( np.take( np.take( np.take( G, big1, axis=0 ), big1, axis=1), big2, axis=2 ), big2, axis=3 )
-                    #  rhos1 = np.take( np.take( rhos1, big1, axis=1), big1, axis=2 )
-                    #  rhos2 = [ np.take( np.take( rho2, big2, axis=1 ), big2, axis=2 ) for rho2 in rhos2 ]
-                    #  t2 = time.time()
-                    #  self.log.print('       Prescreening took '+str(round(t2-t1,3))+' sec.')
-
                     t1 = time.time()
-                    #  G1 = np.einsum( 'mij,ijkl->mkl', rhos1, G, optimize=['einsum_path', (0, 1)] )
-                    #G1 = oe.contract( 'mij,iljk->mkl', rhos1, G, optimize=['einsum_path', (0, 1)] )
-                    #  G1 = np.einsum( 'mij,iljk->mkl', rhos1, G, optimize=True )
-                    #  G1 = oe.contract( 'mij,iljk->mkl', rhos1, G, optimize=True )
                     G = np.swapaxes( G, 1, 2 )
                     G1 = oe.contract( 'mij,ijkl->mkl', rhos1, G, optimize=True )
                     t2 = time.time()
@@ -1015,7 +941,6 @@ class ECI:
 
                     atoms_1, atoms_2, shells_1, shells_2, aos_1, aos_2 = set(), set(), set(), set(), set(), set() 
                     S = np.abs( gto.mole.intor_cross('int1e_ovlp', f1.mol, f2.mol) )
-                    #  np.savetxt('Sinter',S,fmt='%.10f')
                     rows = np.nonzero( np.any(S >= job.ri['tS'], axis=1) )[0]
                     cols = np.nonzero( np.any(S >= job.ri['tS'], axis=0) )[0]
                     for r, c in zip(rows, cols):
@@ -1050,8 +975,6 @@ class ECI:
 
                     geom1 = f1.mol.atom_coords(unit='Bohr')[atoms_1,:]
                     sym1 = [ f1.mol.atom_symbol(i) for i in atoms_1]
-                    #bas1 = { s1:b1 for s1,b1 in f1.mol.basis.items() if s1 in sym1}
-                    #bas1 = self.extract_subbasis_from_global_indices( self.log, f1.mol.basis, sym1, shells_1 ) 
                     bas1 = self.extract_subbasis_from_global_indices( self.log, f1.mol.basis, [ f1.mol.atom_symbol(i) for i in range(f1.mol.natm)], shells_1 ) 
                     atom1 = [ [ sym, (geom[0],geom[1],geom[2])] for sym, geom in zip(sym1,geom1)]
                     calcmol1 = gto.Mole(atom=atom1,basis=bas1,unit='Bohr')
@@ -1061,8 +984,6 @@ class ECI:
                         calcmol1.build(spin=1)
                     geom2 = f2.mol.atom_coords(unit='Bohr')[atoms_2,:]
                     sym2 = [ f2.mol.atom_symbol(i) for i in atoms_2]
-                    #  bas2 = { s2:b2 for s2,b2 in f2.mol.basis.items() if s2 in sym2}
-                    #  bas2 = self.extract_subbasis_from_global_indices( self.log, f2.mol.basis, sym2, shells_2 ) 
                     bas2 = self.extract_subbasis_from_global_indices( self.log, f2.mol.basis, [ f2.mol.atom_symbol(i) for i in range(f2.mol.natm)], shells_2 ) 
                     atom2 = [ [ sym, (geom[0],geom[1],geom[2])] for sym, geom in zip(sym2,geom2)]
                     calcmol2 = gto.Mole(atom=atom2,basis=bas2,unit='Bohr')
@@ -1080,83 +1001,59 @@ class ECI:
                     P = sp.linalg.cholesky(P, lower=True)
                     t2 = time.time()
                     self.log.print('             Calculation of P-matrix of dim. '+str(P.shape)+' and its Cholesky decomposition took '+str(round(t2-t1,3))+' sec.')
-                    #  auxmol = merge_moles( f1.mol, f2.mol )
-                    #  for i in range(f2.mol.natm):
-                        #  for j in range(slices_2[i][2],slices_2[i][3]):
-                            #  aos_to_atoms_2[j] = 
-                    #  S = np.abs(auxmol.intor('int1e_ovlp')[:f1.mol.nao,f1.mol.nao:])
-                    #  if np.all( S < 1.e-4 ):
-                        #  self.log.print('     No overlapping AOs, skipping this pair of fragments.')
-                        #  continue
-                    #  auxmol.build(basis='def2svpjkfit')
 
                     t1 = time.time()
                     calcmol = merge_moles( calcmol, auxmol )
-                    #  self.log.print(str(calcmol1.nbas)+' '+str(calcmol2.nbas))
                     L = calcmol.intor('int3c2e', shls_slice=(0, calcmol1.nbas, calcmol1.nbas, calcmol1.nbas+calcmol2.nbas, calcmol1.nbas+calcmol2.nbas, calcmol.nbas ))
                     L = np.swapaxes( np.swapaxes( L, 0, 2 ), 1, 2 )
-                    #  self.log.print(' Max1 L = '+str(np.amax(L)))
                     t2 = time.time()
                     self.log.print('             Calculation of L-tensor of dim. '+str(L.shape)+' took '+str(round(t2-t1,3))+' sec.')
 
                     t1 = time.time()
                     L = sp.linalg.solve_triangular(P, L, lower=True, overwrite_b=True, check_finite=False)
-                    #  self.log.print(' Max2 L = '+str(np.amax(L)))
                     t2 = time.time()
                     self.log.print('             Calculation of Cholesky factors took '+str(round(t2-t1,3))+' sec.')
 
                     t1 = time.time()
                     Labs = np.abs(L)
-                    big_aux = np.nonzero( np.any( Labs > job.ri['tC'], axis=(1,2) ) )[0]
-                    #  big1 = np.nonzero( np.logical_and( np.logical_and( np.any( Labs > tG, axis=(0,2) ), np.any( rhos1 > tG, axis=(0,2) ) ), np.any(rhos1 > tG, axis=(0,1)) ) )[0]
-                    big1 = np.nonzero( np.any( Labs > job.ri['tC'], axis=(0,2) ) )[0]
-                    big2 = np.nonzero( np.any( Labs > job.ri['tC'], axis=(0,1) ) )[0]
-                    #  self.log.print('big_aux, big1, big2 = '+str(big_aux)+' '+str(big1)+' '+str(big2))
-                    L = np.take( np.take( np.take( L, big_aux, axis=0 ), big1, axis=1), big2, axis=2 )
-                    rhos1 = np.take( np.take( rhos1, big1, axis=1), big1, axis=2 )
-                    rhos2 = [ np.take( np.take( rho2, big2, axis=1 ), big2, axis=2 ) for rho2 in rhos2 ]
+                    mask = Labs > job.ri['tC']
+                    big_aux = np.where(np.any(mask, axis=(1,2)))[0]
+                    big1    = np.where(np.any(mask, axis=(0,2)))[0]
+                    big2    = np.where(np.any(mask, axis=(0,1)))[0]
+                    #  L = np.ascontiguousarray(L[np.ix_(big_aux, big1, big2)])
+                    #  rhos1 = np.ascontiguousarray(rhos1[:, big1][:, :, big1])
+                    #  rhos2 = [rho2[:, big2][:, :, big2] for rho2 in rhos2]
+                    L = np.ascontiguousarray(np.take( np.take( np.take( L, big_aux, axis=0 ), big1, axis=1), big2, axis=2 ))
+                    rhos1 = np.ascontiguousarray(np.take( np.take( rhos1, big1, axis=1), big1, axis=2 ))
+                    rhos2 = [ np.ascontiguousarray(np.take( np.take( rho2, big2, axis=1 ), big2, axis=2 )) for rho2 in rhos2 ]
                     t2 = time.time()
-                    self.log.print('             Prescreening 1 took '+str(round(t2-t1,3))+' sec.')
+                    self.log.print('             Prescreening took '+str(round(t2-t1,3))+' sec.')
+
                     if len(big_aux) > 0 and len(big1) > 0 and len(big2) > 0:
-                    #  if True:
-                        t1 = time.time()
-                        self.log.print('             Allocating LP12 tensor of '+str(round(8*rhos1.shape[0]*L.shape[2]**2/1024**2,1))+' MB')
-                        LP12 = np.zeros((rhos1.shape[0],L.shape[2],L.shape[2]))
-                        used_mem = psutil.Process(os.getpid()).memory_info().rss
-                        free_mem = job.mem - used_mem
-                        needed_mem = rhos1.shape[0]*rhos1.shape[2]*L.shape[0]*L.shape[2]*8 # In bytes
-                        self.log.print('             Used memory: '+str(round(used_mem/1024**3, 2))+' GB') 
-                        self.log.print('             Free memory: '+str(round(free_mem/1024**3,2))+' GB') 
-                        self.log.print('             Needed memory: '+str(round(needed_mem/1024**3,2))+' GB') 
-                        nchunks = 2*needed_mem // free_mem + 1
-                        chunk_size = rhos1.shape[0] // nchunks
-                        if needed_mem % free_mem == 0: nchunks -= 1
-                        self.log.print('             The first contraction that is going to be done is '+str(rhos1.shape)+'x'+str(L.shape)+'x'+str(L.shape))
-                        self.log.print('             with the biggest intermediate tensor taking '+str(round(needed_mem/1024**3,1))+' GB, so it is gonna be done in '+str(nchunks)+' chunks.')
-                        #  LP12 = []
-                        for chunk in range(nchunks):
-                            start = chunk*chunk_size
-                            end = start + chunk_size
-                            if chunk == nchunks - 1: end = rhos1.shape[0]
-                            self.log.print(f"             Doing chunk {chunk+1:3d} size {(end-start)*rhos1.shape[1]*rhos1.shape[2]} doubles.")
-                            #  LP12.append( oe.contract('mij,pil,pjk->mkl', rhos1[start:end,:,:], L, L, optimize=True) )
-                            LP12[start:end,:,:] = oe.contract('mij,pil,pjk->mkl', rhos1[start:end,:,:], L, L, optimize=True)
-                        #  LP12 = np.concatenate( LP12, axis=0 )
-                        t2 = time.time()
-                        self.log.print('             First contraction took '+str(round(t2-t1,3))+' sec.')
-                        t1 = time.time()
-                        values = [ np.einsum( 'kl,nkl->n', LP12[i,:,:], rhos2[i], optimize=['einsum_path', (0,1)] )
-                                  for i in range(rhos1.shape[0]) ]
-                        t2 = time.time()
-                        self.log.print('             Second contraction took '+str(round(t2-t1,3))+' sec.')
-                        t1 = time.time()
-                        for i in range(rhos1.shape[0]):
-                            for j in range(rhos2[i].shape[0]):
-                                locs = loc_lists[i][j]
-                                for (mult,row,column) in locs:
-                                    K[mult][row,column] += values[i][j]
-                        t2 = time.time()
-                        self.log.print('             Distribution took '+str(round(t2-t1,3))+' sec.')
+                        if job.ri['chunksize'] == -1:
+                            chunksize = rhos1.shape[0]
+                        else:
+                            chunksize = job.ri['chunksize']
+                        chunk = 0
+                        while True:
+                            chunk += 1
+                            self.log.print('             Chunk '+str(chunk))
+                            start = (chunk-1)*chunksize
+                            stop = start + chunksize 
+                            if stop > rhos1.shape[0]: stop = rhos1.shape[0]
+                            t1 = time.time()
+                            X = np.tensordot(np.ascontiguousarray(rhos1[start:stop,:,:]),L, axes=([2],[1])) # mij,pjk->mipk
+                            LP12 = np.tensordot(X, L, axes=([1,2],[1,0])) #mipk, pil -> mkl
+                            #  LP12 = oe.contract('ij,pil,pjk->kl', np.ascontiguousarray(rhos1[m,:,:]), L, L, optimize=True)
+                            values = [ np.einsum('kl,nkl->n', LP12[m,:,:], rhos2[m+start] ) for m in range(stop-start) ]
+                            for m in range(stop-start):
+                                for n in range(rhos2[m+start].shape[0]):
+                                    locs = loc_lists[m+start][n]
+                                    for (mult,row,column) in locs:
+                                        K[mult][row,column] += values[m][n]
+                            t2 = time.time()
+                            self.log.print('             Done in '+str(round(t2-t1,3))+' sec.')
+                            if stop == rhos1.shape[0]: break
                     else:
                         self.log.print('             No K-integrals for this fragment pair.')
             for var in helpvars:
@@ -1692,8 +1589,9 @@ class ECI:
                 actives = job.active_integrals['J'][(0,0)]
                 for f in sites:
                     nucs = tuple([ g for g in sites if (f,g) in actives or (g,f) in actives ])
-                    d = (ESD.site_states[f], ESD.site_states[f], 'tot')
-                    add_integral( k1='ECI_V', k2=f, k3=nucs, k4=d, loc=(m,index,index))
+                    if len(nucs) > 0:
+                        d = (ESD.site_states[f], ESD.site_states[f], 'tot')
+                        add_integral( k1='ECI_V', k2=f, k3=nucs, k4=d, loc=(m,index,index))
                 # J0-integrals
                 for (f1,f2) in actives:
                     d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'tot' ) 
@@ -1720,7 +1618,7 @@ class ECI:
                 #V-integrals
                 nucs = tuple([ g for g in sites if (f,g) in actives or (g,f) in actives])
                 d = ( ESD1.site_states[f], ESD2.site_states[f], 'tot' ) 
-                if any([ d in rho for rho in f.rho.values()]): 
+                if any([ d in rho for rho in f.rho.values()]) and len(nucs) > 0: 
                     add_integral( k1='ECI_V', k2=f, k3=nucs, k4=d, loc=(m,i1,i2) )
                 # J-integrals
                 for (f1,f2) in actives:
