@@ -126,7 +126,6 @@ class STATE:
         self.Excited = try_read(f, 11, bool, False)
         self.ExcTime = try_read(f, 12, str, "")
         self.IState = try_read(f, 13, str, "")
-        print("TEST1", self.IState)
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -712,7 +711,7 @@ def main():
     print("Computed pmax = %.2f" % INFOS["max_prob"])
     exc_probs = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), INFOS["nsteps"]+1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))))
     exc_probs_cumsum = np.zeros_like(exc_probs) 
-    exc_list = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), 3))
+    exc_list = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), 3))  # last index: 0: exc.time, 1: to which state was excited, 2: excitation or not
     double_exc = False
     for isa, isample in enumerate(range(INFOS["sample_number"])):  # Sample up to the point, where double excitations occur; To increase probabilities
         isa_exc_list = np.zeros_like(exc_list)

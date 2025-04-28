@@ -834,7 +834,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     Fill_Nan = options.n
     dt = options.t
     if os.path.exists("start.time") and options.T==0:
-        Tshift = float(np.genfromtxt("start.time")[0]/options.t)
+        Tshift = int(np.genfromtxt("start.time")[0]/options.t)
     else:
         Tshift = options.T
 
@@ -878,8 +878,8 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     t = 0
     # Set variables for outputting NaNs as preprend
     if Fill_Nan and Tshift != 0.0:
-        len_geo = len(geo)+int(Tshift/dt)
-        Tshift_index = int(Tshift/dt)
+        len_geo = len(geo)+int(Tshift)
+        Tshift_index = Tshift
     else:
         len_geo = len(geo)
         Tshift_index = int(0)
