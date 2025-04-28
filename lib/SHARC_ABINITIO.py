@@ -1399,7 +1399,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 continue
             cnt += 1
             norm += v**2
-        self.log.debug(f"Filter dets: norm {norm**0.5:.5f} after {cnt} entries, threshold {self.QMin.resources['wfthres']}")
+        self.log.debug(f"Filter dets: norm {norm**0.5:.5f} after {cnt:4d} entries, threshold {self.QMin.resources['wfthres']}")
 
     @abstractmethod
     def run(self) -> None:
