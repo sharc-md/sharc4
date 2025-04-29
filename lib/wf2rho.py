@@ -61,8 +61,8 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
 
     pairs_a = []
     pairs_b = []
-    with objmode(t1='f8'):
-        t1 = time.perf_counter()
+    #  with objmode(t1='f8'):
+        #  t1 = time.perf_counter()
     for i in range(ndets):
         for j in range(i+1,ndets):
             diffs = dets[i,:] - dets[j,:]
@@ -86,12 +86,12 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
                     pairs_b.append([ i, j, mo2, mo1, phase ])
                     #  pairs_b.append([ j, i, mo1, mo2, phase ])
 
-    with objmode():
-        t2 = time.perf_counter()
-        print('Time in SD-TDM generation = ', t2-t1,flush=True)
+    #  with objmode():
+        #  t2 = time.perf_counter()
+        #  print('Time in SD-TDM generation = ', t2-t1,flush=True)
 
-    with objmode(t1='f8'):
-        t1 = time.perf_counter()
+    #  with objmode(t1='f8'):
+        #  t1 = time.perf_counter()
     for i in range(ndets):
         amos = mos_alpha[i]
         bmos = mos_beta[i]
@@ -99,12 +99,12 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
             pairs_a.append( [ i, i, mo, mo, 0] )
         for mo in bmos:
             pairs_b.append( [ i, i, mo, mo, 0])
-    with objmode():
-        t2 = time.perf_counter()
-        print('Time in diagonal generation = ', t2-t1,flush=True)
+    #  with objmode():
+        #  t2 = time.perf_counter()
+        #  print('Time in diagonal generation = ', t2-t1,flush=True)
 
-    with objmode(t1='f8'):
-        t1 = time.perf_counter()
+    #  with objmode(t1='f8'):
+        #  t1 = time.perf_counter()
     rho = np.zeros((2,nst,nst,nmos,nmos))
     for p in pairs_a:
         outer =np.outer(CI[p[0],:], CI[p[1],:]) 
@@ -116,16 +116,16 @@ def deltaS0( tCI, nst, dets, CI, mos ): # all dets in list dets have equal numbe
         rho[1,:,:,p[2],p[3]] += (-1.)**p[4]*np.ascontiguousarray(outer)#outer 
         if p[0] != p[1]:
             rho[1,:,:,p[3],p[2]] += (-1.)**p[4]*np.ascontiguousarray(outer.T)
-    with objmode(rho='f8[:,:,:,:,:]'):
-        t2 = time.perf_counter()
-        rho = np.ascontiguousarray(rho)
-        print('Time in rho generation = ', t2-t1,flush=True)
+    #  with objmode(rho='f8[:,:,:,:,:]'):
+        #  t2 = time.perf_counter()
+        #  rho = np.ascontiguousarray(rho)
+        #  print('Time in rho generation = ', t2-t1,flush=True)
 
     with objmode(rho='f8[:,:,:,:,:]'):
-        t1 = time.perf_counter()
+        #  t1 = time.perf_counter()
         rho = np.einsum('ia,smnab,bj->smnij',mos,rho,mos.T,optimize=['einsum_path',(0,1),(0,1)],casting='no')
-        t2 = time.perf_counter()
-        print('Time in rho rotation = ', t2-t1,flush=True)
+        #  t2 = time.perf_counter()
+        #  print('Time in rho rotation = ', t2-t1,flush=True)
     return rho 
 
 @jit(nopython=True,cache=True) 

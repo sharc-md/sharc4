@@ -564,8 +564,7 @@ class QMout:
         if requests["multipolar_fit"]:
             string += self.writeQMoutmultipolarfit()
         if requests["density_matrices"]:
-            pass
-            # string += self.writeQMoutDensityMatrices()
+            string += self.writeQMoutDensityMatrices()
         if requests["dyson_orbitals"]:
             string += self.writeQMoutDysonOrbitals()
         if "mol" in requests and requests["mol"]:
