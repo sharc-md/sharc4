@@ -25,6 +25,7 @@
 
 import os
 import time
+import shutil
 import datetime
 import copy
 from io import TextIOWrapper
@@ -148,7 +149,7 @@ class SHARC_ECI(SHARC_HYBRID):
 
         self._resources_types = self.QMin.resources.types.copy()
         self._resources_types.update({"sitejobs": [ [str, int] ]})
-        self.QMin.resources.data.update({"sitejobs": None, "memory": 100000, "ngpu": 0})
+        self.QMin.resources.data.update({"sitejobs": None, "ngpu": 0})
         self.QMin.template.data.update(
             {
                 "paddingstates" : [],
@@ -196,12 +197,14 @@ class SHARC_ECI(SHARC_HYBRID):
         Parameters:
         KEYSTROKES: object as returned by open() to be used with question()
         """
-        return all_features
-        self.template_file = question(
+        if self._kindergarden: return all_features
+
+        file =  question(
             "Please specify the path to your ECI.template file", str, KEYSTROKES=KEYSTROKES, default="ECI.template"
         )
 
-        self.read_template(self.template_file)
+        self.setupINFOS["template_file"] = expand_path(file)
+        self.read_template(self.setupINFOS["template_file"])
         QMin = self.QMin
 
         self.charges_to_do = set([ Z for fdict in self.QMin.template["fragments"].values() for Z in fdict["EHF"]["embedding_site_state"].keys() ])
@@ -210,16 +213,17 @@ class SHARC_ECI(SHARC_HYBRID):
         for Z in self.charges_to_do: # Full-system charge
             for label, fragment in QMin.template["fragments"].items():
                 interface = fragment["EHF"]["interface"] 
-                child_dict[(label,'embedding',Z)] = (interface, [], {"logfile": os.path.join(label+"_embedding_Z"+str(Z), "QM.log"),"logname": label+"_embedding_Z"+str(Z) })
+                #child_dict[(label,'embedding',Z)] = (interface, [], {"logfile": os.path.join(label+"_embedding_Z"+str(Z), "QM.log"),"logname": label+"_embedding_Z"+str(Z) })
+                child_dict[(label,'embedding',Z)] = interface
                 interface = fragment["SSC"]["interface"] 
                 for z in fragment["SSC"]["states"].keys(): # Fragment's charge
-                    child_dict[(label,z,Z)] = (interface, [], {"logfile": os.path.join(label+"_z"+str(z)+"_Z"+str(Z), "QM.log"), "logname": label+"_z"+str(z)+"_Z"+str(Z)}) 
+                    child_dict[(label,z,Z)] = interface
 
 
         num_to_key = {}
         print("Based on the template file, the following EHF and SSC children of ECI interface will be instantiated:")
         for i, (key, value) in enumerate(child_dict.items()):
-            print(" ["+str(i+1)+"] "+str(key)+" "+str(value[0]))
+            print(" ["+str(i+1)+"] "+str(key)+" "+value)
             num_to_key[i+1] = key
         answer = question("Would you like to delete (i.e., not instantiate) some of them? If so, type the comma-separated list of children's numbers in one line:", 
                           str, KEYSTROKES=KEYSTROKES, autocomplete=False, default="")
@@ -230,10 +234,10 @@ class SHARC_ECI(SHARC_HYBRID):
         print("Instantiating the following EHF and SSC children of ECI interface:")
         for i, (key, value) in enumerate(child_dict.items()):
             print(str(key)+" "+str(value[0]))
-            if key[1] == 'embedding':
-                mkdir(key[0]+"_"+key[1]+"_Z"+str(key[2]))
-            else:
-                mkdir(key[0]+"_z"+str(key[1])+"_Z"+str(key[2]))
+            #  if key[1] == 'embedding':
+                #  mkdir(key[0]+"_"+key[1]+"_Z"+str(key[2]))
+            #  else:
+                #  mkdir(key[0]+"_z"+str(key[1])+"_Z"+str(key[2]))
         self.instantiate_children(child_dict)
         for (label,z,Z), child in self._kindergarden.items():
             child_features = child.get_features(KEYSTROKES)
@@ -257,13 +261,31 @@ class SHARC_ECI(SHARC_HYBRID):
         KEYSTROKES: object as returned by open() to be used with question()
         """
 
-        INFOS["resources_file"] = question("Please specify path to the resource file of the ECI interface:", str, default="ECI.resrouces", KEYSTROKES=KEYSTROKES)
+        file = question("Please specify path to the resource file of the ECI interface:", str, default="ECI.resrouces", KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["resources_file"] = expand_path(file)
         #  INFOS["children_infos"] = {label:{} for label in self._kindergarden.keys()}
         for label, child in self._kindergarden.items():
             print("Getting infos of the child "+str(label))
             child.get_infos(INFOS,KEYSTROKES=KEYSTROKES)
             #child.get_infos(INFOS["children_infos"][label],KEYSTROKES=KEYSTROKES)
         return INFOS
+
+    def prepare(self, INFOS: dict, dir_path: str):
+        cwd = os.getcwd()
+        os.chdir(dir_path)
+        shutil.copy(self.setupINFOS['template_file'], os.getcwd())
+        shutil.copy(self.setupINFOS['resources_file'], os.getcwd())
+        for (label,z,Z), child in self._kindergarden.items():
+            if z == 'embedding':
+                child_dir = os.path.join(os.getcwd(),label+'_embedding_Z'+str(Z)) 
+                mkdir(child_dir)
+                child.prepare(INFOS,child_dir)
+            else:
+                child_dir = os.path.join(os.getcwd(),label+'_z'+str(z)+'_Z'+str(Z)) 
+                mkdir(child_dir)
+                child.prepare(INFOS,child_dir)
+        os.chdir(cwd)
+        pass
 
     @staticmethod
     def _format_header(sentence):
@@ -1020,9 +1042,6 @@ class SHARC_ECI(SHARC_HYBRID):
     def dyson_orbitals_with_other(self, other):
         pass
 
-    def prepare(self, INFOS: dict, dir_path: str):
-        print("Tu sam prepare")
-        pass
 
 if __name__ == "__main__":
     SHARC_ECI().main()

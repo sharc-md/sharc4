@@ -302,7 +302,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     continue
                 if SHARC_GAUSSIAN.check_template(filename):
                     break
-            self.template_file = filename
+            self.template_file = expand_path(filename)
         self.log.info('')
         self.files.append(self.template_file)
         extra_file_keys = {"basis_external", "paste_input_file"}
@@ -329,7 +329,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 while True:
                     filename = question('Restart file:', str, KEYSTROKES=KEYSTROKES, default='GAUSSIAN.chk.init')
                     if os.path.isfile(filename):
-                        self.guess_file = filename
+                        self.guess_file = expand_path(filename)
                         break
                     else:
                         self.log.info('Could not find file "%s"!' % (filename))
@@ -343,7 +343,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     break
                 else:
                     self.log.info(f"file at {resources_file} does not exist!")
-            self.files.append(resources_file)
+            self.files.append(expand_path(resources_file))
             self.make_resources = False
         else:
             self.make_resources = True
@@ -461,9 +461,9 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         create_file = link if INFOS["link_files"] else shutil.copy
         for file in self.files:
-            create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
+            create_file(file, os.path.join(workdir, file.split("/")[-1]))
         if self.guess_file is not None:
-            create_file(expand_path(self.guess_file), "GAUSSIAN.chk.init")
+            create_file(self.guess_file, "GAUSSIAN.chk.init")
 
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
