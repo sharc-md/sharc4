@@ -1022,7 +1022,7 @@ class SHARC_ECI(SHARC_HYBRID):
                         else:
                             self.QMout['mol'] = merge_moles( self.QMout['mol'], child.QMout['mol'] )
 
-        return 
+        return self.QMout 
 
     def clean_savedir(self):
         self.format_kindergarden("expanded")
