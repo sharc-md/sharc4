@@ -301,8 +301,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     self.log.info('File %s does not exist!' % (filename))
                     continue
                 if SHARC_GAUSSIAN.check_template(filename):
+                    self.template_file = filename
                     break
-            self.template_file = expand_path(filename)
+        self.log.info(f"Expanding {self.template_file} to ...")
+        self.template_file = expand_path(self.template_file)
+        self.log.info(f"... {self.template_file}")
+        
         self.log.info('')
         self.files.append(self.template_file)
         extra_file_keys = {"basis_external", "paste_input_file"}
@@ -461,6 +465,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         create_file = link if INFOS["link_files"] else shutil.copy
         for file in self.files:
+            self.log.info(f"Processing {file} to {workdir} as {file.split("/")[-1]}")
             create_file(file, os.path.join(workdir, file.split("/")[-1]))
         if self.guess_file is not None:
             create_file(self.guess_file, "GAUSSIAN.chk.init")
