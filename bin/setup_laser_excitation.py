@@ -431,6 +431,7 @@ class INITCOND:
         s += "States\n"
         for state in self.statelist:
             s += str(state) + "\n"
+
         s += "Ekin      % 16.12f a.u.\n" % (self.Ekin)
         s += "Epot_harm % 16.12f a.u.\n" % (self.Epot_harm)
         s += "Epot      % 16.12f a.u.\n" % (self.Epot)
@@ -1265,7 +1266,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         log.info("IOError during writeSHARCinput, iconddir=%s\n%s" % (iconddir, inputfname))
         quit(1)
 
-    s = 'printlevel 2\n\ngeomfile "geom"\nveloc external\nvelocfile "veloc"\n\n'
+    s = 'printlevel 2\n\ngeomfile "geom"\nveloc external\nvelocfile "veloc"\n\n'   
     s += "nstates "
     for nst in INFOS["states"]:
         s += "%i " % nst

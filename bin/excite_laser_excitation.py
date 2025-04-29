@@ -216,12 +216,25 @@ class INITCOND:
             # self.Epot = self.statelist[0].e - self.eref
         # else:
             # self.Epot = epot_harm
+    
+        
 
-    def __str__(self):
+    def __str__(self, coeff):
         s = "Atoms\n" + "".join(self.atomlist)
         s += "States\n"
         for state in self.statelist:
             s += str(state) + "\n"
+        s += "Coefficients\n"
+        for i, istate in enumerate(range(0, self.nstate)):
+            if not self.statelist[istate].Excited:  #  TODO: Double-excitations of a trajectory (in principle) not covered.
+                continue
+            s += f"Coef {state:03i}\n" 
+            for j, jstate in enumerate(range(0, self.nstate)):
+                s += "%03i " % (jstate)
+                for k in range(0, 2):  # complex number 
+                    s += "% 18.10f " % coeff[i, j, k]
+                s += "\n"
+
         s += "Ekin      % 16.12f a.u.\n" % (self.Ekin)
         s += "Epot_harm % 16.12f a.u.\n" % (self.Epot_harm)
         s += "Epot      % 16.12f a.u.\n" % (self.Epot)
@@ -248,9 +261,9 @@ pthresh = 1.0e-5**2
 
 def displaywelcome():
     lines = [
-        f"Compute LVC parameters",
+        f"Compute excitation probabilities and excitation times",
         "",
-        f"Authors: Severin Polonius, Sebastian Mai, Simon Kropf",
+        f"Authors: Lorenz Grünewald, Sebastian Mai",
         "",
         f"Version: {version}",
         "Date: {:%d.%m.%Y}".format(versiondate),
@@ -531,6 +544,44 @@ def get_iconddir(istate, INFOS):
     return dirname
 
 
+def read_coeff(INFOS, statelist, exc_list):
+    coeff = np.zeros((INFOS["ninit"], len(statelist), len(statelist), 2))  # update coeff to fit to nstate
+    for istate, state in enumerate(INFOS["setupstates"]):
+        dirname = INFOS["setupstates_names"][istate]  # get_iconddir(initstate, INFOS)  # State directory containing trajectories 
+        for itraj, traj in enumerate(["TRAJ_%05i" % int(el) for el in INFOS["icond_sel"]]):  # cycle through all TRAJ_directories in initstate folder
+            # done = width_bar * (itraj) // len(INFOS["icond_sel"])
+            # sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+            try: 
+                traj_path = os.path.join(dirname, traj)
+                match INFOS["start_coeff"]:
+                    case 0:
+                        coeff[itraj, :, :, 0]  = np.eye(INFOS["states"])[INFOS["setupstates"]-1] 
+                        coeff[itraj, :, :, 1] = np.zeros(INFOS["states"])
+                    case 1:
+                        if INFOS["diag"]:
+                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[int(exc_list[istate, itraj, 0]), 2::2]
+                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[int(exc_list[istate, itraj, 0]), 3::2]
+                        else: 
+                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[int(exc_list[istate, itraj, 0]), 2::2]
+                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[int(exc_list[istate, itraj, 0]), 3::2]
+                    case 2: 
+                        if INFOS["diag"]:
+                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[-1, 2::2]
+                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[-1, 3::2]
+                        else: 
+                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[-1, 2::2]
+                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[-1, 3::2]
+                    case 3:
+                        if INFOS["diag"]:
+                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[int(INFOS["coeff_time_idx"]), 2::2]
+                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[int(INFOS["coeff_time_idx"]), 3::2]
+                        else: 
+                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[int(INFOS["coeff_time_idx"]), 2::2]
+                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[int(INFOS["coeff_time_idx"]), 3::2]
+            except OSError:
+                print(f"Trajectory {traj} does not exist for setup state {istate}!")
+    return coeff    
+
 # ======================================================================= #
 # ======================================================================= #
 # ======================================================================= #
@@ -539,6 +590,20 @@ def get_iconddir(istate, INFOS):
 def writeoutput(initlist, istate, INFOS):
     dirname = get_iconddir(INFOS["setupstates"][istate], INFOS)
     outfilename = INFOS["initf"] + "_" + dirname + ".excited"
+    INFOS["start_coeff"] = question("Should the coefficients be stored for the full dynamics run? \n (0: No, 1: Yes, at the hopping times, 2: Yes, at the end of the electron-only dynamics, 3: Yes, at another time)", int, 0)
+    if INFOS["start_coeff"] == 3:
+        while True:
+            INFOS["coeff_time"] = question("The dynamics was set up from 0.0fs to %.2f fs. Which coefficients should be taken to initialize the full dynamics run? (0, %.2f)" % (INFOS["tmax"], INFOS["tmax"]), str, 0)
+            if float(INFOS["coeff_time"]) < 0.0 or float(INFOS["coeff_time"]) > INFOS["tmax"]:
+                INFOS["coeff_time_idx"] = str(int(np.round(INFOS["coeff_time"]/INFOS["dtstep"], 0))) 
+                break
+            else:
+                continue
+    elif INFOS["start_coeff"] == 1:
+        INFOS["coeff_time_idx"] = str("surface hop time")
+    else:
+        INFOS["coeff_time_idx"] = str(np.nan) 
+
     if os.path.isfile(outfilename):
         overw = question("Overwrite %s? " % (outfilename), bool, False)
         print("")
@@ -571,8 +636,10 @@ Natom     %i
 Repr      %s
 Eref      %18.10f
 Eharm     %18.10f
+Coeff. times %i
+Coeff. idx %s
 """
-        % (version, INFOS["ninit"], INFOS["natom"], INFOS["repr"], INFOS["eref"], INFOS["eharm"])
+        % (version, INFOS["ninit"], INFOS["natom"], INFOS["repr"], INFOS["eref"], INFOS["eharm"], INFOS["start_coeff"], INFOS["coeff_time_idx"])
     )
     string = ""
     if INFOS["states"]:
@@ -627,7 +694,7 @@ def sample_number():
     return sample_number
 
 
-def excite(INFOS, initlist, exc_list, setupstate):
+def excite(INFOS, initlist, exc_list, setupstate, coeff):
     print("\nSelecting initial states ...")
     width_bar = 50
     # for i, icond in enumerate(initlist):
@@ -745,7 +812,8 @@ def main():
                     double_exc = True  # Skip all further iterations of isa - one TRAJ would be excited twice
         exc_list += isa_exc_list
     for ist, istate in enumerate(INFOS["setupstates"]):
-        initlist[ist] = excite(INFOS, initlist[ist], exc_list[:, :, :], ist)
+        coeff = read_coeff(INFOS, icond.statelist, exc_list)
+        initlist[ist] = excite(INFOS, initlist[ist], exc_list[:, :, :], ist, coeff)
         writeoutput(initlist[ist], ist, INFOS) 
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
