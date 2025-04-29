@@ -465,7 +465,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         create_file = link if INFOS["link_files"] else shutil.copy
         for file in self.files:
-            self.log.info(f"Processing {file} to {workdir} as {file.split("/")[-1]}")
+            self.log.info(f"Processing {file} to {workdir} as {file.split('/')[-1]}")
             create_file(file, os.path.join(workdir, file.split("/")[-1]))
         if self.guess_file is not None:
             create_file(self.guess_file, "GAUSSIAN.chk.init")
