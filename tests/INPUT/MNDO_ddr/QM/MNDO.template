@@ -1,0 +1,43 @@
+## This is a commented version of the MNDO.template file 
+## for version 1.0 of the SHARC_MNDO.py interface.
+
+
+## You can choose between the OM2 Hamiltonian and the ODM2 Hamiltonian with dispersion correction.
+hamiltonian om2
+
+## Restricted open-shell Hartree-Fock. 0 -> False, restricted Hartree-Fock. 1 -> True, using ROHF.
+rohf 1
+
+## Floating occupation molecular orbitals. 0 -> False, 1 -> True, using FOMO. 
+## Using FOMO procedure. ici1 + ici2 = number of orbitals with floating point occupation.
+fomo 0
+
+## Maximum number of SCF iterations.
+kitscf 5000
+
+## Number of active occupied orbitals.
+ici1 2
+
+## Number of active unoccupied orbitals.
+ici2 1
+
+## List of indices of active orbitals.
+act_orbs 4 6 7
+
+## Orbital tracking of active orbitals in consecutive CI runs.  = 0 Keep original definition of 
+## = 1 Track MO character. Do not use it together with overlap calculations and not advisable for
+## which undergo rotations around double bonds.
+imomap 0
+
+## Number of reference occupations. Up to 20 references can be chosen.
+nciref 3
+
+## Definition of the reference occupations. = 0 Stardard definition. 
+## = 1 Starting from the reference occupations corresponding to mciref=0, add further references 
+## so that their fraction in all CI roots is at least 85%, and repeat the CI calculation once.
+mciref 0
+
+## Maximum excitation level relative to any of the reference configurations. From 1 to 6.
+levexc 2
+
+
