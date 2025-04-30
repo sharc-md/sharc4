@@ -123,7 +123,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMin.template.update(
             {
                 "keys": None,
-                "basis": "6-31G",
+                "basis": "def2svp",
                 "functional": "PBEPBE",
                 "dispersion": None,
                 "scrf": None,
