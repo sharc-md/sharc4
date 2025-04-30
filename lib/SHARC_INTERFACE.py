@@ -537,7 +537,7 @@ class SHARC_INTERFACE(ABC):
 
         self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
         self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
-        # self.QMin.molecule["frozcore"] = 0
+        #  self.QMin.molecule["frozcore"] = 0
 
         if not isinstance(self.QMin.save["savedir"], str):
             self.QMin.save["savedir"] = "./SAVEDIR/"

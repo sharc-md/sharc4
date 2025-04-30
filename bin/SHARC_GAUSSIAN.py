@@ -43,6 +43,7 @@ from constants import IAn2AName, IToMult, au2eV, au2a
 from pyscf import gto
 
 # internal
+from logger import DEBUG, TRACE
 from qmin import QMin as QMin_class
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import (
@@ -260,23 +261,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.files = []
 
 
-        self.log.info(f"{'Path to GAUSSIAN':-^60s}\n")
-        tries = ['g16root', 'g09root', 'g03root']
-        for i in tries:
-            path = os.getenv(i)
-            if path:
-                break
-        self.log.info('\nPlease specify path to GAUSSIAN directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
-        self.setupINFOS['groot'] = question('Path to GAUSSIAN:', str, KEYSTROKES=KEYSTROKES, default=path)
-        self.log.info('')
-
-
-        # scratch
-        self.log.info('{:-^60}'.format('Scratch directory') + '\n')
-        self.log.info('Please specify an appropriate scratch directory. This will be used to run the GAUSSIAN calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
-        self.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
-        self.log.info('')
-
 
         # template file
         self.template_file = None
@@ -301,12 +285,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     self.log.info('File %s does not exist!' % (filename))
                     continue
                 if SHARC_GAUSSIAN.check_template(filename):
-                    self.template_file = filename
                     break
-        self.log.info(f"Expanding {self.template_file} to ...")
-        self.template_file = expand_path(self.template_file)
-        self.log.info(f"... {self.template_file}")
-        
+            self.template_file = expand_path(filename)
         self.log.info('')
         self.files.append(self.template_file)
         extra_file_keys = {"basis_external", "paste_input_file"}
@@ -352,6 +332,16 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         else:
             self.make_resources = True
             self.log.info('{:-^60}'.format('GAUSSIAN Ressource usage') + '\n')
+            # Gaussian 
+            self.log.info(f"{'Path to GAUSSIAN':-^60s}\n")
+            tries = ['g16root', 'g09root', 'g03root']
+            for i in tries:
+                path = os.getenv(i)
+                if path:
+                    break
+            self.log.info('\nPlease specify path to GAUSSIAN directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n')
+            self.setupINFOS['groot'] = question('Path to GAUSSIAN:', str, KEYSTROKES=KEYSTROKES, default=path)
+            # NCPU
             self.log.info('''Please specify the number of CPUs to be used by EACH calculation.
         ''')
             self.setupINFOS['ncpu'] = abs(question('Number of CPUs:', int, KEYSTROKES=KEYSTROKES)[0])
@@ -363,8 +353,13 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 self.setupINFOS['scaling'] = min(1.0, max(0.0, question('Parallel scaling:', float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]))
             else:
                 self.setupINFOS['scaling'] = 0.9
-
+            # mem
             self.setupINFOS['mem'] = question('Memory (MB):', int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            # scratch
+            self.log.info('{:-^60}'.format('Scratch directory') + '\n')
+            self.log.info('Please specify an appropriate scratch directory. This will be used to run the GAUSSIAN calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
+            self.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+            self.log.info('')
 
             # Ionization
             # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
@@ -1469,11 +1464,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             key = list(occ_A)
                             key[infos["NFC"] + iocc] = 2
                             key[infos["NFC"] + nocc_A + ivirt] = 1
-                            dets2[tuple(key)] = dets[(iocc, ivirt, dummy)]
+                            dets2[tuple(key)] = -dets[(iocc, ivirt, dummy)]
                             # beta excitation
                             key[infos["NFC"] + iocc] = 1
                             key[infos["NFC"] + nocc_A + ivirt] = 2
-                            dets2[tuple(key)] = -dets[(iocc, ivirt, dummy)]
+                            dets2[tuple(key)] = dets[(iocc, ivirt, dummy)]
                         # triplet
                         elif mult == 3:
                             key = list(occ_A)
@@ -1948,7 +1943,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             self.log.debug(f"{m1} {s1}: {i} {j} {len(props[(m1,s1)])}")
                             theodore_arr[j][1][i] = props[(m1,s1)][j]
                             # theodore_arr[i, j] = props[(m1, s1)][j]
-            self.QMout["prop1d"].extend(theodore_arr)
             self.log.info(self.QMout["prop1d"])
 
         endtime = datetime.datetime.now()
@@ -2437,7 +2431,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         )
         self.QMin.molecule["Ubasis"] = np.identity(self.QMin.molecule['mol'].nao)[new_order,:]/np.sqrt(np.diag(self.QMin.molecule['SAO']))
         self.log.debug('Matrix that rotates GAUSSIAN basis set to PySCF basis set:')
-        if self.QMin.resources['debug']:
+        if self.log.level <= DEBUG:
             for i in range(self.QMin.molecule['mol'].nao):
                 self.log.print(' '.join([ f"{self.QMin.molecule['Ubasis'][i,j]: 11.8f}" for j in range(self.QMin.molecule['mol'].nao) ] ) )
         return

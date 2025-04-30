@@ -39,6 +39,7 @@ from typing import Callable
 import numpy as np
 import sympy
 import wf2rho
+from threadpoolctl import threadpool_limits
 from asa_grid import GRIDS
 from constants import ATOMIC_RADII, MK_RADII, IToMult
 from logger import DEBUG, TRACE
@@ -773,7 +774,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     self.log.debug(f"Doing dM0 densities from determinants for multiplicity = {dens_s1 + 1}")
                     nst, dets, ci, mos = self.read_dets_and_mos(self.QMin.save["savedir"], dens_s1, self.QMin.save["step"])
                     t1 = time.time()
+                    threadpool_limits(limits=self.QMin.resources['ncpu'])
                     rhos = wf2rho.deltaS0(self.QMin.template["tCI"], nst, dets, ci, mos)
+                    rhos = np.einsum('ia,smnab,bj->smnij',mos,rhos,mos.T,optimize=['einsum_path',(0,1),(0,1)],casting='no')
                     t2 = time.time()
                     self.log.debug(f" Time elapsed in CI2rho_dM0 = {round(t2 - t1, 3)}sec.")
                     for density in densities:
@@ -787,7 +790,9 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     nst1, dets1, ci1, mos1 = self.read_dets_and_mos(self.QMin.save["savedir"], dens_s1, self.QMin.save["step"])
                     nst2, dets2, ci2, mos2 = self.read_dets_and_mos(self.QMin.save["savedir"], dens_s2, self.QMin.save["step"])
                     t1 = time.time()
+                    threadpool_limits(limits=self.QMin.resources['ncpu'])
                     rhos = wf2rho.deltaS1(self.QMin.template["tCI"], nst1, nst2, dets1, dets2, ci1, ci2, mos1, mos2)
+                    rhos = np.einsum('ia,mnab,bj->mnij',mos1,rhos,mos2.T,optimize=['einsum_path',(0,1),(0,1)],casting='no')
                     t2 = time.time()
                     self.log.debug(f" Time elapsed in CI2rho_dM1 = {round(t2 - t1, 3)}sec.")
                     for density in densities:
