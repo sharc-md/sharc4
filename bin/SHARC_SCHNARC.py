@@ -104,7 +104,8 @@ class SHARC_SCHNARC(SHARC_FAST):
         return
 
     def read_resources(self, resources_filename="SCHNARC.resources"):
-        super().read_resources(resources_filename)
+        #super().read_resources(resources_filename)
+        self._read_resources = True
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         self.log.info("=" * 80)
