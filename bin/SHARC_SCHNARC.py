@@ -95,10 +95,10 @@ class SHARC_SCHNARC(SHARC_FAST):
         """reads the template file
         has to be called after setup_mol!"""
 
-        kw_whitelist = {"modelpath"}
+        kw_whitelist = {"modelpath","paddingstates"}
         QMin = self.QMin
-        QMin.template.types = {"modelpath": str}
-        QMin.template.data = {"modelpath": "best_model"}
+        QMin.template.types = {"modelpath": str,"paddingstates":list}
+        QMin.template.data = {"modelpath": "best_model","paddingstates":None}
 
         super().read_template(template_filename, kw_whitelist=kw_whitelist)
         return
