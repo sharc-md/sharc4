@@ -138,10 +138,9 @@ class STATE:
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
         try:
-            print(self.IState)
-            s += "% 12.8f % 12.8f %s % 12.8f % i" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime, self.IState)
+            s += "% 12.8f % 12.8f %s % 03i % 12.8f" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
         except:
-            s += "% 12.8f % 12.8f %s % s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime, self.IState)
+            s += "% 12.8f % 12.8f %s % s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
         return s
 
     # def Excite(self, max_Prob, erange):
@@ -216,27 +215,29 @@ class INITCOND:
             # self.Epot = self.statelist[0].e - self.eref
         # else:
             # self.Epot = epot_harm
-    
-    def get_coeff(self, coeff):
-        print("Get coeff")
+
+    def get_coeff(self, coeff, coeff_save):
         self.coeff = coeff
+        self.coeff_save = coeff_save 
+
     def __str__(self):
         s = "Atoms\n" + "".join(self.atomlist)
         s += "States\n"
         for state in self.statelist:
             s += str(state) + "\n"
-            print(state)
-        s += "Coefficients\n"
-        
-        for ist in range(0, self.nstate):
-            if not self.statelist[ist].Excited:  #  TODO: Double-excitations of a trajectory (in principle) not covered.
-                continue
-            s += f"Coef {ist+1:03d}\n" 
-            for jst in range(0, self.nstate):
-                s += "%03i " % (jst+1)
-                for k in range(0, 2):  # complex number 
-                    s += "% 18.10f " % self.coeff[ist, jst, k]
-                s += "\n"
+        if np.any([self.statelist[state].Excited for state in range(0, len(self.statelist))]) and self.coeff_save:
+            s += "Coefficients\n"
+            for ist in range(0, self.nstate):
+                if not self.statelist[ist].Excited:  # TODO: Double-excitations of a trajectory (in principle) not covered.
+                    continue
+                s += f"Coef {ist+1:03d}\n" 
+                for jst in range(0, self.nstate):
+                    s += "%03i " % (jst+1)
+                    for k in range(0, 2):  # complex number 
+                        s += "% 18.10f " % self.coeff[jst, k]
+                    s += "\n"
+        else:
+            pass
 
         s += "Ekin      % 16.12f a.u.\n" % (self.Ekin)
         s += "Epot_harm % 16.12f a.u.\n" % (self.Epot_harm)
@@ -250,9 +251,9 @@ class INITCOND:
 # ======================================================================= #
 
 
-version = "4.0"
+version = "1.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2024, 4, 1)
+versiondate = datetime.date(2025, 5, 1)
 
 
 # ======================================================================= #
@@ -310,7 +311,7 @@ def run_data_extractor(initstate, INFOS):
                 log.info("Not all trajectories for the selected initial conditions exist!")
                 # sys.exit(1)
             for itraj, traj in enumerate(["TRAJ_%05i" % int(el) for el in INFOS["icond_sel"]]):  # cycle through all TRAJ_directories in initstate folder
-                done = width_bar * (itraj) // len(INFOS["icond_sel"])
+                done = width_bar * (itraj+1) // len(INFOS["icond_sel"])
                 sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
                 traj_path = os.path.join(dirname, traj)
                 update = True
@@ -552,39 +553,50 @@ def get_iconddir(istate, INFOS):
 def read_coeff(INFOS, statelist, exc_list, istate):
     INFOS["start_coeff"] = question("Should the coefficients be stored for the full dynamics run? \n" + \
                                      "(0: No, 1: Yes, at the hopping times, 2: Yes, at the end of the electron-only dynamics, 3: Yes, at another time)", int, [0], False)
-    if INFOS["start_coeff"][0] == 3:
+    if INFOS["start_coeff"][0] == 1:
+        INFOS["exc_time_bool"] = True
+        INFOS["coeff_bool"] = True
+    elif INFOS["start_coeff"][0] == 2:
+        INFOS["exc_time_bool"] = True
+        INFOS["coeff_bool"] = True
+    elif INFOS["start_coeff"][0] == 3:
+        INFOS["exc_time_bool"] = True
+        INFOS["coeff_bool"] = True
         while True:
             INFOS["coeff_time"] = question("The dynamics was set up from 0.0fs to %.2f fs. Which coefficients should be taken to initialize the full dynamics run? (0, %.2f)" \
-                % (INFOS["tmax"], INFOS["tmax"]), str, "NaN", False)
-            if float(INFOS["coeff_time"]) < 0.0 or float(INFOS["coeff_time"]) > INFOS["tmax"]:
-                INFOS["coeff_time_idx"] = str(int(np.round(INFOS["coeff_time"]/INFOS["dtstep"], 0))) 
+                % (INFOS["tmax"]-INFOS["dtstep"], INFOS["tmax"]-INFOS["dtstep"]), str, str(INFOS["tmax"]-INFOS["dtstep"]), False)
+            if float(INFOS["coeff_time"]) >= 0.0 and float(INFOS["coeff_time"]) <= INFOS["tmax"]-INFOS["dtstep"]:
+                INFOS["coeff_time_idx"] = str(int(np.round(float(INFOS["coeff_time"])/INFOS["dtstep"], 0))) 
                 break
             else:
                 continue
-    elif INFOS["start_coeff"][0] == 1:
-        INFOS["coeff_time_idx"] = str("surface hop time")
     else:
+        INFOS["exc_time_bool"] = True
+        INFOS["coeff_bool"] = False
         INFOS["coeff_time_idx"] = str(np.nan) 
-    coeff = np.zeros((INFOS["ninit"], len(INFOS["nstates"]) , INFOS["nstates"], 2))  # update coeff to fit to nstate
+    coeff = np.zeros((INFOS["ninit"], INFOS["nstates"], INFOS["nstates"], 2))  # NTRAJ, NSTATES (only @ excited states filled)k NSTATES, COMPLEX 
     for itraj, traj in enumerate(["TRAJ_%05i" % int(el) for el in INFOS["icond_sel"]]):  # cycle through all TRAJ_directories in initstate folder
-        # done = width_bar * (itraj) // len(INFOS["icond_sel"])
-        # sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
-        try:
-            match INFOS["start_coeff"][0]:
-                case 0:  # Coeff from pure state 
-                    continue
-                case 1:  # Coeffs from hopping time 
-                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 0] = INFOS["coeff_data"][itraj, istate, int(exc_list[istate, itraj, 0]), 2::2]
-                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, int(exc_list[istate, itraj, 0]), 3::2]
-                case 2:  # Coeffs from last timestep 
-                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 0] = INFOS["coeff_data"][itraj, istate, -1, 2::2]
-                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, -1, 3::2]
-                case 3:  # Coeffs from custom timestep
-                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 0] = INFOS["coeff_data"][itraj, istate, int(INFOS["coeff_time_idx"]), 2::2]
-                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, int(INFOS["coeff_time_idx"]), 3::2]
-        except OSError:
-            print(f"Trajectory {traj} does not exist for setup state {istate}!")
-        statelist[itraj].get_coeff(coeff)
+        if int(exc_list[istate, itraj, 2]) == 1:  # IF STATE/TRAJ COMBINATION IS EXCITED
+            # done = width_bar * (itraj) // len(INFOS["icond_sel"])
+            # sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+            try:
+                match INFOS["start_coeff"][0]:
+                    case 0:  # Coeff from pure state 
+                        pass
+                    case 1:  # Coeffs from hopping time 
+                        coeff[itraj, INFOS["setupstates"][istate]-1, :, 0] = INFOS["coeff_data"][itraj, istate, int(exc_list[istate, itraj, 0]), 2::2]
+                        coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, int(exc_list[istate, itraj, 0]), 3::2]
+                    case 2:  # Coeffs from last timestep 
+                        coeff[itraj, INFOS["setupstates"][istate]-1, :, 0] = INFOS["coeff_data"][itraj, istate, -1, 2::2]
+                        coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, -1, 3::2]
+                    case 3:  # Coeffs from custom timestep
+                        coeff[itraj, INFOS["setupstates"][istate]-1, :, 0] = INFOS["coeff_data"][itraj, istate, int(INFOS["coeff_time_idx"]), 2::2]
+                        coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, int(INFOS["coeff_time_idx"]), 3::2]
+            except OSError:
+                print(f"Trajectory {traj} does not exist for setup state {istate}!")
+        print(coeff[itraj, INFOS["setupstates"][istate]-1, :, :])
+        print(istate, itraj, int(exc_list[istate, itraj, 0]), coeff.shape)
+        statelist[itraj].get_coeff(coeff[itraj, INFOS["setupstates"][istate]-1, :, :], INFOS["coeff_bool"])
     return statelist    
 
 # ======================================================================= #
@@ -628,10 +640,10 @@ Natom     %i
 Repr      %s
 Eref      %18.10f
 Eharm     %18.10f
-Coeff. times %i
-Coeff. idx %s
+excitation_times     %s
+explicit_coefficients     %s
 """
-        % (version, INFOS["ninit"], INFOS["natom"], INFOS["repr"], INFOS["eref"], INFOS["eharm"], INFOS["start_coeff"][0], INFOS["coeff_time_idx"])
+        % (version, INFOS["ninit"], INFOS["natom"], INFOS["repr"], INFOS["eref"], INFOS["eharm"], INFOS["exc_time_bool"], INFOS["coeff_bool"])
     )
     string = ""
     if INFOS["states"]:
@@ -650,6 +662,7 @@ Coeff. idx %s
         outf.write("Index     %i\n%s" % (ic + 1, str(icond)))
     # outf.write(string)
     outf.close()
+    return 0
 
 
 def random_seed():
@@ -693,7 +706,7 @@ def excite(INFOS, initlist, exc_list, setupstate):
     for ic, icond in enumerate(INFOS["icond_sel"]):
         # done = width_bar * (i + 1) // len(initlist)
         done = width_bar * (ic + 1) // len(INFOS["icond_sel"])
-        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%\n" % (done * 100 // width_bar))
+        sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
         if initlist[ic].statelist == []:
             continue
         else:
@@ -804,7 +817,7 @@ def main():
                     double_exc = True  # Skip all further iterations of isa - one TRAJ would be excited twice
         exc_list += isa_exc_list
     for ist, istate in enumerate(INFOS["setupstates"]):
-        initlist[ist] = read_coeff(INFOS, initlist[ist], exc_list, isa_exc_list, istate-1)  # istate -1, because it could also be state 5 that is active
+        initlist[ist] = read_coeff(INFOS, initlist[ist], exc_list, istate-1)  # istate -1, because it could also be state 5 that is active
         initlist[ist] = excite(INFOS, initlist[ist], exc_list[:, :, :], ist)
         writeoutput(initlist[ist], ist, INFOS) 
     # set manually for old calcs
