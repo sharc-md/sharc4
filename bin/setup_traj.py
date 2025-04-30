@@ -41,7 +41,7 @@ from socket import gethostname
 from logger import log
 import factory
 from utils import question, itnmstates, expand_path
-from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
+from constants import IToMult, U_TO_AMU, HARTREE_TO_EV, n_avogadro, au2a, au2newton
 from SHARC_INTERFACE import SHARC_INTERFACE
 from SHARC_FAST import SHARC_FAST
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -1514,12 +1514,12 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             molar_mass = question("Specify the molar-mass of your solvent [g/mol] (default: water)", float, default=[18.01528])[0]
             n_mol = question("How many molecules are in you simulation?", int)[0]
             r_drop = (
-                (3 * (n_mol * (1 / (6.022_140_857e23 * (1000 * density / molar_mass) * 1e-27))) / (4 * math.pi)) ** (1 / 3)
+                (3 * (n_mol * (1 / (n_avogadro * (1000 * density / molar_mass) * 1e-27))) / (4 * math.pi)) ** (1 / 3)
             )
             r_off = r_drop * (1 - wokness)
             INFOS["droplet_radius"] = r_off
             INFOS["droplet_force"] = (press_pascal * 1e-20 * 4 * math.pi * r_drop ** 2) / (r_drop - r_off) / (
-                8.2387235e-8 * 1.889726125
+                au2newton / au2a
             )  # force in N/ang to Hartree/Bohr**2
             log.info(
                 f"droplet_radius (potential free radius) = {INFOS['droplet_radius']} Å; droplet force {INFOS['droplet_force']} Hartree/Bohr^2"
