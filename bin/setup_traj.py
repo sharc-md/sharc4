@@ -41,7 +41,7 @@ from socket import gethostname
 from logger import log
 import factory
 from utils import question, itnmstates, expand_path
-from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
+from constants import IToMult, U_TO_AMU, HARTREE_TO_EV, n_avogadro, au2a, au2newton
 from SHARC_INTERFACE import SHARC_INTERFACE
 from SHARC_FAST import SHARC_FAST
 from SHARC_ABINITIO import SHARC_ABINITIO
@@ -1483,15 +1483,19 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
 
 
     # thermostat
-    INFOS["use_thermostat"] = question("Do you want to use a thermostat?", bool, False)
-    if INFOS["use_thermostat"]:
-        INFOS["thermostat"] = question("Specify the thermostat (available: 'langevin')", str, default="langevin").lower()
-        INFOS["thermostat_temp"] = question("Please specify the desired temperature in Kelvin:", float, default=[298.15])[0]
-        if INFOS["thermostat"] == "langevin":
-            INFOS["thermostat_rng"] = question("Please enter an rng seed:", int, default=[1234])[0]
-            INFOS["thermostat_friction"] = question("Please enter the friction coefficient [fs^-1]:", float, default=[0.02])[0]
-            log.debug("regions not implemented")
-            # if question("Do you want to use ", bool, False)
+    if Integrator[INFOS['integrator']]["name"] == 'avv':
+        INFOS["use_thermostat"] = False
+        log.info(f"\nThermostat turned off due to adaptive velocity-Verlet algorithm")
+    else:
+        INFOS["use_thermostat"] = question("Do you want to use a thermostat?", bool, False)
+        if INFOS["use_thermostat"]:
+            INFOS["thermostat"] = question("Specify the thermostat (available: 'langevin')", str, default="langevin").lower()
+            INFOS["thermostat_temp"] = question("Please specify the desired temperature in Kelvin:", float, default=[298.15])[0]
+            if INFOS["thermostat"] == "langevin":
+                INFOS["thermostat_rng"] = question("Please enter an rng seed:", int, default=[1234])[0]
+                INFOS["thermostat_friction"] = question("Please enter the friction coefficient [fs^-1]:", float, default=[0.02])[0]
+                log.debug("regions not implemented")
+                # if question("Do you want to use ", bool, False)
 
 
     # droplet potential
@@ -1510,18 +1514,18 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             molar_mass = question("Specify the molar-mass of your solvent [g/mol] (default: water)", float, default=[18.01528])[0]
             n_mol = question("How many molecules are in you simulation?", int)[0]
             r_drop = (
-                (3 * (n_mol * (1 / (6.022_140_857e23 * (1000 * density / molar_mass) * 1e-27))) / (4 * math.pi)) ** (1 / 3)
+                (3 * (n_mol * (1 / (n_avogadro * (1000 * density / molar_mass) * 1e-27))) / (4 * math.pi)) ** (1 / 3)
             )
             r_off = r_drop * (1 - wokness)
             INFOS["droplet_radius"] = r_off
             INFOS["droplet_force"] = (press_pascal * 1e-20 * 4 * math.pi * r_drop ** 2) / (r_drop - r_off) / (
-                8.2387235e-8 * 1.889726125
+                au2newton / au2a
             )  # force in N/ang to Hartree/Bohr**2
             log.info(
                 f"droplet_radius (potential free radius) = {INFOS['droplet_radius']} Å; droplet force {INFOS['droplet_force']} Hartree/Bohr^2"
             )
         else:
-            INFOS["droplet_force"] = question("Specify the force in Hartree/Bohr^2", float)[0]
+            INFOS["droplet_force"] = question("Specify the force constant in Hartree/Bohr^2", float)[0]
             INFOS["droplet_radius"] = question(
                 "Specify the offset-radius for the droplet (beyond which the force is applied) [Angstrom]", float
             )[0]
@@ -1534,7 +1538,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     # tether
     if question("Do you want to use a tether? (restraints groups of atoms to a certian absolute coordinate)", bool, default=False):
         INFOS["tether"] = True
-        INFOS["tether_force"] = question("Specify the force in Hartree/Bohr^2", float)[0]
+        INFOS["tether_force"] = question("Specify the force constant in Hartree/Bohr^2", float)[0]
         while True:
             INFOS["tether_position"] = question("Specify the tether position as 'x y z' in Å", float, default=[0., 0., 0.])
             if len(INFOS["tether_position"]) != 3:
@@ -2310,7 +2314,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             done = idone * width // ntraj
             sys.stdout.write("\rProgress: [" + "=" * done + " " * (width - done) + "] %3i%%" % (done * 100 // width))
 
-            dirname = get_iconddir(istate, INFOS) + "/TRAJ_%05i/" % (icond)
+            dirname = get_iconddir(istate, INFOS) + "/TRAJ_%05i" % (icond)
             io = make_directory(dirname)
             if io != 0:
                 log.info("Skipping initial condition %i %i!" % (istate, icond))

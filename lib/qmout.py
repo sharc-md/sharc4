@@ -564,8 +564,7 @@ class QMout:
         if requests["multipolar_fit"]:
             string += self.writeQMoutmultipolarfit()
         if requests["density_matrices"]:
-            pass
-            # string += self.writeQMoutDensityMatrices()
+            string += self.writeQMoutDensityMatrices()
         if requests["dyson_orbitals"]:
             string += self.writeQMoutDysonOrbitals()
         if "mol" in requests and requests["mol"]:
@@ -1070,9 +1069,9 @@ class QMout:
 
         string += "! Property Vectors (%ix%i, real)\n" % (len(prop1d), nmstates)
         for ie, element in enumerate(prop1d):
-            string += "! %i %s\n" % (ie, element[0])
+            string += "%i ! %i %s\n" % (nmstates, ie, element[0])
             for i in range(nmstates):
-                string += "%s\n" % (eformat(element[1][i], 12, 3),)
+                string += "%s 0.\n" % (eformat(element[1][i], 12, 3),)
         string += "\n"
         return string
 

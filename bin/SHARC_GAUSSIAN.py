@@ -301,8 +301,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     self.log.info('File %s does not exist!' % (filename))
                     continue
                 if SHARC_GAUSSIAN.check_template(filename):
+                    self.template_file = filename
                     break
-            self.template_file = filename
+        self.log.info(f"Expanding {self.template_file} to ...")
+        self.template_file = expand_path(self.template_file)
+        self.log.info(f"... {self.template_file}")
+        
         self.log.info('')
         self.files.append(self.template_file)
         extra_file_keys = {"basis_external", "paste_input_file"}
@@ -329,7 +333,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 while True:
                     filename = question('Restart file:', str, KEYSTROKES=KEYSTROKES, default='GAUSSIAN.chk.init')
                     if os.path.isfile(filename):
-                        self.guess_file = filename
+                        self.guess_file = expand_path(filename)
                         break
                     else:
                         self.log.info('Could not find file "%s"!' % (filename))
@@ -343,7 +347,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     break
                 else:
                     self.log.info(f"file at {resources_file} does not exist!")
-            self.files.append(resources_file)
+            self.files.append(expand_path(resources_file))
             self.make_resources = False
         else:
             self.make_resources = True
@@ -461,9 +465,10 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         create_file = link if INFOS["link_files"] else shutil.copy
         for file in self.files:
-            create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
+            self.log.info(f"Processing {file} to {workdir} as {file.split('/')[-1]}")
+            create_file(file, os.path.join(workdir, file.split("/")[-1]))
         if self.guess_file is not None:
-            create_file(expand_path(self.guess_file), "GAUSSIAN.chk.init")
+            create_file(self.guess_file, "GAUSSIAN.chk.init")
 
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
@@ -1123,7 +1128,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             data.append("GFINPUT")
         if QMin.molecule['point_charges']:
             data.append('charge')
-            data.append('prop=(field,read)')
+            if dograd:
+                data.append('prop=(field,read)')
             # TODO: also add prop=(field, read) and give the point charges a second time to get gradients
 
         # data.append("GFPRINT")
@@ -1147,10 +1153,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 pccharge = QMin.coords['pccharge'][a]
                 string += f"{pccoord[0]:16.15f} {pccoord[1]:16.15f} {pccoord[2]:16.15f} {pccharge:16.15f}\n"
             string += "\n"
-            for a in range(len(QMin.coords['pccharge'])):
-                pccoord = QMin.coords['pccoords'][a,:]
-                string += f"{pccoord[0]*au2a:16.15f} {pccoord[1]*au2a:16.15f} {pccoord[2]*au2a:16.15f}\n"
-            string += "\n"
+            if dograd:
+                for a in range(len(QMin.coords['pccharge'])):
+                    pccoord = QMin.coords['pccoords'][a,:]
+                    string += f"{pccoord[0]*au2a:16.15f} {pccoord[1]*au2a:16.15f} {pccoord[2]*au2a:16.15f}\n"
+                string += "\n"
         if QMin.template["functional"].lower() == "dftba":
             string += "@GAUSS_EXEDIR:dftba.prm\n"
         if QMin.template["basis_external"]:
@@ -1941,6 +1948,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             self.log.debug(f"{m1} {s1}: {i} {j} {len(props[(m1,s1)])}")
                             theodore_arr[j][1][i] = props[(m1,s1)][j]
                             # theodore_arr[i, j] = props[(m1, s1)][j]
+            self.QMout["prop1d"].extend(theodore_arr)
             self.log.info(self.QMout["prop1d"])
 
         endtime = datetime.datetime.now()
@@ -1980,7 +1988,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     shutil.copy(outfile, os.path.join(copydir, "Dyson_%i_%i_%i_%i.out" % ion))
 
         del self.QMin.molecule['mol']
-        return
+        return self.QMout
 
     # ======================================================================= #
 
@@ -2497,7 +2505,6 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
             for keyword, raw_data in raw_matrices.items():
                 self.log.debug(f"{keyword} is {'found' if raw_data is not None else None}")
-                print(keyword, raw_data)
                 match (keyword, raw_data):
                     case (_, None):
                         self.log.warning(f"'{keyword}' not found in:\n\t {fchkfile}")

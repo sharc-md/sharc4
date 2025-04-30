@@ -25,29 +25,26 @@
 
 # IMPORTS
 # external
-import sys
-import math
+import importlib.metadata
+
+if int(importlib.metadata.version("schnetpack").split(".")[0]) > 1:
+    raise ImportError("SchNarc requires schnetpack version < 2!")
+
 import datetime
-import struct
-from multiprocessing import Pool
-from copy import deepcopy
-from socket import gethostname
-import numpy as np
-from schnarc import calculators
-import torch
-import time
-# internal
-from SHARC_FAST import SHARC_FAST
-from globals import DEBUG, PRINT
-from utils import *
-from constants import IToMult, rcm_to_Eh
 from io import TextIOWrapper
 
-authors = 'Maximilian Xaver Tiefenbacher'
-version = '4.0'
+import numpy as np
+import torch
+from schnarc import calculators
+# internal
+from SHARC_FAST import SHARC_FAST
+from utils import *
+
+authors = "Maximilian Xaver Tiefenbacher"
+version = "4.0"
 versiondate = datetime.datetime(2023, 7, 15)
 
-changelogstring = ''
+changelogstring = ""
 
 
 class SHARC_SCHNARC(SHARC_FAST):
@@ -61,63 +58,53 @@ class SHARC_SCHNARC(SHARC_FAST):
     def version():
         return SHARC_SCHNARC._version
 
-
     @staticmethod
     def versiondate():
         return SHARC_SCHNARC._versiondate
 
     @staticmethod
-    def changelogstring(self):
+    def changelogstring():
         return SHARC_SCHNARC._changelogstring
 
     @staticmethod
     def authors():
-        return 'Maximilian Xaver Tiefenbacher'
+        return "Maximilian Xaver Tiefenbacher"
+
     @staticmethod
     def name():
         return "SCHNARC"
+
     @staticmethod
     def description():
         return "SCHNARC model calculations"
 
-
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
-        return set([
-            "h",
-            "soc",
-            "dm",
-            "grad",
-            "nacdr",
-            "point_charges",
-            "grad_pc",
-        ])
+        return set(
+            [
+                "h",
+                "soc",
+                "dm",
+                "grad",
+                "nacdr",
+                "point_charges",
+                "grad_pc",
+            ]
+        )
 
-    def read_template(self, template_filename='SCHNARC.template'):
-        '''reads the template file
-        has to be called after setup_mol!'''
-        
-        kw_whitelist = {'model_file','qmmm','charge','paddingstates'}
+    def read_template(self, template_filename="SCHNARC.template"):
+        """reads the template file
+        has to be called after setup_mol!"""
+
+        kw_whitelist = {"model_file", "qmmm", "charge", "paddingstates"}
         QMin = self.QMin
-        QMin.template.types={
-                "model_file":str,
-                "qmmm":bool,
-                "charge":list,
-                "paddingstates":list
-                }
-        QMin.template.data={
-                "model_file":"best_model",
-                 "qmmm":False,
-                 "charge":[0],
-                 'paddingstates': [0,0,0,0,0]
-                }
+        QMin.template.types = {"model_file": str, "qmmm": bool, "charge": list, "paddingstates": list}
+        QMin.template.data = {"model_file": "best_model", "qmmm": False, "charge": [0], "paddingstates": [0, 0, 0, 0, 0]}
 
-        super().read_template(template_filename, kw_whitelist = kw_whitelist)
+        super().read_template(template_filename, kw_whitelist=kw_whitelist)
         return
 
     def read_resources(self, resources_filename="SCHNARC.resources"):
         super().read_resources(resources_filename)
-        self._read_resources=True
-        return
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         self.log.info("=" * 80)
@@ -143,9 +130,10 @@ class SHARC_SCHNARC(SHARC_FAST):
             self.resources_file = resources_file
         else:
             self.log.info(f"{'SCHNARC ressource usage':-^60}\n")
-            self.setupINFOS["modelpath"] = question("Specify the absolute path to your SCHNARC model: ", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["modelpath"] = question(
+                "Specify the absolute path to your SCHNARC model: ", str, KEYSTROKES=KEYSTROKES
+            )
         return INFOS
-        
 
     def prepare(self, INFOS: dict, dir_path: str):
         create_file = link if INFOS["link_files"] else shutil.copy
@@ -160,26 +148,39 @@ class SHARC_SCHNARC(SHARC_FAST):
             create_file(expand_path(self.resources_file), os.path.join(dir_path, "SCHNARC.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "SCHNARC.template"))
 
-
-
-###################### run routines ######################
+    ###################### run routines ######################
 
     def setup_interface(self):
         # param are some paramters for the neuralnetwork, which can be changed in the definition below
         # the SchNarculator is initialized with dummy coordinates and fieldschnet is enabled if point charges are found
         param = parameters()
-        dummy_crd=torch.zeros(len(self.QMin.molecule["elements"]),3)
+        dummy_crd = torch.zeros(len(self.QMin.molecule["elements"]), 3)
         if self.QMin.resources["ngpu"]:
-            device=torch.device('cuda')
+            device = torch.device("cuda")
         else:
-            device=torch.device('cpu')
-        if self.QMin.molecule["point_charges"]: 
-            self.models = calculators.SchNarculator(dummy_crd,self.QMin.molecule["elements"],self.QMin.template['model_file'],param=param,
-                                                    hessian=False,nac_approx=[1,None,None],adaptive=None,qmmm=True)
+            device = torch.device("cpu")
+        if self.QMin.molecule["point_charges"]:
+            self.models = calculators.SchNarculator(
+                dummy_crd,
+                self.QMin.molecule["elements"],
+                self.QMin.template["model_file"],
+                param=param,
+                hessian=False,
+                nac_approx=[1, None, None],
+                adaptive=None,
+                qmmm=True,
+            )
         else:
-            self.models = calculators.SchNarculator(dummy_crd,self.QMin.molecule["elements"],self.QMin.template['model_file'],param=param,
-                                                    hessian=False,nac_approx=[1,None,None],adaptive=None,qmmm=False)
-
+            self.models = calculators.SchNarculator(
+                dummy_crd,
+                self.QMin.molecule["elements"],
+                self.QMin.template["model_file"],
+                param=param,
+                hessian=False,
+                nac_approx=[1, None, None],
+                adaptive=None,
+                qmmm=False,
+            )
 
     def run(self):
 
@@ -188,12 +189,16 @@ class SHARC_SCHNARC(SHARC_FAST):
             # if point charges are included in the prediction we assume you are using filedschnet
             # therefore we will compute the electric field and add it to the input of the NN
             fields = self.get_pointfield()
-            coords =self.QMin.coords["coords"]
+            coords = self.QMin.coords["coords"]
             print("we have pc")
-            sharc_out={'positions':coords,'external_charges':self.QMin.coords["pccharge"],'electric_field':fields}
+            sharc_out = {"positions": coords, "external_charges": self.QMin.coords["pccharge"], "electric_field": fields}
         else:
-            fields = np.zeros((self.QMin.molecule["natom"],3))
-            sharc_out={'positions':self.QMin.coords["coords"],'external_charges':self.QMin.coords["pccharge"],'electric_field':fields}
+            fields = np.zeros((self.QMin.molecule["natom"], 3))
+            sharc_out = {
+                "positions": self.QMin.coords["coords"],
+                "external_charges": self.QMin.coords["pccharge"],
+                "electric_field": fields,
+            }
         NN_out = self.models.calculate(sharc_out)
         keys = NN_out.keys()
         #'dm', 'nacdr', 'h', 'grad', 'dydf', 'pc_grad'
@@ -217,10 +222,10 @@ class SHARC_SCHNARC(SHARC_FAST):
                         # computing the gradient of each point charge with respect to each atom
                         # summing over the corresponding axis afterwards to get the correct dimensions
                         pc_grads = self.get_pc_grad(NN_out["dydf"])
-                        self.QMout.grad += np.sum(pc_grads,axis=2)*(-1)
-                        print(np.linalg.norm(np.sum(pc_grads,axis=2)))
+                        self.QMout.grad += np.sum(pc_grads, axis=2) * (-1)
+                        print(np.linalg.norm(np.sum(pc_grads, axis=2)))
                         print(np.linalg.norm(NN_out["grad"]))
-                        self.QMout.grad_pc = np.sum(pc_grads,axis=1)#*(-1)
+                        self.QMout.grad_pc = np.sum(pc_grads, axis=1)  # *(-1)
                     self.log.debug(key)
                 case "dm":
                     self.QMout.dm = np.array(NN_out["dm"])
@@ -230,71 +235,69 @@ class SHARC_SCHNARC(SHARC_FAST):
                 case "socdr":
                     self.QMout.socdr = np.array(NN_out["socdr"])
                 case _:
-                    self.log.warning(key," is not implemented")
+                    self.log.warning(key, " is not implemented")
         return None
 
-
     def get_pointfield(self):
-        field = np.zeros((len(self.QMin.coords['coords']), 3))
+        field = np.zeros((len(self.QMin.coords["coords"]), 3))
         atom_nr = 0
-        for atom in self.QMin.coords['coords']:
+        for atom in self.QMin.coords["coords"]:
             i = 0
-            for point in self.QMin.coords['pccoords']:
-                dist_vec = (atom - point)
-                field[atom_nr] += self.QMin.coords['pccharge'][i] * dist_vec / (np.linalg.norm(
-                    dist_vec, 2)**3)
+            for point in self.QMin.coords["pccoords"]:
+                dist_vec = atom - point
+                field[atom_nr] += self.QMin.coords["pccharge"][i] * dist_vec / (np.linalg.norm(dist_vec, 2) ** 3)
                 i += 1
             atom_nr += 1
         return field
+
     def getQMout(self):
-        # everything is already 
-        self.QMout.states = self.QMin.molecule['states']
-        self.QMout.nstates = self.QMin.molecule['nstates']
-        self.QMout.nmstates = self.QMin.molecule['nmstates']
-        self.QMout.natom = self.QMin.molecule['natom']
-        self.QMout.npc = self.QMin.molecule['npc']
+        # everything is already
+        self.QMout.states = self.QMin.molecule["states"]
+        self.QMout.nstates = self.QMin.molecule["nstates"]
+        self.QMout.nmstates = self.QMin.molecule["nmstates"]
+        self.QMout.natom = self.QMin.molecule["natom"]
+        self.QMout.npc = self.QMin.molecule["npc"]
         self.QMout.point_charges = False
         return self.QMout
 
     def create_restart_files(self):
-        #x=open("restart/restart","w")
-        #x.write(str(self.QMin.coords['coords']))
-        #x.close()
-        #return None 
+        # x=open("restart/restart","w")
+        # x.write(str(self.QMin.coords['coords']))
+        # x.close()
+        # return None
         pass
 
-
-
-    def get_pc_grad(self,dEdF):
+    def get_pc_grad(self, dEdF):
         # computes the gradients of the energy, which include the point charges
         # requires the change of energy with the electric field
         N_MM = self.QMin.coords["pccharge"].shape[0]
         N_QM = self.QMin.coords["coords"].shape[0]
-        dF_dx = np.zeros((N_QM, N_MM, 3,3))
+        dF_dx = np.zeros((N_QM, N_MM, 3, 3))
         # loop over all qm atoms computing the change of the electric field with respect to the coordinates of atoms and point charges
         for qm_idx, qm_atom in enumerate(self.QMin.coords["coords"]):
-            dists = np.subtract(qm_atom,self.QMin.coords["pccoords"])
-            norms = np.linalg.norm(dists, axis=1).reshape(N_MM,1,1)
-            mat = (3.*np.einsum('ij,il->ijl', dists, dists)/np.power(norms,2)- np.identity(3))
-            mat /= np.power(norms,3)
-            dF_dx[qm_idx] = mat * (self.QMin.coords["pccharge"].reshape(N_MM, 1,1))
-        return np.einsum('ijk,jlkm->ijlm', dEdF, dF_dx)
+            dists = np.subtract(qm_atom, self.QMin.coords["pccoords"])
+            norms = np.linalg.norm(dists, axis=1).reshape(N_MM, 1, 1)
+            mat = 3.0 * np.einsum("ij,il->ijl", dists, dists) / np.power(norms, 2) - np.identity(3)
+            mat /= np.power(norms, 3)
+            dF_dx[qm_idx] = mat * (self.QMin.coords["pccharge"].reshape(N_MM, 1, 1))
+        return np.einsum("ijk,jlkm->ijlm", dEdF, dF_dx)
 
 
 class parameters:
-    cuda=False
-    socs_mask=np.zeros(1)
-    socmodel=None
-    nacmodel=None
-    emodel2=None
-    finish=False
-    environment_provider="simple"
-    diss_tyro=None
-    only_energy=True
+    cuda = False
+    socs_mask = np.zeros(1)
+    socmodel = None
+    nacmodel = None
+    emodel2 = None
+    finish = False
+    environment_provider = "simple"
+    diss_tyro = None
+    only_energy = True
 
 
 if __name__ == "__main__":
     from logger import loglevel
+
     try:
         schnarc = SHARC_SCHNARC(loglevel=loglevel)
         schnarc.main()

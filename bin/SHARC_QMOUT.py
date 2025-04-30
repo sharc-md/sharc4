@@ -119,7 +119,7 @@ class SHARC_QMOUT(SHARC_FAST):
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         "setup the folders"
         if os.path.isdir(self.setupINFOS["path"]):
-            num = int(dir_path.rstrip('/')[-5:])
+            num = int(dir_path.rstrip('/')[-8:-3])
             qmoutfile = os.path.join(self.setupINFOS["path"], 'ICOND_%05i' % num, 'QM.out')
             if os.path.isfile(qmoutfile):
                 if self.setupINFOS["link"]:

@@ -1,4 +1,4 @@
-!******************************************
+!*****************************************
 !
 !    SHARC Program Suite
 !
@@ -83,6 +83,7 @@ program data_extractor
   integer, parameter :: u_cmixm=65         !< JCP 139, 211101 (2013), Method 3 (MCH)
   integer, parameter :: u_cmixdiab=66      !< JCP 139, 211101 (2013), Method 3 (diabatic)
 
+  integer, parameter :: u_xyz=99         !< unit for output.xyz
 
   !> # Information which is constant throughout all timesteps
   integer :: nstates                      !< total number of states
@@ -154,13 +155,14 @@ program data_extractor
   real*8,allocatable :: distance_scaling(:,:)         !< scaling factor to define point between atom positions
   real*8 :: sumc                                  !< sum of coefficients
   integer,allocatable :: proj_atomindex(:,:,:)         !< atomindex to be read from projections.inp
+  character*2,allocatable :: element_a(:)
 
   ! helper
   character*8000 :: filename, string1, string3, line
   character*8000, allocatable :: args(:)
   character*8000, allocatable :: values(:)
   character*21 :: string2
-  integer :: i, io, idir,istate,jstate,kstate,imult,ims,j,n,iproj
+  integer :: i, io, idir,istate,jstate,kstate,imult,ims,j,n,iproj, iatom
   logical :: exists
   logical :: is_integer
   logical :: write_energy
@@ -177,6 +179,7 @@ program data_extractor
   logical :: write_dm_proj
   logical :: write_iondiag
   logical :: write_ionmch
+  logical :: write_geometry
   logical :: skip_geom_vel_grad_nac
   logical :: anyoptions
   integer :: skipthese
@@ -219,6 +222,7 @@ program data_extractor
   write_dm_proj   = .false.
   write_iondiag   = .false.
   write_ionmch    = .false.
+  write_geometry  = .false.
   skip_geom_vel_grad_nac = .false.
 
   ! read command line arguments
@@ -277,6 +281,8 @@ program data_extractor
       write_ionmch = .true.
     elseif (trim(args(i)) == "-sk") then
       skip_geom_vel_grad_nac = .true.
+    elseif (trim(args(i)) == "-xyz") then
+      write_geometry = .true.
     ! all flags true
     elseif (trim(args(i)) == "-xl") then
       write_energy = .true.
@@ -330,9 +336,6 @@ program data_extractor
       write_prob = .true.
       write_expec = .true.
       skip_geom_vel_grad_nac = .true.
-    elseif (trim(args(i)) == "-xyz") then
-!       write_options%write_geometry = .true.
-      write(0,*) 'Ignoring -xyz option in ASCII mode.'
     elseif (trim(args(i)) == "-h") then
       call print_usage(0)
       stop 
@@ -358,6 +361,7 @@ program data_extractor
     write_dm_proj   = .false.
     write_iondiag   = .false.
     write_ionmch    = .false.
+    write_geometry  = .false.
     skip_geom_vel_grad_nac = .true.
   endif
 
@@ -532,7 +536,8 @@ program data_extractor
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
     allocate( spin0_s(nstates) )
-    if (.not. skip_geom_vel_grad_nac) then
+    allocate( element_a(natom))
+    if ((.not. skip_geom_vel_grad_nac) .or. (write_geometry)) then
       allocate( geom_ad(natom,3), veloc_ad(natom,3) )
     endif
     call allocate_lapack(nstates)
@@ -627,7 +632,7 @@ program data_extractor
     ! allocate everything
     allocate( H_MCH_ss(nstates,nstates), H_diag_ss(nstates,nstates) )
     allocate( U_ss(nstates,nstates) )
-    allocate( Prop2d_xss(n_property2d,nstates,nstates), Prop1d_ys(n_property1d,nstates) )
+    allocate( Prop2d_xss(n_property2d,nstates,nstates),Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
     allocate( DM_mch_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
@@ -641,7 +646,8 @@ program data_extractor
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
     allocate( spin0_s(nstates) )
-    if (.not. skip_geom_vel_grad_nac) then
+    allocate( element_a(natom))
+    if ((.not. skip_geom_vel_grad_nac) .or. (write_geometry)) then
       allocate( geom_ad(natom,3), veloc_ad(natom,3) )
     endif
     call allocate_lapack(nstates)
@@ -740,10 +746,22 @@ program data_extractor
     endif
 
     ! Now we skip over the header array data (atomic numbers, elements, masses)
-    do i=1,3*(1+natom)
-      read(u_dat,*) string1
-    enddo
-
+    if (write_geometry) then
+      do i=1,(natom+1)
+        read(u_dat,*)
+      enddo
+      read(u_dat,*) ! header of element names
+      do i=1,(natom)
+        read(u_dat,*) element_a(i)
+      enddo
+      do i=1,(natom+1)
+        read(u_dat,*)
+      enddo
+    else
+      do i=1,3*(1+natom)
+        read(u_dat,*)
+      enddo
+    endif
     ! if an explicit laser file is in the dat file, read it now
     ! laser field comes before the time step data
     if (laser==2) then
@@ -752,8 +770,8 @@ program data_extractor
     endif
 
     ! skip the "End of header array data" separator line
-    read(u_dat,*)
-
+    read(u_dat,*) string1
+    write(*,*) "END OF HEADER", string1
   endif
 
   ! =============================================================================================
@@ -776,6 +794,7 @@ program data_extractor
   if (write_energy)    open(unit=u_ener, file='output_data/energy.out', status='replace', action='write')           ! -e
   if (write_dip)       open(unit=u_dm, file='output_data/fosc.out', status='replace', action='write')               ! -d
   if (write_spin)      open(unit=u_spin, file='output_data/spin.out', status='replace', action='write')             ! -s
+  if (write_geometry)    open(unit=u_xyz, file='output.xyz', status='replace', action='write')           ! -xyz
 
   if (write_coeffdiag) open(unit=u_coefd, file='output_data/coeff_diag.out', status='replace', action='write')      ! -cd
   if (write_coeffmch)  open(unit=u_coefm, file='output_data/coeff_MCH.out', status='replace', action='write')       ! -cm
@@ -892,6 +911,14 @@ program data_extractor
     write(u_spin,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
   endif
   
+  ! if (write_geometry) then  
+  !   write(u_xyz,'(I12)') natom                                                                                
+  !   write(u_xyz,'(A5, 1X, F14.5, 1X, I4, 1X, i4)') 't= ',step*dtstep, state_diag, state_MCH
+  !   do iatom=1,natom                                                                                          
+  !     write(u_xyz,'(A2,3(1X,F16.9))') element_a(iatom), (geom_ad(iatom,idir)*au2a,idir=1,3)                   
+  !   enddo                                                                                                                   
+  ! endif                                                                                                                     
+
   if (write_coeffdiag) then
     write(u_coefd,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
     write(u_coefd,'(A1,1X,3(A20,1X))') '#','Time |','Sum c**2 |','=== coeff_diag ===>'
@@ -1054,10 +1081,10 @@ program data_extractor
     read(u_dat,*) randnum
     read(u_dat,*)
     read(u_dat,*) runtime
-    if (skip_geom_vel_grad_nac) then
-      do i=1,2*natom+2
-        read(u_dat,*)
-      enddo
+    if ((skip_geom_vel_grad_nac) .and. (.not. write_geometry)) then
+      do iatom=1,2*natom+2
+        read(u_dat,*) 
+      enddo                                                                                                                   
     else
       call vec3read(natom,geom_ad,u_dat,string1)
       call vec3read(natom,veloc_ad,u_dat,string1)
@@ -1275,6 +1302,13 @@ program data_extractor
       (expec_s(istate),istate=1,nstates)
     endif
 
+    if (write_geometry) then  
+      write(u_xyz,'(I12)') natom                                                                                
+      write(u_xyz,'(A5, 1X, F14.5, 1X, I4, 1X, i4)') 't= ',step*dtstep, state_diag, state_MCH
+      do iatom=1,natom                                                                                          
+        write(u_xyz,'(A2,3(1X,F16.9))') element_a(iatom), (geom_ad(iatom,idir)*au2a,idir=1,3)                   
+      enddo                                                                                                                   
+    endif                                                                                                                     
 
     if (write_coeffdiag) then
       ! calculate sumsq of diagonal coefficients
@@ -1453,6 +1487,7 @@ program data_extractor
   if (write_ionmch)    close(u_ion_mch)   ! -im 
   if (write_dm_diag)   close(u_dm_diag)   ! -dd
   if (write_dm_proj)   close(u_dm_proj)   ! -dd 
+  if (write_geometry)   close(u_xyz)      ! -xyz
 
 
 
@@ -1674,6 +1709,15 @@ program data_extractor
       deallocate(tmp_out_matrix)
     endif
 
+    !write_geometry not yet implemented for adapted time step scheme        
+    if (write_geometry) then  
+      write(0,*) 'Export geometry not implemented for adapted time step!'
+    !  write(u_xyz,'(I12)') natom                                                                                
+    !  write(u_xyz,'(A5, 1X, F14.5, 1X, I4, 1X, i4)') 't= ',step*dtstep, state_diag, state_MCH
+    !  do iatom=1,natom                                                                                          
+    !    write(u_xyz,'(A2,3(1X,F16.9))') element_a(iatom), (geom_ad(iatom,idir)*au2a,idir=1,3)                   
+    !  enddo                                                                                                                   
+    endif                                                                                                                     
 
     if (write_coeffdiag) then
     ! for coefficients, one has to linearly interpolate norm, i.e. population,
@@ -2161,6 +2205,7 @@ program data_extractor
     write(u,*) '       -id : write diag ion file            (output_data/ion_diag.out)'
     write(u,*) '       -im : write MCH ion file             (output_data/ion_mch.out)'
     write(u,*) '       -sk : skip reading geometries, velocities, gradients, NACs'
+    write(u,*) '       -xyz : write XYZ geometry file (output.xyz)'
   endsubroutine
 
 

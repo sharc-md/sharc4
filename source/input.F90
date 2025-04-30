@@ -571,7 +571,7 @@ module input
     endif
 
     if (printlevel>1) then
-      write(u_log,'(3a,1x,i4)') 'Total number of atoms from "',trim(geomfilename),'":',ctrl%natom
+      write(u_log,'(3a,1x,i7)') 'Total number of atoms from "',trim(geomfilename),'":',ctrl%natom
       write(u_log,*)
     endif
     call flush(u_log)
@@ -603,7 +603,7 @@ module input
       write(u_log,*) '                          Allocation'
       write(u_log,*) '============================================================='
       if (printlevel>1) then
-        write(u_log,'(a,1x,i4,1x,a,1x,i4,1x,a)') 'Allocation with nstates=',ctrl%nstates,'and natom=',ctrl%natom,'successful.'
+        write(u_log,'(a,1x,i7,1x,a,1x,i7,1x,a)') 'Allocation with nstates=',ctrl%nstates,'and natom=',ctrl%natom,'successful.'
 !         n=sizeof(traj)
 !         write(u_log,'(a,1x,i10,1x,a)') 'Using',n,'bytes for trajectory data.'
       endif
@@ -1523,13 +1523,13 @@ module input
 
     ! flag for switching of writing of restart files
     ctrl%write_restart_files = .true.
-    line=get_value_from_key('write_restart_files',io)
-    if (io==0) then
-      ctrl%write_restart_files = .true.
-    endif
     line=get_value_from_key('nowrite_restart_files',io)
     if (io==0) then
       ctrl%write_restart_files = .false.
+    endif
+    line=get_value_from_key('write_restart_files',io)
+    if (io==0) then
+      ctrl%write_restart_files = .true.
     endif
     if (.not.ctrl%write_restart_files) then
         write(u_log,'(a)') 'Writing of restart files turned off! Restarting trajectory will not be possible!'
@@ -2418,7 +2418,7 @@ module input
         write(u_log,*) 'Geometry (Bohr):'
         write(u_log,'(A2,1X,3(A9,1X),3X,A3,1X,A12)') 'El','x','y','z','#','mass'
         do i=1,ctrl%natom
-          write(u_log,'(A2,1X,3(F9.6,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
+          write(u_log,'(A2,1X,3(F9.4,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
           &(traj%geom_ad(i,j),j=1,3),traj%atomicnumber_a(i),traj%mass_a(i)
         enddo
       endif
@@ -2683,7 +2683,7 @@ module input
 
           if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for dynamics (active/frozen atoms) from file "',trim(filename),'"'
           if (io/=0) then
-            write(0,*) 'Could not find atom mask for freezing atoms file! (Is filename in ""-marks?)'
+            write(0,*) 'Could not find atom mask for freezing atoms file! (filename must be in quotes)'
             stop 1
           endif
           if (filename=='QM/real_layers.xyz') then !read from real_layers file
@@ -3444,13 +3444,13 @@ module input
           case (0)
           case (1)
             write(u_log,'(a)') 'Restricted droplet potential will be applied:'
-            write(u_log,'(a)') 'Radius (Angstrom) and force constant (u/fs^2):'
+            write(u_log,'(a)') 'Radius (Angstrom) and force constant (Eh/a0^2):'
           case (2)
             write(u_log,'(a)') 'Tethering of atoms will be applied:'
-            write(u_log,'(a)') 'Force constant (u/fs^2) and radius (Angstrom):'
+            write(u_log,'(a)') 'Force constant (Eh/a0^2) and radius (Angstrom):'
           case (3)
             write(u_log,'(a)') 'Restricted droplet potential and tethering of atoms will be applied:'
-            write(u_log,'(a)') 'Droplet radius (Angstrom) and force constants (droplet potential and tethering, u/fs^2)&
+            write(u_log,'(a)') 'Droplet radius (Angstrom) and force constants (droplet potential and tethering, Eh/a0^2)&
                    and tethering radius (Angstrom):'
         endselect
       endif
@@ -3461,12 +3461,12 @@ module input
   if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
     line=get_value_from_key('restricted_droplet_force',io)
       if (io==0) then
-        read(line,*) ctrl%restricted_droplet_force ! provide in u/fs^2
+        read(line,*) ctrl%restricted_droplet_force ! provide in Hartree/BOhr^2
       else
         write(0,*) 'No force constant for restrictive droplet potental given!'
         stop 1
       endif
-    ctrl%restricted_droplet_force = ctrl%restricted_droplet_force * au2fs**2/au2u
+    ctrl%restricted_droplet_force = ctrl%restricted_droplet_force ! * au2fs**2/au2u
     line=get_value_from_key('restricted_droplet_radius',io)
        if (io==0) then
         read(line,*) ctrl%restricted_droplet_radius
@@ -3534,13 +3534,13 @@ module input
     if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
       line=get_value_from_key('tethering_force',io)
       if (io==0) then
-        read(line,*) ctrl%tethering_force ! provide in u/fs^2
+        read(line,*) ctrl%tethering_force ! provide in Hartree/BOhr^2
         if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
       else
         write(0,*) 'No force constant for tethering of atom given!'
         stop 1
       endif
-      ctrl%tethering_force = ctrl%tethering_force * au2fs**2/au2u
+      ctrl%tethering_force = ctrl%tethering_force ! * au2fs**2/au2u
       line=get_value_from_key('tethering_radius',io)
       if (io==0) then
         read(line,*) ctrl%tethering_radius

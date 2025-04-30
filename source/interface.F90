@@ -378,7 +378,7 @@ subroutine get_tasks(string, ICALL)
 
     ! write step into tasks
     string = 'step'
-    write(string,'(A,1X,I)') trim(string), traj%step
+    write(string,'(A,1X,I0)') trim(string), traj%step
     ! TODO: add retain
 
 
@@ -1472,7 +1472,9 @@ subroutine Verlet_finalize(IExit, iskip)
 
     ! write_restart_traj must be the last command
     if (ctrl%output_format==0) then
-      call write_restart_traj(u_rest,ctrl,traj)
+      if (ctrl%write_restart_files) then
+        call write_restart_traj(u_rest,ctrl,traj)
+      endif
       call write_geom(u_geo,traj,ctrl)
     endif
 

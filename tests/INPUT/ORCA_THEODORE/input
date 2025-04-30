@@ -3,6 +3,7 @@ veloc        external
 velocfile    "veloc"
 
 nstates      4
+charge       0
 actstates    2
 state        2 mch
 coeff        auto
@@ -26,3 +27,4 @@ theodore
 n_property1d 13
 write_property1d
 nospinorbit
+output_format ascii

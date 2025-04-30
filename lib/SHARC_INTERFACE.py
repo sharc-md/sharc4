@@ -518,6 +518,8 @@ class SHARC_INTERFACE(ABC):
                 self._setsave = True
                 self.QMin.save["savedir"] = qmin_file["savedir"]
                 self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
+            if "point_charges" in qmin_file:
+                self.QMin.molecule["point_charges"] = qmin_file["point_charges"]
             self.log.debug(f"retain {int(qmin_file['retain'].split()[1])}")
             self.QMin.requests["retain"] = int(qmin_file["retain"].split()[1])
 

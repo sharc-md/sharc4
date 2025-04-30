@@ -26,6 +26,7 @@
 import os
 import sys
 import math
+import numpy as np
 import copy
 import re
 import datetime
@@ -125,6 +126,7 @@ p = 4     # default number of decimals
 f = 20    # default field width
 Bohrs = False
 Radians = False
+Fill_Nan = False
 ang2bohr = 1.88972612
 deg2rad = math.pi / 180.0
 
@@ -665,16 +667,18 @@ def calculate(g, req, comm):
     formatstring = '%%%i.%if ' % (f, p)
     stringstring = '%%%is ' % (f)
     commentstring = '%%%is ' % (f + comment_bonus)
+    nanstring = '%%%is ' % (f)
     # compute and append COM
-    natom = len(g)
-    COM = [0., 0., 0.]
-    for i in range(3):
-        mass = 0.
-        for atom in g:
-            COM[i] += atom[i]*MASSES[atom[3].title()]
-            mass += MASSES[atom[3].title()]
-        COM[i] /= mass
-    g.append(COM+['com'])
+    if not "NaN" in req:
+        natom = len(g)
+        COM = [0., 0., 0.]
+        for i in range(3):
+            mass = 0.
+            for atom in g:
+                COM[i] += atom[i]*MASSES[atom[3].title()]
+                mass += MASSES[atom[3].title()]
+            COM[i] /= mass
+        g.append(COM+['com'])
     # print(g)
     # process requests
     for r in req:
@@ -731,6 +735,8 @@ def calculate(g, req, comm):
             if comm[0:f + comment_bonus].strip() == '':
                 comm = ' ' * (f - 14 + comment_bonus) + '<EMPTY_STRING>'
             s += commentstring % (comm[0:f + comment_bonus].strip())
+        elif r == 'NaN':
+            s += nanstring % ('NaN')
     return s
 # ================================================================= #
 
@@ -812,6 +818,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     parser.add_option('-g', dest='g', type="string", nargs=1, default="output.xyz", help="geometry file in xyz format (default=output.xyz)")
     parser.add_option('-t', dest='t', type=float, nargs=1, default=1.0, help="timestep between successive geometries is fs (default=1.0 fs)")
     parser.add_option('-T', dest='T', type=int, nargs=1, default=0, help="start counting the timesteps at T (default=0)")
+    parser.add_option('-n', dest='n', action="store_true", help="prepend set to start at 0 fs and fill with NaN values")
     (options, args) = parser.parse_args()
     global p, f, Bohrs, Radians
     if options.f >= 20:
@@ -824,8 +831,12 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
         p = f - 3
     Bohrs = options.b
     Radians = options.r
+    Fill_Nan = options.n
     dt = options.t
-    Tshift = options.T
+    if os.path.exists("start.time") and options.T==0:
+        Tshift = float(np.genfromtxt("start.time")[0]/options.t)
+    else:
+        Tshift = options.T
 
     geofilename = options.g
     try:
@@ -865,35 +876,51 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
 
     line = 0
     t = 0
-    while line < len(geo):
-        try:
-            n = int(geo[line].split()[0])
-        except IndexError:
-            sys.stderr.write('ERROR: did not find number of atoms! Line= %i, step= %i' % (line, t))
-            sys.exit(1)
-        if not n == natom:
-            sys.stderr.write('ERROR: Number of atoms inconsistent! Line= %i, step= %i' % (line, t))
-            sys.exit(1)
-        line += 1
-        comm = geo[line]
+    # Set variables for outputting NaNs as preprend
+    if Fill_Nan and Tshift != 0.0:
+        len_geo = len(geo)+int(Tshift/dt)
+        Tshift_index = int(Tshift/dt)
+    else:
+        len_geo = len(geo)
+        Tshift_index = int(0)
+    while line < len_geo:
+        if line >= Tshift_index: 
+            try:
+                    n = int(geo[line-Tshift_index].split()[0])
+            except IndexError:
+                sys.stderr.write('ERROR: did not find number of atoms! Line= %i, step= %i' % (line-Tshift_index, t))
+                sys.exit(1)
+            if not n == natom:
+                sys.stderr.write('ERROR: Number of atoms inconsistent! Line= %i, step= %i' % (line-Tshift_index, t))
+                sys.exit(1)
+            line += 1
+            comm = geo[line-Tshift_index]  # Comment line
         line += 1
         g = []
-        try:
-            for i in range(natom):
-                geoline = geo[line].split()
-                a = []
-                for j in range(3):
-                    a.append(float(geoline[j + 1]))
-                a.append(geoline[0])
-                g.append(a)
-                line += 1
-        except ValueError:
-            sys.stderr.write('ERROR: Error while reading geometry! Line= %i\n' % (line))
-            sys.exit(1)
+        if line > Tshift_index:
+            try:
+                for i in range(natom):
+                    geoline = geo[line-Tshift_index].split()
+                    a = []
+                    for j in range(3):
+                        a.append(float(geoline[j + 1]))
+                    a.append(geoline[0])
+                    g.append(a)
+                    line += 1
+            except ValueError:
+                sys.stderr.write('ERROR: Error while reading geometry! Line= %i\n' % (line))
+                sys.exit(1)
 
         formatstring = '%%%i.%if ' % (f, p)
-        s = calculate(g, req, comm)
-        print(formatstring % ((t + Tshift) * dt) + s)
+        if line > Tshift_index and Tshift!=0 and not Fill_Nan:
+            s = calculate(g, req, comm)
+            print(formatstring % ((t+Tshift) * dt) + s)
+        elif line > Tshift_index:
+            s = calculate(g, req, comm)
+            print(formatstring % ((t) * dt) + s)
+        else: 
+            s = calculate(g, ["NaN"]*len(req), "")
+            print(formatstring % ((t) * dt) + s)
         t += 1
         sys.stderr.write('\rNumber of geometries: % 6i' % (t))
 

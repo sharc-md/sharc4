@@ -287,7 +287,7 @@ def displaywelcome():
     string += "  " + "=" * 80 + "\n"
     input = [
         " ",
-        "Setup trajectories for SHARC dynamics",
+        "Setup initial conditions for SHARC dynamics",
         " ",
         "Authors: Sebastian Mai, Severin Polonius",
         " ",

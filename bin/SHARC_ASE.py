@@ -42,7 +42,7 @@ AUTHORS = "Sascha Mausenberger"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 12, 2)
 NAME = "ASE"
-DESCRIPTION = "HYBRID interface for saveing data to ASE db"
+DESCRIPTION = "   HYBRID interface for saveing data to ASE db"
 
 CHANGELOGSTRING = """
 """
@@ -99,7 +99,6 @@ class SHARC_ASE(SHARC_HYBRID):
             "kwargs": dict,  # Keyword args for child
         }
 
-        self.resources_file = None
         self.template_file = None
 
     def read_resources(self, resources_file="ASE.resources", kw_whitelist=None):
@@ -259,11 +258,6 @@ class SHARC_ASE(SHARC_HYBRID):
         self.log.info("=" * 80)
         self.log.info("\n")
 
-        if question("Do you have an ASE.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
-            self.resources_file = question(
-                "Specify path to ASE.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True, default="ASE.resources"
-            )
-
         self.log.info(f"\n{' Setting up child interface ':=^80s}\n")
         self._kindergarden["reference"].QMin.molecule["states"] = INFOS["states"]
         self._kindergarden["reference"].get_infos(INFOS, KEYSTROKES=KEYSTROKES)
@@ -272,12 +266,8 @@ class SHARC_ASE(SHARC_HYBRID):
     def prepare(self, INFOS: dict, dir_path: str):
         if "link_files" in INFOS:
             os.symlink(expand_path(self.template_file), os.path.join(dir_path, self.name() + ".template"))
-            if "resources_file" in self.__dict__:
-                os.symlink(expand_path(self.resources_file), os.path.join(dir_path, self.name() + ".resources"))
         else:
             shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
-            if "resources_file" in self.__dict__:
-                shutil.copy(self.resources_file, os.path.join(dir_path, self.name() + ".resources"))
 
         if not self.QMin.save["savedir"]:
             self.log.warning("savedir not specified, setting savedir to current directory!")
@@ -286,7 +276,7 @@ class SHARC_ASE(SHARC_HYBRID):
         # folder setup and savedir
         self._kindergarden["reference"].QMin.save["savedir"] = self.QMin.save["savedir"]
         self._kindergarden["reference"].QMin.resources["scratchdir"] = self.QMin.resources["scratchdir"]
-        self._kindergarden["reference"].prepare(INFOS, os.getcwd())
+        self._kindergarden["reference"].prepare(INFOS, dir_path)
 
 
 if __name__ == "__main__":

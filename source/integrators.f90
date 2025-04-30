@@ -33,7 +33,7 @@
 !> adaptive_velocity_verlet
 !> fixed_velocity_verlet
 
-module driver
+module integrators
   contains
 
 !====================================================================
@@ -508,4 +508,4 @@ enddo
 
 endsubroutine
 
-endmodule driver
+endmodule integrators
