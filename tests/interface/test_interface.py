@@ -394,6 +394,45 @@ def test_driver_requests():
     shutil.rmtree(os.path.join(os.getcwd(), "SAVE"))
 
 
+def test_driver_requests2():
+    tests = [
+        (
+            os.path.join(expand_path(PATH), "inputs/request_test1.in"),
+            {"h": True, "soc": True, "dm": True, "grad": [1, 2, 3, 4, 5, 6]},
+        ),
+        (
+            os.path.join(expand_path(PATH), "inputs/request_test2.in"),
+            {"h": True, "grad": [1, 2, 3], "theodore": True},
+        ),
+        (
+            os.path.join(expand_path(PATH), "inputs/request_test3.in"),
+            {"h": True, "grad": [1, 2, 3], "multipolar_fit": ["all"]},
+        ),
+        (
+            os.path.join(expand_path(PATH), "inputs/request_test4.in"),
+            {"h": True, "grad": [1, 2, 3], "density_matrices": ["all"]},
+        )
+    ]
+
+    for qmfile, qmdict in tests:
+        file_test = SHARC_INTERFACE()
+        dict_test = SHARC_INTERFACE()
+
+        file_test.setup_mol(qmfile)
+        dict_test.setup_mol(qmfile)
+
+        file_test._read_template = True
+        dict_test._read_template = True
+        file_test._read_resources = True
+        dict_test._read_resources = True
+
+        file_test.read_requests(qmfile)
+        dict_test.read_requests(qmdict)
+
+        for (key, val_file), val_dict in zip(file_test.QMin.requests.items(), dict_test.QMin.requests.values()):
+            assert val_file == val_dict, key
+
+
 def test_resources1():
     tests = [
         ("inputs/interface_resources1", {"key1": "test", "key2": ["test1", "test2"], "key4": True}, []),
