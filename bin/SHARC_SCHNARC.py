@@ -95,10 +95,10 @@ class SHARC_SCHNARC(SHARC_FAST):
         """reads the template file
         has to be called after setup_mol!"""
 
-        kw_whitelist = {"model_file", "qmmm", "charge", "paddingstates"}
+        kw_whitelist = {"modelpath"}
         QMin = self.QMin
-        QMin.template.types = {"model_file": str, "qmmm": bool, "charge": list, "paddingstates": list}
-        QMin.template.data = {"model_file": "best_model", "qmmm": False, "charge": [0], "paddingstates": [0, 0, 0, 0, 0]}
+        QMin.template.types = {"modelpath": str}
+        QMin.template.data = {"modelpath": "best_model"}
 
         super().read_template(template_filename, kw_whitelist=kw_whitelist)
         return
@@ -122,23 +122,12 @@ class SHARC_SCHNARC(SHARC_FAST):
                 self.log.info(f"File {template_file} does not exist!")
             self._template_file = template_file
 
-        if question("Do you have a SCHNARC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
-            while not os.path.isfile(
-                resources_file := question("Specify path to SCHNARC.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
-            ):
-                self.log.info(f"File {resources_file} does not exist!")
-            self.resources_file = resources_file
-        else:
-            self.log.info(f"{'SCHNARC ressource usage':-^60}\n")
-            self.setupINFOS["modelpath"] = question(
-                "Specify the absolute path to your SCHNARC model: ", str, KEYSTROKES=KEYSTROKES
-            )
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self.resources_file:
-            with open(os.path.join(dir_path, "SCHNARC.resources"), "w", encoding="utf-8") as file:
+            with open(os.path.join(dir_path, "SCHNARC.template"), "w", encoding="utf-8") as file:
                 if "modelpath" in self.setupINFOS:
                     file.write(f"modelpath {self.setupINFOS['modelpath']}\n")
                 else:
@@ -155,10 +144,7 @@ class SHARC_SCHNARC(SHARC_FAST):
         # the SchNarculator is initialized with dummy coordinates and fieldschnet is enabled if point charges are found
         param = parameters()
         dummy_crd = torch.zeros(len(self.QMin.molecule["elements"]), 3)
-        if self.QMin.resources["ngpu"]:
-            device = torch.device("cuda")
-        else:
-            device = torch.device("cpu")
+        device = torch.device("cpu")
         if self.QMin.molecule["point_charges"]:
             self.models = calculators.SchNarculator(
                 dummy_crd,
