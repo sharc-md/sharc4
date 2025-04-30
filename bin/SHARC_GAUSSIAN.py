@@ -123,7 +123,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         self.QMin.template.update(
             {
                 "keys": None,
-                "basis": "6-31G",
+                "basis": "def2svp",
                 "functional": "PBEPBE",
                 "dispersion": None,
                 "scrf": None,
@@ -2400,6 +2400,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         basis, n_bf, cartesian_d, cartesian_f, p_eq_s_shell = SHARC_GAUSSIAN.prepare_basis(raw_properties_from_master)
         self.log.debug(f"{basis}")
         self.log.debug(f"basis information: P(S=P):{p_eq_s_shell} cartesian d:{cartesian_d}, cartesian_f {cartesian_f}")
+        self.log.warning("***Basis set with equal S and P shells detected. Please carefully check your wave function overlaps!***")
         #if get_ecp:
         ECPs = SHARC_GAUSSIAN.prepare_ecp(raw_properties_from_master)
         self.log.debug(f"{'ECP:':=^80}\n{ECPs}")

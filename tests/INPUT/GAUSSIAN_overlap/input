@@ -23,8 +23,5 @@ grad_select
 nac_select
 eselect      0.5
 select_directly
-theodore
-n_property1d 13
-write_property1d
 nospinorbit
 output_format ascii

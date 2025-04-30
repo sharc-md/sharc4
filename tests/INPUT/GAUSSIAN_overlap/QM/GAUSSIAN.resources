@@ -1,0 +1,8 @@
+groot $GAUSSIAN
+scratchdir $SCRADIR/WORK
+ncpu 1
+memory 1000
+
+wfoverlap $SHARC/wfoverlap.x
+wfthres 0.99
+
