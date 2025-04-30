@@ -104,7 +104,7 @@ def main(infile, maskfile, outfile, options):
     # TODO: could do this with slicing for lower memory usage
     with Dataset(infile) as f:
         # nframe, natom, nspat = f.variables["coordinates"].shape
-        data = np.array(f.variables["coordinates"])
+        data = np.array(f.variables["coordinates"])    # in Angstrom, see align_and_reorder_traj.py
 
     # apply mask
     data = data[:, mask_indices, :]
