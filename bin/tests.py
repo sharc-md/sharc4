@@ -49,13 +49,7 @@ try:
 except ImportError:
     sys.stdout.write('*' * 80 + '''
 *** The Python package NumPy was not found! ***
-Performance of excite.py and wigner.py slightly reduced.
-Performance of SHARC_Analytical.py significantly reduced.
-Null space check in make_fitscript.py not possible.
-Setup and Dynamics with LVC interface not possible.
-Setup and Dynamics with ADF interface not possible.
-Normal mode analysis not possible.
-Essential dynamics analysis not possible.''' + '*' * 80 + '\n')
+Most SHARC4 functionality will not be available!''' + '*' * 80 + '\n')
     time.sleep(5)
 
 
@@ -64,14 +58,14 @@ versiondate = datetime.date(2025, 4, 1)
 
 
 
-OTHERENVS = set(['THEODORE', 'orca', 'TINKER', 'molcas', 'PYQUANTE'])
+OTHERENVS = set(['THEODORE', 'orca', 'molcas'])
 
 INTERFACES = {'MOLPRO': 'MOLPRO',
               'MOLCAS': 'MOLCAS',
               'COLUMBUS': 'COLUMBUS',
               'Analytical': 'Analytical',
               'AMS': 'AMS_ADF',
-              'TURBOMOLE': 'RICC2',
+              'TURBOMOLE': 'TURBOMOLE',
               'GAUSSIAN': 'GAUSSIAN',
               'LVC': 'LVC',
               'scripts': 'scripts',
@@ -222,6 +216,7 @@ def env_or_question(varname, setenv=False):
     path = question('Please enter the path for $%s:' % (varname), str)
     path = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
     if setenv:
+        print("\nSetting $%s = %s" % (varname,path)) 
         os.environ[varname] = path
     return path
 

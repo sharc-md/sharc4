@@ -607,7 +607,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
             # Add states
             for mult in qmin.control["jobs"][jobid]["mults"]:
-                nst = qmin.control["states_to_do"][mult - 1]
+                nst = qmin.control["states_to_do"][mult - 1] - 1
                 add_section.append(("$excitations", f"irrep=a multiplicity={mult} nexc={nst} npre={nst+1}, nstart={nst+1}\n"))
 
             # Always calc both sides with CC2
@@ -1451,7 +1451,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             master_job.resources["ncpu"] = cpu_per_run[idx]
             master_job.control["master"] = True
             master_job.control["jobid"] = job
-            master_job.control["states_to_do"][job - 1] -= 1
             if job != 1:
                 master_job.requests["soc"] = False
             master[f"master_{job}"] = master_job

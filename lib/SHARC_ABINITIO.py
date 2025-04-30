@@ -836,7 +836,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 )
             )
         mos = np.ascontiguousarray(mos)
-        print(dets)
         dets = np.char.replace(dets, old="d", new="7,")
         dets = np.char.replace(dets, old="a", new="5,")
         dets = np.char.replace(dets, old="b", new="1,")
