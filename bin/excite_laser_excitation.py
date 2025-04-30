@@ -217,22 +217,25 @@ class INITCOND:
         # else:
             # self.Epot = epot_harm
     
-        
-
-    def __str__(self, coeff):
+    def get_coeff(self, coeff):
+        print("Get coeff")
+        self.coeff = coeff
+    def __str__(self):
         s = "Atoms\n" + "".join(self.atomlist)
         s += "States\n"
         for state in self.statelist:
             s += str(state) + "\n"
+            print(state)
         s += "Coefficients\n"
-        for i, istate in enumerate(range(0, self.nstate)):
-            if not self.statelist[istate].Excited:  #  TODO: Double-excitations of a trajectory (in principle) not covered.
+        
+        for ist in range(0, self.nstate):
+            if not self.statelist[ist].Excited:  #  TODO: Double-excitations of a trajectory (in principle) not covered.
                 continue
-            s += f"Coef {state:03i}\n" 
-            for j, jstate in enumerate(range(0, self.nstate)):
-                s += "%03i " % (jstate)
+            s += f"Coef {ist+1:03d}\n" 
+            for jst in range(0, self.nstate):
+                s += "%03i " % (jst+1)
                 for k in range(0, 2):  # complex number 
-                    s += "% 18.10f " % coeff[i, j, k]
+                    s += "% 18.10f " % self.coeff[ist, jst, k]
                 s += "\n"
 
         s += "Ekin      % 16.12f a.u.\n" % (self.Ekin)
@@ -370,11 +373,11 @@ def run_data_extractor(initstate, INFOS):
 
 
 def gfsh_probs(istate, ic, INFOS):
+    # istate, ic are counter, not states / TRAJ names
     if INFOS["diag"]:
         coeff_file = "coeff_diag.out"
     else:
         coeff_file = "coeff_MCH.out"
-    coeff_data =  np.genfromtxt(get_iconddir(INFOS["setupstates"][istate], INFOS) + "/TRAJ_%05i/output_data/%s" %(INFOS["icond_sel"][ic], coeff_file), comments="#")
     # coeffs = np.zeros((coeff_data.shape[0], int((coeff_data.shape[1]-2)/2)), dtype=complex)
     # TODO Decide, whether coeff_data.shape makes more sense or tsteps, setupstates
     # Check, whether every file has same number of time steps, in case data_extractor failed in the middle of extracting
@@ -382,7 +385,7 @@ def gfsh_probs(istate, ic, INFOS):
     coeffs = np.zeros((INFOS["nsteps"]+1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))), dtype=complex)  # nstates*multiplicity
     time_steps, states = coeffs.shape
     for n_columns in range(0, len(coeffs[1])):
-        coeffs[:, int(n_columns)] = coeff_data[:, int(2*(n_columns+1))] + 1.j*coeff_data[:, int(2*(n_columns+1)+1)]
+        coeffs[:, int(n_columns)] = INFOS["coeff_data"][ic, istate, :, int(2*(n_columns+1))] + 1.j*INFOS["coeff_data"][ic, istate, :, int(2*(n_columns+1)+1)]
     exc_prob = np.zeros((time_steps, int(states)))
     exc_prob_tdiff = np.zeros((time_steps-1, int(states)))
     max_prob = np.zeros(time_steps-1)
@@ -434,15 +437,17 @@ def compute_max_prob(INFOS):
         coeff_file = "coeff_diag.out"
     else:
         coeff_file = "coeff_MCH.out"
-    for istate in INFOS["setupstates"]:  
-        for icond in INFOS["icond_sel"]:
-            p_traj = 0.  # Initialize the accumulated probability to leave the initial state for this trajectory
-            coeff_data =  np.genfromtxt(get_iconddir(istate, INFOS) + "/TRAJ_%05i/output_data/%s" %(icond, coeff_file), comments="#")
+
+    INFOS["coeff_data"] = np.zeros((INFOS["ninit"], len(INFOS["setupstates"]), INFOS["nsteps"]+1, (2+2*int(INFOS["nstates"]))))  # initconds, initstates, timesteps, states
+    for i, istate in enumerate(INFOS["setupstates"]):  
+        for j, jcond in enumerate(INFOS["icond_sel"]):
+            #  p_traj = 0.  # Initialize the accumulated probability to leave the initial state for this trajectory
+            INFOS["coeff_data"][j, i, :, :] =  np.genfromtxt(get_iconddir(istate, INFOS) + "/TRAJ_%05i/output_data/%s" %(jcond, coeff_file), comments="#")
             # TODO: probably would suffice to only take the initial state - defining a big array is not needed
             # coeffs = np.zeros((coeff_data.shape[0], int((coeff_data.shape[1]-2)/2)), dtype=complex)
             # for n_columns in range(0, len(coeffs[1])):
             # coeffs[:, int(n_columns)] = coeff_data[:, int(2*(n_columns+1))] + 1.j*coeff_data[:, int(2*(n_columns+1)+1)]
-            coeff_init = coeff_data[:, int(2*(istate-1+1))] + 1.j*coeff_data[:, int(2*(istate-1+1)+1)]  # skip first two columns containing time and c**2, but istates start at 1
+            coeff_init = INFOS["coeff_data"][j, i, :, int(2*(istate-1+1))] + 1.j*INFOS["coeff_data"][j, i, :, int(2*(istate-1+1)+1)]  # skip first two columns containing time and c**2, but istates start at 1
             pstay = 1. 
             p_init = np.abs(coeff_init)**2
             for tstep in range(len(coeff_init)-1):
@@ -544,43 +549,43 @@ def get_iconddir(istate, INFOS):
     return dirname
 
 
-def read_coeff(INFOS, statelist, exc_list):
-    coeff = np.zeros((INFOS["ninit"], len(statelist), len(statelist), 2))  # update coeff to fit to nstate
-    for istate, state in enumerate(INFOS["setupstates"]):
-        dirname = INFOS["setupstates_names"][istate]  # get_iconddir(initstate, INFOS)  # State directory containing trajectories 
-        for itraj, traj in enumerate(["TRAJ_%05i" % int(el) for el in INFOS["icond_sel"]]):  # cycle through all TRAJ_directories in initstate folder
-            # done = width_bar * (itraj) // len(INFOS["icond_sel"])
-            # sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
-            try: 
-                traj_path = os.path.join(dirname, traj)
-                match INFOS["start_coeff"]:
-                    case 0:
-                        coeff[itraj, :, :, 0]  = np.eye(INFOS["states"])[INFOS["setupstates"]-1] 
-                        coeff[itraj, :, :, 1] = np.zeros(INFOS["states"])
-                    case 1:
-                        if INFOS["diag"]:
-                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[int(exc_list[istate, itraj, 0]), 2::2]
-                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[int(exc_list[istate, itraj, 0]), 3::2]
-                        else: 
-                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[int(exc_list[istate, itraj, 0]), 2::2]
-                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[int(exc_list[istate, itraj, 0]), 3::2]
-                    case 2: 
-                        if INFOS["diag"]:
-                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[-1, 2::2]
-                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[-1, 3::2]
-                        else: 
-                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[-1, 2::2]
-                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[-1, 3::2]
-                    case 3:
-                        if INFOS["diag"]:
-                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[int(INFOS["coeff_time_idx"]), 2::2]
-                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_diag.out"), comments="#")[int(INFOS["coeff_time_idx"]), 3::2]
-                        else: 
-                            coeff[itraj, :, :, 0] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[int(INFOS["coeff_time_idx"]), 2::2]
-                            coeff[itraj, :, :, 1] = np.genfromtxt(os.path.join(traj_path, "output_data/coeff_MCH.out"), comments="#")[int(INFOS["coeff_time_idx"]), 3::2]
-            except OSError:
-                print(f"Trajectory {traj} does not exist for setup state {istate}!")
-    return coeff    
+def read_coeff(INFOS, statelist, exc_list, istate):
+    INFOS["start_coeff"] = question("Should the coefficients be stored for the full dynamics run? \n" + \
+                                     "(0: No, 1: Yes, at the hopping times, 2: Yes, at the end of the electron-only dynamics, 3: Yes, at another time)", int, [0], False)
+    if INFOS["start_coeff"][0] == 3:
+        while True:
+            INFOS["coeff_time"] = question("The dynamics was set up from 0.0fs to %.2f fs. Which coefficients should be taken to initialize the full dynamics run? (0, %.2f)" \
+                % (INFOS["tmax"], INFOS["tmax"]), str, "NaN", False)
+            if float(INFOS["coeff_time"]) < 0.0 or float(INFOS["coeff_time"]) > INFOS["tmax"]:
+                INFOS["coeff_time_idx"] = str(int(np.round(INFOS["coeff_time"]/INFOS["dtstep"], 0))) 
+                break
+            else:
+                continue
+    elif INFOS["start_coeff"][0] == 1:
+        INFOS["coeff_time_idx"] = str("surface hop time")
+    else:
+        INFOS["coeff_time_idx"] = str(np.nan) 
+    coeff = np.zeros((INFOS["ninit"], len(INFOS["nstates"]) , INFOS["nstates"], 2))  # update coeff to fit to nstate
+    for itraj, traj in enumerate(["TRAJ_%05i" % int(el) for el in INFOS["icond_sel"]]):  # cycle through all TRAJ_directories in initstate folder
+        # done = width_bar * (itraj) // len(INFOS["icond_sel"])
+        # sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+        try:
+            match INFOS["start_coeff"][0]:
+                case 0:  # Coeff from pure state 
+                    continue
+                case 1:  # Coeffs from hopping time 
+                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 0] = INFOS["coeff_data"][itraj, istate, int(exc_list[istate, itraj, 0]), 2::2]
+                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, int(exc_list[istate, itraj, 0]), 3::2]
+                case 2:  # Coeffs from last timestep 
+                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 0] = INFOS["coeff_data"][itraj, istate, -1, 2::2]
+                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, -1, 3::2]
+                case 3:  # Coeffs from custom timestep
+                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 0] = INFOS["coeff_data"][itraj, istate, int(INFOS["coeff_time_idx"]), 2::2]
+                    coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, int(INFOS["coeff_time_idx"]), 3::2]
+        except OSError:
+            print(f"Trajectory {traj} does not exist for setup state {istate}!")
+        statelist[itraj].get_coeff(coeff)
+    return statelist    
 
 # ======================================================================= #
 # ======================================================================= #
@@ -590,19 +595,6 @@ def read_coeff(INFOS, statelist, exc_list):
 def writeoutput(initlist, istate, INFOS):
     dirname = get_iconddir(INFOS["setupstates"][istate], INFOS)
     outfilename = INFOS["initf"] + "_" + dirname + ".excited"
-    INFOS["start_coeff"] = question("Should the coefficients be stored for the full dynamics run? \n (0: No, 1: Yes, at the hopping times, 2: Yes, at the end of the electron-only dynamics, 3: Yes, at another time)", int, 0)
-    if INFOS["start_coeff"] == 3:
-        while True:
-            INFOS["coeff_time"] = question("The dynamics was set up from 0.0fs to %.2f fs. Which coefficients should be taken to initialize the full dynamics run? (0, %.2f)" % (INFOS["tmax"], INFOS["tmax"]), str, 0)
-            if float(INFOS["coeff_time"]) < 0.0 or float(INFOS["coeff_time"]) > INFOS["tmax"]:
-                INFOS["coeff_time_idx"] = str(int(np.round(INFOS["coeff_time"]/INFOS["dtstep"], 0))) 
-                break
-            else:
-                continue
-    elif INFOS["start_coeff"] == 1:
-        INFOS["coeff_time_idx"] = str("surface hop time")
-    else:
-        INFOS["coeff_time_idx"] = str(np.nan) 
 
     if os.path.isfile(outfilename):
         overw = question("Overwrite %s? " % (outfilename), bool, False)
@@ -639,7 +631,7 @@ Eharm     %18.10f
 Coeff. times %i
 Coeff. idx %s
 """
-        % (version, INFOS["ninit"], INFOS["natom"], INFOS["repr"], INFOS["eref"], INFOS["eharm"], INFOS["start_coeff"], INFOS["coeff_time_idx"])
+        % (version, INFOS["ninit"], INFOS["natom"], INFOS["repr"], INFOS["eref"], INFOS["eharm"], INFOS["start_coeff"][0], INFOS["coeff_time_idx"])
     )
     string = ""
     if INFOS["states"]:
@@ -694,7 +686,7 @@ def sample_number():
     return sample_number
 
 
-def excite(INFOS, initlist, exc_list, setupstate, coeff):
+def excite(INFOS, initlist, exc_list, setupstate):
     print("\nSelecting initial states ...")
     width_bar = 50
     # for i, icond in enumerate(initlist):
@@ -812,8 +804,8 @@ def main():
                     double_exc = True  # Skip all further iterations of isa - one TRAJ would be excited twice
         exc_list += isa_exc_list
     for ist, istate in enumerate(INFOS["setupstates"]):
-        coeff = read_coeff(INFOS, icond.statelist, exc_list)
-        initlist[ist] = excite(INFOS, initlist[ist], exc_list[:, :, :], ist, coeff)
+        initlist[ist] = read_coeff(INFOS, initlist[ist], exc_list, isa_exc_list, istate-1)  # istate -1, because it could also be state 5 that is active
+        initlist[ist] = excite(INFOS, initlist[ist], exc_list[:, :, :], ist)
         writeoutput(initlist[ist], ist, INFOS) 
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
