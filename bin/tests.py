@@ -70,7 +70,9 @@ INTERFACES = {'MOLPRO': 'MOLPRO',
               'LVC': 'LVC',
               'scripts': 'scripts',
               'BAGEL': 'BAGEL',
-              'ORCA': 'ORCA_new'
+              'ORCA': 'ORCA_new',
+              'MNDO': 'MNDO',
+              'MOPACPI': 'MOPACPI'
               }
 
 # ======================================================================================================================
