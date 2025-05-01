@@ -3,8 +3,6 @@ scratchdir $SCRADIR/WORK
 ncpu 1
 memory 1000
 
-wfoverlap $SHARC/wfoverlap.x
-wfthres 0.99
 
 theodir $THEODORE
 theodore_prop Om POSi POSf PR CT PRNTO Z_HE RMSeh

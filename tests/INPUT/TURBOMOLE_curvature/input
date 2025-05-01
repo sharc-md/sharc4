@@ -25,7 +25,4 @@ eselect      0.5
 select_directly
 
 nospinorbit
-theodore
-n_property1d 13
-write_property1d
 output_format ascii

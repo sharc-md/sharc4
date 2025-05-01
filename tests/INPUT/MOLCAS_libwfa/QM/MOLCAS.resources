@@ -1,0 +1,8 @@
+memory 1000
+molcas $MOLCAS
+scratchdir $SCRADIR/WORK
+
+theodore_prop Om POSi POSf PR CT COH
+theodore_fragment 1 3 6
+theodore_fragment 2 4 5
+

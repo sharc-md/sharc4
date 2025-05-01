@@ -1,0 +1,9 @@
+turbodir $TURBOMOLE
+orcadir  $orca
+scratchdir $SCRADIR/WORK
+
+memory 12000
+ncpu 1
+
+
+dipolelevel 1

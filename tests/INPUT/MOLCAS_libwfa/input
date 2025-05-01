@@ -2,29 +2,28 @@ geomfile     "geom"
 veloc        external
 velocfile    "veloc"
 
-nstates      2
-charge       0
-actstates    2
+nstates      2 0 1
+charge       0 1 0
+actstates    2 0 1
 state        2 mch
 coeff        auto
 rngseed      26933
 
-ezero        -329.3
-tmax         1.0
+ezero        -329.5062895400
+tmax         2.0
 stepsize     0.5
 nsubsteps    25
 
 surf         sharc
-coupling     ktdc
+coupling     overlap
 nogradcorrect
 ekincorrect  parallel_vel
-decoherence_scheme edc
+decoherence_scheme afssh
+decoherence_param 0.1
 grad_select
 nac_select
 eselect      0.5
 select_directly
-
-nospinorbit
 theodore
 n_property1d 13
 write_property1d
