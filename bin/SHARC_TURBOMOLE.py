@@ -608,6 +608,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             # Add states
             for mult in qmin.control["jobs"][jobid]["mults"]:
                 nst = qmin.control["states_to_do"][mult - 1] - 1
+                if mult == 3 and jobid == 1:  # restricted triplets have no ground state so we don't subtract 1
+                    nst += 1 
                 add_section.append(("$excitations", f"irrep=a multiplicity={mult} nexc={nst} npre={nst+1}, nstart={nst+1}\n"))
 
             # Always calc both sides with CC2
@@ -1147,6 +1149,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                             n_state + 1 + (n_states * i) : n_state + (n_states * (i + 1)),
                             n_state + (n_states * i),
                         ] = dipoles
+                # Parse EX->EX dipoles
                 if (self.QMin.template["dipolelevel"] > 1 and self.QMin.molecule["states"][mult - 1] > 2) or (
                     mult == 1 and self.QMin.requests["soc"]
                 ):
