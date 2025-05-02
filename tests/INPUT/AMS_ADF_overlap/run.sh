@@ -1,7 +1,7 @@
 #/bin/bash
 
-source $AMS/amsbashrc.sh
-export PYTHONPATH=$AMS/scripting/:$PYTHONPATH
+source $AMSHOME/amsbashrc.sh
+export PYTHONPATH=$AMSHOME/scripting/:$PYTHONPATH
 
 # $PRIMARYDIR and SCRADIR are set
 COPY_DIR=$SCRADIR/TRAJ

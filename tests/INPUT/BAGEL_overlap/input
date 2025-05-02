@@ -15,14 +15,11 @@ stepsize     0.5
 nsubsteps    25
 
 surf         sharc
-coupling     ddr
-gradcorrect
+coupling     overlap
 ekincorrect  parallel_vel
 decoherence_scheme edc
 decoherence_param 0.1
 grad_select
-nac_select
 nospinorbit
-nophases_from_interface
 eselect      0.5
 output_format ascii

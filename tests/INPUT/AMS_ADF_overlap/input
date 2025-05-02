@@ -2,8 +2,9 @@ geomfile     "geom"
 veloc        external
 velocfile    "veloc"
 
-nstates      4
-actstates    4
+nstates      4 0 2
+charge       0 1 0
+actstates    4 0 2
 state        2 mch
 coeff        auto
 rngseed      26933
@@ -20,3 +21,4 @@ ekincorrect  parallel_vel
 decoherence_scheme edc
 nograd_select
 select_directly
+output_format ascii

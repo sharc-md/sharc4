@@ -1,0 +1,9 @@
+amshome $AMSHOME
+scmlicense $SCMLICENSE
+scratchdir $SCRADIR/WORK
+wfoverlap $SHARC/wfoverlap.x
+wfthres 0.99
+
+ncpu 1
+memory 1000
+
