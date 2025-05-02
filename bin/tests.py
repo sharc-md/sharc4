@@ -27,9 +27,9 @@
 #
 # usage
 import sys
-# if sys.version_info[0]!=2:
-#   sys.stdout.write('*'*80+'\nThe SHARC suite is not compatible with Python 3! \nUse Python 2 (>2.6)!\n'+'*'*80+'\n')
-#   sys.exit(1)
+if sys.version_info[0] != 3:
+    sys.stdout.write('*'*80+'\nThe SHARC suite is not compatible with Python 2! \nUse Python 3 (>3.11)!\n'+'*'*80+'\n')
+    sys.exit(1)
 
 import copy
 import math
@@ -43,14 +43,48 @@ import subprocess as sp
 import filecmp
 import time
 
-# =========================================================0
-try:
-    import numpy
-except ImportError:
-    sys.stdout.write('*' * 80 + '''
-*** The Python package NumPy was not found! ***
-Most SHARC4 functionality will not be available!''' + '*' * 80 + '\n')
-    time.sleep(5)
+# =========================================================
+
+def package_check():
+    required_packages = {
+        "numpy": "Most SHARC4 functionality, including all interfaces, will not be available!",
+        "scipy": "Scientific routines and numerical methods will fail.",
+        "h5py": "SHARC_MOLCAS.py will not work",
+        # "matplotlib": "Plotting and visualization features are disabled.",   # currently actually not needed
+        "netCDF4": "NetCDF-related analysis will not work.",
+        "pyscf": "Interfaces will not be available.",
+        "openmm": "SHARC_OPENMM.py will not work.",
+        "numba": "Ab initio and LVC interfaces and several analysis scripts will not work.",
+        "sympy": "Analytical interface and many ab initio interfaces will not work.",
+        "yaml": "Several hybrid interfaces will not work.",
+        "ase": "SHARC_ASE.py will not work.",
+        "torch": "SHARC_ANALYTICAL.py and SHARC_SCHNARC.py will not work."
+    }
+
+    fails = 0
+    for pkg, detail in required_packages.items():
+        try:
+            __import__(pkg)
+        except ImportError:
+            header = f"*** The Python package '{pkg}' was not found! ***"
+            full_warning = (
+                '*' * 80 + '\n' +
+                header + '\n' +
+                detail + '\n' +
+                '*' * 80 + '\n'
+            )
+            sys.stdout.write(full_warning)
+            fails += 1
+    if fails > 0:
+        time.sleep(1)
+
+# try:
+#     import numpy
+# except ImportError:
+#     sys.stdout.write('*' * 80 + '''
+# *** The Python package NumPy was not found! ***
+# Most SHARC4 functionality will not be available!''' + '*' * 80 + '\n')
+#     time.sleep(1)
 
 
 version = '4.0'
@@ -567,7 +601,11 @@ def main():
     description = ''
     parser = OptionParser(usage=usage, description=description)
     parser.add_option('--update_results', dest='u', action='store_true', default=False, help="")
+    parser.add_option('--skip_packages', dest='p', action='store_true', default=False, help="")
     (options, args) = parser.parse_args()
+
+    if not options.p:
+        package_check()
 
     displaywelcome()
     open_keystrokes()
