@@ -58,7 +58,9 @@ def package_check():
         "sympy": "Analytical interface and many ab initio interfaces will not work.",
         "yaml": "Several hybrid interfaces will not work.",
         "ase": "SHARC_ASE.py will not work.",
-        "torch": "SHARC_ANALYTICAL.py and SHARC_SCHNARC.py will not work."
+        "torch": "SHARC_ANALYTICAL.py and SHARC_SCHNARC.py will not work.",
+        "threadpoolctl": "SHARC_ECI.py and ab initio interfaces will not work.",
+        "opt_einsum ": "SHARC_ECI.py will not work."
     }
 
     fails = 0
@@ -97,14 +99,14 @@ OTHERENVS = set(['THEODORE', 'orca', 'molcas'])
 INTERFACES = {'MOLPRO': 'MOLPRO',
               'MOLCAS': 'MOLCAS',
               'COLUMBUS': 'COLUMBUS',
-              'Analytical': 'Analytical',
-              'AMS': 'AMS_ADF',
+              'ANALYTICAL': 'ANALYTICAL',
+              'AMS_ADF': 'AMS_ADF',
               'TURBOMOLE': 'TURBOMOLE',
               'GAUSSIAN': 'GAUSSIAN',
               'LVC': 'LVC',
               'scripts': 'scripts',
               'BAGEL': 'BAGEL',
-              'ORCA': 'ORCA_new',
+              'ORCA': 'ORCA',
               'NWCHEM': 'NWCHEM',
               'MNDO': 'MNDO',
               'MOPACPI': 'MOPACPI',
@@ -329,7 +331,7 @@ def get_infos():
     string += '  ' + '=' * 80 + '\n'
     sys.stdout.write(string + '\n')
     for interface in INTERFACES:
-        if interface in INFOS['interfaces'] and interface not in ['Analytical', 'scripts', 'LVC', 'PYSCF']:
+        if interface in INFOS['interfaces'] and interface not in ['ANALYTICAL', 'scripts', 'LVC', 'PYSCF']:
             INFOS[interface] = env_or_question(interface, setenv=True)
     for i in INFOS['otherenvs']:
         INFOS[i] = env_or_question(i, setenv=True)
