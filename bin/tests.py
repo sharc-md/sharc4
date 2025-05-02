@@ -107,7 +107,8 @@ INTERFACES = {'MOLPRO': 'MOLPRO',
               'ORCA': 'ORCA_new',
               'NWCHEM': 'NWCHEM',
               'MNDO': 'MNDO',
-              'MOPACPI': 'MOPACPI'
+              'MOPACPI': 'MOPACPI',
+              'PYSCF': 'PYSCF'
               }
 
 # ======================================================================================================================
@@ -328,7 +329,7 @@ def get_infos():
     string += '  ' + '=' * 80 + '\n'
     sys.stdout.write(string + '\n')
     for interface in INTERFACES:
-        if interface in INFOS['interfaces'] and interface not in ['Analytical', 'scripts', 'LVC']:
+        if interface in INFOS['interfaces'] and interface not in ['Analytical', 'scripts', 'LVC', 'PYSCF']:
             INFOS[interface] = env_or_question(interface, setenv=True)
     for i in INFOS['otherenvs']:
         INFOS[i] = env_or_question(i, setenv=True)

@@ -1119,7 +1119,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         if QMin.requests["theodore"]:
             data.append("pop=full")
             data.append("IOP(9/40=3)")
-        if QMin.requests["mol"] or QMin.requests["density_matrices"] or QMin.requests["multipolar_fit"]:
+            data.append("IOP(3/33=4)")
+        if QMin.requests["mol"] or QMin.requests["density_matrices"] or QMin.requests["multipolar_fit"] or QMin.requests["theodore"]:
             data.append("GFINPUT")
         if QMin.molecule['point_charges']:
             data.append('charge')
