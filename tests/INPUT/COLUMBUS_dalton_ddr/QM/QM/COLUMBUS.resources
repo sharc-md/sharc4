@@ -1,7 +1,7 @@
 columbus $COLUMBUS
 
 scratchdir $SCRADIR/WORK
-wfoverlap $SHARC/wfoverlap.x
+#wfoverlap $SHARC/wfoverlap.x
 
 memory 1700             # for runc
 

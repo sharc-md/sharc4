@@ -1,0 +1,34 @@
+
+ncas 2               # needed
+nelecas 2            # needed
+roots 2              # effectively needed (defaults are all zero)
+basis cc-pvdz        # needed
+
+verbose 3            # as in PySCF: 0 is silent, 9 is crazy, 4-5 are most informative
+
+method casscf        # possible: casscf, l-pdft, mc-pdft, cms-pdft
+pdft-functional tpbe # option for PDFT
+grids-level 4        # option for PDFT
+
+fix-spin-shift 0.2   # to fix some bug in the CASSCF solver
+
+
+# various defaults for CASSCF and gradient solver
+conv-tol         1e-7
+conv-tol-grad    1e-4
+
+max-stepsize     0.02
+max-cycle-macro  50
+max-cycle-micro  4
+
+ah-level-shift   1e-8
+ah-conv-tol      1e-12
+ah-max-cycle     30
+ah-lindep        1e-14
+ah-start-tol     2.5
+ah-start-cycle   3
+
+grad-max-cycle   50
+
+
+
