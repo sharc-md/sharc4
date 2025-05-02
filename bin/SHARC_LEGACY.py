@@ -1484,7 +1484,7 @@ class SHARC_LEGACY(SHARC_INTERFACE):
                     if self.QMin.requests[key] is not None:
                         string += key + ' select\n'
                         for pair in value:
-                            string += '%i %i\n' % pair
+                            string += '%i %i\n' % tuple(pair)
                         string += 'end\n'
                 
         # write QM.in file
