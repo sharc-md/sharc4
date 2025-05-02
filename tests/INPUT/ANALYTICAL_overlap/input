@@ -3,6 +3,7 @@ veloc        external
 velocfile    "veloc"
 
 nstates      3
+charge       0
 actstates    3
 state        3 mch
 coeff        auto
@@ -22,3 +23,4 @@ decoherence_param 0.1
 grad_select
 nac_select
 eselect      0.5
+output_format ascii

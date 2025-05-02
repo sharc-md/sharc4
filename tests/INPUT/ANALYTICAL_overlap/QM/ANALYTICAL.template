@@ -44,47 +44,35 @@ g32     4.3
 End
 
 Hamiltonian
-A1*( (1.-math.exp(g1*(R1-x+y)))**2-1.),
-0,   A2*( (1.-math.exp(g2*(R2-x+y)))**2-1.)+E2,
-0,   0.0006834,   A31*math.exp(g31*(y-x))+A32*math.exp(g32*(y-x))
-
-
-Derivatives     x
--2*A1*g1*math.exp(g1*(R1-x+y))*(math.exp(g1*(R1-x+y))-1.),
-0,   -2*A2*g2*math.exp(g2*(R2-x+y))*(math.exp(g2*(R2-x+y))-1.),
-0,   0,           -A31*g31*math.exp(g31*(y-x))-A32*g32*math.exp(g32*(y-x))
-
-
-Derivatives     y
-2*A1*g1*math.exp(g1*(R1-x+y))*(math.exp(g1*(R1-x+y))-1.),
-0,   2*A2*g2*math.exp(g2*(R2-x+y))*(math.exp(g2*(R2-x+y))-1.),
-0,   0,           A31*g31*math.exp(g31*(y-x))+A32*g32*math.exp(g32*(y-x))
+A1*( (1.-exp(g1*(R1-x+y)))**2-1.);
+0;   A2*( (1.-exp(g2*(R2-x+y)))**2-1.)+E2;
+0;   0.0006834;   A31*exp(g31*(y-x))+A32*exp(g32*(y-x));
 
 
 Dipole  1
--0.25,
-0,       0.35,
-0,       0.01,    0.07
+-0.25;,
+0;      0.35;
+0;      0.01;    0.07;
 
 Dipole  2
-0,
-0,       0,
-0,       0,       0
+0;
+0;       0;
+0;       0;       0;
 
 Dipole  3
-0,
-0,       0,
-0,       0,       0
+0;
+0;       0;
+0;       0;       0;
 
 SpinOrbit R
-0,
-0,       0,
-0,       0,       0
+0;
+0;       0;
+0;       0;       0;
 
 SpinOrbit I
-0,
-0,       0,
-0,       0,       0
+0;
+0;       0;
+0;       0;       0;
 
 
 

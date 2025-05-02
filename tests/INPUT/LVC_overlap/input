@@ -3,6 +3,7 @@ veloc        external
 velocfile    "veloc"
 
 nstates      4 0 3
+charge       0 1 0
 actstates    3 0 3
 state        2 mch
 coeff        auto
@@ -20,3 +21,4 @@ ekincorrect  parallel_vel
 decoherence_scheme edc
 
 select_directly
+output_format ascii
