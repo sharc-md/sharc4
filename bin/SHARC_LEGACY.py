@@ -34,6 +34,7 @@ from io import TextIOWrapper
 import subprocess as sp
 from typing import Optional
 import re
+import copy
 import ast
 
 import numpy as np
@@ -1482,10 +1483,15 @@ class SHARC_LEGACY(SHARC_INTERFACE):
                         string += key + ' ' + ' '.join([str(i) for i in value]) + '\n'
                 case 'nacdr':
                     if self.QMin.requests[key] is not None:
-                        string += key + ' select\n'
-                        for pair in value:
-                            string += '%i %i\n' % tuple(pair)
-                        string += 'end\n'
+                        self.log.info(key)
+                        self.log.info(value)
+                        if value[0] == "all":
+                            pass
+                        else:
+                            string += key + ' select\n'
+                            for pair in value:
+                                string += '%i %i\n' % tuple(pair)
+                            string += 'end\n'
                 
         # write QM.in file
         filename = os.path.join(WORKDIR,'QM.in')
@@ -1553,10 +1559,15 @@ class SHARC_LEGACY(SHARC_INTERFACE):
         self.log.debug(QMout2)
         
         # assign stuff
+        req = copy.copy(requests)
+        if "theodore" in requests:
+            req.add("prop1d")
+        if "dyson" in requests:
+            req.add("prop2d")
         items = ['h', 'dm', 'grad', 'overlap', 'phases', 'prop1d', 'prop2d', 'nacdr']
         errors = 0
         for i in items:
-            if i in requests:
+            if i in req:
                 if i in self.QMout:
                     self.QMout[i] = QMout2[i]
                 else:
