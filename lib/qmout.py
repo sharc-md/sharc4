@@ -129,6 +129,20 @@ class QMout:
                         line = f.readline()
                     shape = []
                     block_length = 0
+                elif flag in {21}:
+                    data = [line]
+                    line = f.readline()
+                    data.append(line)
+                    nprop = int(line.split()[0])
+                    for i in range(nprop+2):
+                        data.append(f.readline())
+                    for i in range(nprop):
+                        line = f.readline()
+                        data.append(line)
+                        nblock = int(line.split()[0])
+                        for j in range(nblock):
+                            data.append(f.readline())
+                    iline = 0
                 elif flag in {20, 23}:
                     data = [line]
                     line = f.readline()
@@ -366,10 +380,11 @@ class QMout:
         keys = []
         for irow in range(num):
             keys.append(data[iline + 3 + irow].strip())
-        iline += 4 + num
+        iline += 3 + num
         res = []
         for irow in range(num):
-            res.append(QMout.get_quantity(data, iline, type, shape)[0])
+            result, iline = QMout.get_quantity(data, iline, type, shape)
+            res.append(result)
             iline += 2
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
