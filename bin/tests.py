@@ -414,6 +414,9 @@ def compare_scripts(INFOS, index):
     same, diff = full_lists(dc)
     ignore_files = ['run.sh', 'all_run_init.sh', 'runQM.sh']
     diff = [item for item in diff if not any([f in item for f in ignore_files])]
+    sys.stdout.write('Comparing: \n')
+    sys.stdout.write('%s \n' % (INFOS['pwd'] + '/RUNNING_TESTS/' + INFOS['joblist'][index]))
+    sys.stdout.write('%s \n' % (INFOS['sharc'] + '/../tests/RESULTS/' + INFOS['joblist'][index]))
     sys.stdout.write('Differing: ' + str(diff) + '\n')
     sys.stdout.write('Same     : ' + str(same) + '\n')
     count = len(diff)

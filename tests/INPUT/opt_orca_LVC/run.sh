@@ -9,6 +9,7 @@ mkdir -p $COPY_DIR
 cp -r $PRIMARYDIR/* $COPY_DIR
 cd $COPY_DIR
 
+export EXTOPTEXE=$SHARC/otool_external
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$orca
 $orca/orca orca.inp > orca.log
 err=$?

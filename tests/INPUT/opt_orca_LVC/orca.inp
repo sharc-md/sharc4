@@ -3,7 +3,7 @@
 #SHARC: interface LVC
 #SHARC: opt min 2
 
-! ExtOpt
+! ExtOpt Opt
 
 %geom
   maxstep 0.300000

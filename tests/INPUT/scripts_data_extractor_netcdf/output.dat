@@ -1,8 +1,10 @@
-SHARC_version   2.1
+SHARC_version   4.0
+ method           0
+ integrator           2
  maxmult           3
- nstates_m           4           0           3
+ nstates_m    4    0    3
  natom           3
- dtstep   20.6706868947804     
+ dtstep   20.6706866675911     
  nsteps          60
  nsubsteps          25
  ezero  0.000000000000000E+000
@@ -24,7 +26,7 @@ SHARC_version   2.1
  O 
  O 
 ! Atomic masses
- 0.5828151824448E+005
- 0.2915693725754E+005
- 0.2915693725754E+005
+ 0.5828151830367E+005
+ 0.2915693728716E+005
+ 0.2915693728716E+005
 ********************************* End of header array data ********************************
