@@ -696,7 +696,22 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 # Populate dipole moments
                 if self.QMin.requests["dm"]:
                     if self.QMin.resources["orcaversion"] >= (6, 0):
-                        dipoles = self._get_dipole_moment(log_file, True)
+                        # Diagonal elements
+                        # New Code:
+                        dipole_dict = self._get_dipole_moment_Orca6(log_file, True)
+                        self.log.info(dipole_dict)
+                        total_states = sum(job_states)
+                        dipoles = np.zeros((total_states, 3))
+                        start_idx = 0
+                        for mult in mults:
+                            for i in range(states[mult]):
+                                key = (mult, i)  # e.g., (1, 0) is ground, (3, 1) is triplet first excited
+                                if key in dipole_dict:
+                                    dipoles[start_idx + i] = dipole_dict[key]
+                            start_idx += states[mult] -1 # only relevant for S+T
+                        # Old code:
+                        # dipoles = self._get_dipole_moment_Orca6(log_file, True)
+                        # dipoles = np.vstack([dipoles, np.zeros((nm_states[:mult] - dipoles.shape[0], 3))])
                         s_cnt = 0
                         for mult in mults:
                             for dim in range(3):
@@ -914,6 +929,44 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if len(find_dipole) == 1 and not ground_state:
             return np.zeros(3)
         return np.asarray(find_dipole[0] if ground_state else find_dipole[-1])
+
+
+    def _get_dipole_moment_Orca6(self, output: str, ground_state: bool) -> np.ndarray:
+        # dipole_blocks = re.findall(
+        #     r"DIPOLE MOMENT\s+-+\s+Method\s+:.*?Total Dipole Moment\s+:(.*?)\n\s+-+",
+        #     output,
+        #     re.DOTALL,
+        # )
+        mults1 = re.findall(r"Multiplicity\s+:\s+(\d+)", output)   # gives ["1", "1", "3", ...]
+        mults = [int(x) for x in mults1]
+
+        states1 = re.findall(r"Method\s*:\s*(SCF)|State\s*:\s*(\d+)", output)   # gives "SCF", "1", "2", "1", ...]
+        states = []
+        for method, state in states1:
+            if method:
+                states.append(0)
+            elif state:
+                states.append(int(state))
+        # now states is [0,1,2,3,...]
+        
+        dipole_vectors1 = re.findall(r"Total Dipole Moment\s+:\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)", output)  
+        dipole_vectors = [list(map(float, match)) for match in dipole_vectors1]
+        # is [ [1.,2.,3.], [...], ...]
+
+        # dipoles = {}
+        dipoles = { (m, s): d for m, s, d in zip(mults, states, dipole_vectors) }
+
+        # idx = 0
+        # for i, vec in enumerate(dipole_vectors):
+        #     mult = int(mults[i]) if i < len(mults) else 1  # GS doesn't list state
+        #     state = int(states[idx]) if idx < len(states) else 0
+        #     dipoles[(mult, state)] = list(map(float, vec))
+        #     if i >= 1:  # Skip GS (which has no "State")
+        #         idx += 1
+        return dipoles  # dictionary {(mult, state): [x, y, z]}
+
+
+
 
     def _get_grad(self, grad_path: str, ground_state: bool = False) -> np.ndarray:
         """
