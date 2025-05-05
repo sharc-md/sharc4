@@ -93,19 +93,5 @@ Om_2_2
  0.000000000000E+000
  2.917300000000E-001
 
-! 999 Notes
-3    ! number of notes
-! Notes Labels (3 strings)
-D1 job 1
-iterations job 1
-%T2 job 1
-! Notes (3, real)
-! index 0 D1 job 1
-0.0271
-! index 1 iterations job 1
-3
-! index 2 %T2 job 1
-['4.89']
-
 ! 8 Runtime
  1.200000000E+001
