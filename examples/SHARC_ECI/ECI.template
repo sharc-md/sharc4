@@ -1,0 +1,61 @@
+---
+fragments: 
+    BD: 
+        atoms: 0-20
+        aufbau_site_states: [{Z: 0, M: 1, N: 1},{Z: 1, M: 2, N: 1}]
+        EHF:
+            interface : GAUSSIAN
+            embedding_site_state:
+                0: {Z: 0, M: 1, N: 1}
+            guess: true
+            write: true
+            max_cycles: 10
+            forced: false
+            tQ: 0.01
+        SSC:
+            interface: GAUSSIAN
+            data: w
+            states:
+                0: [2, 0, 1]
+                1: [0, 1, 0]
+    BA: 
+        atoms: 21-41
+        aufbau_site_states: [{Z: 0, M: 1, N: 1}, {Z: -1, M: 2, N: 1}]
+        EHF:
+            interface : GAUSSIAN
+            embedding_site_state:
+                0: {Z: 0, M: 1, N: 1}
+            guess: true
+            write: true
+            max_cycles: 10
+            forced: false
+            tQ: 0.01
+        SSC:
+            interface: GAUSSIAN
+            data: w
+            states:
+                0: [2, 0, 1]
+                -1: [0, 1, 0]
+calculation:
+    tO: 0.90
+    RI: 
+        active: true
+        Jauxbasis: def2svpjkfit
+        Kauxbasis: def2svpjkfit
+        tS: 1.e-4
+        tC: 1.e-3
+        chunksize: -1
+    excitonic_basis:
+        ECI: 
+            0: true
+            1: all
+            2: all
+    active_integrals:
+        J:
+            '(0,0)': [ [BD, BA] ]
+            '(0,1)': [ [BD, BA] ]
+            '(0,2)': [ [BD, BA] ]
+        K:
+            '(0,0)': [ [BD, BA] ]
+            '(0,1)': [ [BD, BA] ]
+            '(0,2)': [ [BD, BA] ]

@@ -1,0 +1,4 @@
+---
+ncpu: 40
+scratchdir: SCRATCH
+sitejobs: [ [BA,0], [BA,-1], [BD,0], [BD,1] ]
