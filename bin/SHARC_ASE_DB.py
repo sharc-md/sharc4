@@ -140,13 +140,6 @@ class SHARC_ASE_DB(SHARC_HYBRID):
         self._kindergarden["reference"].create_restart_files()
 
     def run(self):
-        self._kindergarden["reference"].QMin.coords["coords"] = self.QMin.coords["coords"].copy()
-        for key, value in self.QMin.requests.items():
-            if value is not None:
-                self._kindergarden["reference"].QMin.requests[key] = value
-        self._kindergarden["reference"].QMin.save["step"] = self.QMin.save["step"]
-        self._kindergarden["reference"]._step_logic()
-        self._kindergarden["reference"]._request_logic()
         self._kindergarden["reference"].run()
 
     def getQMout(self):
