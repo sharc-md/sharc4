@@ -1,0 +1,4 @@
+groot /usr/license/gaussian16_new/rev_c01/avx2/g16
+ncpu 16
+memory 16000
+wfthres 1.9999

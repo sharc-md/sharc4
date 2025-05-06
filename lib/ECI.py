@@ -579,12 +579,12 @@ class ECI:
                             S[(s1,s2)] = 1. - abs(O)
                     pairmax = max(S, key=S.get)
                     Omax = S[pairmax]
-                    self.log.print('             The best overlap: < '+repr(pairmax[0])+' | '+repr(pairmax[1])+' > = '+str(Omax))
+                    self.log.print('             The best complement overlap: 1 - < '+pairmax[0].symbol(Z=False)+' | '+pairmax[1].symbol(Z=False)+' > = '+str(Omax))
                     expelled = False
                     for (s1,s2), O in S.items():
                         if O/Omax < job.tO:
                             expelled = True
-                            self.log.print('             Relative overlap < '+repr(s1)+' | '+repr(s2)+' > = '+str(O)+' is too small.')
+                            self.log.print('             Relative complement overlap 1 - < '+s1.symbol(Z=False)+' | '+s2.symbol(Z=False)+' > = '+str(O)+' is too small.')
                             pairs_to_expell[(f1,f2)].append( (s1,s2) )
                             if s1 in f1.aufbau_states and s2 in f2.aufbau_states:
                                 self.log.print('             Upper two site states are both aufbau site states, so some of aubau ESDs should be expelled! Aborting.')
@@ -801,7 +801,7 @@ class ECI:
             self.log.print('       Calculating ECI V-integrals...')
             for f, nucs__densities__locs in integrals.items():
                 for nucs, densities__locs in nucs__densities__locs.items():
-                    self.log.print('           Site: '+f.label+', Nuclei: '+', '.join([nuc.label for nuc in nucs])+' (# = '+str(len(densities__locs))+')')
+                    self.log.print('           Site: '+f.label+', Nuclei: '+', '.join([nuc.label for nuc in nucs]))
                     t1 = time.time()
                     Fmat = self.calculate_Fmat( nucs, f.mol )
                     rhos = np.array([ f.rho[d[0].Z][d] for d in densities__locs.keys() ])
@@ -822,7 +822,7 @@ class ECI:
             self.log.print('')
             self.log.print('        Calculating ECI J-integrals...')
             for (f1,f2), densities1__densities2__locs in integrals.items():
-                self.log.print('          Site 1: '+f1.label+', Site 2: '+f2.label+' (# = '+str(len(densities1__densities2__locs.values()))+')')
+                self.log.print('          Site 1: '+f1.label+', Site 2: '+f2.label)
                 rhos1 = np.array([ f1.rho[d1[0].Z][d1] for d1 in densities1__densities2__locs.keys() ]) 
                 rhos2 = [ np.array([ f2.rho[d2[0].Z][d2] for d2 in densities2__locs.keys() ]) for densities2__locs in densities1__densities2__locs.values() ] 
                 loc_lists = [ list(densities2__locs.values()) for densities2__locs in densities1__densities2__locs.values() ]
@@ -898,7 +898,7 @@ class ECI:
             self.log.print('')
             self.log.print('       Calculating ECI K-integrals...')
             for (f1,f2), densities1__densities2__locs in integrals.items():
-                self.log.print('          Site 1: '+f1.label+', Site 2: '+f2.label+' (# = '+str(len(densities1__densities2__locs.values()))+')')
+                self.log.print('          Site 1: '+f1.label+', Site 2: '+f2.label)
                 rhos1 = np.array([ f1.rho[d1[0].Z][d1] for d1 in densities1__densities2__locs.keys() ]) 
                 rhos2 = [ np.array([ f2.rho[d2[0].Z][d2] for d2 in densities2__locs.keys() ]) for densities2__locs in densities1__densities2__locs.values() ] 
                 loc_lists = [ list(densities2__locs.values()) for densities2__locs in densities1__densities2__locs.values() ]
@@ -1037,11 +1037,11 @@ class ECI:
                         chunk = 0
                         while True:
                             chunk += 1
-                            self.log.print('             Chunk '+str(chunk))
                             start = (chunk-1)*chunksize
                             stop = start + chunksize 
                             if stop > rhos1.shape[0]: stop = rhos1.shape[0]
                             t1 = time.time()
+                            self.log.print('             Chunk '+str(chunk)+' ( contracting '+str(stop-start)+' densities of the first fragment )...')
                             X = np.tensordot(np.ascontiguousarray(rhos1[start:stop,:,:]),L, axes=([2],[1])) # mij,pjk->mipk
                             LP12 = np.tensordot(X, L, axes=([1,2],[1,0])) #mipk, pil -> mkl
                             #  LP12 = oe.contract('ij,pil,pjk->kl', np.ascontiguousarray(rhos1[m,:,:]), L, L, optimize=True)

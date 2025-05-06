@@ -34,42 +34,21 @@ import numpy as np
 import yaml
 from ase.db import connect
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import expand_path, question
+from utils import InDir, expand_path, question
 
-__all__ = ["SHARC_ASE"]
+__all__ = ["SHARC_ASE_DB"]
 
 AUTHORS = "Sascha Mausenberger"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 12, 2)
-NAME = "ASE"
+NAME = "ASE_DB"
 DESCRIPTION = "   HYBRID interface for saveing data to ASE db"
 
 CHANGELOGSTRING = """
 """
 
-# TODO: features
-all_features = {
-    "h",
-    "soc",
-    "dm",
-    "grad",
-    "nacdr",
-    "overlap",
-    "phases",
-    "ion",
-    "dmdr",
-    "socdr",
-    "multipolar_fit",
-    "theodore",
-    "point_charges",
-    # raw data request
-    "mol",
-    "wave_functions",
-    "density_matrices",
-}
 
-
-class SHARC_ASE(SHARC_HYBRID):
+class SHARC_ASE_DB(SHARC_HYBRID):
     """
     Adaptive sampling interface for SHARC 4.0
     """
@@ -101,10 +80,10 @@ class SHARC_ASE(SHARC_HYBRID):
 
         self.template_file = None
 
-    def read_resources(self, resources_file="ASE.resources", kw_whitelist=None):
+    def read_resources(self, resources_file="ASE_DB.resources", kw_whitelist=None):
         self._read_resources = True
 
-    def read_template(self, template_file="ASE.template", kw_whitelist=None):
+    def read_template(self, template_file="ASE_DB.template", kw_whitelist=None):
         self.log.debug(f"Parsing template file {template_file}")
 
         # TODO: sanity checks
@@ -152,23 +131,18 @@ class SHARC_ASE(SHARC_HYBRID):
 
     def setup_interface(self):
         super().setup_interface()
-        self._kindergarden["reference"].setup_mol(self.QMin)
-        self._kindergarden["reference"].read_resources()
-        self._kindergarden["reference"].read_template()
-        self._kindergarden["reference"].setup_interface()
+        with InDir("QM"):
+            self._kindergarden["reference"].setup_mol(self.QMin)
+            self._kindergarden["reference"].read_resources()
+            self._kindergarden["reference"].read_template()
+            self._kindergarden["reference"].setup_interface()
 
     def create_restart_files(self):
         self._kindergarden["reference"].create_restart_files()
 
     def run(self):
-        self._kindergarden["reference"].QMin.coords["coords"] = self.QMin.coords["coords"].copy()
-        for key, value in self.QMin.requests.items():
-            if value is not None:
-                self._kindergarden["reference"].QMin.requests[key] = value
-        self._kindergarden["reference"].QMin.save['step'] = self.QMin.save['step']
-        self._kindergarden["reference"]._step_logic()
-        self._kindergarden["reference"]._request_logic()
-        self._kindergarden["reference"].run()
+        with InDir("QM"):
+            self._kindergarden["reference"].run()
 
     def getQMout(self):
         self.QMout = self._kindergarden["reference"].getQMout()
@@ -217,32 +191,32 @@ class SHARC_ASE(SHARC_HYBRID):
 
     @staticmethod
     def authors() -> str:
-        return SHARC_ASE._authors
+        return SHARC_ASE_DB._authors
 
     @staticmethod
     def version() -> str:
-        return SHARC_ASE._version
+        return SHARC_ASE_DB._version
 
     @staticmethod
     def versiondate():
-        return SHARC_ASE._versiondate
+        return SHARC_ASE_DB._versiondate
 
     @staticmethod
     def name() -> str:
-        return SHARC_ASE._name
+        return SHARC_ASE_DB._name
 
     @staticmethod
     def description() -> str:
-        return SHARC_ASE._description
+        return SHARC_ASE_DB._description
 
     @staticmethod
     def changelogstring() -> str:
-        return SHARC_ASE._changelogstring
+        return SHARC_ASE_DB._changelogstring
 
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
         if not self._read_template:
             self.template_file = question(
-                "Please specify the path to your ASE.template file", str, KEYSTROKES=KEYSTROKES, default="ASE.template"
+                "Please specify the path to your ASE_DB.template file", str, KEYSTROKES=KEYSTROKES, default="ASE_DB.template"
             )
 
             self.read_template(self.template_file)
@@ -254,7 +228,7 @@ class SHARC_ASE(SHARC_HYBRID):
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'ASE interface setup':=^76}||\n{'||':<78}||")
+        self.log.info(f"||{'ASE_DB interface setup':=^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
 
@@ -280,4 +254,4 @@ class SHARC_ASE(SHARC_HYBRID):
 
 
 if __name__ == "__main__":
-    SHARC_ASE().main()
+    SHARC_ASE_DB().main()
