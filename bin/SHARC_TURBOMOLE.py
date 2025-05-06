@@ -236,10 +236,12 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
         # Add resource keys
         self.QMin.resources.update(
-            {"turbodir": None, "orcadir": None, "neglected_gradient": "zero", "schedule_scaling": 0.1, "dry_run": False}
+            # {"turbodir": None, "orcadir": None, "neglected_gradient": "zero", "schedule_scaling": 0.1, "dry_run": False}
+            {"turbodir": None, "neglected_gradient": "zero", "schedule_scaling": 0.1, "dry_run": False}
         )
         self.QMin.resources.types.update(
-            {"turbodir": str, "orcadir": str, "neglected_gradient": str, "schedule_scaling": float, "dry_run": bool}
+            # {"turbodir": str, "orcadir": str, "neglected_gradient": str, "schedule_scaling": float, "dry_run": bool}
+            {"turbodir": str, "neglected_gradient": str, "schedule_scaling": float, "dry_run": bool}
         )
 
         self._ao_labels = None
@@ -309,8 +311,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         else:
             self.log.info(f"{'TURBOMOLE ressource usage':-^60}\n")
             self.setupINFOS["turbodir"] = question("Specify path to TURBOMOLE: ", str, KEYSTROKES=KEYSTROKES)
-            if "soc" in INFOS["needed_requests"]:
-                self.setupINFOS["orcadir"] = question("Specify path to ORCA (< 5.0.0) to calculate SOCs:", str, KEYSTROKES=KEYSTROKES)
+            # if "soc" in INFOS["needed_requests"]:
+            #     self.setupINFOS["orcadir"] = question("Specify path to ORCA (< 5.0.0) to calculate SOCs:", str, KEYSTROKES=KEYSTROKES)
             self.log.info("Please specify the number of CPUs to be used by EACH trajectory.\n")
             self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES, default=[1])[0])
             self.setupINFOS["memory"] = question(
@@ -390,7 +392,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         if not self._resources_file:
             with open(os.path.join(dir_path, "TURBOMOLE.resources"), "w", encoding="utf-8") as file:
                 for key in ("turbodir", 
-                            "orcadir", 
+                            # "orcadir", 
                             "scratchdir", 
                             "ncpu", 
                             "memory", 
@@ -467,10 +469,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             raise ValueError()
         self.QMin.resources["turbodir"] = expand_path(self.QMin.resources["turbodir"])
 
-        if orcadir := self.QMin.resources["orcadir"]:
-            self.QMin.resources["orcadir"] = expand_path(orcadir)
-            os.environ["PATH"] += f":{orcadir}"
-            os.environ["LD_LIBRARY_PATH"] += f":{orcadir}"
+        # if orcadir := self.QMin.resources["orcadir"]:
+        #     self.QMin.resources["orcadir"] = expand_path(orcadir)
+        #     os.environ["PATH"] += f":{orcadir}"
+        #     os.environ["LD_LIBRARY_PATH"] += f":{orcadir}"
 
         # Setup environment
         os.environ["TURBODIR"] = (turbodir := self.QMin.resources["turbodir"])
@@ -547,14 +549,14 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             if self.QMin.template["spin-scaling"] == "lt-sos":
                 self.log.error("SOCs are not possible with lt-sos.")
                 raise ValueError()
-            if not self.QMin.resources["orcadir"]:
-                self.log.error("orcadir has to be specified in resources for SOCs.")
-                raise ValueError()
-            if (orca := SHARC_ORCA.get_orca_version(self.QMin.resources["orcadir"])) >= (5,):
-                self.log.error(
-                    f"SOCs are only compatible with ORCA version <= 4.x, found version {'.'.join(str(i) for i in orca)}"
-                )
-                raise ValueError()
+            # if not self.QMin.resources["orcadir"]:
+            #     self.log.error("orcadir has to be specified in resources for SOCs.")
+            #     raise ValueError()
+            # if (orca := SHARC_ORCA.get_orca_version(self.QMin.resources["orcadir"])) >= (5,):
+            #     self.log.error(
+            #         f"SOCs are only compatible with ORCA version <= 4.x, found version {'.'.join(str(i) for i in orca)}"
+            #     )
+            #     raise ValueError()
             if len(states := self.QMin.molecule["states"]) < 3 or (states[0] == 0 or states[2] == 0):
                 self.log.warning("SOCs require S+T states, disable SOCs!")
                 self.QMin.requests["soc"] = False
@@ -695,9 +697,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self._generate_molden(workdir)
 
             # Run orca_soc if soc requested
-            if qmin.requests["soc"] and jobid == 1:
-                codes.append(self._run_orca_soc(workdir))
-                self.log.debug(f"orca_mkl/orca_soc exited with code {codes[-1]}")
+            # if qmin.requests["soc"] and jobid == 1:
+                #codes.append(self._run_orca_soc(workdir))
+                # self.log.debug(f"orca_mkl/orca_soc exited with code {codes[-1]}")
 
             # Save files
             if jobid == 1:
@@ -1009,19 +1011,19 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     return False
         return True
 
-    def _run_orca_soc(self, workdir: str) -> int:
-        """
-        Convert soc.mkl to ORCA format and run orca_soc
-        """
-        # convert mkl to gbw
-        if (code := self.run_program(workdir, "orca_2mkl soc -gbw", "orca_2mkl.out", "orca_2mkl.err")) != 0:
-            return code
-        self.log.debug(f"orca_2mkl exited with code {code}")
+    # def _run_orca_soc(self, workdir: str) -> int:
+    #     """
+    #     Convert soc.mkl to ORCA format and run orca_soc
+    #     """
+    #     # convert mkl to gbw
+    #     if (code := self.run_program(workdir, "orca_2mkl soc -gbw", "orca_2mkl.out", "orca_2mkl.err")) != 0:
+    #         return code
+    #     self.log.debug(f"orca_2mkl exited with code {code}")
 
-        # write orca_soc input, execute orca_soc
-        orca_soc = "soc.gbw\nsoc.psoc\nsoc.soc\n3\n1 2 3 0 4 0 0 4\n0\n"
-        writefile(os.path.join(workdir, "soc.socinp"), orca_soc)
-        return self.run_program(workdir, "orca_soc soc.socinp -gbw", "orca_soc.out", "orca_soc.err")
+    #     # write orca_soc input, execute orca_soc
+    #     orca_soc = "soc.gbw\nsoc.psoc\nsoc.soc\n3\n1 2 3 0 4 0 0 4\n0\n"
+    #     writefile(os.path.join(workdir, "soc.socinp"), orca_soc)
+    #     return self.run_program(workdir, "orca_soc soc.socinp -gbw", "orca_soc.out", "orca_soc.err")
 
     def _run_ridft(self, workdir: str, qmin: QMin) -> int:
         """
