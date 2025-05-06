@@ -34,7 +34,7 @@ import numpy as np
 import yaml
 from ase.db import connect
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import expand_path, question
+from utils import InDir, expand_path, question
 
 __all__ = ["SHARC_ASE_DB"]
 
@@ -131,16 +131,18 @@ class SHARC_ASE_DB(SHARC_HYBRID):
 
     def setup_interface(self):
         super().setup_interface()
-        self._kindergarden["reference"].setup_mol(self.QMin)
-        self._kindergarden["reference"].read_resources()
-        self._kindergarden["reference"].read_template()
-        self._kindergarden["reference"].setup_interface()
+        with InDir("QM"):
+            self._kindergarden["reference"].setup_mol(self.QMin)
+            self._kindergarden["reference"].read_resources()
+            self._kindergarden["reference"].read_template()
+            self._kindergarden["reference"].setup_interface()
 
     def create_restart_files(self):
         self._kindergarden["reference"].create_restart_files()
 
     def run(self):
-        self._kindergarden["reference"].run()
+        with InDir("QM"):
+            self._kindergarden["reference"].run()
 
     def getQMout(self):
         self.QMout = self._kindergarden["reference"].getQMout()
