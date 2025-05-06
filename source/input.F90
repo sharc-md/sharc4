@@ -2856,6 +2856,7 @@ module input
       endif
       do i=1,ctrl%nstates
         read(u_i_coeff,'(A)') line
+        if (line(1:1) == "#") read(u_i_coeff,'(A)') line! possible comment line starting with "#"
         call split(line,' ',values,n)
         if (n<2) then
           write(0,*) 'Problem reading the coefficients file!'
