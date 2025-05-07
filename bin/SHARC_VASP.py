@@ -408,7 +408,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         writefile(input_path, input_str)
         #POTCAR
         self.log.debug(f"Coping POTCAR file from {potcar} to {workdir}")
-        os.system(f"ln {potcar} {workdir}")
+        shutil.copy(potcar,workdir) 
         
         # VASP running commands
         starttime = datetime.datetime.now()
@@ -416,7 +416,12 @@ class SHARC_VASP(SHARC_ABINITIO):
         exec_str = f"mpirun -np {ncpu} {os.path.join(qmin.resources['vaspdir'],'vasp_std')} > {os.path.join(workdir, 'VASP.out')}"
         exit_code = self.run_program(
             workdir, exec_str, os.path.join(workdir, "VASP.out"), os.path.join(workdir, "VASP.err"))
-
+        
+        if exit_code != 0:
+            with open(os.path.join(workdir, "VASP.err"), "r", encoding="utf-8") as f:
+                self.log.error("Please check your VASP.out, something went wrong with the VASP calculation!")
+                self.log.error(f.read())
+        
         endtime = datetime.datetime.now()
 
         return exit_code, endtime - starttime
@@ -528,6 +533,12 @@ class SHARC_VASP(SHARC_ABINITIO):
         efermi=float(re.search(pattern,vasp_out).group(1))
         ks_en=np.copy(data[:,1])-efermi #ks eigenvalues upon subtracting fermi energy
         occ=np.copy(data[:,2]) #occ. n of each orbital
+        self.log.debug("Orbitals occupancies from VASP output")
+        self.log.debug(occ)
+        for i in occ:
+            if i != 2.0 and i != 0.0:
+                self.log.error("Orbital occupancy from VASP calculation differ from 2 or 0. Open-shell or partial occupancies are not supported")
+                raise ValueError() 
         #Reading and sorting KS orbital energies (Fermi energy set to 0!)
         n_o=int(np.sum(occ)/2) # N. of occupied MO, assuming closed shell
         n_u=len(ks_en)-n_o
