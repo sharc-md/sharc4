@@ -1229,16 +1229,16 @@ class QMout:
         if "multipolar_fit" in self.notes:
             setting_str = self.notes["multipolar_fit"]
         sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
+        fit_order = self.multipolar_fit[sorted_states[0]].shape[1]
         string = (
-            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x10) {setting_str}\n"
+            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x{fit_order}) {setting_str}\n"
         )
-
         for (s1, s2) in sorted_states:
             val = self.multipolar_fit[(s1, s2)]
             istate, imult, ims = s1.N, s1.S, s1.M
             jstate, jmult, jms = s2.N, s2.S, s2.M
 
-            string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
+            string += f"{natom} {fit_order} ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
             string += (
                 "\n".join(
                     map(
