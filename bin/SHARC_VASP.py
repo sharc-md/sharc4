@@ -100,7 +100,9 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "a3": list, #3rd unit cell lattice vector
             }
         )
-        self._indices =  None #Needed for sorting VASP input/output properly according to QM.in geometry format
+        self._coords_vasp =  None #to store VASP input geometry, different from QMin format
+        self._el_vasp =  None #to store VASP indices for sorting input geometry, different from QMin format
+        self._indices_vasp =  None #to store indices which sort VASP geometry according to QMin geometry format
 
 
 # ---------------------------------| Standard Methods |------------------------------------------------------------
@@ -215,7 +217,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         if (any(num > 0 for num in self.QMin.molecule["states"][1:]) or self.QMin.molecule["states"][0] == 0):
             self.log.error("Current VASP implementation only deals with singlets!")
             raise ValueError()
-        # Checking for MPI installation. It is strongly recommended for proper usage of VASP
+        # Checking for MPI installation. Needed to run VASP properly
         if not is_exec("mpirun"):
             self.log.error("Cannot find mpirun executable, please check your MPI installation and load the proper environment or add the right " \
             "executable to $PATH")
@@ -292,7 +294,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         return INFOS
 
-    #That's for setuop script as well, toghter with get_infos and get_features. Probably has to be further refined later.
+    #That's for setup script as well, togheter with get_infos and get_features. Probably has to be further refined later.
     def prepare(self, INFOS: dict, dir_path: str) -> None: 
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
@@ -350,6 +352,19 @@ class SHARC_VASP(SHARC_ABINITIO):
     def set_coords(self, coords_file: str = "QM.in") -> None:
         super().set_coords(coords_file)
 
+        self._el_vasp=[] #Saving indexes for VASP input format, list of lists       
+        #This is for proper formatting of VASP input geometry from QM.in format
+        for i in list(dict.fromkeys(self.QMin.molecule["elements"])):
+            tmp=list()
+            for n,j in enumerate(self.QMin.molecule["elements"]):
+                tmp.append(n) if j==i else None
+            self._el_vasp.append(tmp)
+        self._coords_vasp=[self.QMin.coords["coords"][i] for i in sum(self._el_vasp,[])] #Input geometry for VASP format
+        self._indices_vasp=[] #For sorting output forces from VASP according to QMin geometry format
+        for i in self.QMin.coords["coords"]:
+            for n,j in enumerate(self._coords_vasp):
+                self._indices_vasp.append(n) if np.array_equal(j,i) else None
+
 # ---------------------------------| Scheduling & QMin execution |----------------------------------------------------
 
     def _gen_schedule(self) -> None:
@@ -380,7 +395,6 @@ class SHARC_VASP(SHARC_ABINITIO):
         writefile(input_path, input_str)
         #POSCAR
         input_str = self._generate_inputstr_POSCAR()
-        self.log.debug(self._indices)
         #"indices" is necessary for proper sorting of output forces, see _generate_inputstr_POSCAR
         self.log.debug(f"Generating input string\n{input_str}")
         input_path = os.path.join(workdir, "POSCAR")
@@ -415,7 +429,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         Parse VASP output files
         """
 
-        self.log.debug(self._indices)
+        
+        self.log.debug("Testing VASP geometry sorting indices")
+        self.log.debug(self._indices_vasp)
         # Allocate matrices
         requests = set()
         for key, val in self.QMin.requests.items():
@@ -464,10 +480,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         vasp_out: VASP OUTCAR file
         """
         
-        natom = self.QMin.molecule["natom"]
         nmstates = self.QMin.molecule["nmstates"]
-        coords=self.QMin.coords["coords"] #needed for sorting output forces from VASP properly, see below
-        elements = self.QMin.molecule["elements"]
 
         start_marker=r"\sPOSITION\s+TOTAL-FORCE \(eV\/Angst\)\n\s\-+\n"
         end_marker=r"\s\-+\n"
@@ -476,18 +489,16 @@ class SHARC_VASP(SHARC_ABINITIO):
         #Forces from VASP in eV/Ang.
         forces=np.array([i.split() for i in match.group(1).splitlines()],dtype=np.float64)[:,3:]
         # Sorting output forces according to QMin geometry format 
-        self.log.debug(self._indices)
-        #forces=forces[self.indices]
+        forces=forces[self._indices_vasp]
         # To be removed after testing
-        print("TESTING FORCES PARSING")
-        print(forces)
+        self.log.debug("forces out of VASP upon sorting according to proper QMin ordering")
+        self.log.debug(forces)
         
         forces=forces/au2eV*au2a #Changing to forces in atomic units
         gradients=np.array([forces for i in range(0,nmstates)]) #(nmstates,natom,3) Each ES gradient is equal to GS one, CPA approximation!!
         
-        # To be removed after testing
-        print("TESTING FORCES PARSING FOR SHARC")
-        print(gradients)
+        self.log.debug("forces out of VASP with SHARC format")
+        self.log.debug(gradients)
         
         return gradients
 
@@ -540,10 +551,10 @@ class SHARC_VASP(SHARC_ABINITIO):
         for i in ks_es.values():
             energies.append(energies[0]+i/au2eV)
 
-        #To be removed after check
-        print("TESTING ENERGIES PARSING")
-        print(energies)
-        print(ks_es)
+        self.log.debug("TESTING ENERGIES PARSING")
+        self.log.debug(energies)
+        self.log.debug("KS orbitals and transitions our of VASP")
+        self.log.debug(ks_es)
         
         return energies,(ks_es,ks_mo)
 
@@ -597,7 +608,6 @@ class SHARC_VASP(SHARC_ABINITIO):
         Generate POSCAR input file string for VASP from QMin object.
         """
         
-        coords = self.QMin.coords["coords"]
         elements = self.QMin.molecule["elements"]
         scale_param = self.QMin.template["scale_param"]
         a1 = self.QMin.template["a1"]
@@ -611,36 +621,25 @@ class SHARC_VASP(SHARC_ABINITIO):
         inputstring += f"{a2[0]} {a2[1]} {a2[2]}\n"
         inputstring += f"{a3[0]} {a3[1]} {a3[2]}\n"
 
-        elements_nr=list(dict.fromkeys(elements)) #Non-redundant list of element types for proper VASP input file format
-        
-        indx=list() #List of list of indexes for each element, redundant elements lead to inner lists with more than one element
-        
-        for i in elements_nr:
-            tmp=list()
-            for n,j in enumerate(elements):
-                tmp.append(n) if j==i else None
-            indx.append(tmp)
-        
-        coords_vasp=[coords[i] for i in sum(indx,[])]
-        
-        for i in elements_nr:  
+        for i in list(dict.fromkeys(elements)):  
             inputstring += f" {i}"
         inputstring += f"\n"
-        for i in indx:  
+
+        self.log.debug("sorting VASP geometry indexes") 
+        self.log.debug(self._el_vasp) 
+        for i in self._el_vasp:  
             inputstring += f" {len(i)}"
         inputstring += f"\n"
         inputstring += f"cart\n" #Hard-coded cartesian coordinates (Ang.) for input. Other options may be available in VASP
         
-        for i in coords_vasp:
+        self.log.debug("sorted VASP geometry") 
+        self.log.debug(self._coords_vasp) 
+        for i in self._coords_vasp:
             inputstring += f" {i[0]*au2a:>16.9f}  {i[1]*au2a:>16.9f}  {i[2]*au2a:>16.9f}\n"
         
-        self._indices=[] #For sorting different geometry format of QMin and VASP POSCAR
-        for i in coords:
-            for n,j in enumerate(coords_vasp):
-                self._indices.append(n) if np.array_equal(j,i) else None
+        self.log.debug("Testing VASP geometry sorting indices")
+        self.log.debug(self._indices_vasp)
         
-        self.log.debug(self._indices)
-
         return inputstring
 
 
