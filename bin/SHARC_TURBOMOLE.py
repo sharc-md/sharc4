@@ -38,7 +38,6 @@ from constants import NUMBERS, au2a, rcm_to_Eh
 from pyscf import gto, tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from SHARC_ORCA import SHARC_ORCA
 from utils import expand_path, itmult, link, mkdir, question, writefile
 
 __all__ = ["SHARC_TURBOMOLE"]
@@ -169,10 +168,6 @@ all_features = set(
         "molden",
         "point_charges",
         "grad_pc",
-        # raw data request TODO: need to be implemented
-        # "mol",
-        # "wave_functions",
-        # "density_matrices",
     ]
 )
 
@@ -235,14 +230,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         )
 
         # Add resource keys
-        self.QMin.resources.update(
-            # {"turbodir": None, "orcadir": None, "neglected_gradient": "zero", "schedule_scaling": 0.1, "dry_run": False}
-            {"turbodir": None, "neglected_gradient": "zero", "schedule_scaling": 0.1, "dry_run": False}
-        )
-        self.QMin.resources.types.update(
-            # {"turbodir": str, "orcadir": str, "neglected_gradient": str, "schedule_scaling": float, "dry_run": bool}
-            {"turbodir": str, "neglected_gradient": str, "schedule_scaling": float, "dry_run": bool}
-        )
+        self.QMin.resources.update({"turbodir": None, "neglected_gradient": "zero", "schedule_scaling": 0.1, "dry_run": False})
+        self.QMin.resources.types.update({"turbodir": str, "neglected_gradient": str, "schedule_scaling": float, "dry_run": bool})
 
         self._ao_labels = None
         self._resources_file = None
@@ -291,7 +280,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         self.log.info(f"||{'TURBOMOLE interface setup':^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
-        
+
         if os.path.isfile("TURBOMOLE.template"):
             self.log.info("Found TURBOMOLE.template in current directory")
             if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
@@ -311,8 +300,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         else:
             self.log.info(f"{'TURBOMOLE ressource usage':-^60}\n")
             self.setupINFOS["turbodir"] = question("Specify path to TURBOMOLE: ", str, KEYSTROKES=KEYSTROKES)
-            # if "soc" in INFOS["needed_requests"]:
-            #     self.setupINFOS["orcadir"] = question("Specify path to ORCA (< 5.0.0) to calculate SOCs:", str, KEYSTROKES=KEYSTROKES)
             self.log.info("Please specify the number of CPUs to be used by EACH trajectory.\n")
             self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES, default=[1])[0])
             self.setupINFOS["memory"] = question(
@@ -354,11 +341,12 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 "COH",
                 "COHh",
             ]
-            # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
             if "theodore" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'Wave function analysis by TheoDORE':-^60}\n")
 
-                self.setupINFOS["theodir"] = question("Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES)
+                self.setupINFOS["theodir"] = question(
+                    "Path to TheoDORE directory:", str, default="$THEODIR", KEYSTROKES=KEYSTROKES
+                )
                 self.log.info("")
 
                 self.log.info("Please give a list of the properties to calculate by TheoDORE.\nPossible properties:")
@@ -383,7 +371,9 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                         break
                     f = [int(i) for i in line.split()]
                     self.setupINFOS["theodore_fragment"].append(f)
-                self.setupINFOS["theodore_count"] = len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
+                self.setupINFOS["theodore_count"] = (
+                    len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
+                )
 
         return INFOS
 
@@ -391,16 +381,17 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resources_file:
             with open(os.path.join(dir_path, "TURBOMOLE.resources"), "w", encoding="utf-8") as file:
-                for key in ("turbodir", 
-                            # "orcadir", 
-                            "scratchdir", 
-                            "ncpu", 
-                            "memory", 
-                            "wfoverlap", 
-                            "wfthres"
-                            "theodir",
-                            "theodore_prop",
-                            "theodore_fragment",):
+                for key in (
+                    "turbodir",
+                    "scratchdir",
+                    "ncpu",
+                    "memory",
+                    "wfoverlap",
+                    "wfthres",
+                    "theodir",
+                    "theodore_prop",
+                    "theodore_fragment",
+                ):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
         else:
@@ -468,11 +459,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             self.log.error("turbodir has to be set in resources.")
             raise ValueError()
         self.QMin.resources["turbodir"] = expand_path(self.QMin.resources["turbodir"])
-
-        # if orcadir := self.QMin.resources["orcadir"]:
-        #     self.QMin.resources["orcadir"] = expand_path(orcadir)
-        #     os.environ["PATH"] += f":{orcadir}"
-        #     os.environ["LD_LIBRARY_PATH"] += f":{orcadir}"
 
         # Setup environment
         os.environ["TURBODIR"] = (turbodir := self.QMin.resources["turbodir"])
@@ -549,14 +535,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             if self.QMin.template["spin-scaling"] == "lt-sos":
                 self.log.error("SOCs are not possible with lt-sos.")
                 raise ValueError()
-            # if not self.QMin.resources["orcadir"]:
-            #     self.log.error("orcadir has to be specified in resources for SOCs.")
-            #     raise ValueError()
-            # if (orca := SHARC_ORCA.get_orca_version(self.QMin.resources["orcadir"])) >= (5,):
-            #     self.log.error(
-            #         f"SOCs are only compatible with ORCA version <= 4.x, found version {'.'.join(str(i) for i in orca)}"
-            #     )
-            #     raise ValueError()
             if len(states := self.QMin.molecule["states"]) < 3 or (states[0] == 0 or states[2] == 0):
                 self.log.warning("SOCs require S+T states, disable SOCs!")
                 self.QMin.requests["soc"] = False
@@ -611,7 +589,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             for mult in qmin.control["jobs"][jobid]["mults"]:
                 nst = qmin.control["states_to_do"][mult - 1] - 1
                 if mult == 3 and jobid == 1:  # restricted triplets have no ground state so we don't subtract 1
-                    nst += 1 
+                    nst += 1
                 add_section.append(("$excitations", f"irrep=a multiplicity={mult} nexc={nst} npre={nst+1}, nstart={nst+1}\n"))
 
             # Always calc both sides with CC2
@@ -695,11 +673,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
             # Generate molden file
             self._generate_molden(workdir)
-
-            # Run orca_soc if soc requested
-            # if qmin.requests["soc"] and jobid == 1:
-                #codes.append(self._run_orca_soc(workdir))
-                # self.log.debug(f"orca_mkl/orca_soc exited with code {codes[-1]}")
 
             # Save files
             if jobid == 1:
@@ -1010,20 +983,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 if "NO CONVERGENCE" in line:
                     return False
         return True
-
-    # def _run_orca_soc(self, workdir: str) -> int:
-    #     """
-    #     Convert soc.mkl to ORCA format and run orca_soc
-    #     """
-    #     # convert mkl to gbw
-    #     if (code := self.run_program(workdir, "orca_2mkl soc -gbw", "orca_2mkl.out", "orca_2mkl.err")) != 0:
-    #         return code
-    #     self.log.debug(f"orca_2mkl exited with code {code}")
-
-    #     # write orca_soc input, execute orca_soc
-    #     orca_soc = "soc.gbw\nsoc.psoc\nsoc.soc\n3\n1 2 3 0 4 0 0 4\n0\n"
-    #     writefile(os.path.join(workdir, "soc.socinp"), orca_soc)
-    #     return self.run_program(workdir, "orca_soc soc.socinp -gbw", "orca_soc.out", "orca_soc.err")
 
     def _run_ridft(self, workdir: str, qmin: QMin) -> int:
         """
@@ -1476,7 +1435,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             for idx, grad in enumerate(self.QMin.maps["gradmap"]):
                 job = deepcopy(self.QMin)
                 job.resources["ncpu"] = cpu_per_run[idx]
-                job.maps["gradmap"] = {(grad)}
+                job.maps["gradmap"] = {grad}
                 job.control["gradonly"] = True
                 gradjobs[f"grad_{'_'.join(str(g) for g in grad)}"] = job
                 self.log.debug(f"Job grad_{'_'.join(str(g) for g in grad)} CPU: {cpu_per_run[idx]}")
