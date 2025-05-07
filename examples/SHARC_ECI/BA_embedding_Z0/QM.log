@@ -1,0 +1,90 @@
+SAVEDIR set to /user/pitesa/sharc_main/examples/SHARC_ECI/SAVE/BA_embedding_Z0
+HINT: total charge per multiplicity automatically assigned, please check ([0]).
+You can set the charge in the QMin or input files manually for each multiplicity ("charge 0 +1 0 ...")
+Found env variable ncpu=40, resources["ncpu"] set to 40
+Detected GAUSSIAN version 16
+paddingstates not specified setting default, [0]
+using non-default beta parameters for resp fit [0.0005, 0.0015, 0.003]
+using non-default beta parameters for resp fit [0.0005, 0.0015, 0.003]
+>>>>>>>>>>>>> Starting the GAUSSIAN job execution
+Starting job execution
+All jobs finished:
+job: master_1        code: 0    runtime: 0:00:14.120156
+
+WARNING: ***Basis set with equal S and P shells detected. Please carefully check your wave function overlaps!***
+>>>>>>>>>>>>> Saving files
+/user/pitesa.../BA_embedding_Z0/dets.1.0
+/user/pitesa...A_embedding_Z0/geom.dat.0
+Saving Runtime: 0:00:00.736485
+
+>>>>>>>>>>>>> Reading output files
+Energies:  /user/pitesa..._Z0/master_1/GAUSSIAN.log
+====================================RESP fit====================================
+	 Start:
+Done initializing grid.
+	grid points per atom:608.4285714285714
+starting to evaluate integrals
+done
+Readout Runtime: 0:00:05.771779
+using non-default beta parameters for resp fit [0.0005, 0.0015, 0.003]
+>>>>>>>>>>>>> Starting the GAUSSIAN job execution
+Starting job execution
+All jobs finished:
+job: master_1        code: 0    runtime: 0:00:11.729815
+
+WARNING: ***Basis set with equal S and P shells detected. Please carefully check your wave function overlaps!***
+>>>>>>>>>>>>> Saving files
+/user/pitesa...A_embedding_Z0/geom.dat.0
+Saving Runtime: 0:00:00.002317
+
+>>>>>>>>>>>>> Reading output files
+Energies:  /user/pitesa..._Z0/master_1/GAUSSIAN.log
+====================================RESP fit====================================
+	 Start:
+Done initializing grid.
+	grid points per atom:608.4285714285714
+starting to evaluate integrals
+done
+Readout Runtime: 0:00:05.982625
+using non-default beta parameters for resp fit [0.0005, 0.0015, 0.003]
+>>>>>>>>>>>>> Starting the GAUSSIAN job execution
+Starting job execution
+All jobs finished:
+job: master_1        code: 0    runtime: 0:00:11.790924
+
+WARNING: ***Basis set with equal S and P shells detected. Please carefully check your wave function overlaps!***
+>>>>>>>>>>>>> Saving files
+/user/pitesa...A_embedding_Z0/geom.dat.0
+Saving Runtime: 0:00:00.001871
+
+>>>>>>>>>>>>> Reading output files
+Energies:  /user/pitesa..._Z0/master_1/GAUSSIAN.log
+====================================RESP fit====================================
+	 Start:
+Done initializing grid.
+	grid points per atom:608.4285714285714
+starting to evaluate integrals
+done
+Readout Runtime: 0:00:06.090877
+using non-default beta parameters for resp fit [0.0005, 0.0015, 0.003]
+>>>>>>>>>>>>> Starting the GAUSSIAN job execution
+Starting job execution
+All jobs finished:
+job: master_1        code: 0    runtime: 0:00:11.826992
+
+WARNING: ***Basis set with equal S and P shells detected. Please carefully check your wave function overlaps!***
+>>>>>>>>>>>>> Saving files
+/user/pitesa...A_embedding_Z0/geom.dat.0
+Saving Runtime: 0:00:00.002004
+
+>>>>>>>>>>>>> Reading output files
+Energies:  /user/pitesa..._Z0/master_1/GAUSSIAN.log
+====================================RESP fit====================================
+	 Start:
+Done initializing grid.
+	grid points per atom:608.4285714285714
+starting to evaluate integrals
+done
+Readout Runtime: 0:00:05.986268
+===> Writing output to file /user/pitesa/sharc_main/examples/SHARC_ECI/BA_embedding_Z0/QM.out in SHARC Format
+

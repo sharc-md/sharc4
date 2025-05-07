@@ -1975,7 +1975,7 @@ class ECI:
             self.log.print('          -----------------------------------')
             for i in range(nCSF):
                 sort = np.flip(np.argsort( np.abs(self.Psi['ECSF'][m][:,i]) ))
-                wf = ' '.join([ f"{self.Psi['ECSF'][m][sort[j],i]: 6.3f}"+repr(ECIbasis[m].ECSFs[sort[j]]) for j in range(nCSF)] ) 
+                wf = ' '.join([ f"{self.Psi['ECSF'][m][sort[j],i]: 6.3f}"+repr(ECIbasis[m].ECSFs[sort[j]]) for j in range(nCSF) if abs(self.Psi['ECSF'][m][sort[j],i]) >= 0.001 ]) 
                 Eex = self.E[m][i] - E0
                 if 'dm' in job.properties and m == mult0:
                     f = 2./3.*Eex*np.linalg.norm(self.mu[m][:,0,i])**2 

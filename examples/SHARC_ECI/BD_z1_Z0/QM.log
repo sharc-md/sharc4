@@ -1,0 +1,21 @@
+SAVEDIR set to /user/pitesa/sharc_main/examples/SHARC_ECI/SAVE/BD_z1_Z0
+Found env variable ncpu=40, resources["ncpu"] set to 40
+Detected GAUSSIAN version 16
+paddingstates not specified setting default, [0, 0]
+>>>>>>>>>>>>> Starting the GAUSSIAN job execution
+Starting job execution
+All jobs finished:
+job: master_2        code: 0    runtime: 0:01:37.039332
+
+WARNING: ***Basis set with equal S and P shells detected. Please carefully check your wave function overlaps!***
+>>>>>>>>>>>>> Saving files
+/user/pitesa...CI/SAVE/BD_z1_Z0/dets.2.0
+/user/pitesa.../SAVE/BD_z1_Z0/geom.dat.0
+Saving Runtime: 0:00:01.253456
+
+>>>>>>>>>>>>> Reading output files
+Energies:  /user/pitesa..._Z0/master_2/GAUSSIAN.log
+Dipoles:  /user/pitesa..._Z0/master_2/GAUSSIAN.log
+Readout Runtime: 0:00:00.314765
+===> Writing output to file /user/pitesa/sharc_main/examples/SHARC_ECI/BD_z1_Z0/QM.out in SHARC Format
+
