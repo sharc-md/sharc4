@@ -271,8 +271,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             requests=requests,
         )
 
-        energies, vectors = self._get_exciton_energies()
-        self.log.debug(f"\n{vectors}")
+        energies, _ = self._get_exciton_energies()
         np.einsum("ii->i", self.QMout.h)[:] = energies[: self.QMin.molecule["states"][0]]
         return self.QMout
 
