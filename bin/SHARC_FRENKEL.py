@@ -29,7 +29,7 @@ import numpy as np
 import yaml
 from constants import NUMBERS
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, electronic_state, expand_path
+from utils import InDir, expand_path
 
 __all__ = ["SHARC_FRENKEL"]
 
@@ -230,13 +230,11 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         for idx, a in enumerate(fragment_list):
             states_a = self._kindergarden[a].QMin.molecule["states"][0] - 1
             coords_a = self._kindergarden[a].QMin.coords["coords"]
-            charge_a = self._kindergarden[a].QMin.molecule["charge"][0]
 
             cnt_i += states_a
             cnt_j = 1
 
             for jdx, b in enumerate(fragment_list):
-                charge_b = self._kindergarden[b].QMin.molecule["charge"][0]
                 states_b = self._kindergarden[b].QMin.molecule["states"][0] - 1
 
                 # Skip upper diagoonal
@@ -248,23 +246,14 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 diff = coords_a[:, np.newaxis, :] - self._kindergarden[b].QMin.coords["coords"][np.newaxis, :, :]
                 r_ab = 1 / np.sqrt(np.einsum("ijk,ijk->ij", diff, diff))
 
-                block = np.zeros((states_a, states_b))  # All couplings between fragment A and B
+                # Create monopole matrices (states x natoms)
+                s_a, s_b = self._kindergarden[a].states, self._kindergarden[b].states
+                monopoles_a = np.stack([self._kindergarden[a].QMout.multipolar_fit[(s_a[0], k)][:, 0] for k in s_a[1:]])
+                monopoles_b = np.stack([self._kindergarden[b].QMout.multipolar_fit[(s_b[0], k)][:, 0] for k in s_b[1:]])
 
-                for i in range(2, states_a + 2):  # N starts with 1, skip GS
-                    state_i = electronic_state(Z=charge_a, S=0, M=0, N=i, C={})
-                    state_i_first = electronic_state(Z=charge_a, S=0, M=0, N=1, C={})
-                    for j in range(2, states_b + 2):
-                        state_j = electronic_state(Z=charge_b, S=0, M=0, N=j, C={})
-                        state_j_first = electronic_state(Z=charge_b, S=0, M=0, N=1, C={})
-                        coupling = np.einsum(
-                            "a,b,ab->",
-                            self._kindergarden[a].QMout.multipolar_fit[(state_i_first, state_i)][:, 0],
-                            self._kindergarden[b].QMout.multipolar_fit[(state_j_first, state_j)][:, 0],
-                            r_ab,
-                        )
-                        block[i - 2, j - 2] = coupling
-                        self.log.debug(f"Exciton coupling {a}_{i:<2d}->{b}_{j:<2d} = {coupling:16.8E}")
-                hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = block
+                hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
+                    "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab
+                )
         return np.linalg.eigh(hamiltonian)
 
     def getQMout(self):
