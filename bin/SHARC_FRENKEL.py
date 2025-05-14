@@ -158,6 +158,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     "retain": f"retain {self.QMin.requests['retain']}",
                     "savedir": expand_path(os.path.join(self.QMin.save["savedir"], name)),
                     "point_charges": self.QMin.molecule["point_charges"],
+                    "step": self.QMin.save["step"],
                 }
             )
             # Set point charges if requested
