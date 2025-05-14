@@ -31,9 +31,7 @@
 
 # IMPORTS
 # external
-from copy import deepcopy
 import numpy as np
-#import math
 import os
 import sys
 import re
@@ -199,7 +197,6 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         self._dHstring = {}
 
         # obtain the dipole matrices
-        #if self.QMin.requests["dm"]:
         self._Dstring = {}
         for idir in range(1, 4):
             self._Dstring[idir] = self.find_lines(nmstates, f'Dipole {idir}', lines)
@@ -243,15 +240,6 @@ class SHARC_ANALYTICAL(SHARC_FAST):
                     step = int(file.split('.')[-1])
                     ufile = os.path.join(self.QMin.save["savedir"], file)
                     self.savedict[step] = {'U': np.load(ufile).reshape( (self.QMin.molecule['nmstates'], self.QMin.molecule['nmstates']) )}
-        #if self.QMin.requests["overlap"]:
-        #    if self.QMin.save["step"] == 0:
-        #        self.QMout.overlap = np.identity(self.parsed_states["nmstates"], dtype=float)
-        #    else: #does this make sense? what about different restart options?
-        #        self.log.debug(f'restarting: getting overlap from file U_{self.QMin.save["step"]-1}.npy')
-        #        self.QMout.overlap = (
-        #            np.load(os.path.join(self.QMin.save["savedir"], f'U_{self.QMin.save["step"]-1}.npy')).reshape(self._U.shape).T
-        #            @ self._U
-        #        )
 
         #do more preprocessing of expressions and set derivatives where necessary
         #set matrices/function _fH, _fdH, fD, fdD, _fsocR, _fsocI
@@ -272,7 +260,6 @@ class SHARC_ANALYTICAL(SHARC_FAST):
                 #create function for H derivatives
                 self._fdH[str(sy)] = sympy.lambdify([self._gvar_symb],sympy.diff(Hmat, sy), "numpy")
         else:
-            #put error message or warning? (H should depend on some coordinate values)
             self.log.error('Hamiltonian does not depend on any geometrical feature (coordinate value). Should not be like this!')
             raise ValueError('Hamiltonian does not depend on any geometrical feature (coordinate value). Should not be like this!')
 
@@ -349,7 +336,6 @@ class SHARC_ANALYTICAL(SHARC_FAST):
 
         self._do_derivs = self.QMin.requests["grad"] or self.QMin.requests["nacdr"]
 
-        #print(self.QMin.requests)
 
         #with sympy: only evaluation at geometry values remains
         self._H = self._fH(coords_needed)
@@ -357,11 +343,9 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         if self._diagonalize:
             Hd, self._U = np.linalg.eigh(self._H, UPLO="L")
             Hd = np.diag(Hd)
-            #self._Uold = np.linalg.eigh(self._Hold)[1]
         else:
             Hd = np.tril(self._H) + np.triu(self._H.T,1)#only lower triangle matrix was present
             self._U = np.identity(nmstates, dtype=float)
-            #self._Uold = np.identity(nmstates, dtype=float)
 
         if self._do_derivs:
             for sy in self._gvar_d.keys():
@@ -431,7 +415,7 @@ class SHARC_ANALYTICAL(SHARC_FAST):
 
 
         # OVERLAP
-        if self.QMin.requests["overlap"]:
+        if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             if self.QMin.save["step"] == 0:
                 pass
             elif self.persistent:
@@ -457,8 +441,6 @@ class SHARC_ANALYTICAL(SHARC_FAST):
                     self.all_U = []
                 self.all_U.append(self._U)
 
-        # print("am here 1")
-        # print(self.QMin.save['step'])
         # ======================================== assign to QMout =========================================
         self.log.debug(f"requests: {self.QMin.requests}")
         self.QMout.states = states
@@ -470,10 +452,6 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         self.QMout.h = Hd
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = overlap
-            #if np.isnan(overlap).any():
-                #self.log.error(f'NaN in overlap {overlap}!')
-                #raise ValueError(f'NaN in overlap {overlap}!')
-            #print("analyt overlap", overlap)
         if self.QMin.requests["phases"]:
             self.QMout.phases = phases
         if self.QMin.requests["grad"]:
@@ -488,9 +466,6 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         return
 
     def create_restart_files(self):
-        # print("am here 0")
-        # print(self.QMin.save['step'])
-        # print(self.persistent)
         super().create_restart_files()
         if self.persistent:
             for istep in self.savedict:
