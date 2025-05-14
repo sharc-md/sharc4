@@ -24,7 +24,6 @@
 # ******************************************
 
 
-
 # IMPORTS
 # external
 import ast
@@ -420,7 +419,7 @@ class SHARC_INTERFACE(ABC):
             )
 
         # --- three different cases ---
-        
+
         if isinstance(qmin_file, str):
             self.QMin.molecule["unit"] = "angstrom"  # default
             self.QMin.molecule["factor"] = 1.0 / BOHR_TO_ANG
@@ -508,16 +507,17 @@ class SHARC_INTERFACE(ABC):
             if isinstance(qmin_file["charge"], str):
                 qmin_file["charge"] = qmin_file["charge"].split()
             qmin_file["charge"] = convert_list(qmin_file["charge"])
+            # savedir
+            if "savedir" in qmin_file:
+                self._setsave = True
+                self.QMin.save["savedir"] = qmin_file["savedir"]
+                del qmin_file["savedir"]
+                self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
             # update everything in molecule
             self.QMin.molecule.update({k.lower(): v for k, v in qmin_file.items()})
             # update stuff that has different names
             self.QMin.molecule["natom"] = qmin_file["NAtoms"]
             self.QMin.molecule["elements"] = [IAn2AName[x] for x in qmin_file["IAn"]]
-            # savedir
-            if "savedir" in qmin_file:
-                self._setsave = True
-                self.QMin.save["savedir"] = qmin_file["savedir"]
-                self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
             if "point_charges" in qmin_file:
                 self.QMin.molecule["point_charges"] = qmin_file["point_charges"]
             self.log.debug(f"retain {int(qmin_file['retain'].split()[1])}")
@@ -914,7 +914,9 @@ class SHARC_INTERFACE(ABC):
             last_step = None
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         self.log.debug(f"{stepfile =}")
-        if os.path.isfile(stepfile) and last_step == None: # if persistent, we should ignore a STEP file if it exists, because we don't write one every step
+        if (
+            os.path.isfile(stepfile) and last_step == None
+        ):  # if persistent, we should ignore a STEP file if it exists, because we don't write one every step
             self.log.debug(f"Found stepfile {stepfile}")
             last_step = int(readfile(stepfile)[0])
         self.log.debug(f"{last_step =}, {self.QMin.save['step']=}")
@@ -990,7 +992,9 @@ class SHARC_INTERFACE(ABC):
                         requests_copy[task] = [(int(i[0]), int(i[1])) for i in batched(requests_copy[task].split())]
                     else:
                         requests_copy[task] = [int(i) for i in requests_copy[task].split()]
-
+        if "step" in requests_copy:
+            self.QMin.save["step"] = requests_copy["step"]
+            del requests_copy["step"]
         if self.QMin.save["step"] == 0:
             for req in ["overlap", "phases"]:
                 if req in requests_copy:
