@@ -74,6 +74,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             "charges": list,  # List of charges
         }
 
+        self._total_site_states = 0
+
     @staticmethod
     def description():
         return SHARC_FRENKEL._description
@@ -132,6 +134,11 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     for n in (range(int(part.split("-")[0]), int(part.split("-")[1]) + 1) if "-" in part else [int(part)])
                 }
             )
+            # Count total site states excluding site gs
+            self._total_site_states += frag["states"][0] - 1
+
+        self.log.debug(f"Total number of site states {self._total_site_states}")
+
         self.QMin.template = tmpl_dict
         self._read_template = True
 
@@ -140,6 +147,11 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
     def setup_interface(self):
         super().setup_interface()
+
+        # Check if number of requested states is doable
+        assert (
+            self.QMin.molecule["states"][0] <= self._total_site_states + 1
+        ), f"Requested more states than possible ({self._total_site_states + 1})"
 
         kindergarden = {
             name: (frag["interface"], frag["args"], frag["kwargs"]) for name, frag in self.QMin.template["fragments"].items()
@@ -198,7 +210,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
     def read_requests(self, requests_file="QM.in"):
         super().read_requests(requests_file)
         for iface in self._kindergarden.values():
-            requests = {"h": True, "multipolar_fit": ["all"]}
+            requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
             if self.QMin.requests["grad"] is not None:
                 requests["grad"] = list(range(1, iface.QMin.molecule["nstates"]))
             iface.read_requests(requests)
@@ -214,15 +226,18 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         # Initialize hamiltonian, assign energies
         total_states = 1  # 1 GS prod state
         total_gs_energy = 0
-        energies = np.array([0])
+        hamiltonian = np.zeros((self._total_site_states + 1, self._total_site_states + 1), dtype=float)  # 1 GS prod state
+
         for name, frag in self._kindergarden.items():
-            total_states += frag.QMin.molecule["states"][0] - 1  # Exclude site GS
+            site_states = frag.QMin.molecule["states"][0] - 1  # Exclude site GS
+            total_states += site_states
             site_gs_energy = frag.QMout.h[0, 0].real
-            self.log.debug(f"Site energies for {name} {np.einsum('ii->i',frag.QMout.h.real)}")
-            energies = np.append(energies, np.einsum("ii->i", frag.QMout.h.real)[1:] - site_gs_energy)  # Substract site GS
             total_gs_energy += site_gs_energy
-        hamiltonian = np.zeros((total_states, total_states), dtype=float)
-        np.einsum("ii->i", hamiltonian)[:] = energies + total_gs_energy  # Add GS prod energy
+            site_energies = np.einsum("ii->i", frag.QMout.h.real)
+            self.log.debug(f"Site energies for {name} {site_energies}")
+
+            np.einsum("ii->i", hamiltonian)[total_states - site_states : total_states] = site_energies[1:] - site_gs_energy
+        np.einsum("ii->i", hamiltonian)[:] += total_gs_energy  # Add GS prod energy
 
         # Calculate excitonic couplings
         fragment_list = list(self._kindergarden.keys())
