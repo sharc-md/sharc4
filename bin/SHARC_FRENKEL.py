@@ -161,8 +161,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         # Check if number of requested states is doable
         assert (
-            self.QMin.molecule["states"][0] <= self._total_site_states + 1
-        ), f"Requested more states than possible ({self._total_site_states + 1})"
+            self.QMin.molecule["states"][0] <= self._total_site_states
+        ), f"Requested more states than possible ({self._total_site_states})"
 
         kindergarden = {
             name: (frag["interface"], frag["args"], frag["kwargs"]) for name, frag in self.QMin.template["fragments"].items()
