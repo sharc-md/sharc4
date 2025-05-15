@@ -62,7 +62,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         # Update template keys
         self.QMin.template.update({"fragments": None})
-        self.QMin.template.types.update({"fragments": list})
+        self.QMin.template.types.update({"fragments": dict})
 
         # Template interface structure
         self._interface_templ = {
