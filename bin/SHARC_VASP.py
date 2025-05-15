@@ -4,13 +4,14 @@ import os
 from io import TextIOWrapper
 import itertools
 import shutil
-from numpy import ndarray
 import numpy as np
 import re
 from constants import *
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import  expand_path, question, link,  mkdir,  writefile,is_exec
+from scipy import linalg as LA
+import importlib.util
 
 
 __all__ = ["SHARC_VASP"]  # Only export interface class
@@ -61,7 +62,8 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "vaspdir": None, # Path to the executable of VASP
                 "potcardir": None, # Path to the POTCAR VASP file with PAW pseudopotentials
                 "ncpu" : 2, #Default number of cpus for mpi run with VASP 
-                "memory" : 2000 #resetting memory default value for each VASP MPI rank to 2Mb instead of 1Mb
+                "memory" : 2000,
+                "wfoverlap" : "", #easy workaround to prevent bin_executable check
             }
         )
         self.QMin.resources.types.update(
@@ -78,12 +80,17 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "ismear": -2, #Smearing parameter for VASP, default set to "no smearing" (-2) or read from previous WAVECAR
                 "sigma": 0.0, #Smearing width
                 "encut": 200, #Energy cutoff for plan waves in eV
+                "ispin": 1, #keyword for selecting spin calculation, only singlet ISPIN=1 is implemented below
                 "nbands": 0, #If left to 0 VASP will automatically set this, it specifies n. of KS orbital
+                "nelm": 60, #setting maximun number of SCF electronic steps
+                "ialgo": 38, #selects the algorithm to optimize orbitals
+                "time_vasp" : 0.4, #select time step for some VASP algorithm depending on IALGO value, check VASP wiki
+                "ediff" : 1e-4, # eV energy change for SCF break condition 
                 "scale_param": 1, #scaling parameter for VASP unit cell
-                # Note that current implementation only consider gamma-point only calculations i.e. k=0
                 "a1": None, #1st unit cell lattice vector
                 "a2": None, #2nd unit cell lattice vector
                 "a3": None, #3rd unit cell lattice vector
+                "overlap_method": "full" #method to compute overlaps via pawpyseed
             }
         )
         self.QMin.template.types.update(
@@ -92,12 +99,18 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "gga": str, 
                 "ismear": int, 
                 "sigma": float,
-                "encut" : int,
+                "encut" : float,
+                "ispin": int, 
                 "nbands" : int,
+                "nelm" : int,
+                "ialgo": int, 
+                "time_vasp": float,
+                "ediff" : float, 
                 "scale_param": int, #scaling parameter for VASP unit cell
                 "a1": list, #1st unit cell lattice vector
                 "a2": list, #2nd unit cell lattice vector
                 "a3": list, #3rd unit cell lattice vector
+                "overlap_method": str #method to compute overlaps via pawpyseed
             }
         )
         self._coords_vasp =  None #to store VASP input geometry, different from QMin format
@@ -153,21 +166,59 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.QMin.template["gga"]=self.QMin.template["gga"].upper() #Probably it is not case sensitive anyway
 
         if not isinstance(self.QMin.template["sigma"],float):
-            self.log.error("sigma in template has to be a float, check vasp wiki")
+            self.log.error("sigma in template has to be a real number, check vasp wiki")
             raise ValueError()
 
         if not isinstance(self.QMin.template["ismear"],int):
             self.log.error("ismear in template has to be an integer, check vasp wiki")
             raise ValueError()
 
-        if not isinstance(self.QMin.template["encut"],int):
-            self.log.error("encut in template has to be an integer, check vasp wiki")
+        if not isinstance(self.QMin.template["encut"],float):
+            self.log.error("encut in template has to be a real number, check vasp wiki")
             raise ValueError()
 
+        if not isinstance(self.QMin.template["ispin"],int):
+            self.log.error("ispin in template has to be an integer, check vasp wiki")
+            raise ValueError()
+        else:
+            if self.QMin.template["ispin"] != 1:
+                self.log.error("ispin has to be set to 1, singlet calculation. Higher multiplicities are not implemented yet")
+                raise ValueError()
+
+        if not isinstance(self.QMin.template["nbands"],int):
+            self.log.error("nbands in template has to be an integer, check vasp wiki")
+            raise ValueError()
+        
+        if not isinstance(self.QMin.template["nelm"],int):
+            self.log.error("nelm in template has to be an integer, check vasp wiki")
+            raise ValueError()
+        
+        if not isinstance(self.QMin.template["ialgo"],int):
+            self.log.error("ialgo in template has to be an integer, check vasp wiki")
+            raise ValueError()
+        
+        if not isinstance(self.QMin.template["ediff"],float):
+            self.log.error("ediff in template has to be an integer, check vasp wiki")
+            raise ValueError()
+        
+        if not isinstance(self.QMin.template["time_vasp"],float):
+            self.log.error("time_vasp in template has to be an integer, check vasp wiki")
+            raise ValueError()
+        
         if not isinstance(self.QMin.template["scale_param"],int):
             self.log.error("scale_param in template has to be an integer, check vasp wiki")
             raise ValueError()
         
+        if not isinstance(self.QMin.template["overlap_method"],str):
+            self.log.error("overlap_method has to be a string. Only 'full' or 'pseudo' are supported. It selects pawpyseed method for performing overlap calculation")
+            raise ValueError()
+        else:
+            if self.QMin.template["overlap_method"] == "full" or self.QMin.template["overlap_method"] == "pseudo":
+                pass
+            else:
+                self.log.error("overlap_method can only be either 'full' or 'pseudo'")
+                raise ValueError()
+
         #Control check for lattice vectors
         if not isinstance(self.QMin.template["a1"],list):
             self.log.error("a1 has to be a list of 3 numbers, the lattice vector coordinates. Please provide 3 real numbers separated by whitespaces in the template")
@@ -319,7 +370,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.runjobs(schedule)
 
         self._save_files(self.QMin.control["workdir"])
-        #self.clean_savedir()
+        self.clean_savedir()
 
         self.log.debug("All jobs finished successful")
 
@@ -331,17 +382,16 @@ class SHARC_VASP(SHARC_ABINITIO):
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
 
-        #Check for pawpyseed (https://github.com/kylebystrom/pawpyseed) installation in the conda environment the user uses for running SHARC
+        #Checking for pawpyseed (https://github.com/kylebystrom/pawpyseed) installation in the conda environment the user uses for running SHARC
         # This is compulsory for calculating overlaps and so run VASP-SHARC dynamics !!
         # SH with VASP can only run by using overlaps, no NACs available.
-        if self.QMin.requests["overlap"]:
-            try: 
-                from pawpyseed.core.projector import Wavefunction,Projector
-            except: 
-                self.log.error("pawpyseed is not installed in your environment, please do it first and make sure it appears in your 'pip list'!")
-                self.log.error("pawpyseed repo: https://github.com/kylebystrom/pawpyseed")
-                raise ValueError("pawpyseed is not installed in your python env! do it first https://github.com/kylebystrom/pawpyseed")
 
+        if self.QMin.requests["overlap"]:
+            if importlib.util.find_spec("pawpyseed") is None:
+                self.log.error("You have requested overlap propagation but no pawpyseed was found in your python env. \
+                                This is necessary for computing overlaps out of VASP.")
+                self.log.error("install pawpyseed from: https://github.com/kylebystrom/pawpyseed  and check afterwards that it appears in 'pip list'")
+                raise ValueError("pawpyseed is not installed in your python env! do it first https://github.com/kylebystrom/pawpyseed")
 
         for req, val in self.QMin.requests.items():
             if val and req != "retain" and req not in all_features:
@@ -352,8 +402,25 @@ class SHARC_VASP(SHARC_ABINITIO):
     def set_coords(self, coords_file: str = "QM.in") -> None:
         super().set_coords(coords_file)
 
-        self._el_vasp=[] #Saving indexes for VASP input format, list of lists       
+        # Checking whether QM.in coordinates comply with VASP POSCAR format.
+        # Basically all atoms of the same type have to be grouped together back to back in the geometry input in QM.in
+        # This is a strict constraint but it simplifies a lot following usage of VASP
+        
+        def check_far_duplicates(lst:list) -> bool: 
+            last_seen = {}
+            for i, val in enumerate(lst):
+                if val in last_seen and i - last_seen[val] > 1:
+                    return True
+                last_seen[val] = i
+            return False
+
+        if check_far_duplicates(self.QMin.molecule["elements"]):
+            self.log.error("Input geometry in QMin does not comply with POSCAR format.")
+            self.log.error("Please format it so that all atoms of the same type appear in consecutive lines in the input geometry matrix")
+            raise TypeError()
+        
         #This is for proper formatting of VASP input geometry from QM.in format
+        self._el_vasp=[] #Saving indexes for VASP input format, list of lists       
         for i in list(dict.fromkeys(self.QMin.molecule["elements"])):
             tmp=list()
             for n,j in enumerate(self.QMin.molecule["elements"]):
@@ -416,6 +483,17 @@ class SHARC_VASP(SHARC_ABINITIO):
         exec_str = f"mpirun -np {ncpu} {os.path.join(qmin.resources['vaspdir'],'vasp_std')} > {os.path.join(workdir, 'VASP.out')}"
         exit_code = self.run_program(
             workdir, exec_str, os.path.join(workdir, "VASP.out"), os.path.join(workdir, "VASP.err"))
+
+        ### Checking correct execution of VASP calculation. ###
+        
+        #Checking correct POSCAR and POTCAR format, only at first step is enough to make sure remaining steps run smoothly
+        if self.QMin.save["step"] == 0:
+            with open(os.path.join(workdir,"VASP.out"), "r", encoding="utf-8") as f:
+                output = f.read()
+            vasp_warning=re.search(r"\s+WARNING:\s+type\s+information\s+on\s+POSCAR\s+and\s+POTCAR\s+are\s+incompatible",output) 
+            if vasp_warning is not None:
+                self.log.error("POTCAR AND POSCAR formats are incompatible, please check VASP.out. You probably got unphysical results.")
+                raise ValueError("POTCAR AND POSCAR formats are incompatible, please check VASP.out. You probably got unphysical results.")  
         
         if exit_code != 0:
             with open(os.path.join(workdir, "VASP.err"), "r", encoding="utf-8") as f:
@@ -434,7 +512,6 @@ class SHARC_VASP(SHARC_ABINITIO):
         Parse VASP output files
         """
 
-        
         self.log.debug("Testing VASP geometry sorting indices")
         self.log.debug(self._indices_vasp)
         # Allocate matrices
@@ -471,8 +548,11 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.QMout.grad = self._get_forces(OUTCAR)
 
         # Populate overlaps
-        # to be done 
-        
+        if self.QMin.requests["overlap"]:
+            self.QMout.overlap = self._get_overlap(ks_info[0],ks_info[1])
+            self.log.debug("Checking population of self.QMout.overlap, overlap matrix")
+            self.log.debug(self.QMout.overlap)
+
         return self.QMout
     
 
@@ -564,12 +644,97 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         self.log.debug("TESTING ENERGIES PARSING")
         self.log.debug(energies)
-        self.log.debug("KS orbitals and transitions our of VASP")
+        self.log.debug("KS orbitals and transitions out of VASP")
         self.log.debug(ks_es)
         
         return energies,(ks_es,ks_mo)
 
 
+    def _get_overlap(self, es_t0: dict,mo_t0: dict ) -> np.ndarray:
+        ''' 
+        Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
+        
+        es_t0 : output dictionary of _get_energies containing selected excited states and orbital transitions (ks_es in _get_energies)
+        mo_t0 : output MOs dictionary of _get_energies (ks_mo in _get_energies) 
+        
+        mth : select which method from pawpyseed to compute MO overlaps.
+        -> mth='full',  default AE overlaps are calculated.
+        if mth='pseudo' only pseudowavefunction overlaps
+        '''
+        
+        from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
+        
+        act_sp={i:n for n,i in enumerate(mo_t0.keys())}
+     
+        #GS slater determinant dictionary
+        gs=dict(itertools.islice(act_sp.items(), list(act_sp.keys()).index("L")))
+        #Adding excited state determinants now
+        es=list()
+        for i in es_t0.keys():
+            tmp=gs.copy()
+            homo=(i.split('->')[0])
+            lumo=(i.split('->')[-1]) 
+            del(tmp[homo])
+            tmp.update({lumo:act_sp[lumo]})
+            es.append(tmp)
+        det_ind=list()
+        det_ind.append(list(gs.values()))
+        for i in es:
+            det_ind.append(list(i.values()))
+
+        self.log.debug("checking number of states selected from SHARC input")
+        self.log.debug(self.QMin.molecule["nmstates"]) 
+        self.log.debug("checking number of states for which overlap is computed")
+        self.log.debug(len(det_ind)) 
+        
+        #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
+        wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
+                                       wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
+                                       cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
+                                       vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
+        
+        wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save["step"]-1}"), #previous timestep wf
+                                        wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save["step"]-1}"),
+                                        cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
+                                        vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save["step"]-1}"))
+        
+        self.log.info("-----------------------------")
+        self.log.info("PAWPYSEED overlap calculation")
+        self.log.info("-----------------------------\n")
+
+        if self.QMin.template["overlap_method"]=="pseudo":
+            pr=[Projector(wf_t, wf_t0,method=self.QMin.template["overlap_method"])]
+        else:
+            pr=[Projector(wf_t, wf_t0)]
+       
+        S=list()
+       
+        #pr is a list, multiple projector calcualtions could be added, for instance if tNACs have to be computed also S_{ji}(r,t+dt)^* is required.
+        #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
+        for j in pr:
+           tmp=list()
+           for i in act_sp.values():
+               tmp.append(j.single_band_projection(i))
+           S.append(np.array(tmp))
+       
+        #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
+        S_ij=list()
+        #Actual retrieval of ij state overlaps via determinants of the corresponding full MOs overlap matrices
+        for s in S:
+            s_ij=np.zeros((len(det_ind),len(det_ind)),dtype=complex)
+            for i in range(len(det_ind)):
+                for k in range(len(det_ind)):
+                    s_ij[i,k]=LA.det(s[np.ix_(det_ind[i],det_ind[k])])*LA.det(s[np.ix_(det_ind[0],det_ind[0])])
+                    #First det is alpha electrons, second for beta (always lowest-MOs occupied)
+            S_ij.append(s_ij)
+       
+        #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
+        λ,V = LA.eigh(S_ij[0].T.conjugate() @ S_ij[0])
+        T=S_ij[0] @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
+       
+        return T
+
+    
 
 
 #-------------------| Functions for generating inputstrings for writing VASP input files |---------------------------- 
@@ -579,24 +744,21 @@ class SHARC_VASP(SHARC_ABINITIO):
         Generate INCAR input file string for VASP from QMin object
         """
         
-        system = self.QMin.template["system"]
-        ismear = self.QMin.template["ismear"]
-        sigma = self.QMin.template["sigma"]
-        nbands = self.QMin.template["nbands"]
-        gga = self.QMin.template["gga"]
-        encut = self.QMin.template["encut"]
-        memory= self.QMin.resources["memory"]
-
+        inputstring = f"SISTEM = {self.QMin.template["system"]}\n"
+        inputstring = f"MAXMEM = {self.QMin.resources["memory"]}\n" #allocated memory in Mb for each MPI rank
+        inputstring += f"ISMEAR = {self.QMin.template["ismear"]}\n"
+        inputstring += f"SIGMA = {self.QMin.template["sigma"]}\n"
+        inputstring += f"ISPIN = {self.QMin.template["ispin"]}\n" #Only singlets currently available
+        inputstring += f"GGA = {self.QMin.template["gga"]}\n"
+        inputstring += f"TIME = {self.QMin.template["time_vasp"]}\n"
+        inputstring += f"IALGO = {self.QMin.template["ialgo"]}\n"
+        inputstring += f"NELM = {self.QMin.template["nelm"]}\n"
+        inputstring += f"EDIFF = {self.QMin.template["ediff"]}\n"
         
-        inputstring = f"SISTEM = {system}\n"
-        inputstring = f"MAXMEM = {memory}\n" #allocated memory in Mb for each MPI rank
-        inputstring += f"ISMEAR = {ismear}\n"
-        inputstring += f"SIGMA = {sigma}\n"
-        inputstring += f"ISPIN = 1\n" #Only singlets currently, hard coded!
-        inputstring += f"GGA = {gga}\n"
-        if nbands != 0:
-            inputstring += f"NBANDS = {nbands}\n" 
-        inputstring += f"ENCUT = {encut}" 
+        
+        if self.QMin.template["nbands"] != 0:
+            inputstring += f"NBANDS = {self.QMin.template["nbands"]}\n" 
+        inputstring += f"ENCUT = {self.QMin.template["encut"]}" 
         
         return inputstring
 
@@ -657,27 +819,33 @@ class SHARC_VASP(SHARC_ABINITIO):
 # ---------------------------------| Saving files after each run |---------------------------------------------------
     def _save_files(self, workdir: str) -> None:
         """
-        Save files (WAVECAR, OUTCAR, POTCAR) to savedir
+        Save files (WAVECAR, vasprun.xml , CONTCAR, POTCAR) to savedir
+        Necessary for pawpyseed computation of overlap matrix 
         Naming convention: file.job.step
         """
         step = self.QMin.save["step"]
         savedir = self.QMin.save["savedir"]
         
-        #OUTCAR not sure this is needed, let's just leave it now for testing purposes
-        fromfile = os.path.join(workdir, "OUTCAR")
-        tofile = os.path.join(savedir, f"OUTCAR.{step}")
-        shutil.copy(fromfile, tofile)
+        #POTCAR only once, never changes, to suppress pawpyseed warning
+        if self.QMin.save["step"]==0:
+            fromfile = os.path.join(workdir, "POTCAR")
+            tofile = os.path.join(savedir, f"POTCAR")
+            shutil.copy(fromfile, tofile)
 
+        #vasprun.xml
+        fromfile = os.path.join(workdir, "vasprun.xml")
+        tofile = os.path.join(savedir, f"vasprun.xml.{step}")
+        shutil.copy(fromfile, tofile)
+        
         #WAVECAR
         fromfile = os.path.join(workdir, "WAVECAR")
         tofile = os.path.join(savedir, f"WAVECAR.{step}")
         shutil.copy(fromfile, tofile)
         
-        #POTCAR we copy only once, they are all equal -> needed by pawpyseed
-        if step==0:
-            fromfile = os.path.join(workdir, "POTCAR")
-            tofile = os.path.join(savedir, f"POTCAR")
-            shutil.copy(fromfile, tofile)
+        #CONTCAR
+        fromfile = os.path.join(workdir, "CONTCAR")
+        tofile = os.path.join(savedir, f"CONTCAR.{step}")
+        shutil.copy(fromfile, tofile)
         
         return
 
