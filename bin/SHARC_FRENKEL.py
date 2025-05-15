@@ -111,12 +111,18 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         with open(template_file, "r", encoding="utf-8") as tmpl_file:
             tmpl_dict = yaml.safe_load(tmpl_file)
             self.log.debug(f"Parsing yaml file:\n{tmpl_dict}")
+
+        assert len(tmpl_dict["fragments"]) > 1, "At least two fragments have to be defined!"
+
         for name, frag in tmpl_dict["fragments"].items():
-            # Set default value for args and kwargs
+            # Set default value for args, kwargs and charges
             if "args" not in frag:
                 tmpl_dict["fragments"][name]["args"] = []
             if "kwargs" not in frag:
                 tmpl_dict["fragments"][name]["kwargs"] = {}
+            if "charges" not in frag:
+                self.log.info(f"No charge defined for fragment {name}, set default 0.")
+                tmpl_dict["fragments"][name]["charges"] = [0]
 
             # Check if all parameters are present and of correct type
             for k, v in self._interface_templ.items():
@@ -135,12 +141,16 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     for n in (range(int(part.split("-")[0]), int(part.split("-")[1]) + 1) if "-" in part else [int(part)])
                 }
             )
-            # Count total site states excluding site gs
+            # Increment total site states excluding site gs
             self._total_site_states += frag["states"][0] - 1
+
+            # Check if states >= 2 and only singlets
+            assert (n_states := sum(frag["states"])) == frag["states"][0], "Only singlet states are supported!"
+            assert n_states > 1, f"Too few states for fragment {name}!"
 
         self.log.debug(f"Total number of site states {self._total_site_states}")
 
-        self.QMin.template = tmpl_dict
+        self.QMin.template.update(tmpl_dict)
         self._read_template = True
 
     def read_resources(self, resources_file="FRENKEL.resources", kw_whitelist=None):
@@ -171,7 +181,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     "retain": f"retain {self.QMin.requests['retain']}",
                     "savedir": expand_path(os.path.join(self.QMin.save["savedir"], name)),
                     "point_charges": self.QMin.molecule["point_charges"],
-                    "step": self.QMin.save["step"],
                 }
             )
             # Set point charges if requested
@@ -205,6 +214,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
             coords = np.zeros((len(frag["atoms"]), 3), dtype=float)
             for idx, a in enumerate(frag["atoms"]):
+                # Always Bohr as it comes from parent
                 coords[idx] = self.QMin.coords["coords"][a]
             self._kindergarden[name].set_coords(coords, pc)
 
@@ -254,7 +264,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             for jdx, b in enumerate(fragment_list):
                 states_b = self._kindergarden[b].QMin.molecule["states"][0] - 1
 
-                # Skip upper diagoonal
+                # Skip upper diagonal
                 cnt_j += states_b
                 if idx <= jdx:
                     continue
