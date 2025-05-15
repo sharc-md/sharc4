@@ -74,7 +74,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             "charges": list,  # List of charges
         }
 
-        self._total_site_states = 0
+        # Keep track of total site states to preallocate Hamiltonian
+        self._total_site_states = 1  # GS prod
 
     @staticmethod
     def description():
@@ -226,7 +227,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         # Initialize hamiltonian, assign energies
         total_states = 1  # 1 GS prod state
         total_gs_energy = 0
-        hamiltonian = np.zeros((self._total_site_states + 1, self._total_site_states + 1), dtype=float)  # 1 GS prod state
+        hamiltonian = np.zeros((self._total_site_states, self._total_site_states), dtype=float)
 
         for name, frag in self._kindergarden.items():
             site_states = frag.QMin.molecule["states"][0] - 1  # Exclude site GS
