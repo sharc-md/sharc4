@@ -61,8 +61,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         super().__init__(*args, **kwargs)
 
         # Update template keys
-        self.QMin.template.update({"fragments": None})
-        self.QMin.template.types.update({"fragments": dict})
+        self.QMin.template.update({"fragments": None, "embedding": None})
+        self.QMin.template.types.update({"fragments": dict, "embedding": dict})
 
         # Template interface structure
         self._interface_templ = {
@@ -73,6 +73,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             "states": list,  # List of states
             "charges": list,  # List of charges
         }
+
+        # Interface for electrostatic embedding
+        self._embedding_interface = None
 
         # Keep track of total site states to preallocate Hamiltonian
         self._total_site_states = 1  # GS prod
@@ -150,6 +153,16 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         self.log.debug(f"Total number of site states {self._total_site_states}")
 
+        # Setup embedding interface
+        if "embedding" in tmpl_dict:
+            if "interface" not in tmpl_dict["embedding"]:
+                self.log.error("Interface has to be defined in embedding!")
+                raise ValueError
+            if "args" not in tmpl_dict["embedding"]:
+                tmpl_dict["embedding"]["args"] = []
+            if "kwargs" not in tmpl_dict["embedding"]:
+                tmpl_dict["embedding"]["kwargs"] = {}
+
         self.QMin.template.update(tmpl_dict)
         self._read_template = True
 
@@ -161,8 +174,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         # Check if number of requested states is doable
         assert (
-            self.QMin.molecule["states"][0] <= self._total_site_states
-        ), f"Requested more states than possible ({self._total_site_states})"
+            n_singlets := self.QMin.molecule["states"][0]
+        ) <= self._total_site_states, f"Requested more states than possible ({self._total_site_states})"
+
+        assert sum(self.QMin.molecule["states"]) == n_singlets, "This interface only supports singlet states!"
 
         kindergarden = {
             name: (frag["interface"], frag["args"], frag["kwargs"]) for name, frag in self.QMin.template["fragments"].items()
@@ -172,6 +187,11 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         # Setup QMin
         for name, frag in self.QMin.template["fragments"].items():
             self.log.debug(f"Setup fragment {name}")
+
+            assert (
+                "multipolar_fit" in self._kindergarden[name].get_features()
+            ), f"{frag['interface']} does not support multipolar_fit request!"
+
             self._kindergarden[name].setup_mol(
                 {
                     "states": frag["states"],
@@ -204,6 +224,29 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             self._kindergarden[name].QMin.resources["pwd"] = expand_path(os.path.join(self.QMin.resources["pwd"], name))
             self._kindergarden[name].QMin.resources["cwd"] = expand_path(os.path.join(self.QMin.resources["cwd"], name))
 
+        # Setup embedding
+        if self.QMin.template["embedding"]:
+            self._embedding_interface = self._load_interface(self.QMin.template["embedding"]["interface"])(
+                self.QMin.template["embedding"]["args"], self.QMin.template["embedding"]["kwargs"]
+            )
+
+            self._embedding_interface.setup_mol(
+                {
+                    "states": [1],
+                    "charge": self.QMin.molecule["charge"],
+                    "NAtoms": self.QMin.molecule["natom"],
+                    "IAn": [NUMBERS[a] for a in self.QMin.molecule["elements"]],
+                    "retain": f"retain {self.QMin.requests['retain']}",
+                    "savedir": expand_path(os.path.join(self.QMin.save["savedir"], "embedding")),
+                }
+            )
+
+            with InDir("embedding"):
+                self._embedding_interface.read_resources()
+                self._embedding_interface.read_template()
+                self._embedding_interface.setup_interface()
+        # TODO: does it need an embedding child for each fragment?
+
     def set_coords(self, xyz, pc=False):
         super().set_coords(xyz, pc)
         # Set coords for fragments
@@ -218,8 +261,27 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 coords[idx] = self.QMin.coords["coords"][a]
             self._kindergarden[name].set_coords(coords, pc)
 
+        # Set coords for embedding
+        if self._embedding_interface and not pc:
+            self._embedding_interface.set_coords(xyz, pc)
+
     def read_requests(self, requests_file="QM.in"):
         super().read_requests(requests_file)
+
+        if self.QMin.requests["grad"] and self.QMin.template["embedding"] is None:
+            self.log.error("Gradients only available with embedding!")
+            raise ValueError
+
+        if self._embedding_interface:
+            requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
+            if self.QMin.requests["grad"] is not None:
+                requests["grad"] = [1]
+            self._embedding_interface.read_requests(requests)
+
+            # Check if fragment children can do point charges
+            for name, child in self._kindergarden.items():
+                assert "point_charges" in child.get_features(), f"Fragment {name} does not support point charges!"
+
         for iface in self._kindergarden.values():
             requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
             if self.QMin.requests["grad"] is not None:
@@ -227,6 +289,25 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             iface.read_requests(requests)
 
     def run(self):
+        if self._embedding_interface:
+            self._embedding_interface.run()
+            embedding_charges = self._embedding_interface.QMout.multipolar_fit.squeeze()
+
+            for name, child in self._kindergarden.items():
+                pccharge = np.zeros(embedding_charges.shape[0] - child.QMin.molecule["natom"])
+                pccoords = np.zeros((pccharge.shape[0], 3))
+                iter_gen = iter(range(pccharge.shape[0]))
+
+                for idx, charge in enumerate(embedding_charges):
+                    if idx in self.QMin.template["fragments"][name]["atoms"]:
+                        continue
+                    pccharge[it_idx := next(iter_gen)] = charge
+                    pccoords[it_idx, :] = self.QMin.coords["coords"][idx, :]
+
+                child.QMin.coords["pccharge"] = pccharge
+                child.QMin.coords["pccoords"] = pccoords
+                child.QMin.molecule["point_charges"] = True
+                # TODO: add external pc
         self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
 
     def _get_exciton_energies(self) -> tuple[np.ndarray, np.ndarray]:
