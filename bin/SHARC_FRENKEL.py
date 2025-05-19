@@ -303,6 +303,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 child.QMin.coords["pccharge"] = pccharge
                 child.QMin.coords["pccoords"] = pccoords
                 child.QMin.molecule["point_charges"] = True
+                child.QMin.molecule["npc"] = len(pccharge)
                 # TODO: add external pc
         self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
 
