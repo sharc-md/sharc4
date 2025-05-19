@@ -268,10 +268,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
     def read_requests(self, requests_file="QM.in"):
         super().read_requests(requests_file)
 
-        if self.QMin.requests["grad"] and self.QMin.template["embedding"] is None:
-            self.log.error("Gradients only available with embedding!")
-            raise ValueError
-
         if self._embedding_interface:
             requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
             if self.QMin.requests["grad"] is not None:
