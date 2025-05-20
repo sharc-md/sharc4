@@ -269,10 +269,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         super().read_requests(requests_file)
 
         if self._embedding_interface:
-            requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
-            if self.QMin.requests["grad"] is not None:
-                requests["grad"] = [1]
-            self._embedding_interface.read_requests(requests)
+            self._embedding_interface.read_requests({"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]})
 
             # Check if fragment children can do point charges
             for name, child in self._kindergarden.items():
@@ -287,7 +284,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
     def run(self):
         if self._embedding_interface:
             self._embedding_interface.run()
-            embedding_charges = self._embedding_interface.QMout.multipolar_fit.squeeze()
+            embedding_charges = self._embedding_interface.QMout.multipolar_fit[
+                (self._embedding_interface.states[0], self._embedding_interface.states[0])
+            ][:, 0]
 
             for name, child in self._kindergarden.items():
                 pccharge = np.zeros(embedding_charges.shape[0] - child.QMin.molecule["natom"])
@@ -361,6 +360,62 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 )
         return np.linalg.eigh(hamiltonian)
 
+    def _get_exciton_gradients(self, coeffs: np.ndarray) -> np.ndarray:
+        """
+        Calculate derivative of Hamiltonian (Hellmann-Feynman theorem)
+        dE/dR ~ site-state gradient + dV/dR, assuming transition charges
+        are not a function of R
+
+        coeffs: n_states x n_states array of eigenvectors from Hamiltonian
+        """
+        gradients = np.zeros((self._total_site_states, self.QMin.molecule["natom"], 3))
+        hamiltonian_dr = np.zeros((self._total_site_states, self._total_site_states, self.QMin.molecule["natom"], 3))
+        fragment_list = list(self._kindergarden.keys())
+
+        state_cnt = 1
+        for a in fragment_list:
+            atoms = self.QMin.template["fragments"][a]["atoms"]
+            states_a = self._kindergarden[a].QMin.molecule["states"][0] - 1
+            coords_a = self._kindergarden[a].QMin.coords["coords"]
+
+            # add gs grad of frag a to gs prod grad
+            gradients[0, atoms, :] += self._kindergarden[a].QMout.grad[0, :, :]
+
+            # Site-energy gradients dE = sum(c²*de)
+            gradients[1:, atoms, :] += np.einsum(
+                "ij,jmn->imn", coeffs[1:, state_cnt : state_cnt + states_a] ** 2, self._kindergarden[a].QMout.grad[1:, :, :]
+            )
+            state_cnt += states_a
+            state_cnt_b = 1
+            for b in fragment_list:
+                states_b = self._kindergarden[b].QMin.molecule["states"][0] - 1
+                if a == b:
+                    state_cnt_b += states_b
+                    continue
+
+                # Calculate coupling derivative
+                diff = coords_a[:, np.newaxis, :] - self._kindergarden[b].QMin.coords["coords"][np.newaxis, :, :]
+                dist = np.linalg.norm(diff, axis=2) ** 3
+                r_ab = diff / dist[:, :, np.newaxis]
+
+                # Create monopole matrices (states x natoms)
+                s_a, s_b = self._kindergarden[a].states, self._kindergarden[b].states
+                monopoles_a = np.stack([self._kindergarden[a].QMout.multipolar_fit[(s_a[0], k)][:, 0] for k in s_a[1:]])
+                monopoles_b = np.stack([self._kindergarden[b].QMout.multipolar_fit[(s_b[0], k)][:, 0] for k in s_b[1:]])
+
+                coupling = np.einsum(
+                    "ia,jb,abm->ijam",
+                    monopoles_a,
+                    monopoles_b,
+                    r_ab,
+                )
+                state_cnt_b += states_b
+                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms, :] -= coupling
+
+        gradients[1:] += gradients[0] + np.einsum("ij,ijam->iam", coeffs, hamiltonian_dr)[1:]
+
+        return gradients
+
     def getQMout(self):
         requests = set()
         for key, val in self.QMin.requests.items():
@@ -376,8 +431,11 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             requests=requests,
         )
 
-        energies, _ = self._get_exciton_energies()
+        energies, coeffs = self._get_exciton_energies()
         np.einsum("ii->i", self.QMout.h)[:] = energies[: self.QMin.molecule["states"][0]]
+
+        if self.QMin.requests["grad"]:
+            self.QMout.grad = self._get_exciton_gradients(coeffs)[: self.QMin.molecule["states"][0], :, :]
         return self.QMout
 
     def create_restart_files(self):
