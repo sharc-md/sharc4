@@ -521,7 +521,7 @@ class SHARC_QMMM(SHARC_HYBRID):
             self.mml_interface.getQMout()
             self.mml_interface.write_step_file()
             # is analogous to the density fit from QM interfaces -> generated upon same request
-            raw_pc = self.mml_interface.QMout["multipolar_fit"][0, 0, ...]
+            raw_pc = self.mml_interface.QMout["multipolar_fit"][(self.mml_interface.states[0], self.mml_interface.states[0])][:,0]
 
         if self.QMin.template["embedding"] == "subtractive":
             self.mms_interface.QMin.coords["coords"] = mms_coords
