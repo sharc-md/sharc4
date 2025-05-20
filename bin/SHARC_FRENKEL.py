@@ -254,12 +254,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             if pc:
                 self._kindergarden[name].set_coords(xyz, pc)
                 continue
-
-            coords = np.zeros((len(frag["atoms"]), 3), dtype=float)
-            for idx, a in enumerate(frag["atoms"]):
-                # Always Bohr as it comes from parent
-                coords[idx] = self.QMin.coords["coords"][a]
-            self._kindergarden[name].set_coords(coords, pc)
+            self._kindergarden[name].set_coords(self.QMin.coords["coords"][frag["atoms"]], pc)
 
         # Set coords for embedding
         if self._embedding_interface and not pc:
@@ -311,24 +306,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         Construct and diagonalize exciton Hamiltonian
         returns eigenvalues and eigenvectors
         """
-        # Initialize hamiltonian, assign energies
-        total_states = 1  # 1 GS prod state
-        total_gs_energy = 0
-        hamiltonian = np.zeros((self._total_site_states, self._total_site_states), dtype=float)
 
-        for name, frag in self._kindergarden.items():
-            site_states = frag.QMin.molecule["states"][0] - 1  # Exclude site GS
-            total_states += site_states
-            site_gs_energy = frag.QMout.h[0, 0].real
-            total_gs_energy += site_gs_energy
-            site_energies = np.einsum("ii->i", frag.QMout.h.real)
-            self.log.debug(f"Site energies for {name} {site_energies}")
-
-            np.einsum("ii->i", hamiltonian)[total_states - site_states : total_states] = site_energies[1:] - site_gs_energy
-        np.einsum("ii->i", hamiltonian)[:] += total_gs_energy  # Add GS prod energy
-
-        # Calculate excitonic couplings
         fragment_list = list(self._kindergarden.keys())
+        hamiltonian = np.zeros((self._total_site_states, self._total_site_states), dtype=float)
 
         cnt_i = 1
         for idx, a in enumerate(fragment_list):
@@ -337,6 +317,12 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
             cnt_i += states_a
             cnt_j = 1
+
+            # Add site gs energy to GS prod energy
+            hamiltonian[0, 0] += (gs_en := self._kindergarden[a].QMout.h[0, 0].real)
+            np.einsum("ii->i", hamiltonian)[cnt_i - states_a : cnt_i] += (
+                np.einsum("ii->i", self._kindergarden[a].QMout.h[1:, 1:]).real - gs_en
+            )
 
             for jdx, b in enumerate(fragment_list):
                 states_b = self._kindergarden[b].QMin.molecule["states"][0] - 1
@@ -358,6 +344,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
                     "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab
                 )
+        np.einsum("ii->i", hamiltonian)[1:] += hamiltonian[0, 0]
         return np.linalg.eigh(hamiltonian)
 
     def _get_exciton_gradients(self, coeffs: np.ndarray) -> np.ndarray:
@@ -374,23 +361,24 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         state_cnt = 1
         for a in fragment_list:
-            atoms = self.QMin.template["fragments"][a]["atoms"]
+            atoms_a = self.QMin.template["fragments"][a]["atoms"]
             states_a = self._kindergarden[a].QMin.molecule["states"][0] - 1
             coords_a = self._kindergarden[a].QMin.coords["coords"]
 
             # add gs grad of frag a to gs prod grad
-            gradients[0, atoms, :] += self._kindergarden[a].QMout.grad[0, :, :]
+            gradients[0, atoms_a, :] += self._kindergarden[a].QMout.grad[0, :, :]
 
             # Site-energy gradients dE = sum(c²*de)
-            gradients[1:, atoms, :] += np.einsum(
+            gradients[1:, atoms_a, :] += np.einsum(
                 "ij,jmn->imn", coeffs[1:, state_cnt : state_cnt + states_a] ** 2, self._kindergarden[a].QMout.grad[1:, :, :]
             )
             state_cnt += states_a
             state_cnt_b = 1
             for b in fragment_list:
                 states_b = self._kindergarden[b].QMin.molecule["states"][0] - 1
+                atoms_b = self.QMin.template["fragments"][b]["atoms"]
+                state_cnt_b += states_b
                 if a == b:
-                    state_cnt_b += states_b
                     continue
 
                 # Calculate coupling derivative
@@ -404,14 +392,17 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 monopoles_b = np.stack([self._kindergarden[b].QMout.multipolar_fit[(s_b[0], k)][:, 0] for k in s_b[1:]])
 
                 coupling = np.einsum(
-                    "ia,jb,abm->ijam",
+                    "ia,jb,abm->ijabm",
                     monopoles_a,
                     monopoles_b,
                     r_ab,
                 )
-                state_cnt_b += states_b
-                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms, :] -= coupling
-
+                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] -= np.sum(
+                    coupling, axis=3
+                )
+                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] -= np.sum(
+                    coupling, axis=2
+                )
         gradients[1:] += gradients[0] + np.einsum("ij,ijam->iam", coeffs, hamiltonian_dr)[1:]
 
         return gradients
