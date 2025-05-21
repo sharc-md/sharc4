@@ -130,7 +130,6 @@ class SHARC_OPENMM(SHARC_FAST):
             self.resources_file = question("Specify path to OPENMM.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
         return INFOS
 
-
     def run(self):
         self.simulation.context.setPositions(self.QMin.coords["coords"] * (au2a / 10))
         state: State = self.simulation.context.getState(getEnergy=self.QMin.requests["h"], getForces=self.QMin.requests["grad"])
@@ -143,8 +142,8 @@ class SHARC_OPENMM(SHARC_FAST):
             self.QMout["grad"] = gradients._value[np.newaxis, ...]
 
         if self.QMin.requests["multipolar_fit"]:
-            self.QMout["multipolar_fit"] = self._charges[np.newaxis, np.newaxis, ...]
-
+            self.QMout["multipolar_fit"] = {}
+            self.QMout["multipolar_fit"][(self.states[0], self.states[0])] = self._charges.reshape(-1,1)
         if self.QMin.requests["dm"]:
             chrg = np.array(self._charges)
             self.QMout["dm"] = np.einsum("ix,i->x", self.QMin.coords["coords"], chrg).reshape((3, 1, 1))
