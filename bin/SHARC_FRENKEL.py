@@ -355,7 +355,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         hamiltonian_dr = np.zeros((self._total_site_states, self._total_site_states, self.QMin.molecule["natom"], 3))
 
         state_cnt = 1
-        for name_a, a in self._kindergarden.items():
+        for idx, (name_a, a) in enumerate(self._kindergarden.items()):
             atoms_a = self.QMin.template["fragments"][name_a]["atoms"]
             states_a = a.QMin.molecule["states"][0] - 1
             coords_a = a.QMin.coords["coords"]
@@ -371,11 +371,11 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             )
             state_cnt += states_a
             state_cnt_b = 1
-            for name_b, b in self._kindergarden.items():
+            for jdx, (name_b, b) in enumerate(self._kindergarden.items()):
                 states_b = b.QMin.molecule["states"][0] - 1
                 atoms_b = self.QMin.template["fragments"][name_b]["atoms"]
                 state_cnt_b += states_b
-                if name_a == name_b:
+                if idx <= jdx:
                     continue
 
                 # Calculate coupling derivative
@@ -387,13 +387,13 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
 
-                coupling = np.einsum("ia,jb,abm->ijabm", monopoles_a, monopoles_b, r_ab)
-                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] -= np.sum(
-                    coupling, axis=3
-                )
-                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] -= np.sum(
-                    coupling, axis=2
-                )
+                d_va = np.einsum("ia,jb,abk->ijak", monopoles_a, monopoles_b, r_ab)
+                d_vb = -np.einsum("ia,jb,abk->ijbk", monopoles_a, monopoles_b, r_ab)
+
+                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] += d_va
+                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += d_vb
+                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_va
+                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += d_vb
         gradients[1:] += gradients[0] + np.einsum("ij,ijam->iam", coeffs, hamiltonian_dr)[1:]
 
         return gradients
