@@ -307,25 +307,22 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         returns eigenvalues and eigenvectors
         """
 
-        fragment_list = list(self._kindergarden.keys())
         hamiltonian = np.zeros((self._total_site_states, self._total_site_states), dtype=float)
 
         cnt_i = 1
-        for idx, a in enumerate(fragment_list):
-            states_a = self._kindergarden[a].QMin.molecule["states"][0] - 1
-            coords_a = self._kindergarden[a].QMin.coords["coords"]
+        for idx, a in enumerate(self._kindergarden.values()):
+            states_a = a.QMin.molecule["states"][0] - 1
+            coords_a = a.QMin.coords["coords"]
 
             cnt_i += states_a
             cnt_j = 1
 
             # Add site gs energy to GS prod energy
-            hamiltonian[0, 0] += (gs_en := self._kindergarden[a].QMout.h[0, 0].real)
-            np.einsum("ii->i", hamiltonian)[cnt_i - states_a : cnt_i] += (
-                np.einsum("ii->i", self._kindergarden[a].QMout.h[1:, 1:]).real - gs_en
-            )
+            hamiltonian[0, 0] += (gs_en := a.QMout.h[0, 0].real)
+            np.einsum("ii->i", hamiltonian)[cnt_i - states_a : cnt_i] += np.einsum("ii->i", a.QMout.h[1:, 1:]).real - gs_en
 
-            for jdx, b in enumerate(fragment_list):
-                states_b = self._kindergarden[b].QMin.molecule["states"][0] - 1
+            for jdx, b in enumerate(self._kindergarden.values()):
+                states_b = b.QMin.molecule["states"][0] - 1
 
                 # Skip upper diagonal
                 cnt_j += states_b
@@ -333,13 +330,12 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     continue
 
                 # Calculate inverse distance matrix for fragment A and B (atoms_a x atoms_b)
-                diff = coords_a[:, np.newaxis, :] - self._kindergarden[b].QMin.coords["coords"][np.newaxis, :, :]
+                diff = coords_a[:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
                 r_ab = 1 / np.sqrt(np.einsum("ijk,ijk->ij", diff, diff))
 
                 # Create monopole matrices (states x natoms)
-                s_a, s_b = self._kindergarden[a].states, self._kindergarden[b].states
-                monopoles_a = np.stack([self._kindergarden[a].QMout.multipolar_fit[(s_a[0], k)][:, 0] for k in s_a[1:]])
-                monopoles_b = np.stack([self._kindergarden[b].QMout.multipolar_fit[(s_b[0], k)][:, 0] for k in s_b[1:]])
+                monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
+                monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
 
                 hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
                     "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab
