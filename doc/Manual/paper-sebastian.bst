@@ -1,1 +1,0 @@
-bib/paper-sebastian.bst
