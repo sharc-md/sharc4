@@ -35,6 +35,7 @@ from io import TextIOWrapper
 from typing import Optional
 
 import numpy as np
+
 # from factory import factory
 from SHARC_HYBRID import SHARC_HYBRID
 from utils import InDir, cleandir, mkdir, question, writefile
@@ -44,8 +45,6 @@ VERSIONDATE = datetime.datetime(2025, 4, 1)
 
 CHANELOGSTRING = """
 """
-np.set_printoptions(linewidth=400)
-
 numdiff_debug = False
 
 __all__ = ["SHARC_NUMDIFF"]
@@ -178,6 +177,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             }
         )
         self.num_requests = {}
+        self.do_numerically = set()
 
     @staticmethod
     def authors() -> str:
@@ -376,19 +376,19 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
     # ----------------------------------------------------------------------------------------------
     # ----------------------------------------------------------------------------------------------
 
-    def read_template(self, template_file="NUMDIFF.template") -> None:
+    def read_template(self, template_file: str = "NUMDIFF.template", kw_whitelist: list[str] | None = None) -> None:
         # Call the read_template() from the base (Simply reads all entries in the .template file and adds them to the self.Qmin.template)
-        super().read_template(template_file)
+        super().read_template(template_file, kw_whitelist)
 
         # If we use normal mode coordinates we read them in here
         if self.QMin.template["coord_type"] == "normal_modes":
             self.read_displacement_coordinates(os.path.abspath(self.QMin.template["normal_modes_file"]))
             # TODO: change to V0.txt format!
 
-    def read_resources(self, resources_file="NUMDIFF.resources") -> None:
-        super().read_resources(resources_file)
+    def read_resources(self, resources_file: str = "NUMDIFF.resources", kw_whitelist: list[str] | None = None) -> None:
+        super().read_resources(resources_file, kw_whitelist)
 
-    def read_displacement_coordinates(self, disp_coord_filename):
+    def read_displacement_coordinates(self, disp_coord_filename: str) -> None:
         # TODO: replace with V0.txt format
         # Need to decide what to do if the current geometry does not match with the reference geometry
         # I guess we should displace in Q and then transform...
@@ -408,7 +408,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                         disp_coords.append(np.resize(np.asarray(line, dtype=float), (self.QMin.molecule["natom"], 3)))
 
         self.QMin.disp_coords = disp_coords
-        return
 
     # ----------------------------------------------------------------------------------------------
     # ----------------------------------------------------------------------------------------------
@@ -469,11 +468,11 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         match self.QMin.template["coord_type"]:
             case "cartesian":
                 labels.append(["cartesian"])
-                labels.append([i for i in range(self.QMin.molecule["natom"])])
+                labels.append(list(range(self.QMin.molecule["natom"])))
                 labels.append(["x", "y", "z"])
             case "normal_modes":
                 labels.append(["normal_modes"])
-                labels.append([i for i in range(len(self.QMin.disp_coords))])
+                labels.append(list(range(len(self.QMin.disp_coords))))
                 raise NotImplementedError
             case _:
                 raise RuntimeError(f"Input 'coord_type': {self.QMin.template['coord_type']} is not valid.")
@@ -484,10 +483,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                 labels.append(["pp", "p", "n", "nn"])
             case _:
                 raise RuntimeError(f"Input 'numdiff_method': {self.QMin.template['numdiff_method']} is not valid.")
-        # self.log.info(labels)
         # make full labels as direct product of the labels:
         full_labels = list(itertools.product(*labels))
-        # self.log.info(full_labels)
 
         # make child_dict: define logfiles
         child_dict = {}
@@ -496,13 +493,12 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             pwd = os.path.join(self.QMin.resources["scratchdir"], "PWD", name)
             mkdir(pwd)
             logfile = os.path.join(pwd, "QM.log")
-            logname = "Displacement:%s:%s" % (qm_program, name)
+            logname = f"Displacement:{qm_program}:{name}"
             child_dict[label] = (
                 qm_program,
                 [],
                 {"logfile": logfile, "logname": logname, "loglevel": self.log.level, "persistent": False},
             )
-        # self.log.info(child_dict)
         self.instantiate_children(child_dict)
 
         # do full setup for all children
@@ -533,7 +529,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         own_features = self.get_features()
         self.log.info(ref_features)
         self.log.info(own_features)
-        self.do_numerically = set()
         check_these = ["grad", "socdr", "dmdr", "nacdr"]
         for i in check_these:
             if i in self.QMin.template["whitelist"]:
@@ -552,17 +547,9 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
     # ----------------------------------------------------------------------------------------------
 
-    # def _step_logic(self):
-    #     super()._step_logic()
-    #     self.ref_interface._step_logic()
-
     def write_step_file(self):
         super().write_step_file()
         self.ref_interface.write_step_file()
-
-    # def update_step(self, step: int = None):
-    #     super().update_step(step)
-    #     self.ref_interface.update_step(step)
 
     def clean_savedir(self):
         super().clean_savedir()
@@ -723,9 +710,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             if any_child.QMin.requests["overlap"]:
                 self.log.info("Doing phase correction ...")
                 for child in self._kindergarden.values():
-                    child.QMout["overlap"], phases = post_process_overlap_matrix(
-                        child.QMout["overlap"]
-                    )
+                    child.QMout["overlap"], phases = post_process_overlap_matrix(child.QMout["overlap"])
                     phases2 = phases[:, None] * phases[None, :]
                     if child.QMout["h"] is not None:
                         child.QMout["h"] *= phases2
@@ -748,9 +733,9 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                             # the run() function would decide how many children per direction, depending on numdiff_method
                             # and here we only pick those that correspond to the current direction
                             children = {}
-                            for label in self._kindergarden:
+                            for label, child in self._kindergarden.items():
                                 if ("cartesian", iatom, idir) == label[:-1]:
-                                    children[label[-1]] = self._kindergarden[label]
+                                    children[label[-1]] = child
 
                             # the trafo matrices for this direction
                             match self.QMin.template["numdiff_representation"]:
@@ -760,8 +745,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                                         S[label] = np.identity(nstates)
                                 case "diabatic":
                                     S = {}
-                                    for label in children:
-                                        S[label] = children[label].QMout["overlap"]
+                                    for label, child in children.items():
+                                        S[label] = child.QMout["overlap"]
 
                             # go through the requests for this direction
                             for request in self.num_requests:
@@ -770,26 +755,26 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                                 match request:
                                     case "grad":  # differentiate the energies, i.e., the diagonal elements of the Hamiltonian
                                         A = {}
-                                        for label in children:
-                                            A[label] = np.diag(np.diag(children[label].QMout["h"]))
+                                        for label, child in children.items():
+                                            A[label] = np.diag(np.diag(child.QMout["h"]))
                                     case "socdr":  # differentiate the off-diagonal elements of the Hamiltonian
                                         A = {}
-                                        for label in children:
-                                            A[label] = children[label].QMout["h"] - np.diag(np.diag(children[label].QMout["h"]))
+                                        for label, child in children.items():
+                                            A[label] = child.QMout["h"] - np.diag(np.diag(child.QMout["h"]))
                                     case "dmdr":  # differentiate the dipole moment matrix
                                         A = {}
-                                        for label in children:
-                                            A[label] = children[label].QMout["dm"]
+                                        for label, child in children.items():
+                                            A[label] = child.QMout["dm"]
                                     case "nacdr":  # NACs are a bit more complicated
                                         match self.QMin.template["numdiff_representation"]:
                                             case "adiabatic":  # differentiate the overlap matrix elements
                                                 A = {}
-                                                for label in children:
-                                                    A[label] = children[label].QMout["overlap"]
+                                                for label, child in children.items():
+                                                    A[label] = child.QMout["overlap"]
                                             case "diabatic":  # differentiate the diabatized diagonal of the Hamiltonian
                                                 A = {}
-                                                for label in children:
-                                                    A[label] = np.diag(np.diag(children[label].QMout["h"]))
+                                                for label, child in children.items():
+                                                    A[label] = np.diag(np.diag(child.QMout["h"]))
 
                                 # make the transformation and differentiation for this request and direction
                                 # if other differentiation schemes will be implemented, here one can simply
