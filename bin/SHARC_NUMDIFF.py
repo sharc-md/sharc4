@@ -442,6 +442,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         # do setup molecule
         self.ref_interface.setup_mol(self.QMin)
+        self.ref_interface.QMin.molecule["unit"] = "bohr"
+        self.ref_interface.QMin.molecule["factor"] = 1.0
 
         ## then do setup_mol/template/resources
         with InDir(qmdir):
@@ -505,6 +507,8 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         for label, child in self._kindergarden.items():
             name = "_".join(str(i) for i in label)
             child.setup_mol(self.QMin)
+            child.QMin.molecule["unit"] = "bohr"
+            child.QMin.molecule["factor"] = 1.0
             with InDir(qmdir):
                 child.read_resources()
                 child.read_template()
