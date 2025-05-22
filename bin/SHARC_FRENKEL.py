@@ -312,7 +312,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         cnt_i = 1
         for idx, a in enumerate(self._kindergarden.values()):
             states_a = a.QMin.molecule["states"][0] - 1
-            coords_a = a.QMin.coords["coords"]
 
             cnt_i += states_a
             cnt_j = 1
@@ -330,10 +329,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     continue
 
                 # Calculate inverse distance matrix for fragment A and B (atoms_a x atoms_b)
-                diff = coords_a[:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
+                diff = a.QMin.coords["coords"][:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
                 r_ab = 1 / np.sqrt(np.einsum("ijk,ijk->ij", diff, diff))
 
-                # Create monopole matrices (states x natoms)
+                # Create 0->n transition monopole matrices (states x natoms)
                 monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
 
@@ -351,52 +350,52 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         coeffs: n_states x n_states array of eigenvectors from Hamiltonian
         """
-        gradients = np.zeros((self._total_site_states, self.QMin.molecule["natom"], 3))
         hamiltonian_dr = np.zeros((self._total_site_states, self._total_site_states, self.QMin.molecule["natom"], 3))
 
         state_cnt = 1
         for idx, (name_a, a) in enumerate(self._kindergarden.items()):
             atoms_a = self.QMin.template["fragments"][name_a]["atoms"]
             states_a = a.QMin.molecule["states"][0] - 1
-            coords_a = a.QMin.coords["coords"]
 
-            # add gs grad of frag a to gs prod grad
-            gradients[0, atoms_a, :] += a.QMout.grad[0, :, :]
+            # Add GS gradient to GS prod. gradient
+            hamiltonian_dr[0, 0, atoms_a, :] += a.QMout.grad[0, :, :]
 
-            # Site-energy gradients dE = sum(c²*de)
-            gradients[state_cnt : state_cnt + states_a, atoms_a, :] += np.einsum(
-                "ii,imn->imn",
-                coeffs[state_cnt : state_cnt + states_a, state_cnt : state_cnt + states_a] ** 2,
-                a.QMout.grad[1:, :, :],
-            )
+            # Add excited site-state gradients to diagonal
+            np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += a.QMout.grad[1:, :, :]
+
             state_cnt += states_a
             state_cnt_b = 1
             for jdx, (name_b, b) in enumerate(self._kindergarden.items()):
                 states_b = b.QMin.molecule["states"][0] - 1
                 atoms_b = self.QMin.template["fragments"][name_b]["atoms"]
+
+                # Skip upper diagonal
                 state_cnt_b += states_b
                 if idx <= jdx:
                     continue
 
-                # Calculate coupling derivative
-                diff = coords_a[:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
+                # d/dR(1/|R_a-R_b|) = -R_a-R_b/|R_a-R_b|**3
+                diff = a.QMin.coords["coords"][:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
                 dist = np.linalg.norm(diff, axis=2) ** 3
                 r_ab = diff / dist[:, :, np.newaxis]
 
-                # Create monopole matrices (states x natoms)
+                # Create 0->n transition monopole matrices (states x natoms)
                 monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
 
+                # dV/dR for atoms on fragment A and B
                 d_va = np.einsum("ia,jb,abk->ijak", monopoles_a, monopoles_b, r_ab)
                 d_vb = -np.einsum("ia,jb,abk->ijbk", monopoles_a, monopoles_b, r_ab)
 
+                # Fill off diagonals dH_ij=dH_ji
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] += d_va
                 hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += d_vb
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_va
                 hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += d_vb
-        gradients[1:] += gradients[0] + np.einsum("ij,ijam->iam", coeffs, hamiltonian_dr)[1:]
+        hamiltonian_dr = np.einsum("ij, ijam->iam", coeffs, hamiltonian_dr) # c_i * c_j * dH
+        hamiltonian_dr[1:, :, :] += hamiltonian_dr[0, :, :] # Add GS prod to diagonal
+        return hamiltonian_dr
 
-        return gradients
 
     def getQMout(self):
         requests = set()
