@@ -222,6 +222,7 @@ def main():
     parser.add_option("-s", "--silent", dest="silent", action="store_true", default=False, help="only error and critical output")
     parser.add_option("-d", "--debug", dest="debug", action="store_true", default=False, help="debug flag for printing")
     parser.add_option("-p", "--print", dest="print", action="store_true", default=False, help="flag for printing")
+    parser.add_option("-f", "--fast_queue", dest="fast", action="store_true", default=False, help="Enable fast queue for hybrids with fast children.")
 
     (options, args) = parser.parse_args()
 
@@ -263,7 +264,8 @@ def main():
         raise AttributeError from exc
 
 
-    derived_int: SHARC_INTERFACE = interface(persistent=options.persistent, loglevel=loglevel)
+    with InDir("QM"):
+        derived_int: SHARC_INTERFACE = interface(persistent=options.persistent, loglevel=loglevel, fast_queue=options.fast)
     derived_int.QMin.molecule["unit"] = "bohr"
     derived_int.QMin.molecule["factor"] = 1.0
     if options.print:
