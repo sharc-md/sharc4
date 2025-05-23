@@ -42,7 +42,7 @@ DESCRIPTION = "   HYBRID interface for Frenkel exciton model"
 CHANGELOGSTRING = """
 """
 
-all_features = set(["h", "grad", "point_charges", "dm"])
+all_features = set(["h", "grad", "point_charges", "dm", "overlap"])
 
 
 class SHARC_FRENKEL(SHARC_HYBRID):
@@ -444,11 +444,19 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         energies, coeffs = self._get_exciton_energies()
         np.einsum("ii->i", self.QMout.h)[:] = energies[: self.QMin.molecule["states"][0]]
 
+        # Save eigenvectors for overlap calculations
+        with open(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']}"), "wb") as f:
+            np.save(f, coeffs)
+
         if self.QMin.requests["grad"]:
             self.QMout.grad = self._get_exciton_gradients(coeffs)[: self.QMin.molecule["states"][0], :, :]
 
         if self.QMin.requests["dm"]:
             self.QMout.dm = self._get_exciton_dipoles(coeffs)
+
+        if self.QMin.requests["overlap"]:
+            prev_coeffs = np.load(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']-1}"))
+            self.QMout.overlap = np.dot(prev_coeffs, coeffs.T)
         return self.QMout
 
     def create_restart_files(self):
