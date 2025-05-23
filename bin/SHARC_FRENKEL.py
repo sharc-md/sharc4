@@ -273,7 +273,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         for iface in self._kindergarden.values():
             requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
             if self.QMin.requests["grad"] is not None:
-                requests["grad"] = list(range(1, iface.QMin.molecule["nstates"]))
+                requests["grad"] = list(range(1, iface.QMin.molecule["nstates"] + 1))
             iface.read_requests(requests)
 
     def run(self):
@@ -319,7 +319,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             # Add site gs energy to GS prod energy
             hamiltonian[0, 0] += (gs_en := a.QMout.h[0, 0].real)
             np.einsum("ii->i", hamiltonian)[cnt_i - states_a : cnt_i] += np.einsum("ii->i", a.QMout.h[1:, 1:]).real - gs_en
-
             for jdx, b in enumerate(self._kindergarden.values()):
                 states_b = b.QMin.molecule["states"][0] - 1
 
@@ -358,10 +357,12 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             states_a = a.QMin.molecule["states"][0] - 1
 
             # Add GS gradient to GS prod. gradient
-            hamiltonian_dr[0, 0, atoms_a, :] += a.QMout.grad[0, :, :]
+            hamiltonian_dr[0, 0, atoms_a, :] += (gs_grad := a.QMout.grad[0, :, :])
 
             # Add excited site-state gradients to diagonal
-            np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += a.QMout.grad[1:, :, :]
+            np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += (
+                a.QMout.grad[1:, :, :] - gs_grad
+            )
 
             state_cnt += states_a
             state_cnt_b = 1
@@ -389,13 +390,12 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
                 # Fill off diagonals dH_ij=dH_ji
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] += d_va
-                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += d_vb
-                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_va
+                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += d_va
+                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_vb
                 hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += d_vb
-        hamiltonian_dr = np.einsum("ij, ijam->iam", coeffs, hamiltonian_dr) # c_i * c_j * dH
-        hamiltonian_dr[1:, :, :] += hamiltonian_dr[0, :, :] # Add GS prod to diagonal
+        hamiltonian_dr = np.einsum("ij,ijkl->ikl", coeffs.T @ coeffs, hamiltonian_dr)  # c_i * c_j * dH
+        hamiltonian_dr[1:, :, :] += hamiltonian_dr[0, :, :]
         return hamiltonian_dr
-
 
     def getQMout(self):
         requests = set()
