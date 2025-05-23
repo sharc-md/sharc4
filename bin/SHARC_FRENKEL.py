@@ -42,7 +42,7 @@ DESCRIPTION = "   HYBRID interface for Frenkel exciton model"
 CHANGELOGSTRING = """
 """
 
-all_features = set(["h", "grad", "point_charges", "dm"])
+all_features = set(["h", "grad", "point_charges"])
 
 
 class SHARC_FRENKEL(SHARC_HYBRID):
@@ -358,12 +358,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             states_a = a.QMin.molecule["states"][0] - 1
 
             # Add GS gradient to GS prod. gradient
-            hamiltonian_dr[0, 0, atoms_a, :] += (gs_grad := a.QMout.grad[0, :, :])
+            hamiltonian_dr[0, 0, atoms_a, :] += a.QMout.grad[0, :, :]
 
             # Add excited site-state gradients to diagonal
-            np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += (
-                a.QMout.grad[1:, :, :] - gs_grad
-            )
+            np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += a.QMout.grad[1:, :, :]
 
             state_cnt += states_a
             state_cnt_b = 1
@@ -391,27 +389,13 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
                 # Fill off diagonals dH_ij=dH_ji
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] += d_va
-                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += d_va
-                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_vb
+                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += d_vb
+                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_va
                 hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += d_vb
-        hamiltonian_dr = np.einsum("mn,mnkl,mn->mkl", coeffs.T, hamiltonian_dr, coeffs)  # c'*dH/dR*c
-        hamiltonian_dr[1:,:,:] += hamiltonian_dr[0,:,:]
-        #np.einsum("iijk->ijk", hamiltonian_dr)[1:, :, :] += hamiltonian_dr[0, 0, :, :]  # Add GS prod to diagonal
+        hamiltonian_dr = np.einsum("ij, ijam->iam", coeffs, hamiltonian_dr) # c_i * c_j * dH
+        hamiltonian_dr[1:, :, :] += hamiltonian_dr[0, :, :] # Add GS prod to diagonal
         return hamiltonian_dr
 
-    def _get_exciton_dipoles(self, coeffs: np.ndarray) -> np.ndarray:
-        """
-        Calculate dipole moments for excitonic states
-
-        coeffs: n_states x n_states array of eigenvectors from Hamiltonian
-        """
-
-        dipole_mat = np.zeros((self._total_site_states, self._total_site_states, 3))
-
-        state_cnt = 1
-        for name_a, a in self._kindergarden.items():
-            states_frag = a.QMin.molecule["states"][0] - 1
-            state_cnt += states_frag
 
     def getQMout(self):
         requests = set()
