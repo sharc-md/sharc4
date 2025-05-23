@@ -42,7 +42,7 @@ DESCRIPTION = "   HYBRID interface for Frenkel exciton model"
 CHANGELOGSTRING = """
 """
 
-all_features = set(["h", "grad", "point_charges"])
+all_features = set(["h", "grad", "point_charges", "dm"])
 
 
 class SHARC_FRENKEL(SHARC_HYBRID):
@@ -397,6 +397,35 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         hamiltonian_dr[1:, :, :] += hamiltonian_dr[0, :, :]
         return hamiltonian_dr
 
+    def _get_exciton_dipoles(self, coeffs: np.ndarray) -> np.ndarray:
+        """
+        Calculate (transition) dipole moments of exciton states
+
+        coeffs: n_states x n_states array of eigenvectors from Hamiltonian
+        """
+        dipoles = np.zeros((3, self._total_site_states, self._total_site_states))
+
+        state_cnt = 1
+        for a in self._kindergarden.values():
+            states_a = a.QMin.molecule["states"][0] - 1
+            coords_a = a.QMin.coords["coords"]
+
+            # Add GS prod. dipole moment
+            dipoles[:, 0, 0] += (
+                gs_dp := np.einsum("i,ij->j", a.QMout.multipolar_fit[(a.states[0], a.states[0])][:, 0], coords_a)
+            )
+
+            for idx, s1 in enumerate(a.states[1:]):
+                for jdx, s2 in enumerate(a.states[1:]):
+                    dipoles[:, state_cnt + idx, state_cnt + jdx] = np.einsum(
+                        "i,ik->k", a.QMout.multipolar_fit[(s1, s2)][:, 0], coords_a
+                    ) - (gs_dp if idx == jdx else 0.0)
+
+            state_cnt += states_a
+        dipoles = np.einsum("ij,kij->kij", coeffs.T @ coeffs, dipoles)
+        np.einsum("jii->ij", dipoles)[1:, :] += dipoles[:, 0, 0]
+        return dipoles
+
     def getQMout(self):
         requests = set()
         for key, val in self.QMin.requests.items():
@@ -417,6 +446,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         if self.QMin.requests["grad"]:
             self.QMout.grad = self._get_exciton_gradients(coeffs)[: self.QMin.molecule["states"][0], :, :]
+
+        if self.QMin.requests["dm"]:
+            self.QMout.dm = self._get_exciton_dipoles(coeffs)
         return self.QMout
 
     def create_restart_files(self):
