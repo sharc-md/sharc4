@@ -274,7 +274,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
             if self.QMin.requests["grad"]:
                 requests["grad"] = list(range(1, iface.QMin.molecule["nstates"] + 1))
-            if self.QMin.requests["overlap"]:
+            if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
                 requests["overlap"] = True
             iface.read_requests(requests)
 
@@ -322,7 +322,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             cnt_j = 1
 
             # Add site gs energy to GS prod energy
-            hamiltonian[0, 0] += (gs_en := a.QMout.h[0, 0].real)
+            np.einsum("ii->i", hamiltonian)[:] += (gs_en := a.QMout.h[0, 0].real)
             np.einsum("ii->i", hamiltonian)[cnt_i - states_a : cnt_i] += np.einsum("ii->i", a.QMout.h[1:, 1:]).real - gs_en
             for jdx, b in enumerate(self._kindergarden.values()):
                 states_b = b.QMin.molecule["states"][0] - 1
@@ -341,9 +341,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
                     "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab
                 )
-        energies, psi =  np.linalg.eigh(hamiltonian)
-        energies[1:] += energies[0]
-        return energies, psi
+        return np.linalg.eigh(hamiltonian)
 
     def _get_exciton_gradients(self, coeffs: np.ndarray) -> np.ndarray:
         """
@@ -364,7 +362,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
 
             # Add GS gradient to GS prod. gradient
-            hamiltonian_dr[0, 0, atoms_a, :] += (gs_grad := a.QMout.grad[0, :, :])
+            np.einsum("iijk->ijk", hamiltonian_dr)[:, atoms_a, :] = (gs_grad := a.QMout.grad[0, :, :])
 
             # Add excited site-state gradients to diagonal
             np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += (
@@ -398,8 +396,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += d_va
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_vb
                 hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += d_vb
-        hamiltonian_dr = np.einsum("ij,ijkl->ikl", coeffs.T @ coeffs, hamiltonian_dr)  # c_i * c_j * dH
-        hamiltonian_dr[1:, :, :] += hamiltonian_dr[0, :, :]
+        hamiltonian_dr = np.einsum("ij,ijkl->ikl", coeffs.T@coeffs, hamiltonian_dr)  # c_i * c_j * dH
+        hamiltonian_dr[np.abs(hamiltonian_dr) < 1e-7] = 0.0
         return hamiltonian_dr
 
     def _get_exciton_dipoles(self, coeffs: np.ndarray) -> np.ndarray:
