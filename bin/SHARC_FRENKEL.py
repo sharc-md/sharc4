@@ -272,8 +272,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         for iface in self._kindergarden.values():
             requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
-            if self.QMin.requests["grad"] is not None:
+            if self.QMin.requests["grad"]:
                 requests["grad"] = list(range(1, iface.QMin.molecule["nstates"] + 1))
+            if self.QMin.requests["overlap"]:
+                requests["overlap"] = True
             iface.read_requests(requests)
 
     def run(self):
@@ -313,6 +315,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         for idx, a in enumerate(self._kindergarden.values()):
             states_a = a.QMin.molecule["states"][0] - 1
 
+            # Create 0->n transition monopole matrices (states x natoms)
+            monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
+
             cnt_i += states_a
             cnt_j = 1
 
@@ -329,17 +334,16 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
                 # Calculate inverse distance matrix for fragment A and B (atoms_a x atoms_b)
                 diff = a.QMin.coords["coords"][:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
-                r_ab = 1 / np.sqrt(np.einsum("ijk,ijk->ij", diff, diff))
+                r_ab = 1 / np.linalg.norm(diff, axis=-1)
 
-                # Create 0->n transition monopole matrices (states x natoms)
-                monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
 
                 hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
                     "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab
                 )
-        np.einsum("ii->i", hamiltonian)[1:] += hamiltonian[0, 0]
-        return np.linalg.eigh(hamiltonian)
+        energies, psi =  np.linalg.eigh(hamiltonian)
+        energies[1:] += energies[0]
+        return energies, psi
 
     def _get_exciton_gradients(self, coeffs: np.ndarray) -> np.ndarray:
         """
@@ -355,6 +359,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         for idx, (name_a, a) in enumerate(self._kindergarden.items()):
             atoms_a = self.QMin.template["fragments"][name_a]["atoms"]
             states_a = a.QMin.molecule["states"][0] - 1
+
+            # Create 0->n transition monopole matrices (states x natoms)
+            monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
 
             # Add GS gradient to GS prod. gradient
             hamiltonian_dr[0, 0, atoms_a, :] += (gs_grad := a.QMout.grad[0, :, :])
@@ -377,11 +384,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
                 # d/dR(1/|R_a-R_b|) = -R_a-R_b/|R_a-R_b|**3
                 diff = a.QMin.coords["coords"][:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
-                dist = np.linalg.norm(diff, axis=2) ** 3
+                dist = np.linalg.norm(diff, axis=-1) ** 3
                 r_ab = diff / dist[:, :, np.newaxis]
 
-                # Create 0->n transition monopole matrices (states x natoms)
-                monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
 
                 # dV/dR for atoms on fragment A and B
@@ -426,6 +431,23 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         np.einsum("jii->ij", dipoles)[1:, :] += dipoles[:, 0, 0]
         return dipoles
 
+    def _get_exciton_overlaps(self, prev_coeffs: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
+        """
+        Calculate overlaps of excitonic states <c(t)|S_sites|c(t+dt)>
+
+        pref_coeffs:    n_states x n_states array of eigenvectors from Hamiltonian
+                        from last step
+        coeffs:         n_states x n_states array of eigenvectors from Hamiltonian
+                        from current step
+        """
+        site_overlaps = np.eye(self._total_site_states)
+
+        state_cnt = 1
+        for site in self._kindergarden.values():
+            state_cnt += (n_states := site.QMin.molecule["states"][0] - 1)
+            site_overlaps[state_cnt - n_states : state_cnt, state_cnt - n_states : state_cnt] = site.QMout.overlap[1:, 1:]
+        return prev_coeffs.T @ site_overlaps @ coeffs
+
     def getQMout(self):
         requests = set()
         for key, val in self.QMin.requests.items():
@@ -452,11 +474,13 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             self.QMout.grad = self._get_exciton_gradients(coeffs)[: self.QMin.molecule["states"][0], :, :]
 
         if self.QMin.requests["dm"]:
-            self.QMout.dm = self._get_exciton_dipoles(coeffs)
+            self.QMout.dm[:, : self.QMin.molecule["states"][0], : self.QMin.molecule["states"][0]] = self._get_exciton_dipoles(
+                coeffs
+            )
 
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             prev_coeffs = np.load(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']-1}"))
-            overlap = np.dot(prev_coeffs, coeffs.T)
+            overlap = self._get_exciton_overlaps(prev_coeffs, coeffs)
             if self.QMin.requests["overlap"]:
                 self.QMout.overlap = overlap
             if self.QMin.requests["phases"]:
