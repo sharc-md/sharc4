@@ -361,13 +361,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             # Create 0->n transition monopole matrices (states x natoms)
             monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
 
-            # Add GS gradient to GS prod. gradient
+            # Add GS gradient to GS prod. gradient and excited site gradients to diagonal
             np.einsum("iijk->ijk", hamiltonian_dr)[:, atoms_a, :] = (gs_grad := a.QMout.grad[0, :, :])
-
-            # Add excited site-state gradients to diagonal
-            np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += (
-                a.QMout.grad[1:, :, :] - gs_grad
-            )
+            np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += a.QMout.grad[1:] - gs_grad
 
             state_cnt += states_a
             state_cnt_b = 1
@@ -388,17 +384,15 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
 
                 # dV/dR for atoms on fragment A and B
-                d_va = np.einsum("ia,jb,abk->ijak", monopoles_a, monopoles_b, r_ab)
-                d_vb = -np.einsum("ia,jb,abk->ijbk", monopoles_a, monopoles_b, r_ab)
+                d_va = -np.einsum("ia,jb,abk->ijak", monopoles_a, monopoles_b, r_ab)
+                d_vb = np.einsum("ia,jb,abk->ijbk", monopoles_a, monopoles_b, r_ab)
 
                 # Fill off diagonals dH_ij=dH_ji
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] += d_va
                 hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += d_va
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_vb
                 hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += d_vb
-        hamiltonian_dr = np.einsum("ij,ijkl->ikl", coeffs.T@coeffs, hamiltonian_dr)  # c_i * c_j * dH
-        hamiltonian_dr[np.abs(hamiltonian_dr) < 1e-7] = 0.0
-        return hamiltonian_dr
+        return np.einsum("in,jn,ijkl->nkl", coeffs, coeffs, hamiltonian_dr)
 
     def _get_exciton_dipoles(self, coeffs: np.ndarray) -> np.ndarray:
         """
