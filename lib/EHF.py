@@ -26,6 +26,7 @@
 
 import time
 import numpy as np
+import os
 
 from qmout import QMout
 from SHARC_HYBRID import SHARC_HYBRID
@@ -108,6 +109,8 @@ class EHF:
                 self.log.print(indent+'      Delta:        '+dcharges)
                 self.log.print(indent+'      Converged:      '+conv)
                 self.log.print('')
+                file = os.path.join( child.QMin.resources["cwd"], 'QM.out' ) 
+                child.writeQMout(filename=file)
 
             if all( [ np.all(convergence[label]) for label in running_garden ] ):
                 self.log.print(indent+'EHF convergence reached in '+str(cycle)+' cycles!')
