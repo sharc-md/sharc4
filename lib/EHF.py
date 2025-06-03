@@ -110,6 +110,7 @@ class EHF:
                 self.log.print(indent+'      Converged:      '+conv)
                 self.log.print('')
                 file = os.path.join( child.QMin.resources["cwd"], 'QM.out' ) 
+                child.QMout.density_matrices = {}
                 child.writeQMout(filename=file)
 
             if all( [ np.all(convergence[label]) for label in running_garden ] ):
