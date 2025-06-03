@@ -265,6 +265,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
                 "Please specify an appropriate scratch directory. This will be used to run the MOPAC-PI calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
             )
             self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["scratchdir"] += '/$$/'
             self.log.info("")
 
         if question("Do you want to run a QM/MM calculation?", bool, KEYSTROKES=KEYSTROKES, default=True):
