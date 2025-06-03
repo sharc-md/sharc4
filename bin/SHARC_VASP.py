@@ -63,8 +63,8 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "potcardir": None, # Path to the POTCAR VASP file with PAW pseudopotentials
                 "ncpu" : 2, #Default number of cpus for mpi run with VASP 
                 "memory" : 2000,
-                "wfoverlap" : "", #easy workaround to prevent bin_executable check
-            }
+                "wfoverlap" : "", #easy workaround to prevent bin_executable check, pawpyseed used here! 
+            }                      
         )
         self.QMin.resources.types.update(
             {
