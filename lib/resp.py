@@ -22,20 +22,17 @@
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ******************************************
-
 # Short program to evaluate partial charges with the restircted electrostatic potential fit
 # Source Phys.Chem.Chem.Phys.,2019,21, 4082--4095 cp/c8cp06567e and TheJournalofPhysicalChemistry,Vol.97,No.40,199 10.1021/j100142a004
 #  gaussian can do RESP
-from error import Error
-from globals import DEBUG
 
-import sys
 import numpy as np
 from asa_grid import mk_layers
-from pyscf import gto, df
-from pyscf.lib import misc
 from constants import au2a
+from error import Error
 from logger import log
+from pyscf import gto
+from pyscf.lib import misc
 
 #  np.set_printoptions(threshold=sys.maxsize, linewidth=10000, precision=1, formatter={"float": lambda x: f"{x: 1.0f}"})
 
@@ -110,13 +107,11 @@ class Resp:
         self.log.trace(f"{self.natom} {Z} {self.r_inv.shape}")
         self.Sao = mol.intor("int1e_ovlp")
         self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
-        fakemol = gto.fakemol_for_charges(self.mk_grid)
-        # NOTE This could be very big (fakemol could be broken up into multiple pieces)
         # NOTE the value of these integrals is not affected by the atom charge
         self.log.info("starting to evaluate integrals")
 
         with misc.with_omp_threads(ncpu) as _:
-            self.ints = df.incore.aux_e2(mol, fakemol, intor="int3c2e")
+            self.ints = np.einsum("pij->ijp", mol.intor("int1e_grids", grids=self.mk_grid))
         self.log.info("done")
 
     def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
