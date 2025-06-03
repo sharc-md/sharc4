@@ -30,7 +30,7 @@ import scipy.constants as const
 au2u               = const.physical_constants["atomic unit of mass"][0]*const.Avogadro*1E3 
 au2rcm             = 1./(const.physical_constants["inverse meter-hartree relationship"][0]*1E2)
 au2debye           = const.c/1E-21*const.physical_constants["elementary charge"][0]*const.physical_constants["Bohr radius"][0]
-au2a               = const.physical_constants["Bohr radius"][0]*1E10
+au2a               = const.physical_constants["Bohr radius"][0]*1E10  # 0.529
 cm2au              = const.physical_constants["inverse meter-hartree relationship"][0]*1E2
 au2fs              = const.physical_constants["atomic unit of time"][0]*1E15
 ram2au             = 1. / const.physical_constants["electron mass in u"][0]
@@ -50,6 +50,8 @@ kJpermol_to_Eh     = 1./kJpermol_per_Eh
 kj2Eh              = kJpermol_to_Eh
 lande_g_factor     = const.physical_constants["electron g factor"][0]
 alpha              = 1./speed_of_light_au
+n_avogadro         = const.Avogadro
+au2newton          = const.physical_constants["Hartree energy"][0]/const.physical_constants["Bohr radius"][0]  # 8.239E-8
 Boltzmann_Eh_K     = const.physical_constants["Boltzmann constant in eV/K"][0]/const.physical_constants["Hartree energy in eV"][0]
 ANG_TO_BOHR        = 1. / (const.physical_constants["Bohr radius"][0]*1E10)
 CM_TO_HARTREE      = 1. / (const.physical_constants["hartree-inverse meter relationship"][0]*1E-2)

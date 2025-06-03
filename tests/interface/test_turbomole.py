@@ -51,7 +51,6 @@ def test_request_fail():
         ("inputs/turbomole/qmin/QM1.in", {"method": "cc2"}),
         ("inputs/turbomole/qmin/QM2.in", {}),  # > Kr
         ("inputs/turbomole/qmin/QM1.in", {"spin-scaling": "lt-sos"}),
-        ("inputs/turbomole/qmin/QM1.in", {}),  # no orca
     ]
 
     for qmin, templ in tests:

@@ -24,95 +24,102 @@
 # ******************************************
 
 
-import os
-import sys
 import time
-import itertools
-import math
 import numpy as np
 
-from logger import logging, CustomFormatter
+from qmout import QMout
 from SHARC_HYBRID import SHARC_HYBRID
 
-#----START of EHF class--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 class EHF:
-    def __init__(self, nproc, APCs, estates, frozen, relaxed, maxcycle, tQ, output):
-        self.nproc = nproc
-        self.APCs = APCs
-        self.estates = estates
-        self.frozen = frozen
-        self.relaxed = relaxed
-        self.maxcycle = maxcycle
-        self.tQ = tQ
-        # Logger
-        self.log = logging.getLogger(output+'.log')
-        self.log.propagate = False
-        self.log.handlers = []
-        self.log.setLevel('DEBUG')  # TODO: inherit the global loglevel
-        hdlr = (
-            logging.FileHandler(filename=output+'.log', mode="w", encoding="utf-8")
-        )
-        hdlr._name = output+"Handler"
-        hdlr.setFormatter(CustomFormatter())
-        self.log.addHandler(hdlr)
-        self.log.print = self.log.info
-        return
+    def __init__( self, **kwargs ):
+        for key, value in kwargs.items():
+            setattr(self,key,value)
 
-    def run(self, external_coords, external_charges):
-        frozen = self.frozen
-        relaxed = self.relaxed
-        estates = self.estates
-        # Run frozen fragments
-        #  SHARC_HYBRID.run_children(self.log,frozen)
-        #  for label, child in frozen.items():
-            #  self.APCs[label] = child.QMout['multipolar_fit'][(estates[label],estates[label])][:,0]
+    def run(self):
+        t1 = time.time()
+        indent = ' '*4
+        echarges = self.echarges  
+        estates = self.estates  
+        egarden = self.egarden   
+        maxcycles =  self.maxcycles 
+        forced = self.forced
+        tQ =  self.tQ
 
-        # Manage relaxed fragments
-        if len(relaxed) > 0:
-            #  save = {}
-            for label1, child1 in relaxed.items(): 
-                pccoords = [ child2.QMin.coords['coords'] for label2, child2 in frozen.items() ] 
-                pccoords = pccoords + [ child2.QMin.coords['coords'] for label2, child2 in relaxed.items() if label1 != label2 ]
-                if external_coords: pccoords = pccoords + [ external_coords ] # They go last
-                pccoords = np.concatenate( pccoords, axis=0 )
-                child1.set_coords( pccoords, pc=True )
+        self.log.print(indent+'GUESS DATA')
+        self.log.print('')
+        for label, child in egarden.items(): 
+            symbols = ''.join([ f"{    child.QMin.molecule['elements'][a]:10}" for a in range(child.QMin.molecule['natom']) ])
+            charges = ''.join([ f"{ echarges[label][a]:10.5f}" for a in range(child.QMin.molecule['natom']) ])
+            self.log.print(indent+'   FRAGMENT '+label+':')
+            self.log.print(indent+'      Atoms:              '+symbols)
+            self.log.print(indent+'      RESP charges: '+charges)
+            self.log.print('')
+        self.log.print('')
 
-                #  save[label1] = child1.QMin.save.copy()
+        cycle = 0
+        convergence = { label:np.zeros(egarden[label].QMin.molecule['natom'],dtype=bool) for label in egarden.keys() }
+        while True:
+            cycle += 1
+            self.log.print(indent+'CYCLE '+str(cycle))
+            self.log.print('')
 
-            convergence = { label: [False] for label in relaxed }
-            dAPCs = {}
-            for cycle in range(self.maxcycle):
-                self.log.print(' CYCLE '+str(cycle))
-                for label1, child1 in relaxed.items(): 
-                    PCs = [ self.APCs[label2] for label2 in frozen ]
-                    PCs = PCs + [ self.APCs[label2] for label2 in relaxed if label2 != label1 ]
-                    if external_charges: PCs = PCs + external_charges
-                    PCs = np.concatenate( PCs )
-                    child1.QMin.coords['pccharge'] = PCs
+            # Check if some of the forced fragments has exceeded their max_cycles
+            exceeded = [ label for label in egarden.keys() if cycle > maxcycles[label] ]
+            for e in exceeded:
+                if forced[e] and not np.all(convergence[e]):
+                    self.log.print(indent+' Fragment '+e+' is forced to converge, but has exceeded its max. number of EHF cycles.')
+                    self.log.print(indent+' Aborting the whole ECI calculation...')
+                    exit()
 
-                SHARC_HYBRID.run_children(self.log, relaxed, self.nproc)
-                for label, child in relaxed.items(): 
-                    child.writeQMout( filename=os.path.join( child.QMin.resources['pwd'],'QM_cycle'+str(cycle)+'.out' ) )
-                    newAPCs = child.QMout['multipolar_fit'][(estates[label],estates[label])][:,0]
-                    dAPCs[label] = newAPCs - self.APCs[label]
-                    self.APCs[label] = newAPCs.copy()
-                    convergence[label] = np.abs(dAPCs[label]) < self.tQ
-                    self.log.print('   Fragment '+label)
-                    for a in range(child.QMin.molecule['natom']):
-                        yesno = 'NO'
-                        if convergence[label][a]: yesno = 'YES'
-                        self.log.print('   '+'      '.join( [ str(a+1), f"{self.APCs[label][a]: 8.5f}", f"{dAPCs[label][a]: 8.5f}", yesno ] ))
-                if all( [ all(convergence[label]) for label in relaxed ] ):
-                    self.log.print(' EHF convergence reached in '+str(cycle+1)+' cycles!')
-                    break
-                for label, child in relaxed.items(): 
-                    for step in ['init', 'always_orb_init', 'newstep', 'restart' ]:
-                        child1.QMin.save[step] = False
-                    child.QMin.save['samestep'] = True
-                    child.QMin.control['densonly'] = True
-                
-            if not all( [ all(convergence[label]) for label in relaxed ] ):
-                self.log.warning(' Maximum number in EHF is exceeded but some charges are still not converged! Proceeding nevertheless...')
+            # Determine which fragments still need to be runned
+            running_garden = { label:child for label,child in egarden.items() if cycle <= maxcycles[label] }
+            self.log.print(indent+'   Running '+str(len(running_garden))+' fragments in this cycle...')
+            if len(running_garden) < 1: 
+                self.log.print(indent+'   ...,that is, ending EHF.')
+                break
+
+            # Write echarges as pccharges to each child
+            for label1, child1 in running_garden.items():
+                PCs = np.concatenate( [ echarges[label2] for label2 in egarden.keys() if label2 != label1 ] )
+                child1.QMin.coords['pccharge'][0:PCs.shape[0]] = PCs
+                child1.QMout = QMout(states=child1.QMin.molecule["states"], natom=child1.QMin.molecule["natom"], npc=child1.QMin.molecule["npc"], charges=child1.QMin.molecule["charge"])
+
+            # Run running children
+            SHARC_HYBRID.run_queue(self.log, running_garden, self.nproc, indent=" "*7)
+            self.log.print('')
+
+            # Check convergence and print
+            dPCs = {}
+            for label, child in running_garden.items(): 
+                newPCs = child.QMout['multipolar_fit'][(estates[label],estates[label])][:,0]
+                dPCs[label] = newPCs - echarges[label]
+                echarges[label] = newPCs.copy()
+                convergence[label] = np.abs(dPCs[label]) < tQ[label]
+
+                # Printing part
+                symbols = ''.join([ f"{    child.QMin.molecule['elements'][a]:10}" for a in range(child.QMin.molecule['natom']) ])
+                charges = ''.join([ f"{ echarges[label][a]:10.5f}" for a in range(child.QMin.molecule['natom']) ])
+                dcharges = ''.join([ f"{ dPCs[label][a]:10.5f}" for a in range(child.QMin.molecule['natom']) ])
+                conv = ''.join([ '   YES    ' if convergence[label][a] else '    NO    ' for a in range(child.QMin.molecule['natom']) ]) 
+                l = len(label)
+                self.log.print(indent+'   FRAGMENT '+label+':')
+                self.log.print(indent+'      Atoms:              '+symbols)
+                self.log.print(indent+'      RESP charges: '+charges)
+                self.log.print(indent+'      Delta:        '+dcharges)
+                self.log.print(indent+'      Converged:      '+conv)
+                self.log.print('')
+
+            if all( [ np.all(convergence[label]) for label in running_garden ] ):
+                self.log.print(indent+'EHF convergence reached in '+str(cycle)+' cycles!')
+                break
+
+            #  for label, child in running_garden.items(): 
+                #  for step in ['init', 'always_orb_init', 'newstep', 'restart' ]:
+                    #  child1.QMin.save[step] = False
+                #  child.QMin.save['samestep'] = True
+                #  child.QMin.control['densonly'] = True
+        t2 = time.time()
+        self.log.print(indent+'Time elapsed in EHF.run = '+str(round(t2-t1,3))+' sec.')
         return
 
 

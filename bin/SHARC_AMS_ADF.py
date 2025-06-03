@@ -947,7 +947,7 @@ def writeQMoutTHEODORE(QMin, QMout):
     string += '! Property Vectors (%ix%i, real)\n' % (nprop, nmstates)
     if 'theodore' in QMin:
         for i in range(QMin['template']['theodore_n']):
-            string += '! TheoDORE descriptor %i (%s)\n' % (i + 1, descriptors[i])
+            string += '%i ! TheoDORE descriptor %i (%s)\n' % (nmstates, i + 1, descriptors[i])
             for j in range(nmstates):
                 string += '%s\n' % (eformat(QMout['theodore'][j][i].real, 12, 3))
     string += '\n'
@@ -3193,7 +3193,7 @@ at_lists=%s
 def runTHEODORE(WORKDIR, THEODIR):
     prevdir = os.getcwd()
     os.chdir(WORKDIR)
-    string = os.path.join(THEODIR, 'bin', 'analyze_tden.py')
+    string = os.path.join(THEODIR, 'bin', 'theodore analyze_tden')
     stdoutfile = open(os.path.join(WORKDIR, 'theodore.out'), 'w')
     stderrfile = open(os.path.join(WORKDIR, 'theodore.err'), 'w')
     if PRINT or DEBUG:

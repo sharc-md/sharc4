@@ -6,7 +6,7 @@
 
     ## This keyword defines the basis set for all atoms.
     ## copied verbatim to input
-basis 6-31G**
+basis def2svp
 
     ## This uses the basis set from the given file
     ## the basis set is set to "gen" and the basis given above is ignored

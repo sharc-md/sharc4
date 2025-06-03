@@ -1,0 +1,5 @@
+basis cc-pVDZ
+
+method adc(2)
+scf dscf
+spin-scaling none

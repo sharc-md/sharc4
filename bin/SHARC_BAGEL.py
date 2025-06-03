@@ -1013,7 +1013,7 @@ def writeQMoutTHEODORE(QMin, QMout):
     string += '! Property Vectors (%ix%i, real)\n' % (nprop, nmstates)
     if 'theodore' in QMin:
         for i in range(QMin['template']['theodore_n']):
-            string += '! TheoDORE descriptor %i (%s)\n' % (i + 1, descriptors[i])
+            string += '%i ! TheoDORE descriptor %i (%s)\n' % (nmstates, i + 1, descriptors[i])
             for j in range(nmstates):
                 string += '%s\n' % (eformat(QMout['theodore'][j][i].real, 12, 3))
     # if QMin['template']['qmmm']:
@@ -3323,13 +3323,13 @@ def getQMout(QMin):
                         continue
                     if i == j:
                         QMout['h'][i][j] = energies[(m1, s1)]
-                    elif 'soc' in QMin and QMin['jobs'][job]['restr']:
-                        if m1 == m2 == 1:
-                            continue
-                        # TODO: invstatemap and submatrix are not defined
-                        x = invstatemap[(m1, s1, ms1)]
-                        y = invstatemap[(m2, s2, ms2)]
-                        QMout['h'][i][j] = submatrix[x - 1][y - 1]
+                    # elif 'soc' in QMin and QMin['jobs'][job]['restr']:
+                    #     if m1 == m2 == 1:
+                    #         continue
+                    #     # TODO: invstatemap and submatrix are not defined
+                    #     x = invstatemap[(m1, s1, ms1)]
+                    #     y = invstatemap[(m2, s2, ms2)]
+                    #     QMout['h'][i][j] = submatrix[x - 1][y - 1]
 
     # Dipole Moments
     if 'dm' in QMin:

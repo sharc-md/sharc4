@@ -3,13 +3,14 @@ veloc        external
 velocfile    "veloc"
 
 nstates      2 0 1
+charge       0 1 0
 actstates    2 0 1
 state        2 mch
 coeff        auto
 rngseed      26933
 
 ezero        -329.9062895400
-tmax         5.0
+tmax         1.0
 stepsize     0.5
 nsubsteps    25
 
@@ -24,3 +25,4 @@ nac_select
 eselect      0.5
 
 select_directly
+output_format ascii

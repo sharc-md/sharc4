@@ -75,7 +75,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
     @staticmethod
     def run_queue(
-        logger, children_dict: dict[str, SHARC_INTERFACE], ncpu: int, delay: float = 0.1, exit_on_failure: bool = True
+        logger, children_dict: dict[str, SHARC_INTERFACE], ncpu: int, delay: float = 0.1, exit_on_failure: bool = True, indent: str = "" 
     ) -> None:
         """
         Run all children in a parallel queue
@@ -86,6 +86,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         delay:              Delay time to check if a child can be added to queue, setting it to 0.0 will result
                             in high CPU ussage of the main Python process, but might be desired for very fast children
         exit_on_failure:    Kill all currently running jobs if one job in queue raises exception
+        indent:             String to be prepended to all info prints coming from run_children
         """
         manager = Manager()
         n_used_cpu = manager.Value("i", 0)
@@ -93,7 +94,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         qmouts = manager.dict()
 
         def run_a_child(label, n_used_cpu, QMins, QMouts):
-            logger.info(f"Run child {label} on {os.uname()[1]} with pid: {os.getpid()}")
+            logger.info(indent+f"Running child {label} on {os.uname()[1]} with pid {os.getpid()} on "+str(children_dict[label].QMin.resources["ncpu"])+" cores")
             try:
                 children_dict[label]._step_logic()
                 children_dict[label]._request_logic()
@@ -112,7 +113,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                 logger.error(f"Exception type: {type(exc)}")
                 logger.error(f"Exception args: {exc.args}")
                 logger.error(f"Exception message: {str(exc)}")
-                logger.error(traceback.format_exc())
+                logger.error(indent+traceback.format_exc())
                 sys.exit(1)  # Indicate failure of child process
             finally:
                 n_used_cpu.value -= children_dict[label].QMin.resources["ncpu"]
@@ -126,7 +127,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
         # Add jobs to queue until finished
         processes = []
-        logger.info("Entering main loop ...")
+        logger.debug("Entering main loop ...")
         for label, child in children_dict.items():
             logger.debug(f"Waiting to start child {label}")
             while True:

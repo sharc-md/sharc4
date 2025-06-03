@@ -27,9 +27,9 @@
 #
 # usage
 import sys
-# if sys.version_info[0]!=2:
-#   sys.stdout.write('*'*80+'\nThe SHARC suite is not compatible with Python 3! \nUse Python 2 (>2.6)!\n'+'*'*80+'\n')
-#   sys.exit(1)
+if sys.version_info[0] != 3:
+    sys.stdout.write('*'*80+'\nThe SHARC suite is not compatible with Python 2! \nUse Python 3 (>3.11)!\n'+'*'*80+'\n')
+    sys.exit(1)
 
 import copy
 import math
@@ -43,20 +43,50 @@ import subprocess as sp
 import filecmp
 import time
 
-# =========================================================0
-try:
-    import numpy
-except ImportError:
-    sys.stdout.write('*' * 80 + '''
-*** The Python package NumPy was not found! ***
-Performance of excite.py and wigner.py slightly reduced.
-Performance of SHARC_Analytical.py significantly reduced.
-Null space check in make_fitscript.py not possible.
-Setup and Dynamics with LVC interface not possible.
-Setup and Dynamics with ADF interface not possible.
-Normal mode analysis not possible.
-Essential dynamics analysis not possible.''' + '*' * 80 + '\n')
-    time.sleep(5)
+# =========================================================
+
+def package_check():
+    required_packages = {
+        "numpy": "Most SHARC4 functionality, including all interfaces, will not be available!",
+        "scipy": "Scientific routines and numerical methods will fail.",
+        "h5py": "SHARC_MOLCAS.py will not work",
+        # "matplotlib": "Plotting and visualization features are disabled.",   # currently actually not needed
+        "netCDF4": "NetCDF-related analysis will not work.",
+        "pyscf": "Interfaces will not be available.",
+        "openmm": "SHARC_OPENMM.py will not work.",
+        "numba": "Ab initio and LVC interfaces and several analysis scripts will not work.",
+        "sympy": "Analytical interface and many ab initio interfaces will not work.",
+        "yaml": "Several hybrid interfaces will not work.",
+        "ase": "SHARC_ASE.py will not work.",
+        "torch": "SHARC_ANALYTICAL.py and SHARC_SCHNARC.py will not work.",
+        "threadpoolctl": "SHARC_ECI.py and ab initio interfaces will not work.",
+        "opt_einsum ": "SHARC_ECI.py will not work."
+    }
+
+    fails = 0
+    for pkg, detail in required_packages.items():
+        try:
+            __import__(pkg)
+        except ImportError:
+            header = f"*** The Python package '{pkg}' was not found! ***"
+            full_warning = (
+                '*' * 80 + '\n' +
+                header + '\n' +
+                detail + '\n' +
+                '*' * 80 + '\n'
+            )
+            sys.stdout.write(full_warning)
+            fails += 1
+    if fails > 0:
+        time.sleep(1)
+
+# try:
+#     import numpy
+# except ImportError:
+#     sys.stdout.write('*' * 80 + '''
+# *** The Python package NumPy was not found! ***
+# Most SHARC4 functionality will not be available!''' + '*' * 80 + '\n')
+#     time.sleep(1)
 
 
 version = '4.0'
@@ -64,19 +94,23 @@ versiondate = datetime.date(2025, 4, 1)
 
 
 
-OTHERENVS = set(['THEODORE', 'orca', 'TINKER', 'molcas', 'PYQUANTE'])
+OTHERENVS = set(['THEODORE', 'orca', 'molcas'])
 
 INTERFACES = {'MOLPRO': 'MOLPRO',
               'MOLCAS': 'MOLCAS',
               'COLUMBUS': 'COLUMBUS',
-              'Analytical': 'Analytical',
-              'AMS': 'AMS_ADF',
-              'TURBOMOLE': 'RICC2',
+              'ANALYTICAL': 'ANALYTICAL',
+              'AMS_ADF': 'AMS_ADF',
+              'TURBOMOLE': 'TURBOMOLE',
               'GAUSSIAN': 'GAUSSIAN',
               'LVC': 'LVC',
               'scripts': 'scripts',
               'BAGEL': 'BAGEL',
-              'ORCA': 'ORCA_new'
+              'ORCA': 'ORCA',
+              'NWCHEM': 'NWCHEM',
+              'MNDO': 'MNDO',
+              'MOPACPI': 'MOPACPI',
+              'PYSCF': 'PYSCF'
               }
 
 # ======================================================================================================================
@@ -222,6 +256,7 @@ def env_or_question(varname, setenv=False):
     path = question('Please enter the path for $%s:' % (varname), str)
     path = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
     if setenv:
+        print("\nSetting $%s = %s" % (varname,path)) 
         os.environ[varname] = path
     return path
 
@@ -296,7 +331,7 @@ def get_infos():
     string += '  ' + '=' * 80 + '\n'
     sys.stdout.write(string + '\n')
     for interface in INTERFACES:
-        if interface in INFOS['interfaces'] and interface not in ['Analytical', 'scripts', 'LVC']:
+        if interface in INFOS['interfaces'] and interface not in ['ANALYTICAL', 'scripts', 'LVC', 'PYSCF']:
             INFOS[interface] = env_or_question(interface, setenv=True)
     for i in INFOS['otherenvs']:
         INFOS[i] = env_or_question(i, setenv=True)
@@ -379,6 +414,9 @@ def compare_scripts(INFOS, index):
     same, diff = full_lists(dc)
     ignore_files = ['run.sh', 'all_run_init.sh', 'runQM.sh']
     diff = [item for item in diff if not any([f in item for f in ignore_files])]
+    sys.stdout.write('Comparing: \n')
+    sys.stdout.write('%s \n' % (INFOS['pwd'] + '/RUNNING_TESTS/' + INFOS['joblist'][index]))
+    sys.stdout.write('%s \n' % (INFOS['sharc'] + '/../tests/RESULTS/' + INFOS['joblist'][index]))
     sys.stdout.write('Differing: ' + str(diff) + '\n')
     sys.stdout.write('Same     : ' + str(same) + '\n')
     count = len(diff)
@@ -569,7 +607,11 @@ def main():
     description = ''
     parser = OptionParser(usage=usage, description=description)
     parser.add_option('--update_results', dest='u', action='store_true', default=False, help="")
+    parser.add_option('--skip_packages', dest='p', action='store_true', default=False, help="")
     (options, args) = parser.parse_args()
+
+    if not options.p:
+        package_check()
 
     displaywelcome()
     open_keystrokes()

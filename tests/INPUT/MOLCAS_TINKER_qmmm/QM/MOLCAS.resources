@@ -1,6 +1,0 @@
-memory 1000
-
-molcas $MOLCAS/
-tinker $TINKER/
-
-scratchdir $SCRADIR/WORK/

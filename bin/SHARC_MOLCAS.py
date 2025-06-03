@@ -303,28 +303,24 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # TheoDORE
         theodore_spelling = [
             "Om",
-            "PRNTO",
-            "Z_HE",
-            "S_HE",
-            "RMSeh",
             "POSi",
             "POSf",
             "POS",
+            "CT",
+            "CT2",
+            "CTnt",
             "PRi",
             "PRf",
             "PR",
             "PRh",
-            "CT",
-            "CT2",
-            "CTnt",
+            "DEL",
+            "COH",
+            "COHh",
             "MC",
             "LC",
             "MLCT",
             "LMCT",
             "LLCT",
-            "DEL",
-            "COH",
-            "COHh",
         ]
         # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
         if "theodore" in INFOS["needed_requests"]:
@@ -340,7 +336,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 if (i + 1) % 8 == 0:
                     string += "\n"
             self.log.info(string)
-            line = question("TheoDORE properties:", str, default="Om  PRNTO  S_HE  Z_HE  RMSeh", KEYSTROKES=KEYSTROKES)
+            line = question("TheoDORE properties:", str, default="Om PR POS COH", KEYSTROKES=KEYSTROKES)
             self.setupINFOS["theodore_prop"] = line.split()
             self.log.info("")
 
