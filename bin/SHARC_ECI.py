@@ -796,9 +796,7 @@ class SHARC_ECI(SHARC_HYBRID):
             # Write QM.out files of EHF children if needed
             for label, child in ehf_garden.items():
                 if self.QMin.template["fragments"][label]["EHF"]["write"] and self.QMin.template["fragments"][label]["EHF"]["max_cycles"] > 0:
-                    file = os.path.join( child.QMin.resources["cwd"], 'QM.out' ) 
                     self.log.print('    Writing QMout object of EHF fragment '+label+' to '+file)
-                    child.writeQMout( filename=file )
             self.log.print("")
             self.log.print(self._format_header("End of EHF calculation"))
             self.log.print("")
