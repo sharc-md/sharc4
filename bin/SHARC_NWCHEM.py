@@ -170,6 +170,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
         self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] += '/$$/'
 
         if os.path.isfile("NWCHEM.template"):
             self.log.info("Found NWCHEM.template in current directory")
