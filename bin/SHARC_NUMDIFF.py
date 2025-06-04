@@ -309,6 +309,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             )
             self.setupINFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
             self.setupINFOS["scratchdir_numdiff"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["scratchdir_numdiff"] += '/$$/'
 
             # TODO: could use schedule scaling and Amdahl, but SHARC_HYBRID does not have it
 

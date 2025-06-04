@@ -1148,6 +1148,7 @@ def get_sh2BAGEL_environ(sh2BAGEL, key, environ=True, crucial=True):
                 sys.exit(18)
             else:
                 return None
+    LINE = LINE.replace("$$", str(os.getpid()))
     LINE = os.path.expandvars(LINE)
     LINE = os.path.expanduser(LINE)
     if containsstring(';', LINE):

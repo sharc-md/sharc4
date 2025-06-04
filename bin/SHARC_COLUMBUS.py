@@ -2018,6 +2018,7 @@ def get_sh2col_environ(sh2col, key, environ=True, crucial=True):
                 sys.exit(38)
             else:
                 return None
+    LINE = LINE.replace("$$", str(os.getpid()))
     LINE = os.path.expandvars(LINE)
     LINE = os.path.expanduser(LINE)
     LINE = os.path.abspath(LINE)

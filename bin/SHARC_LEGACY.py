@@ -207,6 +207,7 @@ def get_MOLPRO(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
     log.info(centerstring('Scratch directory', 60, '-') + '\n')
     log.info('Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
     parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    parent.setupINFOS["scratchdir"] += '/$$/'
     log.info('')
 
     # MOLPRO input template
@@ -447,6 +448,7 @@ def get_COLUMBUS(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
     log.info(centerstring('Scratch directory', 60, '-') + '\n')
     log.info('Please specify an appropriate scratch directory. This will be used to temporally store all COLUMBUS files. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
     parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    parent.setupINFOS["scratchdir"] += '/$$/'
     log.info('')
 
 
@@ -753,6 +755,7 @@ def get_AMS(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
     log.info(centerstring('Scratch directory', 60, '-') + '\n')
     log.info('Please specify an appropriate scratch directory. This will be used to run the AMS calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
     parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    parent.setupINFOS["scratchdir"] += '/$$/'
     log.info('')
 
 
@@ -1024,6 +1027,7 @@ def get_BAGEL(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
     log.info(centerstring('Scratch directory', 60, '-') + '\n')
     log.info('Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
     parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    parent.setupINFOS["scratchdir"] += '/$$/'
     log.info('')
 
 
@@ -1173,6 +1177,7 @@ def get_PYSCF(INFOS, parent, KEYSTROKES: Optional[TextIOWrapper] = None):
     log.info(centerstring('Scratch directory', 60, '-') + '\n')
     log.info('Please specify an appropriate scratch directory. This will be used to temporally store the integrals. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
     parent.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+    parent.setupINFOS["scratchdir"] += '/$$/'
     log.info('')
 
 

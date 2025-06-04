@@ -33,7 +33,11 @@ from importlib import import_module
 import inspect
 
 # INTERNAL
-import sharc.sharc as sharc
+try:
+    import sharc.sharc as sharc
+except:
+    print("ERROR: sharc.sharc import failed. Do you have the correct Python environment loaded?")
+    raise
 
 # import sharc
 # from factory import factory

@@ -1311,6 +1311,7 @@ def readQMin(QMinfilename):
     line = get_sh2AMS_environ(sh2AMS, 'scratchdir', False, False)
     if line is None:
         line = QMin['pwd'] + '/SCRATCHDIR/'
+    line = line.replace("$$", str(os.getpid()))
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
     line = os.path.abspath(line)

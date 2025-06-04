@@ -128,6 +128,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "method": "casscf",
                 "functional": "t:pbe",
                 "ipea": 0.25,
+                "cort_or_dort": "CORT",
                 "imaginary": 0.0,
                 "frozen": None,
                 "gradaccudefault": 1e-4,
@@ -154,6 +155,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "method": str,
                 "functional": str,
                 "ipea": float,
+                "cort_or_dort": str,
                 "imaginary": float,
                 "frozen": int,
                 "gradaccudefault": float,
@@ -241,6 +243,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
         self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] += '/$$/'
 
         if os.path.isfile("MOLCAS.template"):
             self.log.info("Found MOLCAS.template in current directory")
@@ -1006,7 +1009,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         tasks.append(["alaska"])
                     case "ms-caspt2" | "xms-caspt2" | "caspt2":
                         tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                        tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nrlxroot = {grad[1]}"])
+                        if qmin.template['ipea'] != 0:
+                            cort_or_dort = qmin.template["cort_or_dort"] + "\n"
+                        else:
+                            cort_or_dort = ""
+                        tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\n{cort_or_dort}rlxroot = {grad[1]}"])
                         tasks.append(["mclr", qmin.template["gradaccudefault"]])
                         tasks.append(["alaska"])
 
@@ -1028,7 +1035,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["alaska"])
                 case "ms-caspt2" | "xms-caspt2" | "caspt2":
                     tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
-                    tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nnac = {nac[1]} {nac[3]}"])
+                    if qmin.template['ipea'] != 0:
+                        cort_or_dort = qmin.template["cort_or_dort"] + "\n"
+                    else:
+                        cort_or_dort = ""
+                    tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\n{cort_or_dort}nac = {nac[1]} {nac[3]}"])
                     tasks.append(["alaska", nac[1], nac[3]])
 
             tasks += self._gen_ovlp_task(qmin, mult, states)
@@ -1220,8 +1231,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.template["method"] != "cms-pdft":
             input_str += f"CDTHreshold={qmin.template['cholesky_accu']}\n"
         if qmin.template["pcmset"]:
-            input_str += f"TF-INPUT\nPCM-MODEL\nSOLVENT = {qmin.template['pcmset']['solvent']}\n"
-            input_str += f"AARE = {qmin.template['pcmset']['aare']}\nR-MIN = {qmin.template['pcmset']['r-min']}"
+            input_str += f"RF-INPUT\nPCM-MODEL\nSOLVENT = {qmin.template['pcmset']['solvent']}\n"
+            input_str += f"AARE = {qmin.template['pcmset']['aare']}\nR-MIN = {qmin.template['pcmset']['r-min']}\nEND of RF-INPUT\n\n"
         return input_str
 
     def _write_geom(self, atoms: list[str], coords: list[list[float]] | np.ndarray) -> str:
@@ -1249,12 +1260,19 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         self.log.error(f"*pt2 with NACs/grad. Number of roots does not equal number of states in mult {mult}.")
                         raise ValueError
 
+        # if (
+        #     self.QMin.template["method"] in ("ms-caspt2", "xms-caspt2")
+        #     and self.QMin.template["ipea"] > 0
+        #     and (self.QMin.requests["grad"] or self.QMin.requests["nacdr"])
+        # ):
+        #     self.log.error("Analytical gradients/NACs are not possible with pt2 methods and ipea shift!")
+        #     raise ValueError()
+
         if (
-            self.QMin.template["method"] in ("ms-caspt2", "xms-caspt2")
-            and self.QMin.template["ipea"] > 0
+            self.QMin.template["pcmset"]
             and (self.QMin.requests["grad"] or self.QMin.requests["nacdr"])
         ):
-            self.log.error("Analytical gradients/NACs are not possible with pt2 methods and ipea shift!")
+            self.log.error("Analytical gradients/NACs are not possible with PCM!")
             raise ValueError()
 
         if self.QMin.requests["theodore"]:
