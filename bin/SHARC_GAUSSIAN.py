@@ -359,6 +359,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
             self.log.info('{:-^60}'.format('Scratch directory') + '\n')
             self.log.info('Please specify an appropriate scratch directory. This will be used to run the GAUSSIAN calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script.')
             self.setupINFOS['scratchdir'] = question('Path to scratch directory:', str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["scratchdir"] += '/$$/'
             self.log.info('')
 
             # Ionization

@@ -314,6 +314,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
             self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
             self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["scratchdir"] += '/$$/'
 
             # TheoDORE
             theodore_spelling = [

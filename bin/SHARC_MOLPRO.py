@@ -2000,6 +2000,7 @@ def readQMin(QMinfilename):
     line = get_sh2pro_environ(sh2pro, 'scratchdir', False, False)
     if not line:
         line = os.path.join(QMin['pwd'], 'SCRATCHDIR/')
+    line = line.replace("$$", str(os.getpid()))
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
     line = os.path.abspath(line)

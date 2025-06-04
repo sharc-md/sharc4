@@ -261,7 +261,7 @@ class SHARC_ECI(SHARC_HYBRID):
         KEYSTROKES: object as returned by open() to be used with question()
         """
 
-        file = question("Please specify path to the resource file of the ECI interface:", str, default="ECI.resrouces", KEYSTROKES=KEYSTROKES)
+        file = question("Please specify path to the resource file of the ECI interface:", str, default="ECI.resources", KEYSTROKES=KEYSTROKES)
         self.setupINFOS["resources_file"] = expand_path(file)
         #  INFOS["children_infos"] = {label:{} for label in self._kindergarden.keys()}
         for label, child in self._kindergarden.items():

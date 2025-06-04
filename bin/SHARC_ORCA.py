@@ -227,6 +227,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             "Please specify an appropriate scratch directory. This will be used to run the ORCA calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
         )
         self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] += '/$$/'
         self.log.info("")
 
         self.log.info(f"{'ORCA input template file':-^60}\n")

@@ -94,7 +94,8 @@ def expand_path(path: str) -> str:
     """
     Expand variables in path, error out if variable is not resolvable
     """
-    expand = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    path1 = path.replace("$$", str(os.getpid()))
+    expand = os.path.abspath(os.path.expanduser(os.path.expandvars(path1)))
     if "$" in expand:
         logging.error(f"Undefined env variable in {expand}")
         raise OSError(f"Undefined env variable in {expand}")
