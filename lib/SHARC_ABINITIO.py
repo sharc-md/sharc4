@@ -109,7 +109,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_betas": [0.0005, 0.0015, 0.003],
                 "resp_layers": 4,
                 "resp_first_layer": 1.4,
-                "resp_density": 10.0,
+                "resp_density": 4.0,
                 "resp_fit_order": 2,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
@@ -162,6 +162,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.resources["wfoverlap"] = expand_path(self.QMin.resources["wfoverlap"])
         if self.QMin.resources["theodore_fragment"]:
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
+        self.QMin.resources["resp_betas"] = convert_list(self.QMin.resources["resp_betas"], float)
         if self.QMin.resources["resp_vdw_radii"]:
             self.QMin.resources["resp_vdw_radii"] = convert_list(self.QMin.resources["resp_vdw_radii"], float)
         if self.QMin.resources["resp_vdw_radii_symbol"]:
