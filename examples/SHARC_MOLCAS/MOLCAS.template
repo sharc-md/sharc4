@@ -39,11 +39,15 @@ iterations               200 100
     ## ======== METHOD settings ============
 
     ## Method to be used.
-    ## can be "casscf", "caspt2" and "ms-caspt2", default "casscf"
+    ## can be "casscf", "caspt2", "ms-caspt2", "xms-caspt2", "cms-pdft", default "casscf"
 method casscf
 
     ## Sets the IPEA shift for CASPT2, default 0.25
 #ipea 0.00
+
+    ## Choose between "CORT" or "DORT" (see OpenMolcas manual)
+    ## only relevant for CASPT2 gradients with IPEA shift
+#cort_or_dort cort
 
     ## Sets the imaginary level shift for CASPT2, default 0.0
 #imaginary 0.0
