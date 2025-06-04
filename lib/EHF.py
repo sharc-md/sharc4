@@ -24,107 +24,117 @@
 # ******************************************
 
 
-import time
-import numpy as np
 import os
+import time
 
+import numpy as np
 from qmout import QMout
 from SHARC_HYBRID import SHARC_HYBRID
 
+
 class EHF:
-    def __init__( self, **kwargs ):
-        for key, value in kwargs.items():
-            setattr(self,key,value)
+    def __init__(self, nproc, echarges, estates, maxcycles, forced, egarden, tQ, log):
+        self.nproc = nproc
+        self.echarges = echarges
+        self.estates = estates
+        self.maxcycles = maxcycles
+        self.forced = forced
+        self.egarden = egarden
+        self.tQ = tQ
+        self.log = log
 
     def run(self):
         t1 = time.time()
-        indent = ' '*4
-        echarges = self.echarges  
-        estates = self.estates  
-        egarden = self.egarden   
-        maxcycles =  self.maxcycles 
-        forced = self.forced
-        tQ =  self.tQ
+        indent = " " * 4
 
-        self.log.print(indent+'GUESS DATA')
-        self.log.print('')
-        for label, child in egarden.items(): 
-            symbols = ''.join([ f"{    child.QMin.molecule['elements'][a]:10}" for a in range(child.QMin.molecule['natom']) ])
-            charges = ''.join([ f"{ echarges[label][a]:10.5f}" for a in range(child.QMin.molecule['natom']) ])
-            self.log.print(indent+'   FRAGMENT '+label+':')
-            self.log.print(indent+'      Atoms:              '+symbols)
-            self.log.print(indent+'      RESP charges: '+charges)
-            self.log.print('')
-        self.log.print('')
+        self.log.print(indent + "GUESS DATA")
+        self.log.print("")
+        for label, child in self.egarden.items():
+            symbols = "".join([f"{child.QMin.molecule['elements'][a]:10}" for a in range(child.QMin.molecule["natom"])])
+            charges = "".join([f"{ self.echarges[label][a]:10.5f}" for a in range(child.QMin.molecule["natom"])])
+            self.log.print(indent + "   FRAGMENT " + label + ":")
+            self.log.print(indent + "      Atoms:              " + symbols)
+            self.log.print(indent + "      RESP charges: " + charges)
+            self.log.print("")
+        self.log.print("")
 
         cycle = 0
-        convergence = { label:np.zeros(egarden[label].QMin.molecule['natom'],dtype=bool) for label in egarden.keys() }
+        convergence = {label: np.zeros(self.egarden[label].QMin.molecule["natom"], dtype=bool) for label in self.egarden.keys()}
         while True:
             cycle += 1
-            self.log.print(indent+'CYCLE '+str(cycle))
-            self.log.print('')
+            self.log.print(indent + "CYCLE " + str(cycle))
+            self.log.print("")
 
             # Check if some of the forced fragments has exceeded their max_cycles
-            exceeded = [ label for label in egarden.keys() if cycle > maxcycles[label] ]
+            exceeded = [label for label in self.egarden.keys() if cycle > self.maxcycles[label]]
             for e in exceeded:
-                if forced[e] and not np.all(convergence[e]):
-                    self.log.print(indent+' Fragment '+e+' is forced to converge, but has exceeded its max. number of EHF cycles.')
-                    self.log.print(indent+' Aborting the whole ECI calculation...')
+                if self.forced[e] and not np.all(convergence[e]):
+                    self.log.print(
+                        indent + " Fragment " + e + " is forced to converge, but has exceeded its max. number of EHF cycles."
+                    )
+                    self.log.print(indent + " Aborting the whole ECI calculation...")
                     exit()
 
             # Determine which fragments still need to be runned
-            running_garden = { label:child for label,child in egarden.items() if cycle <= maxcycles[label] }
-            self.log.print(indent+'   Running '+str(len(running_garden))+' fragments in this cycle...')
-            if len(running_garden) < 1: 
-                self.log.print(indent+'   ...,that is, ending EHF.')
+            running_garden = {label: child for label, child in self.egarden.items() if cycle <= self.maxcycles[label]}
+            self.log.print(indent + "   Running " + str(len(running_garden)) + " fragments in this cycle...")
+            if len(running_garden) < 1:
+                self.log.print(indent + "   ...,that is, ending EHF.")
                 break
 
             # Write echarges as pccharges to each child
             for label1, child1 in running_garden.items():
-                PCs = np.concatenate( [ echarges[label2] for label2 in egarden.keys() if label2 != label1 ] )
-                child1.QMin.coords['pccharge'][0:PCs.shape[0]] = PCs
-                child1.QMout = QMout(states=child1.QMin.molecule["states"], natom=child1.QMin.molecule["natom"], npc=child1.QMin.molecule["npc"], charges=child1.QMin.molecule["charge"])
+                PCs = np.concatenate([self.echarges[label2] for label2 in self.egarden.keys() if label2 != label1])
+                child1.QMin.coords["pccharge"][0 : PCs.shape[0]] = PCs
+                child1.QMout = QMout(
+                    states=child1.QMin.molecule["states"],
+                    natom=child1.QMin.molecule["natom"],
+                    npc=child1.QMin.molecule["npc"],
+                    charges=child1.QMin.molecule["charge"],
+                )
 
             # Run running children
-            SHARC_HYBRID.run_queue(self.log, running_garden, self.nproc, indent=" "*7)
-            self.log.print('')
+            SHARC_HYBRID.run_queue(self.log, running_garden, self.nproc, indent=" " * 7, exit_on_failure=False)
+            self.log.print("")
 
             # Check convergence and print
             dPCs = {}
-            for label, child in running_garden.items(): 
-                newPCs = child.QMout['multipolar_fit'][(estates[label],estates[label])][:,0]
-                dPCs[label] = newPCs - echarges[label]
-                echarges[label] = newPCs.copy()
-                convergence[label] = np.abs(dPCs[label]) < tQ[label]
+            failed = False
+            for label, child in running_garden.items():
+                try:
+                    newPCs = child.QMout["multipolar_fit"][(self.estates[label], self.estates[label])][:, 0]
+                    dPCs[label] = newPCs - self.echarges[label]
+                    self.echarges[label] = newPCs.copy()
+                    convergence[label] = np.abs(dPCs[label]) < self.tQ[label]
 
-                # Printing part
-                symbols = ''.join([ f"{    child.QMin.molecule['elements'][a]:10}" for a in range(child.QMin.molecule['natom']) ])
-                charges = ''.join([ f"{ echarges[label][a]:10.5f}" for a in range(child.QMin.molecule['natom']) ])
-                dcharges = ''.join([ f"{ dPCs[label][a]:10.5f}" for a in range(child.QMin.molecule['natom']) ])
-                conv = ''.join([ '   YES    ' if convergence[label][a] else '    NO    ' for a in range(child.QMin.molecule['natom']) ]) 
-                l = len(label)
-                self.log.print(indent+'   FRAGMENT '+label+':')
-                self.log.print(indent+'      Atoms:              '+symbols)
-                self.log.print(indent+'      RESP charges: '+charges)
-                self.log.print(indent+'      Delta:        '+dcharges)
-                self.log.print(indent+'      Converged:      '+conv)
-                self.log.print('')
-                file = os.path.join( child.QMin.resources["cwd"], 'QM.out' ) 
-                child.QMout.density_matrices = {}
-                child.writeQMout(filename=file)
+                    # Printing part
+                    symbols = "".join(
+                        [f"{    child.QMin.molecule['elements'][a]:10}" for a in range(child.QMin.molecule["natom"])]
+                    )
+                    charges = "".join([f"{ self.echarges[label][a]:10.5f}" for a in range(child.QMin.molecule["natom"])])
+                    dcharges = "".join([f"{ dPCs[label][a]:10.5f}" for a in range(child.QMin.molecule["natom"])])
+                    conv = "".join(
+                        ["   YES    " if convergence[label][a] else "    NO    " for a in range(child.QMin.molecule["natom"])]
+                    )
+                    l = len(label)
+                    self.log.print(indent + "   FRAGMENT " + label + ":")
+                    self.log.print(indent + "      Atoms:              " + symbols)
+                    self.log.print(indent + "      RESP charges: " + charges)
+                    self.log.print(indent + "      Delta:        " + dcharges)
+                    self.log.print(indent + "      Converged:      " + conv)
+                    self.log.print("")
+                    file = os.path.join(child.QMin.resources["cwd"], "QM.out")
+                    child.QMout.density_matrices = {}
+                    child.writeQMout(filename=file)
+                except: # pylint: disable=bare-except
+                    self.log.warning(f"{label} failed.")
+                    failed = True
+            if failed:
+                continue
 
-            if all( [ np.all(convergence[label]) for label in running_garden ] ):
-                self.log.print(indent+'EHF convergence reached in '+str(cycle)+' cycles!')
+            if all(np.all(convergence[label]) for label in running_garden):
+                self.log.print(indent + "EHF convergence reached in " + str(cycle) + " cycles!")
                 break
 
-            #  for label, child in running_garden.items(): 
-                #  for step in ['init', 'always_orb_init', 'newstep', 'restart' ]:
-                    #  child1.QMin.save[step] = False
-                #  child.QMin.save['samestep'] = True
-                #  child.QMin.control['densonly'] = True
         t2 = time.time()
-        self.log.print(indent+'Time elapsed in EHF.run = '+str(round(t2-t1,3))+' sec.')
-        return
-
-
-
+        self.log.print(indent + "Time elapsed in EHF.run = " + str(round(t2 - t1, 3)) + " sec.")
