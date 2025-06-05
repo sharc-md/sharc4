@@ -115,7 +115,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         )
         self._coords_vasp =  None #to store VASP input geometry, different from QMin format
         self._el_vasp =  None #to store VASP indices for sorting input geometry, different from QMin format
-        self._indices_vasp =  None #to store indices which sort VASP geometry according to QMin geometry format
+        self._indices_vasp =  None #to store indices which sort VASP forces/geometry according to QMin geometry format
 
 
 # ---------------------------------| Standard Methods |------------------------------------------------------------
@@ -397,10 +397,14 @@ class SHARC_VASP(SHARC_ABINITIO):
             if val and req != "retain" and req not in all_features:
                 self.log.error(f"Found unsupported request {req}.")
                 raise ValueError(f"Found unsupported request {req}.")
+            
+        if self.QMin.requests["grad"] != [1]: #SHARC_VASP is supposed to be called by SHARC_CPA now, only GS gradient from child interface.
+            self.log.error("SHARC_VASP can only provide ground-state gradient only. You cannot request excited-state ones")
+            raise ValueError("SHARC_VASP can only provide ground-state gradient only. You cannot request excited-state ones")
 
 
-    def set_coords(self, coords_file: str = "QM.in") -> None:
-        super().set_coords(coords_file)
+    def set_coords(self, coords_file: str = "QM.in", pc: bool = False) -> None:
+        super().set_coords(coords_file, pc)
 
         # Checking whether QM.in coordinates comply with VASP POSCAR format.
         # Basically all atoms of the same type have to be grouped together back to back in the geometry input in QM.in
@@ -541,11 +545,11 @@ class SHARC_VASP(SHARC_ABINITIO):
             for i in range(len(energies)):
                 self.QMout["h"][i][i] = energies[i]
         #ks_info contain MOs excitation energies in eV and corresponding info for the MOs involved in the excitation
-        # It is needed to compute overlaps, see corresponding self._ functions.
+        # It is needed to compute overlaps, see corresponding self._get_energies etc.
         
         # Populate forces (gradients)
         if self.QMin.requests["grad"]:
-            self.QMout.grad = self._get_forces(OUTCAR)
+            self.QMout.grad = self._get_forces(OUTCAR) #This is gonna be used in the parent SHARC_CPA interface for each excited-state
 
         # Populate overlaps
         if self.QMin.requests["overlap"]:
@@ -580,12 +584,11 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug(forces)
         
         forces=forces/au2eV*au2a #Changing to forces in atomic units
-        gradients=np.array([forces for i in range(0,nmstates)]) #(nmstates,natom,3) Each ES gradient is equal to GS one, CPA approximation!!
         
-        self.log.debug("forces out of VASP with SHARC format")
-        self.log.debug(gradients)
+        self.log.debug("GS forces out of VASP with SHARC format")
+        self.log.debug(forces)
         
-        return gradients
+        return forces
 
 
     def _get_energies(self, vasp_out: str) -> tuple[list,tuple[dict,dict]]:
