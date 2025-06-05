@@ -501,7 +501,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         if self.QMin.requests["dm"]:
             self.QMout.dm[:, : self.QMin.molecule["states"][0], : self.QMin.molecule["states"][0]] = self._get_exciton_dipoles(
                 coeffs
-            )
+            )[:, : self.QMin.molecule["states"][0], : self.QMin.molecule["states"][0]]
 
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             prev_coeffs = np.load(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']-1}"))
