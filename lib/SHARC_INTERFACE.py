@@ -402,6 +402,10 @@ class SHARC_INTERFACE(ABC):
         else:
             raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
 
+    def set_pccharges(self, charges: list | np.ndarray) -> None:
+        self.QMin.coords["pccharge"] = charges
+        self.QMin.molecule["npc"] = len(charges)
+
     # ----- initialization routine -----
 
     def setup_mol(self, qmin_file: str | dict | QMin) -> None:

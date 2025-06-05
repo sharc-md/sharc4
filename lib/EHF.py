@@ -85,7 +85,9 @@ class EHF:
             # Write echarges as pccharges to each child
             for label1, child1 in running_garden.items():
                 PCs = np.concatenate([self.echarges[label2] for label2 in self.egarden.keys() if label2 != label1])
-                child1.QMin.coords["pccharge"][0 : PCs.shape[0]] = PCs
+                child_charge = child1.QMin.coords["pccharge"].copy()
+                child_charge[:PCs.shape[0]] = PCs
+                child1.set_pccharges(child_charge)
                 child1.QMout = QMout(
                     states=child1.QMin.molecule["states"],
                     natom=child1.QMin.molecule["natom"],

@@ -33,6 +33,7 @@ from importlib import import_module
 from multiprocessing import Manager, Process
 from time import sleep
 
+import numpy as np
 from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import InDir
@@ -252,3 +253,9 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         for label, child in self._kindergarden.items():
             self.log.debug(f"Write step file for child {label}")
             child.write_step_file()
+
+    def set_pccharges(self, charges: list | np.ndarray) -> None:
+        super().set_pccharges(charges)
+
+        for child in self._kindergarden.values():
+            child.set_pccharges(charges)

@@ -196,7 +196,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     # ----------------------------------------------------------------------------------------------
 
     def read_resources(self, resources_file="FALLBACK.resources", kw_whitelist=None):
-        self._read_resources = True
+        super().read_resources(resources_file)
 
     def read_template(self, template_file="FALLBACK.template", kw_whitelist=None):
         self.log.debug(f"Parsing template file {template_file}")
@@ -296,6 +296,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._trial_interface.setup_mol(self.QMin)
             self._trial_interface.read_resources()
             self._trial_interface.read_template()
+            self._trial_interface.QMin.resources["scratchdir"] = os.path.join(self.QMin.resources["scratchdir"], "trial_interface")
             self._trial_interface.setup_interface()
 
         with InDir("fallback_interface"):
@@ -303,6 +304,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._fallback_interface.setup_mol(self.QMin)
             self._fallback_interface.read_resources()
             self._fallback_interface.read_template()
+            self._fallback_interface.QMin.resources["scratchdir"] = os.path.join(self.QMin.resources["scratchdir"], "fallback_interface")
             self._fallback_interface.setup_interface()
 
     def read_requests(self, requests_file="QM.in"):
@@ -314,6 +316,11 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         super().set_coords(xyz, pc)
         self._trial_interface.set_coords(xyz, pc)
         self._fallback_interface.set_coords(xyz, pc)
+
+    def set_pccharges(self, charges):
+        super().set_pccharges(charges)
+        self._trial_interface.set_pccharges(charges)
+        self._fallback_interface.set_pccharges(charges)
 
     def getQMout(self):
         if self._trial_failed:

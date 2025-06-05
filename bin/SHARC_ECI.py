@@ -496,7 +496,8 @@ class SHARC_ECI(SHARC_HYBRID):
             child.QMin.resources['scratchdir'] = scratchdir
             child.QMin.resources["pwd"] = os.path.join( self.QMin.resources["pwd"], label+"_embedding_Z"+str(Z) )
             child.QMin.resources["cwd"] = os.path.join( self.QMin.resources["cwd"], label+"_embedding_Z"+str(Z) )
-            child.setup_interface()
+            with InDir(child.QMin.resources["pwd"]):
+                child.setup_interface()
             #  if self.QMin.template["fragments"][label]["EHF"]["guess_file"] == True:
                 #  self.QMin.template["fragments"][label]["EHF"]["guess_file"] = os.path.join( child.QMin.resources["cwd"], 'QM.out' )
             #  if self.QMin.template["fragments"][label]["EHF"]["write"] == True:
@@ -711,7 +712,7 @@ class SHARC_ECI(SHARC_HYBRID):
                     pccharge.extend(self.QMin.coords['pccharge']) # These are the true values already
                 pccoords = np.concatenate( pccoords, axis=0 )
                 child1.set_coords( pccoords, pc=True)
-                child1.QMin.coords['pccharge'] = pccharge[:]
+                child1.set_pccharges(pccharge[:])
                 # SSC children
                 for z1 in self.QMin.template["fragments"][label1]["SSC"]["states"].keys(): 
                     # Remove try after CT is added
@@ -728,7 +729,7 @@ class SHARC_ECI(SHARC_HYBRID):
                             pccharge.extend(self.QMin.coords['pccharge']) # These are the true values already
                         pccoords = np.concatenate( pccoords, axis=0 )
                         child1.set_coords( pccoords, pc=True)
-                        child1.QMin.coords['pccharge'] = pccharge[:]
+                        child1.set_pccharges(pccharge[:])
                     except:
                         pass
 
@@ -827,7 +828,9 @@ class SHARC_ECI(SHARC_HYBRID):
             for (label,z), child in ssc_rungarden.items():
                 # Writting final embedding charges to the SSC children
                 PCs = np.concatenate( [ charges for elabel,charges in self.EHFjobs[Z].echarges.items()  if elabel != label ] )
-                child.QMin.coords['pccharge'][0:PCs.shape[0]] = PCs
+                child_charge = child.QMin.coords["pccharge"].copy()
+                child_charge[:PCs.shape[0]] = PCs
+                child.set_pccharges(child_charge)
 
             # Running actual children
             t1 = time.time()

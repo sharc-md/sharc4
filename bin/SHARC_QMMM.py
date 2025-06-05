@@ -532,7 +532,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.qm_interface.QMin.coords["pccoords"] = self.QMin.coords["coords"][self.non_link_mm, :]
         if "SCALE_POINT_CHARGES" in os.environ:
             raw_pc = raw_pc * float(os.environ["SCALE_POINT_CHARGES"])
-        self.qm_interface.QMin.coords["pccharge"] = raw_pc[self.non_link_mm]
+        self.qm_interface.set_pccharges(raw_pc[self.non_link_mm])
 
         with InDir(self.QMin.template["qm-dir"]) as _:
             self.qm_interface.run()
