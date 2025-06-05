@@ -296,10 +296,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     pccharge[it_idx := next(iter_gen)] = charge
                     pccoords[it_idx, :] = self.QMin.coords["coords"][idx, :]
 
-                child.QMin.coords["pccharge"] = pccharge
-                child.QMin.coords["pccoords"] = pccoords
+                child.set_pccharges(pccharge)
+                child.set_coords(pccoords, True)
                 child.QMin.molecule["point_charges"] = True
-                child.QMin.molecule["npc"] = len(pccharge)
                 # TODO: add external pc
         self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
 
@@ -419,7 +418,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     ) - (gs_dp if idx == jdx else 0.0)
 
             state_cnt += states_a
-        dipoles = np.einsum("ij,kij->kij", coeffs.T @ coeffs, dipoles)
+        dipoles = np.einsum("in,jn,kij->kij", coeffs, coeffs, dipoles)
         np.einsum("jii->ij", dipoles)[1:, :] += dipoles[:, 0, 0]
         return dipoles
 
