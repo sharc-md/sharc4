@@ -29,7 +29,7 @@ import numpy as np
 import yaml
 from constants import NUMBERS
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, expand_path
+from utils import InDir, expand_path, convert_list
 
 __all__ = ["SHARC_FRENKEL"]
 
@@ -72,6 +72,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             "atoms": str,  # List/Range of atoms
             "states": list,  # List of states
             "charges": list,  # List of charges
+            "capping": dict,  # Dictionary of capping atoms
         }
 
         # Interface for electrostatic embedding
@@ -120,24 +121,24 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         for name, frag in tmpl_dict["fragments"].items():
             # Set default value for args, kwargs and charges
             if "args" not in frag:
-                tmpl_dict["fragments"][name]["args"] = []
+                frag["args"] = []
             if "kwargs" not in frag:
-                tmpl_dict["fragments"][name]["kwargs"] = {}
+                frag["kwargs"] = {}
             if "charges" not in frag:
                 self.log.info(f"No charge defined for fragment {name}, set default 0.")
-                tmpl_dict["fragments"][name]["charges"] = [0]
+                frag["charges"] = [0]
 
             # Check if all parameters are present and of correct type
             for k, v in self._interface_templ.items():
-                if k not in frag:
+                if k != "capping" and k not in frag:
                     self.log.error(f"{k} has to be defined in fragment {name}")
                     raise ValueError
-                if not isinstance(frag[k], v):
+                if k != "capping" and not isinstance(frag[k], v):
                     self.log.error(f"Value of key {k} in fragment {name} must be of type {v}")
                     raise ValueError
 
             # Convert atoms string to list
-            tmpl_dict["fragments"][name]["atoms"] = sorted(
+            frag["atoms"] = sorted(
                 {
                     n
                     for part in frag["atoms"].split(",")
@@ -146,6 +147,20 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             )
             # Increment total site states excluding site gs
             self._total_site_states += frag["states"][0] - 1
+
+            # Setup capping
+            if "capping" in frag:
+                assert "positions" in frag["capping"], "List of positions must be defined in capping!"
+                assert isinstance(frag["capping"]["positions"], list), "Capping:positions must be of type list!"
+
+                if "cap_atom" in frag["capping"]:
+                    assert len(frag["capping"]["positions"]) == len(frag["capping"]["cap_atom"])
+                else:
+                    frag["capping"]["cap_atoms"] = ["H"] * len(frag["capping"]["positions"])
+                frag["capping"]["positions"] = convert_list(frag["capping"]["positions"])
+                frag["capping"]["cap_atoms"] = convert_list(frag["capping"]["cap_atoms"], str)
+
+                assert not any(i in frag["atoms"] for i in frag["capping"]["positions"])
 
             # Check if states >= 2 and only singlets
             assert (n_states := sum(frag["states"])) == frag["states"][0], "Only singlet states are supported!"
@@ -192,12 +207,15 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 "multipolar_fit" in self._kindergarden[name].get_features()
             ), f"{frag['interface']} does not support multipolar_fit request!"
 
+            atoms = [NUMBERS[self.QMin.molecule["elements"][a]] for a in frag["atoms"]]
+            if "capping" in frag:
+                atoms.extend(NUMBERS[a] for a in frag["capping"]["cap_atoms"])
             self._kindergarden[name].setup_mol(
                 {
                     "states": frag["states"],
                     "charge": frag["charges"],
-                    "NAtoms": len(frag["atoms"]),
-                    "IAn": [NUMBERS[self.QMin.molecule["elements"][a]] for a in frag["atoms"]],
+                    "NAtoms": len(atoms),
+                    "IAn": atoms,
                     "retain": f"retain {self.QMin.requests['retain']}",
                     "savedir": expand_path(os.path.join(self.QMin.save["savedir"], name)),
                     "point_charges": self.QMin.molecule["point_charges"],
@@ -254,7 +272,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             if pc:
                 self._kindergarden[name].set_coords(xyz, pc)
                 continue
-            self._kindergarden[name].set_coords(self.QMin.coords["coords"][frag["atoms"]], pc)
+            coords = self.QMin.coords["coords"][frag["atoms"]].copy()
+            if "capping" in frag:
+                coords = np.vstack((coords, self.QMin.coords["coords"][frag["capping"]["positions"]]))
+            self._kindergarden[name].set_coords(coords, pc)
 
         # Set coords for embedding
         if self._embedding_interface and not pc:
@@ -290,8 +311,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 pccoords = np.zeros((pccharge.shape[0], 3))
                 iter_gen = iter(range(pccharge.shape[0]))
 
+                fragment = self.QMin.template["fragments"][name]
+                cap_positions = fragment.get("capping", {}).get("positions", set())
                 for idx, charge in enumerate(embedding_charges):
-                    if idx in self.QMin.template["fragments"][name]["atoms"]:
+                    if idx in fragment["atoms"] or idx in cap_positions:
                         continue
                     pccharge[it_idx := next(iter_gen)] = charge
                     pccoords[it_idx, :] = self.QMin.coords["coords"][idx, :]
