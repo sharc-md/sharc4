@@ -1,8 +1,10 @@
-import pytest
 import os
-from utils import expand_path
-from SHARC_INTERFACE import SHARC_INTERFACE
 import shutil
+
+import numpy as np
+import pytest
+from SHARC_INTERFACE import SHARC_INTERFACE
+from utils import expand_path
 
 SHARC_INTERFACE.__abstractmethods__ = set()
 
@@ -411,7 +413,7 @@ def test_driver_requests2():
         (
             os.path.join(expand_path(PATH), "inputs/request_test4.in"),
             {"h": True, "grad": [1, 2, 3], "density_matrices": ["all"]},
-        )
+        ),
     ]
 
     for qmfile, qmdict in tests:
@@ -474,3 +476,16 @@ def test_save_resources():
         test_interface.read_resources(os.path.join(expand_path(PATH), input))
         for key, val in ref.items():
             assert test_interface.QMin.save[key] == val
+
+
+def test_pccharge():
+    tests = [np.arange(15), np.arange(2547), list(range(5214))]
+
+    test_interface = SHARC_INTERFACE()
+    for charges in tests:
+        test_interface.set_pccharges(charges)
+        if isinstance(charges, list):
+            assert test_interface.QMin.coords["pccharge"] == charges
+        else:
+            assert np.allclose(test_interface.QMin.coords["pccharge"], charges)
+        assert test_interface.QMin.molecule["npc"] == len(charges)
