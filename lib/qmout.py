@@ -77,6 +77,7 @@ class QMout:
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: dict
     density_matrices: dict
+    multipolar_fit_settings: str
     mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
@@ -1222,16 +1223,11 @@ class QMout:
         Returns:
         1 string: multiline string with the Gradient vectors"""
 
-        states = self.states
-        nmstates = self.nmstates
         natom = self.natom
-        setting_str = ""
-        if "multipolar_fit" in self.notes:
-            setting_str = self.notes["multipolar_fit"]
         sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
         fit_order = self.multipolar_fit[sorted_states[0]].shape[1]
         string = (
-            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x{fit_order}) {setting_str}\n"
+            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x{fit_order}) {self.multipolar_fit_settings}\n"
         )
         for (s1, s2) in sorted_states:
             val = self.multipolar_fit[(s1, s2)]
