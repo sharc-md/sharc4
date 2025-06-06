@@ -16,7 +16,7 @@ O   5.60948      5.00000      5.00000
 
     ## ===============================================
     ## Control keywords:
-step 1
+step 0
 #samestep
 #restart
 
@@ -33,7 +33,7 @@ charge 0                  # Charge of the system depending on the multiplicity
     # Quantity requests:
 h                       # Calculation of energies for each state
 grad                # Selection of states for which gradients are needed
-overlap            # Overlap calculation. This is the only supported propagation scheme currently available for VASP 
+#overlap            # Overlap calculation. This is the only supported propagation scheme currently available for VASP 
     
 # note that the "soc" keyword does not work with the VASP interface
 
