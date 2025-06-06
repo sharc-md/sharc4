@@ -1612,6 +1612,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if qmin.template["keys"] and "cpcm" in qmin.template["keys"]:
             string += "%cpcm\n\tsurfacetype vdw_gaussian\nend\n\n"
 
+        # Keep single points with and without gradients consistent
+        if qmin.template["keys"] and "zora" in qmin.template["keys"]:
+            string += "%rel\n\tonecenter true\nend\n\n"
+
         # Excited states
         if max(states_to_do) > 0:
             string += f"%tddft\n\ttda {'false' if qmin.template['no_tda'] else 'true'}\n"
