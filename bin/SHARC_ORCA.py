@@ -1170,6 +1170,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Convert keys to string if list
         if isinstance(self.QMin.template["keys"], list):
             self.QMin.template["keys"] = " ".join(self.QMin.template["keys"])
+        self.QMin.template["keys"] = self.QMin.template["keys"].lower()
 
         # Check for deprecated keys
         for depr in self._deprecated:
