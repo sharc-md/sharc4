@@ -566,6 +566,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         # Populate forces (gradients)
         if self.QMin.requests["grad"]:
             self.QMout.grad = self._get_forces(OUTCAR) #This is gonna be used in the parent SHARC_CPA interface for each excited-state
+            self.log.debug("Checking GS forces assigned to QMout and shape")
+            self.log.debug(self.QMout.grad)
+            self.log.debug(self.QMout.grad.shape)
 
         # Populate overlaps
         if self.QMin.requests["overlap"]:
