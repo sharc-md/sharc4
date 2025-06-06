@@ -32,7 +32,7 @@ from io import TextIOWrapper
 import numpy as np
 import yaml
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, expand_path, question
+from utils import InDir, expand_path, question, mkdir
 
 __all__ = ["SHARC_CPA"]
 
@@ -116,19 +116,22 @@ class SHARC_CPA(SHARC_HYBRID):
 
     def setup_interface(self):
         super().setup_interface()
-        with InDir("QM"):
+        with InDir("QM_"+self.QMin.template["reference"]["interface"]):
             self._kindergarden["reference"].setup_mol(self.QMin)
             self._kindergarden["reference"].read_resources()
             self._kindergarden["reference"].read_template()
             self._kindergarden["reference"].setup_interface()
             self.log.debug("maps debugging of child")
             self.log.debug(self._kindergarden["reference"].QMin.maps)
+            self.log.debug("debugging child scratchdir and savedir")
+            self.log.debug(self._kindergarden["reference"].QMin.resources["scratchdir"])
+            self.log.debug(self._kindergarden["reference"].QMin.save["savedir"])
 
     def create_restart_files(self):
         self._kindergarden["reference"].create_restart_files()
 
     def run(self):
-        with InDir("QM"):
+        with InDir("QM_"+self.QMin.template["reference"]["interface"]):
             self._kindergarden["reference"].run()
 
     def getQMout(self):
@@ -187,6 +190,7 @@ class SHARC_CPA(SHARC_HYBRID):
             self.read_template(self.template_file)
 
         child_features = self._kindergarden["reference"].get_features(KEYSTROKES=KEYSTROKES)
+        self.log.debug("debugging child features")
         self.log.debug(child_features)
         return set(child_features)
 
@@ -210,12 +214,13 @@ class SHARC_CPA(SHARC_HYBRID):
 
         if not self.QMin.save["savedir"]:
             self.log.warning("savedir not specified, setting savedir to current directory!")
-            self.QMin.save["savedir"] = os.getcwd()
+            self.QMin.save["savedir"] = os.getcwd() #Nothing is gonna save anyway from the SHARC_CPA,py call
 
-        # folder setup and savedir
-        self._kindergarden["reference"].QMin.save["savedir"] = self.QMin.save["savedir"]
-        self._kindergarden["reference"].QMin.resources["scratchdir"] = self.QMin.resources["scratchdir"]
-        self._kindergarden["reference"].prepare(INFOS, dir_path)
+        # Calling child prepare routine. Important to specify correct directory where SHARC_VASP.py is gonna be called
+        # We don't care about child's scratchdir and savedir here because those are gonna be read in through child.resources otherwise warning will be raised.
+        qmdir=os.pathjoin(dir_path,"QM_"+self.QMin.template["reference"]["interface"])
+        mkdir(qmdir) 
+        self._kindergarden["reference"].prepare(INFOS, qmdir)
 
 
 if __name__ == "__main__":

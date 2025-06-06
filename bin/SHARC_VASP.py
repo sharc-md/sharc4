@@ -117,6 +117,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         self._el_vasp =  None #to store VASP indices for sorting input geometry, different from QMin format
         self._indices_vasp =  None #to store indices which sort VASP forces/geometry according to QMin geometry format
 
+        # Setup stuff
+        self._template_file = None
+        self._resource_file = None
 
 # ---------------------------------| Standard Methods |------------------------------------------------------------
 
@@ -247,7 +250,18 @@ class SHARC_VASP(SHARC_ABINITIO):
 
     def read_resources(self, resources_file: str = "VASP.resources", kw_whitelist: list[str] | None = None) -> None:
         super().read_resources(resources_file, kw_whitelist)
+        
+        self.log.debug("Debugging resources in VASP")
+        self.log.debug(self.QMin.resources)
+        self.log.debug("Debugging savedir in VASP")
+        self.log.debug(self.QMin.save["savedir"])
 
+        if self.QMin.resources["scratchdir"] == os.path.join(self.QMin.resources["pwd"],"SCRATCH"):
+            self.log.warning("You have not setup scratchdir in the VASP resource file, this may cause issues! Please do it")
+        
+        if self.QMin.save["savedir"] == os.path.join(self.QMin.resources["pwd"],"SAVE"):
+            self.log.warning("You have not setup savedir in the VASP resource file, this may cause issues! Please do it")
+        
         if not self.QMin.resources["vaspdir"]:
             self.log.error("vaspdir has to be set in resource file!")
             raise ValueError()
@@ -294,19 +308,11 @@ class SHARC_VASP(SHARC_ABINITIO):
         KEYSTROKES: object as returned by open() to be used with question()
         """
 
-        #probably this has tio be refined -> later stage, not so fundamental currently.
-
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
         self.log.info(f"||{'VASP interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
-
-        self.log.info("\nSpecify path to VASP binary.")
-        self.setupINFOS["vasp"] = question("Path to VASP:", str, KEYSTROKES=KEYSTROKES)
-
-        self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
-        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
 
         if os.path.isfile("VASP.template"):
             self.log.info("Found VASP.template in current directory")
@@ -327,30 +333,40 @@ class SHARC_VASP(SHARC_ABINITIO):
             while not os.path.isfile(self._resource_file):
                 self.log.info(f"{self._resource_file} does not exist!")
                 self._resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES)
+            with open(self._resource_file, "r", encoding="utf-8") as f:
+                resources_file = f.read()
+            savedir_check=re.search(r"\s*savedir",resources_file) 
+            scratchdir_check=re.search(r"\s*scratchdir",resources_file) 
+            if savedir_check is None:
+                self.log.warning("You have not specified savedir in the resource file. Please do it, this may cause issues.")
+            if scratchdir_check is None:
+                self.log.warning("You have not specified scratchdir in the resource file. Please do it, this may cause issues.")
         else:
             self.log.info("Specify the number of CPUs to be used.")
             self.setupINFOS["ncpu"] = question("Number of CPUs (at least 2):", int, default=[2], KEYSTROKES=KEYSTROKES)[0]
 
             self.log.info("Specify the amount of RAM to be used.")
-            self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS["memory"] = question("Memory (MB):", int, default=[2000], KEYSTROKES=KEYSTROKES)[0]
 
             self.log.info("Specify the path to the VASP binary files")
             self.setupINFOS["vaspdir"] = question("path to VASP binary files", str, KEYSTROKES=KEYSTROKES)
 
             self.log.info("Specify the path to the VASP potcar file")
             self.setupINFOS["potcardir"] = question("path to VASP POTCAR file", str, KEYSTROKES=KEYSTROKES)
-        
-            self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
+            
+            self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the VASP calculation.")
             self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            
+            self.log.info("\n\nSpecify a save directory. The save directory will keep important files for each VASP run.")
+            self.setupINFOS["savedir"] = question("Path to save directory:", str, KEYSTROKES=KEYSTROKES)
         
         return INFOS
 
-    #That's for setup script as well, togheter with get_infos and get_features. Probably has to be further refined later.
     def prepare(self, INFOS: dict, dir_path: str) -> None: 
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "VASP.resources"), "w", encoding="utf-8") as file:
-                for key in ("vaspdir", "potcardir", "scratchdir", "ncpu", "memory"):
+                for key in ("vaspdir", "potcardir", "scratchdir", "ncpu", "memory", "savedir"):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
         else:
