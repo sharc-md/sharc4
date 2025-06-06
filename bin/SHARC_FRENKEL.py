@@ -29,7 +29,7 @@ import numpy as np
 import yaml
 from constants import NUMBERS
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, expand_path, convert_list
+from utils import InDir, convert_list, expand_path
 
 __all__ = ["SHARC_FRENKEL"]
 
@@ -157,6 +157,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     assert len(frag["capping"]["positions"]) == len(frag["capping"]["cap_atom"])
                 else:
                     frag["capping"]["cap_atoms"] = ["H"] * len(frag["capping"]["positions"])
+
+                if "bond_distance" in frag["capping"]:
+                    assert len(frag["capping"]["bond_distance"]) == len(frag["capping"]["positions"])
+
                 frag["capping"]["positions"] = convert_list(frag["capping"]["positions"])
                 frag["capping"]["cap_atoms"] = convert_list(frag["capping"]["cap_atoms"], str)
 
@@ -274,7 +278,13 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 continue
             coords = self.QMin.coords["coords"][frag["atoms"]].copy()
             if "capping" in frag:
-                coords = np.vstack((coords, self.QMin.coords["coords"][frag["capping"]["positions"]]))
+                cap_coords = self.QMin.coords["coords"][frag["capping"]["positions"]]
+                if "bond_distance" in frag["capping"]:
+                    for idx, (reference, distance) in enumerate(frag["capping"]["bond_distance"]):
+                        cap_coords[idx] = self.QMin.coords["coords"][reference] + distance * (
+                            cap_coords[idx] - self.QMin.coords["coords"][reference]
+                        )
+                coords = np.vstack((coords, cap_coords))
             self._kindergarden[name].set_coords(coords, pc)
 
         # Set coords for embedding
@@ -307,14 +317,15 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             ][:, 0]
 
             for name, child in self._kindergarden.items():
-                pccharge = np.zeros(embedding_charges.shape[0] - child.QMin.molecule["natom"])
+                fragment = self.QMin.template["fragments"][name]
+                # TODO: distribute charge to neighbours
+                cap_positions = len(fragment.get("capping", {}).get("positions", set()))
+                pccharge = np.zeros(embedding_charges.shape[0] - child.QMin.molecule["natom"] + cap_positions)
                 pccoords = np.zeros((pccharge.shape[0], 3))
                 iter_gen = iter(range(pccharge.shape[0]))
 
-                fragment = self.QMin.template["fragments"][name]
-                cap_positions = fragment.get("capping", {}).get("positions", set())
                 for idx, charge in enumerate(embedding_charges):
-                    if idx in fragment["atoms"] or idx in cap_positions:
+                    if idx in fragment["atoms"]:
                         continue
                     pccharge[it_idx := next(iter_gen)] = charge
                     pccoords[it_idx, :] = self.QMin.coords["coords"][idx, :]
