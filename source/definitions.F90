@@ -65,6 +65,11 @@
 !>                   modified 2024 by Severin Polonius
 !>                         added keywords for no_write_restart and split netCDF files
 !>
+!>                   modified 2025 by Marco Romanelli
+!>                         added ctrl%boltzmann_hopping_scaling and ctrl%boltzmann_temperature for scaling
+!>                         upwards hops probability. CPA approximation for excited-state dynamics.
+!>                         added Boltzmann constant as well as parameter
+!>
 !> This module defines the trajectory and control types.
 !>
 !> All arrays defined here have their order and meaning of the
@@ -480,6 +485,8 @@ module definitions
     integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
     integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
     integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
+    integer :: boltzmann_hopping_scaling      !< 0=no scaling (default), 1=boltzmann scaling for upwards hops -> CPA approximation
+    real*8  :: boltzmann_temperature          !< temperature value for Boltzmann scaling of hops probability. default will be 300K
     integer :: switching_procedure            !< 0=no switches, 1=CSDM, 2=SCDM, 3=NDM
     integer :: army_ants                      !< 0=no army ants,i.e. anteater algorithm, 1=army ants algorithm
     integer :: output_format                  !< 0 ASCII, 1 NetCDF
@@ -549,6 +556,7 @@ module definitions
   complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
   real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
   real*8,parameter:: alpha=7.2973525693d-3          !< fine-structure constant
+  real*8,parameter:: boltzmann_k=3.1668115634564263e-06   !< boltzmann constant in Hartree * K^-1
   
   logical :: debug
   integer :: allocatestatus

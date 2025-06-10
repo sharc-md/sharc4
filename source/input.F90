@@ -40,6 +40,9 @@
 !>                   modified 2023 by Brigitta Bachmair
 !>                         added keywords for thermostat, additional restrictive potentials, frozen atoms
 !>                       
+!>                   modified 2025 by Marco Romanelli
+!>                         added keywords for Boltzmann scaling of transition probability. See definitions.f90 ctrl%boltzmann_hopping_scaling etc.
+!>                       
 !> This module provides the central input parsing routine and some 
 !> auxilliary routines for input parsing
 !> 
@@ -2239,6 +2242,41 @@ module input
           write(0,*) 'Unknown keyword ',trim(line),' to "hopping_procedure"!'
           stop 1
       endselect
+    endif
+
+    ! boltzmann scaling of upwards hop probability. Classical-Path-Apprxoimation (CPA)
+    ctrl%boltzmann_hopping_scaling=0
+    ctrl%boltzmann_temperature=300 !Default is 300 K
+    line=get_value_from_key('boltzmann_hopping_scaling',io)
+    if (io==0) then
+      select case (trim(line))
+        case ('yes') 
+          ctrl%boltzmann_hopping_scaling=1
+          if (printlevel>1) then
+            write(u_log,'(a)') 'Scaling of upwards hop probability is enabled. CPA approximation dynamics is considered'
+          endif
+        case ('no') 
+          continue
+        case default
+          write(0,*) 'Unknown keyword ',trim(line),' to "boltzmann_hopping_scaling"! Specify "yes" or "no"'
+          stop 1
+      endselect
+    endif
+    if (ctrl%boltzmann_hopping_scaling==1) then
+      line=get_value_from_key('boltzmann_temperature',io)
+      if (io==0) then
+        read(line,*) ctrl%boltzmann_temperature
+      else
+        write(u_log,'(a)') 'No boltzmann_temperature was specified for CPA probability scaling. Default value of 300 K is assigned.'
+      endif
+    endif
+
+    !Checking whether user has specified both Boltzmann scaling and some velocity rescaling upon hopping.
+    ! This should not be allowed
+    if ((ctrl%boltzmann_hopping_scaling==1) .and. (ctrl%ekincorrect > 0)) then
+      write(u_log,'(a)') 'if "boltzmann_hopping_scaling" is activated you should avoid any sort of velocity rescaling. "ekincorrect" changed to "none"'
+      write(u_log,'(a)') 'CPA approximation theoretically account for velocity rescaling via Boltzmann scaling of upwards hops probability.'
+      ctrl%ekincorrect=0
     endif
 
     ! force hops to ground state

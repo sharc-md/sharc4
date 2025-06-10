@@ -37,6 +37,11 @@
 !> 
 !> The alternative module electronic_laser.f90 reimplements some of the subroutines 
 !> to add a laser field
+!>  
+!>                   modified 2025 June by Marco Romanelli
+!>                         Scaling of transition probability is modified if CPA is enables, check surface_hopping routine
+!>  
+!>  
 
 module electronic
   contains
@@ -703,7 +708,7 @@ subroutine surface_hopping(traj,ctrl)
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: istate,jstate,kstate,iatom,idir,i,ilaser
-  real*8 :: randnum, cumuprob
+  real*8 :: randnum, cumuprob, boltzmann_scaling
   real*8 :: Emax ! energy threshold for frustrated jumps
   real*8 :: Ekin_masked
   real*8 :: sum_kk, sum_vk ! temp variables for kinetic adjustment
@@ -734,6 +739,19 @@ subroutine surface_hopping(traj,ctrl)
         write(0,*) 'Unknown option ',ctrl%hopping_procedure,' to hopping_procedure!'
         stop 1
     endselect
+  endif
+
+  !Scaling transition probabilities for upwards hops according to CPA approximation if CPA is enabled. Boltzmann scaling
+  if (ctrl%boltzmann_hopping_scaling==1) then
+    do istate=1,ctrl%nstates
+      if (real(traj%H_diag_ss(istate,istate)) > real(traj%H_diag_ss(traj%state_diag,traj%state_diag))) then
+        deltaE=0.d0
+        boltzmann_scaling=0.d0
+        deltaE=abs(real(traj%H_diag_ss(istate,istate) - traj%H_diag_ss(traj%state_diag,traj%state_diag)))
+        boltzmann_scaling=exp(-deltaE/(boltzmann_k * ctrl%boltzmann_temperature))
+        traj%hopprob_s(istate)=traj%hopprob_s(istate)*boltzmann_scaling 
+      endif
+    enddo
   endif
 
   ! forced hop to ground state if energy gap to state above is smaller than threshold
