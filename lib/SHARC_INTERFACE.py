@@ -93,6 +93,8 @@ class SHARC_INTERFACE(ABC):
         logname: str | None = None,
         logfile: str | None = None,
         loglevel: int = loglevel,
+        *args,
+        **kwargs,
     ):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
