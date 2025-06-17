@@ -26,7 +26,10 @@
 
 import time
 import itertools
+import operator
+from collections import defaultdict
 from threadpoolctl import threadpool_limits
+from concurrent.futures import ThreadPoolExecutor
 
 import math
 import numpy as np
@@ -50,7 +53,6 @@ class fragment:
     def __init__( self, **kwargs ):
         for key, value in kwargs.items():
             setattr(self,key,value)
-        return
 
     def __hash__(self):
         return self.label.__hash__()
@@ -79,8 +81,8 @@ class excitonic_slater_determinant:
                 self.site_states[site] = state
         elif isinstance( site_states, dict ):
             self.site_states = site_states.copy()
-        self.Z = sum( [ self.site_states[site].Z for site in sites ] )
-        self.M = sum( [ self.site_states[site].M for site in sites ] )
+        self.Z = sum( self.site_states[site].Z for site in sites )
+        self.M = sum( self.site_states[site].M for site in sites )
         self.index = None
 
     def __repr__(self):
@@ -100,43 +102,34 @@ class excitonic_slater_determinant:
         return repr(self).__hash__()
         #  return ' '.join([s.__hash__() for s in self.site_states.values() ]).__hash__()
 
-    def __eq__(self,other):
-        return all([ s1 is s2 for s1, s2 in zip(self.site_states.values(), other.site_states.values())])
+    def __eq__(self, other):
+        return all(map(operator.is_, self.site_states.values(), other.site_states.values()))
 
-    def __floordiv__(self,other):
-        return all([ s1 // s2 for s1, s2 in zip(self.site_states.values(), other.site_states.values())])
+    def __floordiv__(self, other):
+        return all(map(operator.floordiv, self.site_states.values(), other.site_states.values()))
 
     #----START of excitonic_slater_determinant.compare------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
     def compare(self,other):
-        sites = list(self.site_states.keys())
-        diffs = [ site for site in sites if not self.site_states[site] is other.site_states[site] ]
+        diffs = [site for site in self.site_states if self.site_states[site] is not other.site_states[site]]
         ndiffs = len(diffs)
         if ndiffs == 0:
-            comparison = { 'relationship' : (0,0) }
-        elif ndiffs == 1:
-            comparison = { 'relationship' : (0, 1), 'exciton' : diffs[0] }
-        elif ndiffs == 2:
+            return { 'relationship' : (0,0) }
+        if ndiffs == 1:
+            return { 'relationship' : (0, 1), 'exciton' : diffs[0] }
+        if ndiffs == 2:
             f, g = diffs
             sf1, sg1 = self.site_states[f], self.site_states[g]
             sf2, sg2 = other.site_states[f], other.site_states[g]
             dZf = sf2.Z - sf1.Z
             dZg = sg2.Z - sg1.Z
             if dZf == 0 and dZg == 0:
-                comparison = { 'relationship' : (0,2), 'excitons' : diffs }
-            elif dZf == 1 and dZg == -1:
-                #  skip = all( [ state in site.aufbau_states and state.Z == site.Z for site, state in self.site_states.items() ] ) 
-                #  if skip: return None # This excludes the SCT couplings with the ref.-charge aufbau ESD 
-                comparison = { 'relationship' : (1,0), 'donor' : f, 'acceptor' : g }
-            elif dZf == -1 and dZg == 1:
-                #  skip = all( [ state in site.aufbau_states and state.Z == site.Z for site, state in self.site_states.items() ] ) 
-                #  if skip: return None # This excludes the SCT couplings with the ref.-charge aufbau ESD 
-                comparison = { 'relationship' : (1,0), 'donor' : g, 'acceptor' : f }
-            elif dZf == -2 and dZg == 2:
-                return None # this requires double-DO, would go to relationship (2,0)
-            elif dZf == 2 and dZg == -2:
-                return None # this requires double-DO, would go to relationship (2,0) 
-            else: return None
-        elif ndiffs == 3:
+                return { 'relationship' : (0,2), 'excitons' : diffs }
+            if dZf == 1 and dZg == -1:
+                return { 'relationship' : (1,0), 'donor' : f, 'acceptor' : g }
+            if dZf == -1 and dZg == 1:
+                return { 'relationship' : (1,0), 'donor' : g, 'acceptor' : f }
+            return None
+        if ndiffs == 3:
             f, g, h = diffs
             sf1, sg1, sh1 = self.site_states[f], self.site_states[g], self.site_states[h] 
             sf2, sg2, sh2 = other.site_states[f], other.site_states[g], other.site_states[h]
@@ -144,46 +137,18 @@ class excitonic_slater_determinant:
             dZg = sg2.Z - sg1.Z
             dZh = sh2.Z - sh1.Z
             if dZf == 1 and dZg == -1 and dZh == 0:
-                comparison = { 'relationship' : (1,1), 'donor' : f, 'acceptor' : g, 'exciton' : h }
-            elif dZf == -1 and dZg == 1 and dZh == 0:
-                comparison = { 'relationship' : (1,1), 'donor' : g, 'acceptor' : g, 'exciton' : h }
-            elif dZf == 1 and dZg == 0 and dZh == -1:
-                comparison = { 'relationship' : (1,1), 'donor' : f, 'acceptor' : h, 'exciton' : g }
-            elif dZf == -1 and dZg == 0 and dZh == 1:
-                comparison = { 'relationship' : (1,1), 'donor' : h, 'acceptor' : f, 'exciton' : g }
-            elif dZf == 0 and dZg == 1 and dZh == -1:
-                comparison = { 'relationship' : (1,1), 'donor' : g, 'acceptor' : h, 'exciton' : f }
-            elif dZf == 0 and dZg == -1 and dZh == 1:
-                comparison = { 'relationship' : (1,1), 'donor' : h, 'acceptor' : g, 'exciton' : f }
-            elif dZf == 2 and dZg == -1 and dZh == -1:
-                return None # This is (2,0) but with one double-donor and two single-acceptors, e.g. < S0^{0}, S1^{0} S0^{0} | H | S0^{2+} D0^{1-} D3^{1-} > = J - K between double-DO on fragment 1 and a product of DOs on fragments 2 and 3.
-            elif dZf == -2 and dZg == 1 and dZh == 1:
-                return None # Similar to upper 
-            elif dZf == -1 and dZg == 2 and dZh == -1:
-                return None # Similar to upper 
-            elif dZf == 1 and dZg == -2 and dZh == 1:
-                return None # Similar to upper 
-            elif dZf == -1 and dZg == -1 and dZh == 2:
-                return None # Similar to upper 
-            elif dZf == 1 and dZg == 1 and dZh == -2:
-                return None # Similar to upper 
-            else: return None
-        #elif ndiffs == 4:
-        #    f, g, h, m = diffs
-        #    sf1, sg1, sh1, sm1 = self.site_states[f], self.site_states[g], self.site_states[h], self.site_states[m] 
-        #    sf2, sg2, sh2, sm2 = ESD2.site_states[f], ESD2.site_states[g], ESD2.site_states[h], ESD2.site_states[m]
-        #    dZf = sf2.Z - sf1.Z
-        #    dZg = sg2.Z - sg1.Z
-        #    dZh = sh2.Z - sh1.Z
-        #    dZm = sm2.Z - sm1.Z
-        #    dZall = np.array( [ dZf, dZg, dZh, dZm ], dtype=int )
-        #    donors = np.nonzero( dZall == 1 )[0]
-        #    accpetors = np.nonzero( dZall == -1 )[0]
-        #    if len(donors) == 2 and len(acceptors) == 2: # Double charge transfer with two donors and two acceptors
-        #        relationships[(2,0)].append( { 'donors': diffs[donors], 'acceptors' : diffs[acceptors], 'ESDs': (ESD1,ESD2) } )
-        else:
+                return { 'relationship' : (1,1), 'donor' : f, 'acceptor' : g, 'exciton' : h }
+            if dZf == -1 and dZg == 1 and dZh == 0:
+                return { 'relationship' : (1,1), 'donor' : g, 'acceptor' : g, 'exciton' : h }
+            if dZf == 1 and dZg == 0 and dZh == -1:
+                return { 'relationship' : (1,1), 'donor' : f, 'acceptor' : h, 'exciton' : g }
+            if dZf == -1 and dZg == 0 and dZh == 1:
+                return { 'relationship' : (1,1), 'donor' : h, 'acceptor' : f, 'exciton' : g }
+            if dZf == 0 and dZg == 1 and dZh == -1:
+                return { 'relationship' : (1,1), 'donor' : g, 'acceptor' : h, 'exciton' : f }
+            if dZf == 0 and dZg == -1 and dZh == 1:
+                return { 'relationship' : (1,1), 'donor' : h, 'acceptor' : g, 'exciton' : f }
             return None
-        return comparison
     #----END of excitonic_slater_determinant.compare------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 #----END of excitonic_slater_determinant class------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
@@ -196,10 +161,9 @@ class excitonic_configuration_state_function:
         self.ESDs = ESDs
         self.U = U
         ESD = self.ESDs[0]
-        sites = list(ESD.site_states.keys())
         self.site_states = ESD.site_states 
         #  self.ct_rank = sum( [ abs(self.site_states[site].Z-site.Z) for site in sites ] )/2
-        self.eci_rank = sum( [ 1 for site, state in self.site_states.items() if not any( [ state is astate for astate in site.aufbau_states ] ) ] )
+        self.eci_rank = sum( 1 for site, state in self.site_states.items() if not any( state is astate for astate in site.aufbau_states ) )
 
     def __repr__(self):
         s = '( '
@@ -237,18 +201,23 @@ class excitonic_basis:
 
     #----START of excitonic_basis.determine_relationships------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
     def determine_relationships(self):
+        self.relationships = {key: [] for key in [(0,0), (0,1), (0,2), (1,0), (1,1), (2,0)]}
         ESDs = self.ESDs
-        self.relationships = {(0,0):[], (0,1):[], (0,2):[], (1,0):[], (1,1):[], (2,0):[]} 
-        for i1, ESD1 in enumerate( ESDs ):
-            for i2, ESD2 in enumerate( ESDs[i1:] ):
+        n = len(ESDs)
+
+        for i1 in range(n):
+            ESD1 = ESDs[i1]
+            for i2 in range(i1, n):
+                ESD2 = ESDs[i2]
                 comparison = ESD1.compare(ESD2)
-                if comparison != None:
-                    rel =  comparison['relationship']
-                    del comparison['relationship']
-                    comparison['ESDs'] = ( ESD1, ESD2 )
-                    comparison['indices'] = (i1,i2+i1)
-                    self.relationships[rel].append( comparison )
-        return 
+                if comparison:
+                    rel = comparison.pop('relationship')
+                    comparison.update({
+                        'ESDs': (ESD1, ESD2),
+                        'indices': (i1, i2)
+                    })
+                    self.relationships[rel].append(comparison)
+
     #----END of excitonic_basis.determine_relationships------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 #----END of excitonic_basis class------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
@@ -339,7 +308,7 @@ class ECI:
 
         for site in sites:
             aufbau_states = []
-            for c, states in site.states.items():
+            for states in site.states.values():
                 for s in states:
                     if s in site.aufbau_states:
                         aufbau_states.append(s)
@@ -488,7 +457,6 @@ class ECI:
         job = self.job
         sites = self.sites
 
-        nf = len(sites)
         aufbaus = []
         aufbaustates = [ site.aufbau_states for site in sites ]
         aufbaus = list(itertools.product(*aufbaustates)) 
@@ -499,19 +467,6 @@ class ECI:
         if len( ESDs ) == 0:
             raise ValueError('       No aufbau ESD has the requested charge '+str(job.charge)+'! Either change the given set of aufbau site states or do not calculate this full-system charge. Aborting...')
     
-        # Take only those with requested CT level
-        #  status = []
-        #  for aufbau in ESDs:
-            #  status.append(False)
-            #  deltaZ = [ aufbau.site_states[f].Z - f.Z for f in sites ]
-            #  donors = tuple([ f for dZ, f in zip( deltaZ, sites ) for i in range(dZ) if dZ > 0 ])
-            #  acceptors = tuple([ f for dZ, f in zip( deltaZ, sites ) for i in range(-dZ) if dZ < 0 ]) 
-            #  level = sum([ abs(dZ) for dZ in deltaZ ])//2
-            #  if (donors, acceptors) in job.ct_level.get(level, []):
-                #  status[-1] = True
-        #  ESDs = [ ESD for i, ESD in enumerate(ESDs) if status[i] ]
-    
-        #  self.log.print(' Number of aufbau ESDs with correct charge and CT-level = '+str(len(ESDs)))
         self.log.print('       Aufbau ESDs ( # = '+str(len(ESDs))+' ):')
         for ESD in ESDs:
             self.log.print('          '+repr(ESD))
@@ -523,21 +478,22 @@ class ECI:
     def make_excitations( self, ESDs ):
         job = self.job
         sites = self.sites
-        excitedESDs = []
+        excitedESDs = set()
         for aufbau in ESDs:
+            site_states_map = aufbau.site_states
             for level, subsets in job.eci_level.items():
                 if level > 0:
                     for subset in subsets:
-                        site_state_lists = [ [ s for s in f.states[aufbau.site_states[f].Z] if not s in f.aufbau_states ] for f in subset ]
-                        excitations = list(itertools.product(*site_state_lists))
-                        for e in excitations:
-                            site_states = [ aufbau.site_states[f] if not f in subset else e[subset.index(f)] for f in sites ]
-                            ESD = excitonic_slater_determinant( sites=sites, site_states=site_states )
-                            if not ESD in excitedESDs: excitedESDs.append(ESD) 
+                        aufbau_state_sets = {f: set(f.aufbau_states) for f in subset}
+                        site_state_lists = ( [s for s in f.states[site_states_map[f].Z] if s not in aufbau_state_sets[f]] for f in subset)
+                        subset_index = {f: i for i, f in enumerate(subset)}
+                        for e in itertools.product(*site_state_lists):
+                            site_states = [ site_states_map[f] if not f in subset else e[subset_index[f]] for f in sites ]
+                            excitedESDs.add(excitonic_slater_determinant( sites=sites, site_states=site_states ))
         if job.eci_level.get(0,False):
-            ESDs = ESDs + excitedESDs
+            ESDs = ESDs + list(excitedESDs)
         else:
-            ESDs = excitedESDs
+            ESDs = list(excitedESDs)
         self.log.print('       Number of aufbau and excited ESDs before overlap criterion: '+str(len(ESDs)))
         self.log.print('')
         return ESDs                        
@@ -548,21 +504,21 @@ class ECI:
         self.log.print('       Overlap criterion:')
         self.log.print('')
         job = self.job
-        sites = self.sites
 
         # Get site-state pairs that overlap too much
         pairs_to_expell = {}
 
-        active_pairs = []
+        active_pairs = set()
         for JK in ["J","K"]:
             for int_type in [(0,0),(0,1),(0,2)]:
-                active_pairs += job.active_integrals[JK][int_type]
-        active_pairs = list(set(active_pairs))
+                active_pairs.update(job.active_integrals[JK][int_type])
 
-        for fpair in active_pairs:
-            pairs_to_expell[fpair] = []
-            f1, f2 = fpair
+        for f1, f2 in active_pairs:
+            pairs_to_expell[(f1, f2)] = []
             dimer = merge_moles( f1.mol, f2.mol )
+            if (dist := np.min(np.linalg.norm(f1.mol.atom_coords(unit="Ang")[:, np.newaxis, :] - f2.mol.atom_coords(unit="Ang")[np.newaxis, :, :], axis=-1))) > 1:
+                self.log.print(f"          Pair {f1.label}, {f2.label} skipped. Minimal distance {dist:.3f} A.")
+                continue
             SAO = dimer.intor('int1e_ovlp')[ 0:f1.mol.nao:, f1.mol.nao: ]
     
             for Z1, states1 in f1.states.items():
@@ -570,13 +526,17 @@ class ECI:
                     self.log.print('          (Fragment,charge) pair: ('+f1.label+','+str(Z1)+'), ('+f2.label+','+str(Z2)+'):')
                     S = {}
                     for s1 in states1:
+                        rho1a = f1.rho[s1.Z][(s1, s1, "aa")]
+                        rho1b = f1.rho[s1.Z][(s1, s1, "bb")]
                         for s2 in states2:
-                            O = 0.
-                            for spin in ['aa','bb']:
-                                rho1 = f1.rho[s1.Z][(s1, s1, spin)]
-                                rho2 = f2.rho[s2.Z][(s2, s2, spin)]
-                                O += np.einsum( 'ij,kl,il,jk', rho1, rho2, SAO, SAO, optimize=['einsum_path', (0, 2), (0, 1), (0, 1)] ) 
-                            S[(s1,s2)] = 1. - abs(O)
+                            rho2a = f2.rho[s2.Z][(s2, s2, "aa")]
+                            rho2b = f2.rho[s2.Z][(s2, s2, "bb")]
+                            S[(s1,s2)] = np.einsum('ij,kl,il,jk', rho1a, rho2a, SAO, SAO, optimize=['einsum_path', (0, 2), (0, 1), (0, 1)])
+                            S[(s1,s2)] += np.einsum('ij,kl,il,jk', rho1b, rho2b, SAO, SAO, optimize=['einsum_path', (0, 2), (0, 1), (0, 1)])
+
+                    # Final transformation of overlaps
+                    for key in S:
+                        S[key] = 1.0 - abs(S[key])
                     pairmax = max(S, key=S.get)
                     Omax = S[pairmax]
                     self.log.print('             The best complement overlap: 1 - < '+pairmax[0].symbol(Z=False)+' | '+pairmax[1].symbol(Z=False)+' > = '+str(Omax))
@@ -593,15 +553,15 @@ class ECI:
                     self.log.print('')
 
         # Remove ESDs containing at least one such site-state pair
-        toremove = []
+        toremove = set()
         for ESD in ESDs:
             for (f1,f2), spairs in pairs_to_expell.items():
                 for (s1,s2) in spairs:
-                    if ESD.site_states[f1] // s1 and ESD.site_states[f2] // s2:
+                    if ESD.site_states.get(f1) // s1 and ESD.site_states.get(f2) // s2:
                         #  self.log.print(' Expelling ESD '+repr(ESD)+' due to the overlap of '+repr(s1)+' of '+f1.label+' and '+repr(s2)+' of '+f2.label)
-                        toremove.append( ESD )
+                        toremove.add( ESD )
                         break
-        ESDs = [ ESD for ESD in ESDs if not ESD in toremove ]
+        ESDs = [ ESD for ESD in ESDs if ESD not in toremove ]
         self.log.print('       Number of aufbau and excited ESDs after overlap criterion: '+str(len(ESDs)))
         #  self.log.print('       Aufbau and excited ESDs after overlap criterion ( # = '+str(len(ESDs))+'):')
         #  for ESD in ESDs:
@@ -619,9 +579,9 @@ class ECI:
         groups = {}
         for ESD in ESDs:
             found = False
-            for keyESD in groups:
+            for keyESD, valESD in groups.items():
                 if keyESD // ESD:
-                    groups[keyESD].append( ESD )
+                    valESD.append( ESD )
                     found = True
                     break
             if not found:
@@ -630,7 +590,7 @@ class ECI:
         ECSFs = []
         for keyESD, groupESDs in groups.items():
             S2mat = self.calculate_S2mat(groupESDs)
-            S2val, groupU = np.linalg.eigh( S2mat, 'U' )
+            S2val, groupU = np.linalg.eigh( S2mat, UPLO="U" )
             mults = ( np.sqrt(4.*abs(S2val)) + 1. ).astype(int)
             for i, mult in enumerate(mults):
                 if mult == m:
@@ -638,14 +598,15 @@ class ECI:
         if len(ECSFs) == 0:
             raise ValueError(f"          No ECSF that can be generated from given states and chosen ECI expansion corresponds to the requested multiplicity {m}")
 
-        ESDs = list(set([ ESD for ECSF in ECSFs for ESD in ECSF.ESDs ]))
+        ESDs = list({ESD for ECSF in ECSFs for ESD in ECSF.ESDs})
+        ESD_index = {ESD: i for i, ESD in enumerate(ESDs)}
         self.log.print('          Constructed '+str(len(ECSFs))+' ECSFs spanned by '+str(len(ESDs))+' ESDs:')
 
         # Build big U
         U = np.zeros((len(ESDs),len(ECSFs)))
         for j, ECSF in enumerate(ECSFs):
             for i, ESD in enumerate(ECSF.ESDs):
-                U[ESDs.index(ESD),j] = ECSF.U[i]
+                U[ESD_index[ESD], j] = ECSF.U[i]
 
         for i, ECSF in enumerate(ECSFs):
             self.log.print('')
@@ -658,41 +619,66 @@ class ECI:
 
     #----START of ECI.calculate_S2mat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
     def calculate_S2mat(self, ESDs):
-        nESD = len( ESDs )
-        S2mat = np.zeros( (nESD, nESD) )
+        nESD = len(ESDs)
+        S2mat = np.zeros((nESD, nESD))
         sites = list(ESDs[0].site_states.keys())
 
+        # Precompute site_states, S/2, M/2 for each ESD
+        ESD_data = []
+        for ESD in ESDs:
+            states = ESD.site_states
+            data = {
+                'states': states,
+                'S_by_2': {f: states[f].S / 2. for f in sites},
+                'M_by_2': {f: states[f].M / 2. for f in sites}
+            }
+            ESD_data.append(data)
+
         # Diagonal
-        for i, ESD in enumerate( ESDs ):
-            S2mat[i,i] += sum( [ ESD.site_states[f].S/2. * ( ESD.site_states[f].S/2. + 1. ) for f in sites ] ) 
-            S2mat[i,i] += 2.*sum( [ ESD.site_states[f].M/2.*ESD.site_states[g].M/2. for j,f in enumerate(sites) for g in sites[j+1:] ] )
-        # Off-diagonal
-        for (i,j) in itertools.combinations( range(len(ESDs)), 2 ):
-            ESD1, ESD2 = ESDs[i], ESDs[j]
-            diffs = [ f for f in ESD1.site_states if not ESD1.site_states[f] is ESD2.site_states[f] ]
-            if len(diffs) == 2:
-                f, g = diffs
-                sf1, sg1 = ESD1.site_states[f], ESD1.site_states[g]
-                sf2, sg2 = ESD2.site_states[f], ESD2.site_states[g]
-                if sf1 // sf2 and sg1 // sg2: # Comparison up to MS value
-                    if sf1.M == sf2.M - 2 and sg1.M == sg2.M + 2:
-                        x = sf1.S/2.*( sf1.S/2. + 1. ) - sf1.M/2.*( sf1.M/2. + 1. ) 
-                        y = sg1.S/2.*( sg1.S/2. + 1. ) - sg1.M/2.*( sg1.M/2. - 1. ) 
-                        S2mat[i,j] = math.sqrt(x)*math.sqrt(y)
-                    elif sf1.M == sf2.M + 2 and sg1.M == sg2.M - 2: 
-                        x = sf1.S/2.*( sf1.S/2. + 1. ) - sf1.M/2.*( sf1.M/2. - 1. ) 
-                        y = sg1.S/2.*( sg1.S/2. + 1. ) - sg1.M/2.*( sg1.M/2. + 1. ) 
-                        S2mat[i,j] = math.sqrt(x)*math.sqrt(y)
+        for i, data in enumerate(ESD_data):
+            diag = sum(S * (S + 1) for S in data['S_by_2'].values())
+            m_vals = data['M_by_2']
+            diag += 2.0 * sum(m_vals[f] * m_vals[g] for idx, f in enumerate(sites) for g in sites[idx+1:])
+            S2mat[i, i] = diag
+
+        # Off-diagonal (upper triangle only)
+        for (i, j) in itertools.combinations(range(nESD), 2):
+            states_i = ESD_data[i]['states']
+            states_j = ESD_data[j]['states']
+
+            # Sites where the local states differ
+            diffs = [f for f in sites if states_i[f] is not states_j[f]]
+            if len(diffs) != 2:
+                continue
+
+            f, g = diffs
+            sf1, sg1 = states_i[f], states_i[g]
+            sf2, sg2 = states_j[f], states_j[g]
+
+            # Check that they are equivalent up to M (// operator)
+            if sf1 // sf2 and sg1 // sg2:
+                M1_f, M2_f = sf1.M, sf2.M
+                M1_g, M2_g = sg1.M, sg2.M
+                S_f, S_g = sf1.S / 2., sg1.S / 2.
+                M_f, M_g = sf1.M / 2., sg1.M / 2.
+
+                if M1_f == M2_f - 2 and M1_g == M2_g + 2:
+                    x = S_f * (S_f + 1) - M_f * (M_f + 1)
+                    y = S_g * (S_g + 1) - M_g * (M_g - 1)
+                    S2mat[i, j] = math.sqrt(x * y)
+                elif M1_f == M2_f + 2 and M1_g == M2_g - 2:
+                    x = S_f * (S_f + 1) - M_f * (M_f - 1)
+                    y = S_g * (S_g + 1) - M_g * (M_g + 1)
+                    S2mat[i, j] = math.sqrt(x * y)
+
         return S2mat
     #----END of ECI.calculate_S2mat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
     #----START of ECI.allocate------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
     def allocate(self):
         job = self.job
-        sites = self.sites
         for m in job.multiplicities: 
             nESD = len(self.ECIbasis[m].ESDs)
-            nECSF = len(self.ECIbasis[m].ECSFs)
             self.H[m] = np.zeros((nESD,nESD))
             self.J[m] = np.zeros((nESD,nESD))
             self.K[m] = np.zeros((nESD,nESD))
@@ -707,8 +693,9 @@ class ECI:
     def calculate_Fmat( self, nucs, mol ):
         F = np.zeros((mol.nao, mol.nao))
         for g in nucs:
-            for a in range(g.mol.natm):
-                Z, R = g.mol.atom_charge(a) - g.Q[a], g.mol.atom_coord(a)
+            charges = g.mol.atom_charges() - g.Q
+            coords = g.mol.atom_coords()
+            for Z, R in zip(charges, coords):
                 mol.set_rinv_orig(R)
                 F += Z*mol.intor('int1e_rinv')
         return F
@@ -721,9 +708,9 @@ class ECI:
         supermolecule = None
         for mol in moles:
             if not mol in starts.keys():
-                starts[mol] = sum( [ m.nbas for m in starts.keys() ] )
+                starts[mol] = sum( m.nbas for m in starts.keys() )
                 ends[mol] = starts[mol] + mol.nbas 
-                if supermolecule == None:
+                if supermolecule is None:
                     supermolecule = mol.copy()
                 else:
                     supermolecule = merge_moles( supermolecule, mol )
@@ -737,28 +724,23 @@ class ECI:
     #----END of ECI.calculate_Gtensor------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
 
     @staticmethod
-    def extract_subbasis_from_global_indices(logger, mole_basis, atoms, global_indices):
+    def extract_subbasis_from_global_indices(mole_basis, atoms, global_indices):
         subbasis = {}
         current_global_index = 0  # To track the global shell index
         
-        #  logger.print('global_indices = '+str(global_indices))
         for atom in atoms:
-            #  logger.print('atom = ', str(atom))
             filtered_shells = []
             shells = mole_basis[atom]
             # Iterate over local shells for this atom
-            for local_index, shell in enumerate(shells):
+            for shell in shells:
                 # Check if the current global index is in the list of global indices to keep
-                #  logger.print('local_index, shell = '+str(local_index)+', '+str(shell))
-                #  logger.print('current_global_inde = '+str(current_global_index))
                 if current_global_index in global_indices:
                     filtered_shells.append(shell)
                 # Increment the global index after each shell
-                #  logger.print('filtered_shells = '+str(filtered_shells))
                 current_global_index += 1
             # If we found any shells for this atom, add them to the subbasis
             if filtered_shells:
-                subbasis[atom] = filtered_shells.copy()
+                subbasis[atom] = filtered_shells
         return subbasis
 
     @staticmethod
@@ -779,12 +761,9 @@ class ECI:
         self.log.print('    CONSTRUCTION OF THE ECI HAMILTONIAN:')
         job = self.job
         ECIbasis = self.ECIbasis
-        sites = self.sites
         H = self.H
         J = self.J
         K = self.K
-        #  self.calculate_Smat()
-        #  S = self.S
 
         helpvars = ['rhos', 'Fmat', 'locs', 'values', 'G', 'G1', 'rhos1', 'rhos2', 'P', 'L1', 'L2', 'LP1', 'loc_lists']
 
@@ -794,31 +773,31 @@ class ECI:
         self.log.print('')
         self.log.print('       Generating the dictionary of ECI integrals took '+str(round(t2-t1,3))+' sec.')
 
-        integrals, prefactors  = ECI_integrals
-        integrals  = integrals.get( 'ECI_V', None )
-        if integrals != None:
+        integrals = ECI_integrals.get( 'ECI_V', None )
+        if integrals is not None:
             self.log.print('')
             self.log.print('       Calculating ECI V-integrals...')
             for f, nucs__densities__locs in integrals.items():
+                f_label = f.label
+                f_mol = f.mol
+                f_rho = f.rho
                 for nucs, densities__locs in nucs__densities__locs.items():
-                    self.log.print('           Site: '+f.label+', Nuclei: '+', '.join([nuc.label for nuc in nucs]))
+                    self.log.print('           Site: '+f_label+', Nuclei: '+', '.join([nuc.label for nuc in nucs]))
                     t1 = time.time()
-                    Fmat = self.calculate_Fmat( nucs, f.mol )
-                    rhos = np.array([ f.rho[d[0].Z][d] for d in densities__locs.keys() ])
+                    Fmat = self.calculate_Fmat( nucs, f_mol )
+                    rhos = np.array([ f_rho[d[0].Z][d] for d in densities__locs.keys() ])
                     locs = densities__locs.values() 
                     values = np.einsum( 'ij,nij->n', Fmat, rhos, optimize=['einsum_path', (0,1)] ) 
                     t2 = time.time()
                     self.log.print('              Took '+str(round(t2-t1,3))+' sec.')
-                    for i, individual_locs in enumerate(locs):
+                    for val, individual_locs in zip(values, locs):
                         for (mult,row,column) in individual_locs:
-                            J[mult][row,column] -= values[i]
+                            J[mult][row,column] -= val
             for var in helpvars:
-                if var in locals():
-                    del var
+                locals().pop(var, None)
 
-        integrals, prefactors  = ECI_integrals
-        integrals  = integrals.get( 'ECI_J', None )
-        if integrals != None:
+        integrals = ECI_integrals.get( 'ECI_J', None )
+        if integrals is not None:
             self.log.print('')
             self.log.print('        Calculating ECI J-integrals...')
             for (f1,f2), densities1__densities2__locs in integrals.items():
@@ -831,7 +810,6 @@ class ECI:
                     G = self.calculate_Gtensor( [f1.mol, f1.mol, f2.mol, f2.mol] ) 
                     t2 = time.time()
                     self.log.print('             Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
-                    rhos1 = np.array([ f1.rho[d1[0].Z][d1] for d1 in densities1__densities2__locs.keys() ]) 
                     t1 = time.time()
                     G1 = np.einsum( 'mij,ijkl->mkl', rhos1, G, optimize=['einsum_path', (0, 1)] )
                     t2 = time.time()
@@ -853,25 +831,18 @@ class ECI:
                     auxmol = merge_moles( f1.mol, f2.mol )
                     auxmol.build(basis=job.ri['Jauxbasis'])
                     t1 = time.time()
-                    P = auxmol.intor('int2c2e')
-                    P = np.linalg.inv(P)
-                    #  P = sp.linalg.cholesky(P, lower=True)
+                    P = np.linalg.inv(auxmol.intor('int2c2e'))
                     t2 = time.time()
                     self.log.print('             Calculation of P-matrix of dim. '+str(P.shape)+' took '+str(round(t2-t1,3))+' sec.')
                     t1 = time.time()
                     calcmol = merge_moles( f1.mol, auxmol )
                     L1 = calcmol.intor('int3c2e', shls_slice=(0, f1.mol.nbas, 0, f1.mol.nbas, f1.mol.nbas, calcmol.nbas))
-                    #  L1 = np.swapaxes( np.swapaxes( L1, 0 , 2 ), 1, 2 )
-                    #  L1 = sp.linalg.solve_triangular(P, L1, lower=True, overwrite_b=True, check_finite=False)
                     calcmol = merge_moles( f2.mol, auxmol )
                     L2 = calcmol.intor('int3c2e', shls_slice=(0, f2.mol.nbas, 0, f2.mol.nbas, f2.mol.nbas, calcmol.nbas))
-                    #  L2 = np.swapaxes( np.swapaxes( L2, 0 , 2 ), 1, 2 )
-                    #  L2 = sp.linalg.solve_triangular(P, L2, lower=True, overwrite_b=True, check_finite=False)
                     t2 = time.time()
                     self.log.print('             Calculation of L-tensors of dims. '+str(L1.shape)+' and '+str(L2.shape)+' took '+str(round(t2-t1,3))+' sec.')
                     t1 = time.time()
                     LP12 = oe.contract('mij,ijp,pq,klq->mkl', rhos1, L1, P, L2, optimize=True)
-                    #  LP12 = np.einsum('mij,pij,pkl->mkl', rhos1, L1, L2, optimize=True )
                     t2 = time.time()
                     self.log.print('             First contraction took '+str(round(t2-t1,3))+' sec.')
                     t1 = time.time()
@@ -880,30 +851,25 @@ class ECI:
                     t2 = time.time()
                     self.log.print('             Second contraction took '+str(round(t2-t1,3))+' sec.')
                     t1 = time.time()
-                    for i in range(rhos1.shape[0]):
-                        for j in range(rhos2[i].shape[0]):
-                            locs = loc_lists[i][j]
-                            for (mult,row,column) in locs:
-                                J[mult][row,column] += values[i][j]
+                    for i, val_row in enumerate(values):
+                        for j, val in enumerate(val_row):
+                            for (mult,row,column) in loc_lists[i][j]:
+                                J[mult][row,column] += val
                     t2 = time.time()
                     self.log.print('             Distribution took '+str(round(t2-t1,3))+' sec.')
             for var in helpvars:
-                if var in locals():
-                    del var
+                locals().pop(var, None)
 
-
-        integrals, prefactors  = ECI_integrals
-        integrals  = integrals.get( 'ECI_K', None )
-        if integrals != None:
+        integrals = ECI_integrals.get( 'ECI_K', None )
+        if integrals is not None:
             self.log.print('')
             self.log.print('       Calculating ECI K-integrals...')
             for (f1,f2), densities1__densities2__locs in integrals.items():
                 self.log.print('          Site 1: '+f1.label+', Site 2: '+f2.label)
-                rhos1 = np.array([ f1.rho[d1[0].Z][d1] for d1 in densities1__densities2__locs.keys() ]) 
-                rhos2 = [ np.array([ f2.rho[d2[0].Z][d2] for d2 in densities2__locs.keys() ]) for densities2__locs in densities1__densities2__locs.values() ] 
                 loc_lists = [ list(densities2__locs.values()) for densities2__locs in densities1__densities2__locs.values() ]
                 if not job.ri['active']:
-                #  if True:
+                    rhos1 = np.array([ f1.rho[d1[0].Z][d1] for d1 in densities1__densities2__locs.keys() ]) 
+                    rhos2 = [ np.array([ f2.rho[d2[0].Z][d2] for d2 in densities2__locs.keys() ]) for densities2__locs in densities1__densities2__locs.values() ] 
                     t1 = time.time()
                     G = self.calculate_Gtensor( [f1.mol, f2.mol, f1.mol, f2.mol] ) 
                     t2 = time.time()
@@ -928,6 +894,9 @@ class ECI:
                     t2 = time.time()
                     self.log.print('             Distribution took '+str(round(t2-t1,3))+' sec.')
                 else:
+                    if (dist := np.min(np.linalg.norm(f1.mol.atom_coords(unit="Ang")[:, np.newaxis, :] - f2.mol.atom_coords(unit="Ang")[np.newaxis, :, :], axis=-1))) > 5:
+                        self.log.print(f"             Pair {f1.label}, {f2.label} skipped. Minimal distance {dist:.3f} A.")
+                        continue
                     slices_1 = f1.mol.aoslice_by_atom()
                     aos_to_atoms_1 = {}
                     for i in range(f1.mol.natm):
@@ -950,32 +919,27 @@ class ECI:
                         shells_2.add( self.ao2shell(f2.mol, c) )
                     atoms_1 = list(atoms_1)
                     atoms_2 = list(atoms_2)
+                    if len(atoms_1) == 0 or len(atoms_2) == 0:
+                        self.log.print('             No overlapping AOs, skipping this pair of fragments.')
+                        continue
                     shells_1 = list(shells_1)
                     shells_2 = list(shells_2)
                     aos_1 = [ ao for shell in shells_1 for ao in range(f1.mol.ao_loc[shell], f1.mol.ao_loc[shell + 1] if shell + 1 < len(f1.mol.ao_loc) else f1.mol.nao) ]
                     aos_2 = [ ao for shell in shells_2 for ao in range(f2.mol.ao_loc[shell], f2.mol.ao_loc[shell + 1] if shell + 1 < len(f2.mol.ao_loc) else f2.mol.nao) ]
-                    #  aos_1 = list(aos_1)
-                    #  aos_2 = list(aos_2)
 
-                    if len(atoms_1) == 0 or len(atoms_2) == 0:
-                        self.log.print('             No overlapping AOs, skipping this pair of fragments.')
-                        continue
-                    else:
-                        self.log.print('             Number of atoms per fragment: '+str(len(atoms_1))+'/'+str(f1.mol.natm)+' and '+str(len(atoms_2))+'/'+str(f2.mol.natm))
-                        self.log.print('             Number of shells per fragment: '+str(len(shells_1))+'/'+str(f1.mol.nbas)+' and '+str(len(shells_2))+'/'+str(f2.mol.nbas))
-                        self.log.print('             Number of AOs per fragment: '+str(len(aos_1))+'/'+str(f1.mol.nao)+' and '+str(len(aos_2))+'/'+str(f2.mol.nao))
+                    self.log.print('             Number of atoms per fragment: '+str(len(atoms_1))+'/'+str(f1.mol.natm)+' and '+str(len(atoms_2))+'/'+str(f2.mol.natm))
+                    self.log.print('             Number of shells per fragment: '+str(len(shells_1))+'/'+str(f1.mol.nbas)+' and '+str(len(shells_2))+'/'+str(f2.mol.nbas))
+                    self.log.print('             Number of AOs per fragment: '+str(len(aos_1))+'/'+str(f1.mol.nao)+' and '+str(len(aos_2))+'/'+str(f2.mol.nao))
 
 
-
-                    #  aos1 = [ ao for a in atoms_1 for ao in range(slices_1[a][2], slices_1[a][3]) ]
-                    #  aos2 = [ ao for a in atoms_2 for ao in range(slices_2[a][2], slices_2[a][3]) ]
-
+                    rhos1 = np.array([ f1.rho[d1[0].Z][d1] for d1 in densities1__densities2__locs.keys() ]) 
+                    rhos2 = [ np.array([ f2.rho[d2[0].Z][d2] for d2 in densities2__locs.keys() ]) for densities2__locs in densities1__densities2__locs.values() ] 
                     rhos1 = np.take( np.take( rhos1, aos_1, axis=1), aos_1, axis=2 )
                     rhos2 = [ np.take( np.take( rho2, aos_2, axis=1), aos_2, axis=2) for rho2 in rhos2 ]
 
                     geom1 = f1.mol.atom_coords(unit='Bohr')[atoms_1,:]
                     sym1 = [ f1.mol.atom_symbol(i) for i in atoms_1]
-                    bas1 = self.extract_subbasis_from_global_indices( self.log, f1.mol.basis, [ f1.mol.atom_symbol(i) for i in range(f1.mol.natm)], shells_1 ) 
+                    bas1 = self.extract_subbasis_from_global_indices(f1.mol.basis, [ f1.mol.atom_symbol(i) for i in range(f1.mol.natm)], shells_1 ) 
                     atom1 = [ [ sym, (geom[0],geom[1],geom[2])] for sym, geom in zip(sym1,geom1)]
                     calcmol1 = gto.Mole(atom=atom1,basis=bas1,unit='Bohr')
                     try:
@@ -984,7 +948,7 @@ class ECI:
                         calcmol1.build(spin=1)
                     geom2 = f2.mol.atom_coords(unit='Bohr')[atoms_2,:]
                     sym2 = [ f2.mol.atom_symbol(i) for i in atoms_2]
-                    bas2 = self.extract_subbasis_from_global_indices( self.log, f2.mol.basis, [ f2.mol.atom_symbol(i) for i in range(f2.mol.natm)], shells_2 ) 
+                    bas2 = self.extract_subbasis_from_global_indices(f2.mol.basis, [ f2.mol.atom_symbol(i) for i in range(f2.mol.natm)], shells_2 ) 
                     atom2 = [ [ sym, (geom[0],geom[1],geom[2])] for sym, geom in zip(sym2,geom2)]
                     calcmol2 = gto.Mole(atom=atom2,basis=bas2,unit='Bohr')
                     try:
@@ -994,7 +958,6 @@ class ECI:
 
                     calcmol = merge_moles( calcmol1, calcmol2 )
                     auxmol = merge_moles( f1.mol, f2.mol )
-                    #  auxmol = calcmol.copy()
                     auxmol.build(basis=job.ri['Kauxbasis'])
                     t1 = time.time()
                     P = auxmol.intor('int2c2e')
@@ -1005,7 +968,7 @@ class ECI:
                     t1 = time.time()
                     calcmol = merge_moles( calcmol, auxmol )
                     L = calcmol.intor('int3c2e', shls_slice=(0, calcmol1.nbas, calcmol1.nbas, calcmol1.nbas+calcmol2.nbas, calcmol1.nbas+calcmol2.nbas, calcmol.nbas ))
-                    L = np.swapaxes( np.swapaxes( L, 0, 2 ), 1, 2 )
+                    L = np.transpose(L, (2, 0, 1))
                     t2 = time.time()
                     self.log.print('             Calculation of L-tensor of dim. '+str(L.shape)+' took '+str(round(t2-t1,3))+' sec.')
 
@@ -1015,14 +978,10 @@ class ECI:
                     self.log.print('             Calculation of Cholesky factors took '+str(round(t2-t1,3))+' sec.')
 
                     t1 = time.time()
-                    Labs = np.abs(L)
-                    mask = Labs > job.ri['tC']
+                    mask = np.abs(L) > job.ri['tC']
                     big_aux = np.where(np.any(mask, axis=(1,2)))[0]
                     big1    = np.where(np.any(mask, axis=(0,2)))[0]
                     big2    = np.where(np.any(mask, axis=(0,1)))[0]
-                    #  L = np.ascontiguousarray(L[np.ix_(big_aux, big1, big2)])
-                    #  rhos1 = np.ascontiguousarray(rhos1[:, big1][:, :, big1])
-                    #  rhos2 = [rho2[:, big2][:, :, big2] for rho2 in rhos2]
                     L = np.ascontiguousarray(np.take( np.take( np.take( L, big_aux, axis=0 ), big1, axis=1), big2, axis=2 ))
                     rhos1 = np.ascontiguousarray(np.take( np.take( rhos1, big1, axis=1), big1, axis=2 ))
                     rhos2 = [ np.ascontiguousarray(np.take( np.take( rho2, big2, axis=1 ), big2, axis=2 )) for rho2 in rhos2 ]
@@ -1039,12 +998,11 @@ class ECI:
                             chunk += 1
                             start = (chunk-1)*chunksize
                             stop = start + chunksize 
-                            if stop > rhos1.shape[0]: stop = rhos1.shape[0]
+                            stop = min(stop, rhos1.shape[0])
                             t1 = time.time()
                             self.log.print('             Chunk '+str(chunk)+' ( contracting '+str(stop-start)+' densities of the first fragment )...')
                             X = np.tensordot(np.ascontiguousarray(rhos1[start:stop,:,:]),L, axes=([2],[1])) # mij,pjk->mipk
                             LP12 = np.tensordot(X, L, axes=([1,2],[1,0])) #mipk, pil -> mkl
-                            #  LP12 = oe.contract('ij,pil,pjk->kl', np.ascontiguousarray(rhos1[m,:,:]), L, L, optimize=True)
                             values = [ np.einsum('kl,nkl->n', LP12[m,:,:], rhos2[m+start] ) for m in range(stop-start) ]
                             for m in range(stop-start):
                                 for n in range(rhos2[m+start].shape[0]):
@@ -1057,182 +1015,16 @@ class ECI:
                     else:
                         self.log.print('             No K-integrals for this fragment pair.')
             for var in helpvars:
-                if var in locals():
-                    del var
-
-        #  integrals, prefactors  = ECI_integrals
-        #  integrals  = integrals.get( 'SCT_V', None )
-        #  if integrals != None:
-            #  self.log.print(' Calculating SCT V-integrals...')
-            #  for (f1,f2,nucs), dysons1__dysons2__locs in integrals.items():
-                #  N = sum([ len(dysons2) for dysons2 in dysons1__dysons2__locs.values() ])
-                #  self.log.print('    Site 1: '+f1.label+', Site 2:'+f2.label+', Nuclei: '+', '.join([nuc.label for nuc in nucs])+' (# = '+str(N)+')')
-                #  t1 = time.time()
-                #  dimer = merge_moles( f1.mol, f2.mol )
-                #  Tmat = dimer.intor('int1e_kin')[:f1.mol.nao,f1.mol.nao:]  
-                #  Fmat = self.calculate_Fmat( nucs, dimer )[:f1.mol.nao,f1.mol.nao:] 
-                #  hmat = Tmat + Fmat
-                #  t2 = time.time()
-                #  self.log.print('       Calculation of h-mat took '+str(round(t2-t1,3))+' sec.')
-
-                #  t1 = time.time()
-                #  phis1 = np.array( [ f1.phi[(do1[0].Z,do1[1].Z)][do1] for do1 in dysons1__dysons2__locs.keys() ] )
-                #  h1 = np.einsum( 'mi,ij->mj', phis1, hmat, optimize=['einsum_path', (0,1)] ) 
-                #  t2 = time.time()
-                #  self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
-                #  t1 = time.time()
-                #  for i1, dysons2__locs in enumerate(dysons1__dysons2__locs.values()):
-                    #  phis2 = np.array( [ f2.phi[(do2[0].Z,do2[1].Z)][do2] for do2 in dysons2__locs.keys() ] )
-                    #  loc_lists = dysons2__locs.values()
-                    #  values = np.einsum('j,nj->n', h1[i1], phis2, optimize=['einsum_path', (0,1)] )
-                    #  for i, locs in enumerate(loc_lists):
-                        #  for (mult,row,column) in locs:
-                            #  J[mult][row,column] -= prefactors[(mult,row,column)]*values[i]
-                #  t2 = time.time()
-                #  self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
-            #  for var in helpvars:
-                #  if var in locals():
-                    #  del var
-                    
-        #  integrals, prefactors  = ECI_integrals
-        #  integrals  = integrals.get( 'SCT_I', None )
-        #  if integrals != None:
-            #  self.log.print(' Calculating internal SCT J- and K-integrals...')
-            #  for (f1,f2,f), dysons1_dysons2__Jdensities_Kdensities__locs in integrals.items():
-                #  self.log.print('    Site 1: '+f1.label+', Site 2:'+f2.label+', Site 3: '+f.label)
-                #  t1 = time.time()
-                #  G = self.calculate_Gtensor( [ f1.mol, f2.mol, f.mol, f.mol ] )
-                #  t2 = time.time()
-                #  self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
-
-                #  self.log.print('       Calculating J-integrals...')
-                #  phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() ]) 
-                #  phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2), Jdensities_Kdensities__locs in dysons1_dysons2__Jdensities_Kdensities__locs.items() ])
-                #  self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
-                #  t1 = time.time()
-                #  G12 = np.einsum('mi,mj,ijkl->mkl', phis1, phis2, G, optimize=True )
-                #  t2 = time.time()
-                #  self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
-                #  t1 = time.time()
-                #  for i12, Jdensities_Kdensities__locs in enumerate(dysons1_dysons2__Jdensities_Kdensities__locs.values()):
-                    #  rhos = np.array( [ f.rho[Jdensity[0].Z][Jdensity] for (Jdensity,_) in Jdensities_Kdensities__locs.keys() if Jdensity != None ] )
-                    #  if len(rhos) == 0: continue
-                    #  loc_lists = [ locs for (Jdensity,_), locs in Jdensities_Kdensities__locs.items() if Jdensity != None ]
-                    #  values = np.einsum('kl,nkl->n', G12[i12,:,:], rhos, optimize=['einsum_path', (0, 1)] )
-                    #  for i, locs in enumerate(loc_lists):
-                        #  for (mult,row,column) in locs:
-                            #  J[mult][row,column] += prefactors[(mult,row,column)]*values[i]
-                #  t2 = time.time()
-                #  self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
-                #  del rhos
-                #  del loc_lists
-                #  del values
-
-                #  self.log.print('       Calculating K-integrals...')
-                #  self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
-                #  t1 = time.time()
-                #  if f is f1: G12 = np.einsum('mi,mj,kjil->mkl', phis1, phis2, G, optimize=True )
-                #  if f is f2: G12 = np.einsum('mi,mj,iljk->mkl', phis1, phis2, G, optimize=True )
-                #  del G
-                #  t2 = time.time()
-                #  self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
-                #  t1 = time.time()
-                #  for i12, Jdensities_Kdensities__locs in enumerate(dysons1_dysons2__Jdensities_Kdensities__locs.values()):
-                    #  rhos = np.array( [ f.rho[Kdensity[0].Z][Kdensity] for (_,Kdensity) in Jdensities_Kdensities__locs.keys() if Kdensity != None ] )
-                    #  if len(rhos) == 0: continue
-                    #  loc_lists = [ locs for (_,Kdensity), locs in Jdensities_Kdensities__locs.items() if Kdensity != None ]
-                    #  values = np.einsum('kl,nkl->n', G12[i12,:,:], rhos, optimize=['einsum_path', (0, 1)] )
-                    #  for i, locs in enumerate(loc_lists):
-                        #  for (mult,row,column) in locs:
-                            #  K[mult][row,column] += prefactors[(mult,row,column)]*values[i]
-                #  t2 = time.time()
-                #  self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
-            #  for var in helpvars:
-                #  if var in locals():
-                    #  del var
-
-        #  # Needs to be corrected
-        #  integrals, prefactors  = ECI_integrals
-        #  integrals  = integrals.get( 'SCT_J', None )
-        #  if integrals != None:
-            #  self.log.print(' Calculating external SCT J-integrals...')
-            #  for (f1,f2,f), dysons1_dysons2__Jdensities__locs in integrals.items():
-                #  t1 = time.time()
-                #  G = self.calculate_Gtensor( [ f1.mol, f2.mol, f.mol, f.mol ] )
-                #  t2 = time.time()
-                #  self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
-                #  phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_) in dysons1_dysons2__Jdensities__locs.keys() ]) 
-                #  phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2) in dysons1_dysons2__Jdensities__locs.keys() ])
-                #  self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
-                #  t1 = time.time()
-                #  G12 = np.einsum('mi,mj,ijkl->mkl', phis1, phis2, G, optimize=True )
-                #  del G
-                #  t2 = time.time()
-                #  self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
-                #  t1 = time.time()
-                #  for i12, Jdensities__locs in enumerate(dysons1_dysons2__Jdensities__locs.values()):
-                    #  rhos = np.array( [ f.rho[Jdensity[0].Z][Jdensity] for Jdensity in Jdensities__locs.keys() ] )
-                    #  if len(rhos) == 0: continue
-                    #  loc_lists = [ locs for locs in Jdensities__locs.values() ]
-                    #  values = np.einsum('kl,nkl->n', G12[i12,:,:], rhos, optimize=['einsum_path', (0, 1)] )
-                    #  for i, locs in enumerate(loc_lists):
-                        #  for (mult,row,column) in locs:
-                            #  J[mult][row,column] += prefactors[(mult,row,column)]*values[i]
-                #  t2 = time.time()
-                #  self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
-            #  for var in helpvars:
-                #  if var in locals():
-                    #  del var
-
-        #  integrals, prefactors  = ECI_integrals
-        #  integrals  = integrals.get( 'SCT_K', None )
-        #  if integrals != None:
-            #  self.log.print(' Calculating external SCT K-integrals...')
-            #  for (f1,f2,f), dysons1_dysons2__Kdensities__locs in integrals.items():
-                #  t1 = time.time()
-                #  G = self.calculate_Gtensor( [ f1.mol, f.mol, f2.mol, f.mol ] )
-                #  t2 = time.time()
-                #  self.log.print('       Calculation of G-tensor of dim. '+str(G.shape)+' took '+str(round(t2-t1,3))+' sec.')
-                #  phis1 = np.array([ f1.phi[(do1[0].Z,do1[1].Z)][do1] for (do1,_) in dysons1_dysons2__Kdensities__locs.keys() ]) 
-                #  phis2 = np.array([ f2.phi[(do2[0].Z,do2[1].Z)][do2] for (_,do2) in dysons1_dysons2__Kdensities__locs.keys() ])
-                #  self.log.print('       Doing the first contraction for '+str(phis1.shape[0])+' Dyson-orbital pairs...')
-                #  t1 = time.time()
-                #  G12 = np.einsum('mi,mj,ilkj->mkl', phis1, phis2, G, optimize=True )
-                #  del G
-                #  t2 = time.time()
-                #  self.log.print('       First contraction took '+str(round(t2-t1,3))+' sec.')
-                #  t1 = time.time()
-                #  for i12, Kdensities__locs in enumerate(dysons1_dysons2__Kdensities__locs.values()):
-                    #  rhos = np.array( [ f.rho[Kdensity[0].Z][Kdensity] for Kdensity in Kdensities__locs.keys() ] )
-                    #  if len(rhos) == 0: continue
-                    #  loc_lists = [ locs for locs in Kdensities__locs.values() ]
-                    #  values = np.einsum('kl,nkl->n', G12[i12,:,:], rhos, optimize=['einsum_path', (0, 1)] )
-                    #  for i, locs in enumerate(loc_lists):
-                        #  for (mult,row,column) in locs:
-                            #  K[mult][row,column] += prefactors[(mult,row,column)]*values[i]
-                #  t2 = time.time()
-                #  self.log.print('       Second contraction and distribution took '+str(round(t2-t1,3))+' sec.')
-            #  for var in helpvars:
-                #  if var in locals():
-                    #  del var
-
-        #  self.log.print(' Calculating all h2-matrices')
-        #  V1 = self.V1
-        #  J1 = self.J1
-        #  K1 = self.K1
-        #  S = self.S
-        #  S = self.S
-        #self.log.print(' Summing up J-, K- and h2-matrices, adding site energies and VNN to the diagonal, and rotating J-, K-, and H-matrices to the basis of ECSFs...')
+                locals().pop(var, None)
         self.log.print('')
         self.log.print('       Summing up J- and K-matrices, adding site energies and VNN to the diagonal, and rotating J-, K-, and H-matrices to the basis of ECSFs...')
-        VNN = sum( [ 
+        VNN = sum(  
                     ( float( f.mol.atom_charge(i) )*float( g.mol.atom_charge(j) )
                     - float( f.mol.atom_charge(i) )*g.Q[j]
                     - float( g.mol.atom_charge(j) )*f.Q[i] 
                      )/np.linalg.norm( f.mol.atom_coord(i) - g.mol.atom_coord(j) )
                     for ( f, g ) in job.active_integrals['J'][(0,0)]
                     for i in range(f.mol.natm) for j in range(g.mol.natm)
-                    ] 
                   )
         self.log.print('')
         self.log.print('       Total inter-fragment nuclear-nuclear repulsion (au) = '+str(VNN))
@@ -1251,305 +1043,17 @@ class ECI:
             H[m] = H[m] + H[m].T - np.diag( np.diag( H[m] ) )
             J[m] = J[m] + J[m].T - np.diag( np.diag( J[m] ) )
             K[m] = K[m] + K[m].T - np.diag( np.diag( K[m] ) )
-            #  V1[m] = V1[m] + V1[m].T - np.diag( np.diag( V1[m] ) )
-            #  J1[m] = J1[m] + J1[m].T - np.diag( np.diag( J1[m] ) )
-            #  K1[m] = K1[m] + K1[m].T - np.diag( np.diag( K1[m] ) )
 
             H[m] = ECIbasis[m].U.T @ H[m] @ ECIbasis[m].U 
             J[m] = ECIbasis[m].U.T @ J[m] @ ECIbasis[m].U 
             K[m] = ECIbasis[m].U.T @ K[m] @ ECIbasis[m].U 
-            #  S[m] = ECIbasis[m].U.T @ S[m] @ ECIbasis[m].U 
-            #  V1[m] = ECIbasis[m].U.T @ V1[m] @ ECIbasis[m].U 
-            #  J1[m] = ECIbasis[m].U.T @ J1[m] @ ECIbasis[m].U 
-            #  K1[m] = ECIbasis[m].U.T @ K1[m] @ ECIbasis[m].U 
 
             self.log.print('')
             self.log.print('       H-, J-, K-matrices for multiplicity '+str(m)+' in the basis of ECSFs:')
-            #  for label, mat in zip( ['H', 'J', 'K', 'V1', 'J1', 'K1', 'S'], [H,J,K,V1, J1, K1, S] ):
-            #  for label, mat in zip( ['H', 'J', 'K', 'h2', 'S'], [H,J,K,h2,S] ):
             for label, mat in zip( ['H', 'J', 'K'], [H,J,K] ):
                 self.log.print('          '+label+'-matrix:')
                 for i in range(len(ECIbasis[m].ECSFs)):
                     self.log.print('         '+' '.join([ f"{mat[m][i,j]: 20.10f}" for j in range( len(ECIbasis[m].ECSFs)) ]) )
-        return
-    #----END of ECI.calculate_Hmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------   
-    
-    #  def get_Pintegrals(self):
-        #  job = self.job
-        #  sites = self.sites
-
-        #  Pintegrals = {}
-        #  def add_Pintegral( k1, k2, k3 ):
-            #  if k1 in Pintegrals:
-                #  if k2 in Pintegrals[k1]:
-                    #  Pintegrals[k1][k2].append(k3)
-                #  else:
-                    #  Pintegrals[k1][k2] = [k3]
-            #  else:
-                #  Pintegrals[k1] = {k2: [k3]}
-            #  return
-
-        #  for i, f in enumerate(sites):
-            #  for Zf, Dsf in f.rho.items():
-                #  for df in Dsf.keys():
-                    #  sf1, sf2, spinf = df
-                    #  if spinf == 'tot' or spinf == 'q': continue
-                    #  for j, g in enumerate(sites):
-                        #  if not f is g:
-                            #  for Zg, Dsg in g.rho.items():
-                                #  for dg in Dsg.keys():
-                                    #  sg1, sg2, sping = dg
-                                    #  if sping == 'tot' or sping == 'q': continue
-                                    #  if spinf[1] == sping[0]:
-                                        #  spin = spinf[0]+sping[1]
-                                        #  add_Pintegral( k1=(f,g), k2='P(rho|rho)', k3=(f,g), k4=(df,dg), loc=(sf1,sf2,sg1,sg2,spin) )
-        #  for i, f in enumerate(sites):
-            #  for Zf, Dsf in f.rho.items():
-                #  for df in Dsf.keys():
-                    #  sf1, sf2, spinf = df
-                    #  if spinf == 'tot' or spinf == 'q': continue
-                    #  for g in sites:
-                        #  for (_,_), gDOs in g.phi.items():
-                            #  for gDO in gDOs.keys():
-                                #  for h in sites:
-                                    #  if not g is h:
-                                        #  for (_,_), hDOs in h.phi.items():
-                                            #  for hDO in hDOs.keys():
-                                                #  if gDO[2] == spinf[1]:
-                                                    #  spin = spinf[0]+hDO[2]
-                                                    #  add_Pintegral( k1=(f,g), k2='P(rho|phi,phi)', k3=(f,g,h), k4=(df,gDO,gHO), loc=(sf1,sf2,gDO,hDO, spin))
-                                                #  if hDO[2] == spinf[0]:
-                                                    #  spin = gDO[2]+spinf[1]
-                                                    #  add_Pintegral( k1=(h,f), k2='P(phi,phi|rho)', k3=(g,h,f), k4=(gDO, hDO,df), loc=(gDO, hDO, sf1, sf2, spin))
-        #  return Pintegrals
-
-    #  def calculate_Pmats(self):
-        #  Pintegrals = self.get_Pintegrals()
-
-        #  for (f,g), code__fragments__quantities__locs in Pintegrals.items():
-            #  dimer = merge_moles(f.mol,g.mol)
-            #  S = dimer.intor('int1e_ovlp')[:f.mol.nao,f.mol.nao:]
-
-            #  fragments__quantities__locs = code__fragments__quantities__locs['P(rho|rho)']
-            #  for (f1,f2), quantities__locs in fragments__quantities__locs.items():
-                #  rhos1 = np.array( [ rho1 for (rho1,_) in quantities__locs.keys()] )
-                #  rhos2 = np.array( [ rho2 for (_,rho2) in quantities__locs.keys()] )
-                #  loc_lists = [ locs for locs in quantities__locs.values() ]
-                #  values = np.einsum('nij,jk,nkl->nil',rhos1, S, rhos2, optimize=True)
-                #  for i, val in enumerate(values):
-                    #  for loc in loc_lists[i]:
-                        #  if loc in self.P[(f1,f2)]:
-                            #  self.P[(f1,f2)][loc] += val
-                        #  else:
-                            #  self.P[(f1,f2)][loc] = val
-
-            #  fragments__quantities__locs = code__fragments__quantities__locs['P(rho|phi,phi)']
-            #  for (f1,f2,f3), quantities__locs in fragments__quantities__locs.items():
-                #  rhos1 = np.array( [ rho1 for (rho1,_,_) in quantities__locs.keys()] )
-                #  phis2 = np.array( [ phi2 for (_,phi2,_) in quantities__locs.keys()] )
-                #  phis3 = np.array( [ phi3 for (_,_,phi3) in quantities__locs.keys()] )
-                #  loc_lists = [ locs for locs in quantities__locs.values() ]
-                #  values = np.einsum('nij,jk,nk,nl->nil',rhos1, S, phis2, phis3, optimize=True)
-                #  for i, val in enumerate(values):
-                    #  for loc in loc_lists[i]:
-                        #  if loc in self.P[(f1,f3)]:
-                            #  self.P[(f1,f3)][loc] += val
-                        #  else:
-                            #  self.P[(f1,f3)][loc] = val
-
-            #  fragments__quantities__locs = code__fragments__quantities__locs['P(phi,phi|rho)']
-            #  for (f1,f2,f3), quantities__locs in fragments__quantities__locs.items():
-                #  phis1 = np.array( [ phi1 for (phi1_,_) in quantities__locs.keys()] )
-                #  phis2 = np.array( [ phi2 for (_,phi2,_) in quantities__locs.keys()] )
-                #  rhos3 = np.array( [ rho3 for (_,_,rho3) in quantities__locs.keys()] )
-                #  loc_lists = [ locs for locs in quantities__locs.values() ]
-                #  values = np.einsum('ni,nj,jk,nkl->nil',phis1, phis2, S, rhos3, optimize=True)
-                #  for i, val in enumerate(values):
-                    #  for loc in loc_lists[i]:
-                        #  if loc in self.P[(f1,f3)]:
-                            #  self.P[(f1,f3)][loc] += val
-                        #  else:
-                            #  self.P[(f1,f3)][loc] = val
-
-        #  to_add = {}
-        #  for (f,g), value in self.P.items():
-            #  to_add[(f,g)] = {}
-            #  for p in value.keys():
-                #  o1, o2, o3, o4, spin = pmat1
-                #  o = [o1,o2,o3,o4]
-                #  if tuple(o+['aa']) in self.P[(f,g)] and tuple(o+['bb']) in self.P[(f,g)]:
-                    #  if not tuple(o+['tot']) in to_add[(f,g)]:
-                        #  to_add[(f,g)][tuple(o+['tot'])] = self.P[(f,g)][tuple(o+['aa'])] + self.P[(f,g)][tuple(o+['bb'])]
-        #  for (f,g), Os in to_add.items():
-            #  for o, pi in Os.items():
-                #  self.P[(f,g)][o] = pi
-
-
-    #  def calculate_Smat(self):
-        #  job = self.job
-        #  sites = self.sites
-        #  S = self.S
-        #  P = self.P
-        #  Nel = float(sum( [ f.mol.nelectron for f in sites ] ) - job.charge) # All Mole object in children have to be build with charge=0
-        #  for m in job.multiplicities:
-            #  ECIbasis = self.ECIbasis[m]
-            #  for i, ESD in enumerate(ECIbasis.ESDs):
-                #  O = 1.
-                #  for f in sites:
-                    #  for g in sites:
-                        #  if not f is g:
-                            #  dimer = merge_moles( f.mol, g.mol )
-                            #  SAO = dimer.intor('int1e_ovlp')[ 0:f.mol.nao:, f.mol.nao: ]
-                            #  sf = ESD.site_states[f]
-                            #  sg = ESD.site_states[g]
-                            #  if (sf,sf,sg,sg,'aa') in P[(f,g)]:
-                                #  O -= np.einsum( 'ij,ij->', SAO, P[(f,g)][(sf,sf,sg,sg,'aa')], optimize=['einsum_path', (0, 1)] )/Nel
-                            #  if (sf,sf,sg,sg,'bb') in P[(f,g)]:
-                                #  O -= np.einsum( 'ij,ij->', SAO, P[(f,g)][(sf,sf,sg,sg,'bb')], optimize=['einsum_path', (0, 1)] )/Nel
-                #  S[m][i,i] = O
-            #  #  for i1, ESD1 in enumerate(ECIbasis.ESDs):
-                #  #  for i2, ESD2 in enumerate(ECIbasis.ESDs[i1:]):
-                    #  #  O = 0.
-                    #  #  if ESD1 is ESD2:
-                        #  #  O  = 1.
-                    #  #  for f in sites:
-                        #  #  for g in sites:
-                            #  #  if not f is g:
-                                #  #  dimer = merge_moles( f.mol, g.mol )
-                                #  #  SAO = dimer.intor('int1e_ovlp')[ 0:f.mol.nao:, f.mol.nao: ]
-                                #  #  sf1 = ESD1.site_states[f]
-                                #  #  sf2 = ESD2.site_states[f]
-                                #  #  sg1 = ESD1.site_states[g]
-                                #  #  sg2 = ESD2.site_states[g]
-                                #  #  if (sf1,sf2,sg1,sg2) in P[(f,g)]:
-                                    #  #  O -= np.einsum( 'ij,ij', SAO, P[(f,g)][(sf1,sf2,sg1,sg2)], optimize=['einsum_path', (0, 1)] )/Nel
-                    #  #  S[m][i1,i1+i2] = O
-            #  #  S[m] = S[m] + S[m].T - np.diag(np.diag(S[m]))
-        #  #  return
-
-
-    #  def calculate_V1mat(self):
-        #  V1 = self.V1
-        #  job = self.job
-        #  sites = self.sites
-        #  for (f,g), Ps in self.P.items():
-            #  #  if f.index > g.index: continue
-            #  dimer = merge_moles( f.mol, g.mol )
-            #  T = dimer.intor('int1e_kin')[:f.mol.nao:,f.mol.nao:] 
-            #  VNE = -self.calculate_Fmat( sites, dimer )[:f.mol.nao:, f.mol.nao:]  
-            #  hFG = T + VNE
-            #  for m in job.multiplicities:
-                #  ECIbasis = self.ECIbasis[m]
-                #  for rel in [(0,0), (0,1), (0,2)]:
-                #  #  for rel in [(0,0)]:
-                    #  for pair in ECIbasis.relationships[rel]:
-                        #  ESD1, ESD2 = pair['ESDs']
-                        #  i1, i2 = ESD1.index, ESD2.index
-                        #  sf1 = ESD1.site_states[f]
-                        #  sg1 = ESD1.site_states[g]
-                        #  sf2 = ESD2.site_states[f]
-                        #  sg2 = ESD2.site_states[g]
-                        #  P = (sf1,sf2,sg1,sg2,'tot') 
-                        #  if P in Ps: V1[m][i1,i2] += np.einsum( 'ij,ij->', hFG , Ps[P] )/2. # Divided by 2 beacuse of using tot pi (McWeeny)
-
-
-    #  def calculate_J1mat(self):
-        #  J1 = self.J1
-        #  job = self.job
-        #  for (f,g), Ps in self.P.items():
-            #  #  if f.index > g.index: continue
-            #  GABAB = self.calculate_Gtensor( [f.mol, g.mol, f.mol, g.mol] )
-            #  GAAAB = self.calculate_Gtensor( [f.mol, f.mol, f.mol, g.mol] )
-            #  GABBB = self.calculate_Gtensor( [f.mol, g.mol, g.mol, g.mol] )
-            #  for m in job.multiplicities:
-                #  ECIbasis = self.ECIbasis[m]
-                #  for rel in [(0,0), (0,1), (0,2)]:
-                    #  for pair in ECIbasis.relationships[rel]:
-                        #  ESD1, ESD2 = pair['ESDs']
-                        #  i1, i2 = ESD1.index, ESD2.index
-                        #  sf1 = ESD1.site_states[f]
-                        #  sg1 = ESD1.site_states[g]
-                        #  sf2 = ESD2.site_states[f]
-                        #  sg2 = ESD2.site_states[g]
-                        #  P1 = (sf1,sf2,sg1,sg2,'tot') 
-                        #  if P1 in Ps:
-                            #  pi1 = Ps[P1] 
-                            #  #  J1[m][i1,i2] += np.einsum('ij,ijkl,kl->', pi1, GABAB, pi1, optimize=True)
-                            #  #  P2 = (sg1,sg2,sf1,sf2,'tot')  
-                            #  #  if P2 in self.P[(g,f)]:
-                                #  #  pi2 = self.P[(g,f)][P2] 
-                                #  #  J1[m][i1,i2] += np.einsum('ij,ijlk,kl->', pi1, GABAB, pi2, optimize=True) 
-
-                            #  d = (sf1,sf2,'tot') 
-                            #  if d in f.rho[sf1.Z]:
-                                #  rho = f.rho[sf1.Z][d]
-                                #  J1[m][i1,i2] += - 1.*np.einsum('ij,ijkl,kl->', rho, GAAAB, pi1, optimize=True ) 
-                            #  d = (sg1,sg2,'tot') 
-                            #  if d in g.rho[sg1.Z]:
-                                #  rho = g.rho[sg1.Z][d]
-                                #  J1[m][i1,i2] += - 1.*np.einsum('ij,ijkl,kl->', pi1, GABBB, rho, optimize=True ) 
-
-        #  for m in job.multiplicities:
-            #  J1[m] /= 2. # By 2 becuase of using tot pis and rhos, and by 2 becuase of el-el coupling formula
-
-    #  def calculate_K1mat(self):
-        #  K1 = self.K1
-        #  job = self.job
-        #  for (f,g), Ps in self.P.items():
-            #  #  if f.index > g.index: continue
-            #  GAABB = self.calculate_Gtensor( [f.mol, f.mol, g.mol, g.mol] )
-            #  GABAB = self.calculate_Gtensor( [f.mol, g.mol, f.mol, g.mol] )
-            #  GAAAB = self.calculate_Gtensor( [f.mol, f.mol, f.mol, g.mol] ) 
-            #  GBBAB = self.calculate_Gtensor( [g.mol, g.mol, f.mol, g.mol] ) 
-            #  for m in job.multiplicities:
-                #  ECIbasis = self.ECIbasis[m]
-                #  for rel in [(0,0), (0,1), (0,2)]:
-                    #  for pair in ECIbasis.relationships[rel]:
-                        #  ESD1, ESD2 = pair['ESDs']
-                        #  i1, i2 = ESD1.index, ESD2.index
-                        #  sf1 = ESD1.site_states[f]
-                        #  sg1 = ESD1.site_states[g]
-                        #  sf2 = ESD2.site_states[f]
-                        #  sg2 = ESD2.site_states[g]
-                        #  for (spin1, spin2) in [('aa','aa'), ('bb','bb'), ('ab','ba'), ('ba','ab')]:
-                            #  P1 = (sf1,sf2,sg1,sg2,spin1) 
-                            #  if P1 in Ps:
-                                #  pi1 = Ps[P1]
-                                #  #  K1[m][i1,i2] += np.einsum('ij,ilkj,kl->', pi1, GABAB, pi1, optimize=True) 
-                                #  #  P2 = (sg1,sg2,sf1,sf2,spin2) 
-                                #  #  if P2 in self.P[(g,f)]:
-                                    #  #  pi2 = self.P[(g,f)][P2] 
-                                    #  #  K1[m][i1,i2] += np.einsum('ij,iljk,kl->', pi1, GAABB, pi2, optimize=True) 
-
-                                #  d = (sf1,sf2,spin2) 
-                                #  if d in f.rho[sf1.Z]:
-                                    #  rho = f.rho[sf1.Z][d]
-                                    #  K1[m][i1,i2] += - 1.*np.einsum('ij,jkil,kl->', rho, GAAAB, pi1, optimize=True ) 
-                                #  d = (sg1,sg2,spin2) 
-                                #  if d in g.rho[sg1.Z]:
-                                    #  rho = g.rho[sg1.Z][d]
-                                    #  K1[m][i1,i2] += - 1.*np.einsum('ij,jkil,kl->', pi1, GBBAB, rho, optimize=True ) 
-        #  for m in job.multiplicities:
-            #  K1[m] /= 2. # Divided by 2 becuase of el-el interaction formula
-                #  #  K1[m] /= 2.
-    #  #  def calculate_h2mat(self):
-        #  #  job = self.job
-        #  #  sites = self.sites
-        #  #  system = None
-        #  #  for site in sites:
-            #  #  if system == None:
-                #  #  system = site.mol.copy()
-            #  #  else:
-                #  #  system = merge_moles( system, site.mol )
-        #  #  P1 = self.P1
-        #  #  h2 = self.h2
-        #  #  T = system.intor('int1e_kin')
-        #  #  VNE = -self.calculate_Fmat( sites, system )
-        #  #  h = T + VNE
-        #  #  for m in job.multiplicities:
-            #  #  for i, ESD in enumerate(ECIbasis.ESDs):
-                #  #  h2[m][i,i] = np.einsum( 'ij,ij', h, P1[m][i,i] )
-        #  #  return
 
 
 
@@ -1558,334 +1062,139 @@ class ECI:
         sites = self.sites
         ECIbasis = self.ECIbasis
 
-        ECI_integrals = {}
-        def add_integral( k1, k2, k3, k4, loc):
-            if k1 in ECI_integrals:
-                if k2 in ECI_integrals[k1]:
-                    if k3 in ECI_integrals[k1][k2]:
-                        if k4 in ECI_integrals[k1][k2][k3]:
-                            ECI_integrals[k1][k2][k3][k4].append(loc)
-                        else:
-                            ECI_integrals[k1][k2][k3][k4] = [loc]
-                    else:
-                        ECI_integrals[k1][k2][k3] = {k4:[loc] }
-                else:
-                    ECI_integrals[k1][k2] = {k3: {k4: [loc]}}
-            else:
-                ECI_integrals[k1] = {k2:{k3: {k4:[loc]}}}
-            return
+        ECI_integrals = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(set))))
+        rho_key_sets = {f: frozenset().union(*f.rho.values()) for f in sites}
 
-        prefactors = {}
+        actives_J_00 = job.active_integrals['J'][(0,0)]
+        actives_J_01 = job.active_integrals['J'][(0,1)]
+        actives_J_02 = job.active_integrals['J'][(0,2)]
+        actives_K_00 = job.active_integrals['K'][(0,0)]
+        actives_K_01 = job.active_integrals['K'][(0,1)]
+        actives_K_02 = job.active_integrals['K'][(0,2)]
 
-        for m in job.multiplicities:
-            ESDs = ECIbasis[m].ESDs
-            relationship = ECIbasis[m].relationships
+        def pair_00(pair, m):
+            ESD = pair['ESDs'][0]
+            index = ESD.index
+            added = set()
+            # V0-integrals
+            for f in sites:
+                nucs = tuple(g for g in sites if (f,g) in actives_J_00 or (g,f) in actives_J_00)
+                if len(nucs) > 0:
+                    d = (ESD.site_states[f], ESD.site_states[f], 'tot')
+                    added.add(('ECI_V', f, nucs, d, (m,index,index)))
+            # J0-integrals
+            for (f1,f2) in actives_J_00:
+                d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'tot' ) 
+                d2 = ( ESD.site_states[f2], ESD.site_states[f2], 'tot' ) 
+                added.add(('ECI_J', (f1,f2), d1, d2, (m,index,index)))
+            # K0-integrals
+            for (f1,f2) in actives_K_00:
+                d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'aa' ) 
+                d2 = ( ESD.site_states[f2], ESD.site_states[f2], 'aa' ) 
+                added.add(('ECI_K', (f1,f2), d1, d2, (m,index,index)))
+                d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'bb' ) 
+                d2 = ( ESD.site_states[f2], ESD.site_states[f2], 'bb' ) 
+                added.add(('ECI_K', (f1,f2), d1, d2, (m,index,index)))
+            return added
 
-            #-----Start of relationship[(0,0)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            for pair in relationship[(0,0)]:
-                ESD = pair['ESDs'][0]
-                index = ESD.index
-                # V0-integrals
-                actives = job.active_integrals['J'][(0,0)]
-                for f in sites:
-                    nucs = tuple([ g for g in sites if (f,g) in actives or (g,f) in actives ])
-                    if len(nucs) > 0:
-                        d = (ESD.site_states[f], ESD.site_states[f], 'tot')
-                        add_integral( k1='ECI_V', k2=f, k3=nucs, k4=d, loc=(m,index,index))
-                # J0-integrals
-                for (f1,f2) in actives:
-                    d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'tot' ) 
-                    d2 = ( ESD.site_states[f2], ESD.site_states[f2], 'tot' ) 
-                    add_integral( k1='ECI_J', k2=(f1,f2), k3=d1, k4=d2, loc=(m,index,index))
-                # K0-integrals
-                actives = job.active_integrals['K'][(0,0)]
-                for (f1,f2) in actives:
-                    d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'aa' ) 
-                    d2 = ( ESD.site_states[f2], ESD.site_states[f2], 'aa' ) 
-                    add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,index,index))
-                    d1 = ( ESD.site_states[f1], ESD.site_states[f1], 'bb' ) 
-                    d2 = ( ESD.site_states[f2], ESD.site_states[f2], 'bb' ) 
-                    add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,index,index))
-            #-----End of relationship[(0,0)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        def pair_01(pair, m):
+            ESD1, ESD2 = pair['ESDs']
+            i1, i2 = ESD1.index, ESD2.index
+            f = pair['exciton']
+            added = set()
 
+            # V-integrals
+            nucs = tuple(g for g in sites if (f, g) in actives_J_01 or (g, f) in actives_J_01)
+            d = (ESD1.site_states[f], ESD2.site_states[f], 'tot')
+            if d in rho_key_sets[f] and nucs:
+                added.add(('ECI_V', f, nucs, d, (m, i1, i2)))
 
-            #-----Start of relationship[(0,1)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            for pair in relationship[(0,1)]:
-                ESD1, ESD2 = pair['ESDs']
-                i1, i2 = ESD1.index, ESD2.index
-                f = pair['exciton']
-                actives = job.active_integrals['J'][(0,1)] 
-                #V-integrals
-                nucs = tuple([ g for g in sites if (f,g) in actives or (g,f) in actives])
-                d = ( ESD1.site_states[f], ESD2.site_states[f], 'tot' ) 
-                if any([ d in rho for rho in f.rho.values()]) and len(nucs) > 0: 
-                    add_integral( k1='ECI_V', k2=f, k3=nucs, k4=d, loc=(m,i1,i2) )
-                # J-integrals
-                for (f1,f2) in actives:
-                    if f1 is f or f2 is f:
-                        d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'tot' ) 
-                        d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'tot' )
-                        if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_J', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-                # K-integrals
-                actives = job.active_integrals['K'][(0,1)] 
-                for (f1,f2) in actives:
-                    if f1 is f or f2 is f:
-                        d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'aa' ) 
-                        d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'aa' )
-                        if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-                        d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'bb' ) 
-                        d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'bb' )
-                        if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-                        d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ab' ) 
-                        d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ba' )
-                        if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-                        d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ba' ) 
-                        d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ab' )
-                        if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                            add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-            #-----End of relationship[(0,1)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-            #-----Start of relationship[(0,2)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            for pair in relationship[(0,2)]:
-                ESD1, ESD2 = pair['ESDs']
-                i1, i2 = ESD1.index, ESD2.index
-                f1, f2 = pair['excitons']
-                # J-integrals
-                actives = job.active_integrals['J'][(0,2)] 
-                if (f1,f2) in actives:
+            # J-integrals
+            for f1, f2 in actives_J_01:
+                if f1 is f or f2 is f:
                     d1 = (ESD1.site_states[f1], ESD2.site_states[f1], 'tot')
                     d2 = (ESD1.site_states[f2], ESD2.site_states[f2], 'tot')
-                    if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_J', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-                # K-integrals
-                actives = job.active_integrals['K'][(0,2)] 
-                if (f1,f2) in actives:
-                    d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'aa' ) 
-                    d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'aa' )
-                    if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-                    d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'bb' ) 
-                    d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'bb' )
-                    if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-                    d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ab' ) 
-                    d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ba' )
-                    if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-                    d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ba' ) 
-                    d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ab' )
-                    if any([ d1 in rho for rho in f1.rho.values()]) and any([ d2 in rho for rho in f2.rho.values()]): 
-                        add_integral( k1='ECI_K', k2=(f1,f2), k3=d1, k4=d2, loc=(m,i1,i2))
-        #-----End of relationship[(0,2)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                    if d1 in rho_key_sets[f1] and d2 in rho_key_sets[f2]:
+                        added.add(('ECI_J', (f1, f2), d1, d2, (m, i1, i2)))
 
-        # TO BE UNCOMENTED AFTER ECI-CT IS DONE
-        #-----Start of relationship[(1,0)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        #  Jactives = job.active_integrals['J'][(1,0)] 
-        #  Kactives = job.active_integrals['K'][(1,0)] 
-        #  for pair in relationship[(1,0)]:
-            #  ESD1, ESD2 = pair['ESDs']
-            #  i1, i2 = ESD1.index, ESD2.index
-            #  loc = (m,i1,i2)
-            #  d, a = pair['donor'], pair['acceptor']
+            # K-integrals
+            for f1, f2 in actives_K_01:
+                if f1 is f or f2 is f:
+                    for spin in ('aa', 'bb', 'ab', 'ba'):
+                        if spin == 'ab':
+                            d1 = (ESD1.site_states[f1], ESD2.site_states[f1], 'ab')
+                            d2 = (ESD1.site_states[f2], ESD2.site_states[f2], 'ba')
+                        elif spin == 'ba':
+                            d1 = (ESD1.site_states[f1], ESD2.site_states[f1], 'ba')
+                            d2 = (ESD1.site_states[f2], ESD2.site_states[f2], 'ab')
+                        else:
+                            d1 = (ESD1.site_states[f1], ESD2.site_states[f1], spin)
+                            d2 = (ESD1.site_states[f2], ESD2.site_states[f2], spin)
+                        if d1 in rho_key_sets[f1] and d2 in rho_key_sets[f2]:
+                            added.add(('ECI_K', (f1, f2), d1, d2, (m, i1, i2)))
 
-            #  Jspectators, Kspectators = [], []
-            #  for f in sites:
-                #  if (d,a,f) in Jactives:
-                    #  Jspectators.append(f)
-                #  if (d,a,f) in Kactives:
-                    #  Kspectators.append(f)
-            #  Jspectators = tuple(Jspectators)
-            #  Kspectators = tuple(Kspectators)
-            #  if len(Jspectators) == 0 and len(Kspectators) == 0: continue
+            return added
 
-            #  if d.index < a.index:
-                #  f1, f2 = d, a
-                #  main_less1 = ESD2.site_states[d]
-                #  main_more1 = ESD1.site_states[d]
-                #  main_less2 = ESD1.site_states[a]
-                #  main_more2 = ESD2.site_states[a]
-            #  else:
-                #  f1, f2 = a, d
-                #  main_less1 = ESD1.site_states[a]
-                #  main_more1 = ESD2.site_states[a]
-                #  main_less2 = ESD2.site_states[d]
-                #  main_more2 = ESD1.site_states[d]
+        def pair_02(pair, m):
+            ESD1, ESD2 = pair['ESDs']
+            i1, i2 = ESD1.index, ESD2.index
+            f1, f2 = pair['excitons']
+            added = set()
+            # J-integrals
+            if (f1,f2) in actives_J_02:
+                d1 = (ESD1.site_states[f1], ESD2.site_states[f1], 'tot')
+                d2 = (ESD1.site_states[f2], ESD2.site_states[f2], 'tot')
+                if d1 in rho_key_sets[f1] and d2 in rho_key_sets[f2]:
+                    added.add(('ECI_J', (f1,f2), d1, d2, (m,i1,i2)))
+            # K-integrals
+            if (f1,f2) in actives_K_02:
+                d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'aa' ) 
+                d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'aa' )
+                if d1 in rho_key_sets[f1] and d2 in rho_key_sets[f2]:
+                    added.add(('ECI_K', (f1,f2), d1, d2, (m,i1,i2)))
+                d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'bb' ) 
+                d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'bb' )
+                if d1 in rho_key_sets[f1] and d2 in rho_key_sets[f2]:
+                    added.add(('ECI_K', (f1,f2), d1, d2, (m,i1,i2)))
+                d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ab' ) 
+                d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ba' )
+                if d1 in rho_key_sets[f1] and d2 in rho_key_sets[f2]:
+                    added.add(('ECI_K', (f1,f2), d1, d2, (m,i1,i2)))
+                d1 = ( ESD1.site_states[f1], ESD2.site_states[f1], 'ba' ) 
+                d2 = ( ESD1.site_states[f2], ESD2.site_states[f2], 'ab' )
+                if d1 in rho_key_sets[f1] and d2 in rho_key_sets[f2]:
+                    added.add(('ECI_K', (f1,f2), d1, d2, (m,i1,i2)))
+            return added
 
-            #  main_do1, main_do2 = None, None
-            #  for spin in ['a', 'b']:
-                #  if (main_more1, main_less1, spin) in f1.phi[(main_more1.Z,main_less1.Z)]:
-                    #  main_do1 = (main_more1, main_less1, spin) 
-                    #  main_spin1 = spin
-                #  if (main_more2, main_less2, spin) in f2.phi[(main_more2.Z,main_less2.Z)]:
-                    #  main_do2 = (main_more2, main_less2, spin) 
-                    #  main_spin2 = spin
+        for m in job.multiplicities:
+            relationship = ECIbasis[m].relationships
 
-            #  if main_more1.C['subnorm'] < 0.9 or main_more2.C['subnorm'] < 0.9: continue
-            #  if not loc in prefactors: 
-                #  phase = sum([ f.mol.nelectron - ESD2.site_states[f].Z for f in sites if f.index > f1.index and f.index <= f2.index ])
-                #  prefactors[loc] = (-1.)**phase/main_more1.C['subnorm']/main_more2.C['subnorm']
-                #  #  prefactors[loc] = (-1.)**phase
+            with ThreadPoolExecutor() as executor:
+                tasks_00 = [(pair, m) for pair in relationship[(0, 0)]]
+                tasks_01 = [(pair, m) for pair in relationship[(0, 1)]]
+                tasks_02 = [(pair, m) for pair in relationship[(0, 2)]]
 
-            #  # V-integral and external J and K integrals
-            #  if main_spin1 == main_spin2 and main_do1 != None and main_do2 != None:
-                #  if len(Jspectators) > 0: 
-                    #  add_integral( k1='SCT_V', k2=(f1,f2,Jspectators), k3=main_do1, k4=main_do2, loc=loc )
-                #  for f in Jspectators:
-                    #  if f is f1 or f is f2: continue # This is gonna be added later
-                    #  s = ESD1.site_states[f]
-                    #  Jrho = (s,s,'tot') 
-                    #  add_integral( k1='SCT_J', k2=(f1,f2,f), k3=(main_do1, main_do2), k4=Jrho, loc=loc )
-                #  for f in Kspectators:
-                    #  if f is f1 or f is f2: continue # This is gonna be added later
-                    #  s = ESD1.site_states[f]
-                    #  Krho = (s,s,main_spin2 + main_spin1)
-                    #  add_integral( k1='SCT_K', k2=(f1,f2,f), k3=(main_do1, main_do2), k4=Krho, loc=loc )
+                results_00 = executor.map(lambda args: pair_00(*args), tasks_00)
+                results_01 = executor.map(lambda args: pair_01(*args), tasks_01)
+                results_02 = executor.map(lambda args: pair_02(*args), tasks_02)
 
-            #  # J and K integrals with donor and acceptor being spectators
-            #  if main_do2 != None: 
-                #  for less1 in f1.states[main_less1.Z]:
-                    #  for spin1 in ['a','b']:
-                        #  do1 = (main_more1,less1,spin1) 
-                        #  if do1 in f1.phi[(main_more1.Z,main_less1.Z)]: break
-                        #  do1 = None
-                    #  if do1 != None:
-                        #  Jrho = None
-                        #  if spin1 == main_spin2:
-                            #  Jrho = (less1,main_less1,'tot') 
-                            #  if not Jrho in f1.rho[main_less1.Z]: Jrho = None
-                        #  Krho = (less1, main_less1, main_spin2 + spin1)
-                        #  if not Krho in f1.rho[main_less1.Z]: Krho = None 
+                for result in itertools.chain(results_00, results_01, results_02):
+                    for k1, k2, k3, k4, loc in result:
+                        ECI_integrals[k1][k2][k3][k4].add(loc)
 
-                        #  if not f1 in Jspectators: Jrho = None
-                        #  if not f1 in Kspectators: Krho = None
-                        #  add_integral( k1='SCT_I', k2=(f1,f2,f1), k3=(do1,main_do2), k4=(Jrho,Krho), loc=loc )
-
-            #  if main_do1 != None: 
-                #  for less2 in f2.states[main_less2.Z]:
-                    #  for spin2 in ['a','b']:
-                        #  do2 = (main_more2,less2,spin2) 
-                        #  if do2 in f2.phi[(main_more2.Z,main_less2.Z)]: break
-                        #  do2 = None
-                    #  if do2 != None:
-                        #  Jrho = None
-                        #  if spin2 == main_spin1:
-                            #  Jrho = (main_less2, less2, 'tot') 
-                            #  if not Jrho in f2.rho[main_less2.Z]: Jrho = None
-                        #  Krho = (main_less2, less2, spin2 + main_spin1)
-                        #  if not Krho in f2.rho[main_less2.Z]: Krho = None 
-
-                        #  if not f2 in Jspectators: Jrho = None
-                        #  if not f2 in Kspectators: Krho = None
-                        #  add_integral( k1='SCT_I', k2=(f1,f2,f2), k3=(main_do1,do2), k4=(Jrho,Krho), loc=loc )
-        #  #  #-----End of relationship[(1,0)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-        #  #-----Start of relationship[(1,1)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        #  Jactives = job.active_integrals['J'][(1,1)] 
-        #  Kactives = job.active_integrals['K'][(1,1)] 
-        #  for pair in relationship[(1,1)]:
-            #  ESD1, ESD2 = pair['ESDs']
-            #  i1, i2 = ESD1.index, ESD2.index
-            #  loc = (m,i1,i2)
-            #  d, a, e = pair['donor'], pair['acceptor'], pair['exciton']
-
-            #  Jon = (d,a,e) in Jactives
-            #  Kon = (d,a,e) in Kactives
-            #  if not Jon and not Kon: continue
-
-            #  if d.index < a.index:
-                #  f1, f2 = d, a
-                #  less1 = ESD2.site_states[d]
-                #  more1 = ESD1.site_states[d]
-                #  less2 = ESD1.site_states[a]
-                #  more2 = ESD2.site_states[a]
-                #  es1 = ESD1.site_states[e]
-                #  es2 = ESD2.site_states[e]
-            #  else:
-                #  f1, f2 = a, d
-                #  less1 = ESD1.site_states[a]
-                #  more1 = ESD2.site_states[a]
-                #  less2 = ESD2.site_states[d]
-                #  more2 = ESD1.site_states[d]
-                #  es1 = ESD2.site_states[e]
-                #  es2 = ESD1.site_states[e]
-
-            #  do1, do2 = None, None
-            #  for spin in ['a', 'b']:
-                #  if (more1, less1, spin) in f1.phi[(more1.Z,less1.Z)]:
-                    #  do1 = (more1, less1, spin) 
-                    #  spin1 = spin
-                #  if (more2, less2, spin) in f2.phi[(more2.Z,less2.Z)]:
-                    #  do2 = (more2, less2, spin) 
-                    #  spin2 = spin
-            #  if do1 == None or do2 == None: continue
-
-            #  if not loc in prefactors: 
-                #  phase = sum([ f.mol.nelectron - ESD2.site_states[f].Z for f in sites if f.index > f1.index and f.index <= f2.index ])
-                #  prefactors[loc] = (-1.)**phase/more1.C['subnorm']/more2.C['subnorm']
-
-            #  # V-integral and J and K integrals with other state densities of other spectators
-            #  Jrho = (es1,es2,'tot')  
-            #  if Jon and spin1 == spin2 and Jrho in e.rho[s1.Z]:
-                #  add_integral( k1='SCT_J', k2=(f1,f2,e), k3=(do1, do2, Jrho), loc=loc )
-
-            #  Krho = (es1,es2,spin1+spin2)  
-            #  if Kon and Krho in e.rho[s1.Z]: 
-                #  add_integral( k1='SCT_K', k2=(f1,f2,e), k3=(do1, do2, Krho), loc=loc )
-        #  #-----End of relationship[(1,1)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        return ECI_integrals, prefactors
+        return ECI_integrals
 
     def calculate_eigenstates( self ):
         job = self.job
         ECIbasis = self.ECIbasis
         for m in job.multiplicities:
             nCSF = len(ECIbasis[m].ECSFs)
-            #  H = np.linalg.inv(self.S[m]) @ self.H[m]
             H = self.H[m]
             self.E[m], self.Psi['ECSF'][m] = np.linalg.eigh( H ) 
-            #  sort = np.argsort(self.E[m])
-            #  self.E[m] = self.E[m][sort]
-            #  self.Psi['ECSF'][m][:,:] = self.Psi['ECSF'][m][:,sort] 
             for i in range(nCSF):
                 state = self.Psi['ECSF'][m][:,i] 
                 if state[np.argmax(np.abs(state))] < 0.: self.Psi['ECSF'][m][:,i] *= -1.
             self.Psi['ESD'][m] = self.ECIbasis[m].U @ self.Psi['ECSF'][m]
-            #  self.log.print(' Full-systems states for multiplicity '+str(m)+' in the basis of ECSFs:')
-            #  for i in range(nCSF):
-                #  sort = np.flip(np.argsort( np.abs(self.Psi['ECSF'][m][:,i]) ))
-                #  self.log.print('    State '+str(i)+' = '+' '.join([ f"{self.Psi['ECSF'][m][sort[j],i]: 15.10f}"+' '+repr(ECIbasis[m].ECSFs[sort[j]]) for j in range(nCSF)] ))
-
-
-            #  self.E[m], self.Psi['ECSF'][m] = np.linalg.eigh( self.H[m] )
-
-            #  nESD = len(ECIbasis[m].ESDs)
-            #  sigma, D = np.linalg.eigh(self.S[m])
-            #  A = D
-            #  for i in range(nESD):
-                #  A[:,i] /= np.sqrt(sigma[i])
-            #  H = A.T @ self.H[m] @ A 
-            #  self.E[m], self.Psi['ESD'][m] = np.linalg.eig( H )
-            #  self.Psi['ESD'][m] = A @ self.Psi['ESD'][m] 
-
-            #  print('ECI energies = ',np.amin(self.E[m]))
-            #  self.Psi['ESD'][m] = self.ECIbasis[m].U.T @ self.Psi['ECSF'][m]
-            #  print('ECI wavefunctions = ', self.Psi['ESD'][m])
-            #  print('Smat = ', self.S[m])
-            #  exit()
-
-            #  nstates = len( ECIbasis[m].ECSFs)
-            #  self.diagnostics[m] = np.zeros( ( max(job.ct_level), max(job.eci_level), nstates ) )
-            #  C2 = np.zeros( nstates )
-            #  C4 = np.zeros( nstates )
-            #  for i, ECSF in enumerate( self.ECIbasis[m].ECSFs ):
-                #  self.diagnostics[m][ECSF.ct_level,ECSF.eci_level,:] += self.Psi['ECSF'][i,:]**2
-                #  C2 += self.Psi['ECSF'][i,:]**2
-                #  C4 += self.Psi['ECSF'][i,:]**4
-            #  self.PR[m] = np.divide(C2,C4)
-        return
 
     def calculate_properties(self):
         if 'dm' in self.job.properties: self.calculate_mu()
@@ -1893,7 +1202,6 @@ class ECI:
 
     def calculate_mu(self):
         job = self.job
-        sites = self.sites
 
         for m in job.multiplicities:
             ECIbasis = self.ECIbasis[m]
