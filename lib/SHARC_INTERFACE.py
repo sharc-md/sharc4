@@ -89,10 +89,12 @@ class SHARC_INTERFACE(ABC):
 
     def __init__(
         self,
+        *args,
         persistent=False,
         logname: str | None = None,
         logfile: str | None = None,
         loglevel: int = loglevel,
+        **kwargs,
     ):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
