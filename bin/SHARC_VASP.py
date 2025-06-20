@@ -32,6 +32,7 @@ Refinements will follow.
 all_features = set(
     [
         "h",
+        "dm",
         "grad",
         "overlap",
         # Rest of the possible requests to implement:
@@ -563,6 +564,10 @@ class SHARC_VASP(SHARC_ABINITIO):
         #ks_info contain MOs excitation energies in eV and corresponding info for the MOs involved in the excitation
         # It is needed to compute overlaps, see corresponding self._get_energies etc.
         
+        # Populate dipole moments
+        if self.QMin.requests["dm"]:
+            self.QMout["dm"] = self._get_dipoles(OUTCAR)
+        
         # Populate forces (gradients)
         if self.QMin.requests["grad"]:
             self.QMout.grad = self._get_forces(OUTCAR) #This is gonna be used in the parent SHARC_CPA interface for each excited-state
@@ -609,6 +614,19 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         return forces
 
+    def _get_dipoles(self, vasp_out: str) -> np.ndarray:
+        """
+        Get dipole operator matrix. Currently this return an array of zeros
+        because dipole matrix elements are meaningless in the KS orbital picture.
+        This is trivially done to prevent other SHARC script from not working properly if no TDM are provided in QM.out.
+
+        vasp_out: VASP OUTCAR file
+        """
+        
+        nmstates = self.QMin.molecule["nmstates"]
+        dip=np.zeros((3,nmstates,nmstates))
+        
+        return dip
 
     def _get_energies(self, vasp_out: str) -> tuple[list,tuple[dict,dict]]:
         """

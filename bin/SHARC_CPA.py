@@ -139,7 +139,7 @@ class SHARC_CPA(SHARC_HYBRID):
         self.log.debug("nmstates requested to SHARC_CPA.py")
         self.log.debug(self.QMin.molecule["nmstates"])
         if len(self.QMout.grad.shape)==2: #Means child can only provide 1 gradient, so the GS one.
-            self.QMout["grad"]=np.array([self.QMout["grad"] for i in range(self.QMin.molecule["nmstates"])]) #Each excited state has some GS gradient
+            self.QMout["grad"]=np.array([self.QMout["grad"] for i in range(self.QMin.molecule["nmstates"])]) #Each excited state has same GS gradient
         else:
             self.QMout["grad"]=np.array([self.QMout["grad"][0] for i in range(self.QMin.molecule["nmstates"])]) #retaining only GS gradient if child computes all
         return self.QMout
