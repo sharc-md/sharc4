@@ -220,7 +220,8 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._nfails_total += 1
             self._nfails += 1
             if self._nfails > self.QMin.template["stop_at_nfails"]:
-                raise
+                self.log.error(f"Total consecutive fails ({self.QMin.template['stop_at_nfails']}) exceeded!")
+                raise ValueError(f"Total consecutive fails ({self.QMin.template['stop_at_nfails']}) exceeded!")
             with InDir("fallback_interface"):
                 self._fallback_interface.run()
                 self._fallback_interface.getQMout()
