@@ -44,26 +44,6 @@ DESCRIPTION = "   HYBRID interface for calling a fallback interface if primary i
 CHANGELOGSTRING = """
 """
 
-# all_features = {
-#     "h",
-#     "soc",
-#     "dm",
-#     "grad",
-#     "nacdr",
-#     "overlap",
-#     "phases",
-#     "ion",
-#     "dmdr",
-#     "socdr",
-#     "multipolar_fit",
-#     "theodore",
-#     "point_charges",
-#     # raw data request
-#     "mol",
-#     "wave_functions",
-#     "density_matrices",
-# }
-
 
 class SHARC_FALLBACK(SHARC_HYBRID):
     """
@@ -169,8 +149,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str):
-        QMin = self.QMin
-
         # template
         if "link_files" in INFOS:
             os.symlink(expand_path(self.template_file), os.path.join(dir_path, self.name() + ".template"))
@@ -232,8 +210,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 
     def run(self):
         self._trial_failed = False
-        self._trial_interface.QMin.save["step"] = self.QMin.save["step"] - self._nfails_total
-        self._fallback_interface.QMin.save["step"] = self._nfails_total
         try:
             with InDir("trial_interface"):
                 self._trial_interface.run()
@@ -252,7 +228,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._nsuccesses += 1
             if self._nsuccesses >= self.QMin.template["reset_fail_counter"]:
                 self._nfails = 0
-        
 
     def create_restart_files(self):
         super().create_restart_files()
@@ -297,7 +272,9 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._trial_interface.setup_mol(self.QMin)
             self._trial_interface.read_resources()
             self._trial_interface.read_template()
-            self._trial_interface.QMin.resources["scratchdir"] = os.path.join(self.QMin.resources["scratchdir"], "trial_interface")
+            self._trial_interface.QMin.resources["scratchdir"] = os.path.join(
+                self.QMin.resources["scratchdir"], "trial_interface"
+            )
             self._trial_interface.setup_interface()
 
         with InDir("fallback_interface"):
@@ -305,11 +282,15 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._fallback_interface.setup_mol(self.QMin)
             self._fallback_interface.read_resources()
             self._fallback_interface.read_template()
-            self._fallback_interface.QMin.resources["scratchdir"] = os.path.join(self.QMin.resources["scratchdir"], "fallback_interface")
+            self._fallback_interface.QMin.resources["scratchdir"] = os.path.join(
+                self.QMin.resources["scratchdir"], "fallback_interface"
+            )
             self._fallback_interface.setup_interface()
 
     def read_requests(self, requests_file="QM.in"):
         super().read_requests(requests_file)
+        self._trial_interface.QMin.save["step"] = self.QMin.save["step"] - self._nfails_total
+        self._fallback_interface.QMin.save["step"] = self._nfails_total
         self._trial_interface.read_requests(requests_file)
         self._fallback_interface.read_requests(requests_file)
 
