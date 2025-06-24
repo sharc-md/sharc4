@@ -41,7 +41,8 @@ module data_extractor_NetCDFmodule
 
   type Twrite_options
     logical :: write_energy
-    logical :: write_dip
+    logical :: write_dip          !< transition dipole moments
+    logical :: write_dipoles      !< static dipole moments
     logical :: write_spin
     logical :: write_coeffdiag
     logical :: write_coeffmch
@@ -91,6 +92,8 @@ module data_extractor_NetCDFmodule
     real*8,allocatable :: expec_ion_diag(:)           !< oscillator strength per state in MCH basis
     real*8,allocatable :: expec_ion_mch(:)           !< oscillator strength per state in MCH basis
     real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
+    real*8,allocatable :: dipole_mch(:)               !< static dipole moment per state in MCH basis
+    real*8,allocatable :: dipole_diag(:)               !< static dipole moment per state in diagonal basis
     real*8,allocatable :: spin0_s(:)                !< spin value per MCH state (initialized in the beginning)
     real*8,allocatable :: grad_mch_sad(:,:,:)       !< gradient per MCH state per atom per xyz
     real*8,allocatable :: NAC_ssad(:,:,:,:)         !< nonadiabatic coupling per element (MCH state, MCH state) per atom per xyz
@@ -147,6 +150,8 @@ contains
     write(u,*) '       -s  : small = write all output files except ionization data, diagonal dipole/projection'
     write(u,*) '       -xs : extrasmall = energy (-e), coeffdiag (-cd), coeffmch (-cm), prob (-p), expec (-x), dip (-d), skip (-sk)'
     write(u,*) '       -e  : write energy file              (output_data/energy.out)'
+    write(u,*) '       -dm : write static dipole moments    (output_data/dipoles_MCH.out'
+    write(u,*) '                                             output_data/dipoles_diag.out),'
     write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
     write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
     write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out, output_data/class_diag.out, output_data/cmix_diag.out)'
@@ -226,6 +231,7 @@ contains
   ! defaults for writing options
   write_options%write_energy    = .false.
   write_options%write_dip       = .false.
+  write_options%write_dipoles   = .false.
   write_options%write_spin      = .false.
   write_options%write_coeffdiag = .false.
   write_options%write_coeffmch  = .false.
@@ -270,6 +276,8 @@ contains
       write_options%write_energy = .true.
     elseif (trim(args(i)) == "-d") then
       write_options%write_dip = .true.
+    elseif (trim(args(i)) == "-dm") then
+      write_options%write_dipoles = .true.
     elseif (trim(args(i)) == "-sp") then
       write_options%write_spin = .true.
     elseif (trim(args(i)) == "-cd") then
@@ -335,6 +343,7 @@ contains
     elseif (trim(args(i)) == "-xl") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_dipoles = .true.
       write_options%write_spin = .true.
       write_options%write_coeffdiag = .true.
       write_options%write_coeffmch = .true.
@@ -351,6 +360,7 @@ contains
     elseif (trim(args(i)) == "-l") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_dipoles = .true.
       write_options%write_spin = .true.
       write_options%write_coeffdiag = .true.
       write_options%write_coeffmch = .true.
@@ -365,6 +375,7 @@ contains
     elseif (trim(args(i)) == "-s") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_dipoles = .true.
       write_options%write_spin = .true.
       write_options%write_coeffdiag = .true.
       write_options%write_coeffmch = .true.
@@ -396,6 +407,7 @@ contains
   if (.not.anyoptions) then
     ! defaults for writing options
     write_options%write_energy    = .true.
+    write_options%write_dipoles = .true.
     write_options%write_dip       = .true.
     write_options%write_spin      = .true.
     write_options%write_coeffdiag = .true.
@@ -485,6 +497,7 @@ contains
     allocate( shdata%A_ss(nstates,nstates) )
     allocate( shdata%expec_s(nstates),shdata%expec_dm(nstates),shdata%expec_dm_mch(nstates),shdata%expec_dm_act(nstates) )
     allocate( shdata%expec_ion_diag(nstates),shdata%expec_ion_mch(nstates) )
+    allocate( shdata%dipole_mch(nstates), shdata%dipole_diag(nstates) )
     allocate( shdata%spin0_s(nstates) )
     allocate( shdata%geom_ad(general_infos%natom,3), shdata%veloc_ad(general_infos%natom,3) )
     allocate( shdata%ian(general_infos%natom) )
@@ -576,6 +589,7 @@ contains
     allocate( shdata%A_ss(nstates,nstates) )
     allocate( shdata%expec_s(nstates),shdata%expec_dm(nstates),shdata%expec_dm_mch(nstates),shdata%expec_dm_act(nstates) )
     allocate( shdata%expec_ion_diag(nstates),shdata%expec_ion_mch(nstates) )
+    allocate( shdata%dipole_mch(nstates), shdata%dipole_diag(nstates) )
     allocate( shdata%spin0_s(nstates) )
     allocate( shdata%geom_ad(general_infos%natom,3), shdata%veloc_ad(general_infos%natom,3) )
     allocate( shdata%ian(general_infos%natom) )
@@ -733,6 +747,15 @@ contains
     write(u_dm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
     write(u_dm,'(A1,1X,3(A20,1X))') '#','Time |','f_osc (state) |','=== f_osc ===>'
     write(u_dm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif
+
+  if (write_options%write_dipoles) then
+    write(u_dipole_mch,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_dipole_mch,'(A1,1X,3(A20,1X))') '#','Time |','|DM| (state) |','=== |DM| ===>'
+    write(u_dipole_mch,'(A1,1X,3(A20,1X))') '#','[fs] |','[Debye] |','[Debye] |'
+    write(u_dipole,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_dipole,'(A1,1X,3(A20,1X))') '#','Time |','|DM| (state) |','=== |DM| ===>'
+    write(u_dipole,'(A1,1X,3(A20,1X))') '#','[fs] |','[Debye] |','[Debye] |'
   endif
 
   if (write_options%write_dipact) then
@@ -922,6 +945,8 @@ contains
       if (write_options%write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')     ! -id
       if (write_options%write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')       ! -im
 
+      if (write_options%write_dipoles)   open(unit=u_dipole_mch, file='output_data/dipoles_MCH.out', status='replace', action='write')           ! -dm
+      if (write_options%write_dipoles)   open(unit=u_dipole, file='output_data/dipoles_diag.out', status='replace', action='write')           ! -dm
 
       if (write_options%write_coeffdiag) open(unit=u_coefd, file='output_data/coeff_diag.out', status='replace', action='write')      ! -cd           
       if (write_options%write_coeffmch)  open(unit=u_coefm, file='output_data/coeff_MCH.out', status='replace', action='write')       ! -cm           
@@ -1124,6 +1149,16 @@ contains
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
 
+    if (write_options%write_dipoles) then
+      write(u_dipole_mch,'(2X,1000(ES20.12E3,1X))') &
+      &time_step*general_infos%dtstep, shdata%dipole_diag(shdata%state_diag),&
+      (shdata%dipole_mch(istate),istate=1,nstates)
+      write(u_dipole,'(2X,1000(ES20.12E3,1X))') &
+      &time_step*general_infos%dtstep, shdata%dipole_diag(shdata%state_diag),&
+      (shdata%dipole_diag(istate),istate=1,nstates)
+    endif 
+
+
 
     if (write_options%write_iondiag) then
       ! write to ion_diag.out
@@ -1282,6 +1317,7 @@ contains
 
     subroutine process_data(nstates, step, general_infos, write_options, shdata, prop_info)
         use matrix, only: transform, matvecmultiply, matmultiply
+        use definitions, only: au2debye
         implicit none
   integer, intent(in) :: nstates, step
   type(Tgeneral_infos), intent(in) :: general_infos
@@ -1356,6 +1392,24 @@ contains
         shdata%expec_dm_act(i)=shdata%expec_dm_act(i)*real(shdata%H_diag_ss(i,i) &
         &-shdata%H_diag_ss(shdata%state_diag,shdata%state_diag))
       enddo
+    endif
+    
+    ! compute static dipole moments for all states
+    if (write_options%write_dipoles) then
+      shdata%dipole_mch = 0.d0
+      shdata%dipole_diag = 0.d0
+      do idir=1,3
+        shdata%A_ss=shdata%DM_ssd(:,:,idir)
+        do i=1,nstates
+          shdata%dipole_mch(i)=shdata%dipole_mch(i)+real(shdata%A_ss(i,i)*shdata%A_ss(i,i))
+        enddo
+        call transform(nstates,shdata%A_ss,shdata%U_ss,'utau')
+        do i=1,nstates
+          shdata%dipole_diag(i)=shdata%dipole_diag(i)+real(shdata%A_ss(i,i)*shdata%A_ss(i,i))
+        enddo
+      enddo
+      shdata%dipole_mch=dsqrt(shdata%dipole_mch)*au2debye
+      shdata%dipole_diag=dsqrt(shdata%dipole_diag)*au2debye
     endif
 
     ! calculate ionization
