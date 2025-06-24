@@ -1350,7 +1350,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             if INFOS["soc"]:
                 sel_g = question("Select gradients?", bool, False)
             else:
-                sel_g = True
+                sel_g = question("Select gradients?", bool, True)
         else:
             sel_g = False
         INFOS["sel_g"] = sel_g
