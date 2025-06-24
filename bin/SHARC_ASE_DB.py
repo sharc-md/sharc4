@@ -34,7 +34,7 @@ import numpy as np
 import yaml
 from ase.db import connect
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, expand_path, question
+from utils import InDir, expand_path, question, mkdir
 
 __all__ = ["SHARC_ASE_DB"]
 
@@ -250,7 +250,8 @@ class SHARC_ASE_DB(SHARC_HYBRID):
         # folder setup and savedir
         self._kindergarden["reference"].QMin.save["savedir"] = self.QMin.save["savedir"]
         self._kindergarden["reference"].QMin.resources["scratchdir"] = self.QMin.resources["scratchdir"]
-        self._kindergarden["reference"].prepare(INFOS, dir_path)
+        mkdir(child_path := os.path.join(dir_path, "QM"), force=False)
+        self._kindergarden["reference"].prepare(INFOS, child_path)
 
 
 if __name__ == "__main__":
