@@ -28,7 +28,6 @@ import datetime
 import os
 import shutil
 from io import TextIOWrapper
-import shutil
 
 import yaml
 from SHARC_HYBRID import SHARC_HYBRID
@@ -257,8 +256,10 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 
     def create_restart_files(self):
         super().create_restart_files()
-        self._trial_interface.create_restart_files()
-        self._fallback_interface.create_restart_files()
+        if not self._trial_failed:
+            self._trial_interface.create_restart_files()
+        else:
+            self._fallback_interface.create_restart_files()
 
     def write_step_file(self):
         super().write_step_file()
