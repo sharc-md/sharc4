@@ -1,2 +1,13 @@
-trial_interface: {"interface": "GAUSSIAN", "args": [], "kwargs": {}}
-fallback_interface: {"interface": "GAUSSIAN", "args": [], "kwargs": {}}
+trial_interface: # Always executed first
+    "interface": "GAUSSIAN" # Name of the SHARC interface
+    "args": [] # Arguments for initializing the interface
+    "kwargs": {} # Keyword arguments for initializing the interface
+fallback_interface: # Executed when trial_interface fails
+    "interface": "GAUSSIAN"
+    "args": []
+    "kwargs":
+        "logname": "fallback_interface" # Name of the logger object
+        "logfile": "fallback.out" # Write fallback log to file
+        "loglevel": 10 # Enable debug logs for fallback interface
+stop_at_nfails: 2 # Raise exception after 2 consecutive trial steps fail
+reset_fail_counter: 2 # Reset fail counter after 2 successful trial steps
