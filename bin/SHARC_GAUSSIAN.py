@@ -904,6 +904,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     def create_restart_files(self):
         self.log.print(">>>>>>>>>>>>> Saving files")
         starttime = datetime.datetime.now()
+        self.generate_joblist()
         for ijobset, jobset in enumerate(self.QMin.scheduling["schedule"]):
             if not jobset:
                 continue
