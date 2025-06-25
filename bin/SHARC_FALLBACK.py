@@ -82,6 +82,8 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             "kwargs": dict,  # Keyword args for child
         }
 
+        self._template_file = None
+
     @staticmethod
     def authors() -> str:
         return SHARC_FALLBACK._authors
@@ -113,7 +115,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
         # return all_features
         if not self._read_template:
-            self.template_file = question(
+            self._template_file = question(
                 "Please specify the path to your FALLBACK.template file", str, KEYSTROKES=KEYSTROKES, default="FALLBACK.template"
             )
             self.read_template(self.template_file)
@@ -151,13 +153,13 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     def prepare(self, INFOS: dict, dir_path: str):
         # template
         if "link_files" in INFOS:
-            os.symlink(expand_path(self.template_file), os.path.join(dir_path, self.name() + ".template"))
+            os.symlink(expand_path(self._template_file), os.path.join(dir_path, self.name() + ".template"))
         else:
-            shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
+            shutil.copy(self._template_file, os.path.join(dir_path, self.name() + ".template"))
 
         # make empty resources file
         path = os.path.join(dir_path, "FALLBACK.resources")
-        open(path, "a").close()
+        open(path, "a", encoding="utf-8").close()
 
         # setup dirs
         traildir = os.path.join(dir_path, "trial_interface")
@@ -232,6 +234,12 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 
     def create_restart_files(self):
         super().create_restart_files()
+
+        if not self.persistent:
+            with open(
+                os.path.join(self.QMin.save["savedir"], f"fail_counter.{self.QMin.save['step']}"), "w", encoding="utf-8"
+            ) as f:
+                yaml.dump({"nfails": self._nfails, "nfails_total": self._nfails_total, "successes": self._nsuccesses}, f)
         if not self._trial_failed:
             self._trial_interface.create_restart_files()
         else:
@@ -259,10 +267,14 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self.log.error("Path trial_interface does not exist!")
             raise ValueError
 
-        # Counter of fails
-        self._nfails = 0
-        self._nsuccesses = 0
-        self._nfails_total = 0
+        if not self.persistent:
+            with open(
+                os.path.join(self.QMin.save["savedir"], f"fail_counter.{self.QMin.save['step']}"), "r", encoding="utf-8"
+            ) as f:
+                fails = yaml.safe_load(f)
+                self._nfails = fails["nfails"]
+                self._nfails_total = fails["nfails_total"]
+                self._nsuccesses = fails["successes"]
 
         # Instantiate trial and fallback interfaces
         trial = self.QMin.template["trial_interface"]
