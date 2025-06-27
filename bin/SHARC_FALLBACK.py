@@ -267,15 +267,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self.log.error("Path trial_interface does not exist!")
             raise ValueError
 
-        if not self.persistent:
-            with open(
-                os.path.join(self.QMin.save["savedir"], f"fail_counter.{self.QMin.save['step']}"), "r", encoding="utf-8"
-            ) as f:
-                fails = yaml.safe_load(f)
-                self._nfails = fails["nfails"]
-                self._nfails_total = fails["nfails_total"]
-                self._nsuccesses = fails["successes"]
-
         # Instantiate trial and fallback interfaces
         trial = self.QMin.template["trial_interface"]
         fallback = self.QMin.template["fallback_interface"]
@@ -302,6 +293,16 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 
     def read_requests(self, requests_file="QM.in"):
         super().read_requests(requests_file)
+
+        if not self.persistent and self.QMin.save["step"] > 0:
+            with open(
+                os.path.join(self.QMin.save["savedir"], f"fail_counter.{self.QMin.save['step']-1}"), "r", encoding="utf-8"
+            ) as f:
+                fails = yaml.safe_load(f)
+                self._nfails = fails["nfails"]
+                self._nfails_total = fails["nfails_total"]
+                self._nsuccesses = fails["successes"]
+
         self._trial_interface.QMin.save["step"] = self.QMin.save["step"] - self._nfails_total
         self._fallback_interface.QMin.save["step"] = self._nfails_total
         self._trial_interface.read_requests(requests_file)
