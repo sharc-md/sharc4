@@ -38,6 +38,10 @@
 !>                       changed subroutines select_grad and select_nacdr - for SCP, all states are selected
 !>                       changed subroutine Mix_gradients - add the SCP gradient
 !> 
+!>                   modified 30.06.2025 by Marco Romanelli
+!>                       changed subroutine Adjust_phases to comply with complex phase factors for phase correction
+!>                       necessary for plan wave basis sets
+!> 
 !> This module implements the SHARC-QM interface.
 !> It writes the QM.in file, calls the interfaces, 
 !> and reads the QM.out file to update the electronic matrices.
@@ -1479,9 +1483,9 @@ module qm
     if (traj%phases_found.eqv..false.) then
 
       ! from overlap matrix diagonal
-      if (ctrl%calc_overlap==1) then
+      if (1) then
 
-        if (printlevel>4) then 
+        if (printlevel>4) then traj%phases_found
           write(u_log,*) 'phase correction based on overlaps'
         endif 
         traj%phases_s=traj%phases_old_s
@@ -1579,10 +1583,11 @@ module qm
 
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
     ! Bra
+    ! CONJG because phases could be complex if plan wave basis sets are used (Marco ROmanelli 30/06/2025)
     do istate=1,ctrl%nstates
-      traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*traj%phases_s(istate)
-      traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*traj%phases_s(istate)
-      traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*traj%phases_s(istate)
+      traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*CONJG(traj%phases_s(istate))
+      traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+      traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
       !this if is taken off because we add QM processing subroutine
       !if (ctrl%calc_nacdt==1) then
         traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
@@ -1592,7 +1597,7 @@ module qm
       endif
       !this if is taken off because we add QM processing subroutine
       if (ctrl%calc_overlap==1) then
-        traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*traj%phases_old_s(istate)
+        traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*CONJG(traj%phases_old_s(istate))
       endif
     enddo
     ! Ket
