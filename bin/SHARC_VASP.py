@@ -35,8 +35,7 @@ all_features = set(
         "dm",
         "grad",
         "overlap",
-        # Rest of the possible requests to implement:
-        # "phases",  (orbital phase tracking?)
+        "phases", #only if overlap matrix is available 
     ]
 )
 
@@ -91,7 +90,8 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "a1": None, #1st unit cell lattice vector
                 "a2": None, #2nd unit cell lattice vector
                 "a3": None, #3rd unit cell lattice vector
-                "overlap_method": "full" #method to compute overlaps via pawpyseed
+                "overlap_method": "full", #method to compute overlaps via pawpyseed
+                "phases_method": "none" #method to compute phase correction based on overlap matrix
             }
         )
         self.QMin.template.types.update(
@@ -111,7 +111,8 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "a1": list, #1st unit cell lattice vector
                 "a2": list, #2nd unit cell lattice vector
                 "a3": list, #3rd unit cell lattice vector
-                "overlap_method": str #method to compute overlaps via pawpyseed
+                "overlap_method": str, #method to compute overlaps via pawpyseed
+                "phases_method": str, #method to compute phase correction based on overlap matrix
             }
         )
         self._coords_vasp =  None #to store VASP input geometry, different from QMin format
@@ -223,6 +224,16 @@ class SHARC_VASP(SHARC_ABINITIO):
                 self.log.error("overlap_method can only be either 'full' or 'pseudo'")
                 raise ValueError()
 
+        if not isinstance(self.QMin.template["phases_method"],str):
+            self.log.error("phases_method has to be a string. Only 'none', 'simple' or 'robust' are supported. It selects phase correction method using overlap matrix")
+            raise ValueError()
+        else:
+            if self.QMin.template["phases_method"] == "simple" or self.QMin.template["phases_method"] == "robust" or self.QMin.template["phases_method"] == "none":
+                pass
+            else:
+                self.log.error("phases_method can only be either 'none', 'simple' or 'robust'")
+                raise ValueError()
+        
         #Control check for lattice vectors
         if not isinstance(self.QMin.template["a1"],list):
             self.log.error("a1 has to be a list of 3 numbers, the lattice vector coordinates. Please provide 3 real numbers separated by whitespaces in the template")
@@ -398,23 +409,26 @@ class SHARC_VASP(SHARC_ABINITIO):
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
-
+        
+        for req, val in self.QMin.requests.items():
+            if val and req != "retain" and req not in all_features:
+                self.log.error(f"Found unsupported request {req}.")
+                raise ValueError(f"Found unsupported request {req}.")
+            
         #Checking for pawpyseed (https://github.com/kylebystrom/pawpyseed) installation in the conda environment the user uses for running SHARC
         # This is compulsory for calculating overlaps and so run VASP-SHARC dynamics !!
         # SH with VASP can only run by using overlaps, no NACs available.
-
         if self.QMin.requests["overlap"]:
             if importlib.util.find_spec("pawpyseed") is None:
                 self.log.error("You have requested overlap propagation but no pawpyseed was found in your python env. \
                                 This is necessary for computing overlaps out of VASP.")
                 self.log.error("install pawpyseed from: https://github.com/kylebystrom/pawpyseed  and check afterwards that it appears in 'pip list'")
                 raise ValueError("pawpyseed is not installed in your python env! do it first https://github.com/kylebystrom/pawpyseed")
-
-        for req, val in self.QMin.requests.items():
-            if val and req != "retain" and req not in all_features:
-                self.log.error(f"Found unsupported request {req}.")
-                raise ValueError(f"Found unsupported request {req}.")
-            
+        
+        if self.QMin.requests["phases"] and not self.QMin.requests["overlap"]:
+            self.log.error("Phase correction is not supported without overlap calculation here!")
+            raise ValueError("Phase correction is not supported without overlap calculation here!")
+        
         if self.QMin.requests["grad"] != [1]: #SHARC_VASP is supposed to be called by SHARC_CPA now, only GS gradient from child interface.
             self.log.error("SHARC_VASP can only provide ground-state gradient only. You cannot request excited-state ones")
             raise ValueError("SHARC_VASP can only provide ground-state gradient only. You cannot request excited-state ones")
@@ -581,6 +595,12 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.debug("Checking population of self.QMout.overlap, overlap matrix")
             self.log.debug(self.QMout.overlap)
 
+        # Populate phases
+        if self.QMin.requests["overlap"] and self.QMin.requests["phases"]:
+            self.QMout.phases=self._get_phases(self.QMin.template["phases_method"],self.QMout.overlap)
+            self.log.debug("Checking population of self.QMout.phases")
+            self.log.debug(self.QMout.phases)
+        
         return self.QMout
     
 
@@ -774,6 +794,31 @@ class SHARC_VASP(SHARC_ABINITIO):
        
         return T
 
+    def _get_phases(self,flag: str, overlap: np.ndarray[complex,2] ) -> np.ndarray[complex,1]:
+        ''' 
+        Function for phase correction of adiabatic states at different time steps relying on calculation of overlap matrix.
+        Either 'none' phase correction or 'simple' and 'robust' algorithms can be chosen.
+
+        flag: 'none', 'simple' (Alekey et al. J. Phys. Chem. Lett. 2018, 9, 6096−6102) , 'robust' (Subotnik et al. JCTC 2020, 16, 835−846)
+        overlap: overlap matrix from VASP
+
+        returns: 1D array of complex numbers for phase correction.
+        '''
+        
+        if flag=="none":
+            phases=np.ones(self.QMin.molecule["nmstates"],dtype=complex) 
+        
+        elif flag=="simple": #Akimov JPCL 2018 phase correction
+            phases=[]
+            for i in range(self.QMin.molecule["nmstates"]):
+                phases.append(np.conj(overlap[i,i]/np.abs(overlap[i,i])))
+            phases=np.array(phases)
+        
+        elif flag=="robust":
+            phases=np.ones(self.QMin.molecule["nmstates"],dtype=complex) 
+            #Yet to be coded
+        
+        return phases
     
 
 
