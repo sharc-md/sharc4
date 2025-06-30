@@ -1483,16 +1483,16 @@ module qm
     if (traj%phases_found.eqv..false.) then
 
       ! from overlap matrix diagonal
-      if (1) then
+      if (ctrl%calc_overlap==1) then
 
-        if (printlevel>4) then traj%phases_found
+        if (printlevel>4) then 
           write(u_log,*) 'phase correction based on overlaps'
         endif 
         traj%phases_s=traj%phases_old_s
         do istate=1,ctrl%nstates
-          if (real(traj%overlaps_ss(istate,istate))<0.d0) then
-            traj%phases_s(istate)=traj%phases_s(istate)*(-1.d0)
-          endif
+          traj%phases_s(istate)=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+          ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 -> more robust for plan wave basis sets 
+          ! where overlap matrix is not real
         enddo
 
       ! from scalar products of old and new NAC vectors
