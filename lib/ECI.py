@@ -399,9 +399,9 @@ class ECI:
             )
 
         self.log.print("       Aufbau ESDs ( # = " + str(len(ESDs)) + " ):")
-        for ESD in ESDs:
-            self.log.print("          " + repr(ESD))
-        self.log.print("")
+        #for ESD in ESDs:
+        #    self.log.print("          " + repr(ESD))
+        #self.log.print("")
         return ESDs
 
     # ----END of ECI.get_aufbaus------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -563,8 +563,8 @@ class ECI:
         for i, ECSF in enumerate(ECSFs):
             self.log.print("")
             self.log.print(f"             {repr(ECSF)} = ")
-            for j, ESD in enumerate(ECSF.ESDs):
-                self.log.print(f"             {ECSF.U[j]: 10.6f} {repr(ESD)}")
+            #for j, ESD in enumerate(ECSF.ESDs):
+            #    self.log.print(f"             {ECSF.U[j]: 10.6f} {repr(ESD)}")
         self.log.print("")
         return ESDs, ECSFs, U
 
@@ -1072,10 +1072,10 @@ class ECI:
 
             self.log.print("")
             self.log.print(f"       H-, J-, K-matrices for multiplicity {m} in the basis of ECSFs:")
-            for label, mat in zip(("H", "J", "K"), (H, J, K)):
-                self.log.print(f"          {label}-matrix:")
-                for i in range(len(ECIbasis[m].ECSFs)):
-                    self.log.print("         " + " ".join([f"{mat[m][i,j]: 20.10f}" for j in range(len(ECIbasis[m].ECSFs))]))
+            #for label, mat in zip(("H", "J", "K"), (H, J, K)):
+            #    self.log.print(f"          {label}-matrix:")
+            #    for i in range(len(ECIbasis[m].ECSFs)):
+            #        self.log.print("         " + " ".join([f"{mat[m][i,j]: 20.10f}" for j in range(len(ECIbasis[m].ECSFs))]))
 
     def get_ECI_integrals(self):
         job = self.job
@@ -1312,9 +1312,9 @@ class ECI:
                 Eex = self.E[m][i] - E0
                 if "dm" in job.properties and m == mult0:
                     f = 2.0 / 3.0 * Eex * np.linalg.norm(self.mu[m][:, 0, i]) ** 2
-                    self.log.print(f"          {start+i:5d}   {Eex*27.2114: 8.3f}  {f: 9.4f}   {wf}")
+                    self.log.print(f"          {start+i:5d}   {Eex*27.2114: 8.6f}  {f: 9.6f}   {wf}")
                 else:
-                    self.log.print(f"          {start+i:5d}   {Eex*27.2114: 8.3f}              {wf}")
+                    self.log.print(f"          {start+i:5d}   {Eex*27.2114: 8.6f}              {wf}")
             self.log.print("          -----------------------------------")
             self.log.print("")
 
