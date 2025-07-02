@@ -3,14 +3,13 @@
 import os, sys, argparse
 import numpy as np
 import re
+from constants import ANG_TO_BOHR
 
 def vibration_from_outcar(file_outcar='OUTCAR',file_poscar='POSCAR',file_out='vasp.molden'):
     '''
     Read vibration eigenvectors and eigenvalues from OUTCAR and create molden file for SHARC wigner.py
     '''
    
-    #Conversion factors
-    ang2au=1.8897259886 
     #Getting n. of modes, nmodes
     with open(file_outcar,"r") as f:
         outcar=f.read()
@@ -94,7 +93,7 @@ def vibration_from_outcar(file_outcar='OUTCAR',file_poscar='POSCAR',file_out='va
             f.write(f"{i:.2f}\n")
         f.write("[FR-COORD]\n")
         for i in range(len(elements)):
-            f.write(f"{elements[i]} {modes[0][i,0]*ang2au:.6f} {modes[0][i,1]*ang2au:.6f} {modes[0][i,2]*ang2au:.6f}\n") #bohr for geometry coordinates
+            f.write(f"{elements[i]} {modes[0][i,0]*ANG_TO_BOHR:.6f} {modes[0][i,1]*ANG_TO_BOHR:.6f} {modes[0][i,2]*ANG_TO_BOHR:.6f}\n") #bohr for geometry coordinates
         f.write("[FR-NORM-COORD]\n")
         for n,i in enumerate(modes):
             f.write(f"vibration {n+1}\n")
