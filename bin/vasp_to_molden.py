@@ -7,7 +7,6 @@ import re
 def vibration_from_outcar(file_outcar='OUTCAR',file_poscar='POSCAR',file_out='vasp.molden'):
     '''
     Read vibration eigenvectors and eigenvalues from OUTCAR and create molden file for SHARC wigner.py
-    Low frequency modes below specified threshold are neglected.
     '''
    
     #Conversion factors
@@ -52,7 +51,8 @@ def vibration_from_outcar(file_outcar='OUTCAR',file_poscar='POSCAR',file_out='va
             sys.exit()
     if counter > 3:
         print("You have more than 3 imaginary frequencies in your VASP output." \
-                "Something went wrong, check your OUTCAR. Only 3 (translational modes) are expected")
+                "Something went wrong, check your OUTCAR."\ 
+                "Only 3 (translational modes) are expected with imaginary frequencies because of numerical errors.")
         sys.exit()
     modes_tmp=modes.copy()
     modes=[]
