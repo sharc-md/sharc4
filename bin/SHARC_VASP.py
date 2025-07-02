@@ -392,9 +392,9 @@ class SHARC_VASP(SHARC_ABINITIO):
     def run(self) -> None:
 
         starttime = datetime.datetime.now()
-        self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "vasp_calc")
+        self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "")
 
-        schedule = [{"vasp_calc" : self.QMin}] #Generate fake schedule
+        schedule = [{"" : self.QMin}] #Generate fake schedule
         self.QMin.control["nslots_pool"].append(1)
         self.runjobs(schedule)
 
