@@ -9,7 +9,7 @@ import re
 from constants import *
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import  expand_path, question, link,  mkdir,  writefile,is_exec
+from utils import  expand_path, question, link,  mkdir,  writefile,is_exec,phase_correction_cmplx
 from scipy import linalg as LA
 from scipy import optimize as opt
 import importlib.util
@@ -92,7 +92,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "a2": None, #2nd unit cell lattice vector
                 "a3": None, #3rd unit cell lattice vector
                 "overlap_method": "full", #method to compute overlaps via pawpyseed
-                "phases_method": "none" #method to compute phase correction based on overlap matrix
+                "phases_method": "simple" #method to compute phase correction based on overlap matrix
             }
         )
         self.QMin.template.types.update(
@@ -801,9 +801,10 @@ class SHARC_VASP(SHARC_ABINITIO):
         ''' 
         Function for phase correction of adiabatic states at different time steps relying on calculation of overlap matrix.
         Either 'none' phase correction or 'simple' and 'robust' algorithms can be chosen.
+        the actual function is in utils.py
 
         flag: 'none', 'simple' (Alekey et al. J. Phys. Chem. Lett. 2018, 9, 6096−6102) , 'robust' (Subotnik et al. JCTC 2020, 16, 835−846)
-        overlap: overlap matrix from VASP
+        overlap: overlap matrix 
 
         returns: 1D array of complex numbers for phase correction.
         '''
@@ -811,69 +812,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         if flag=="none":
             phases=np.ones(self.QMin.molecule["nmstates"],dtype=complex) 
         
-        elif flag=="simple": #Akimov JPCL 2018 phase correction
-            phases=[]
-            for i in range(self.QMin.molecule["nmstates"]):
-                phases.append(np.conj(overlap[i,i]/np.abs(overlap[i,i])))
-            phases=np.array(phases)
+        elif flag=="simple" or flag=="robust": 
+            phases=phase_correction_cmplx(overlap,flag)[1]
         
-        elif flag=="robust":
-            #theory in Subotnik et al. JCTC 2020, 16, 835−846 
-            thold=1e-7 #threshold for convergence, could be tightened, see below
-            #Following delta function is used later, for minimization
-            def delta_cmplx(teta,A1,A2,B1,B2):
-                delta=A1*np.cos(teta)+A2*np.cos(2*teta)+B1*np.sin(teta)+B2*np.sin(2*teta)
-                return delta
-            ##### start ####
-            U = overlap.copy()
-            for i in range(U.shape[0]):
-                tmp=np.argmax(np.abs(U[:,i]))
-                max_el=U[tmp,i]
-                U[:,i]=U[:,i]*max_el.conjugate()/np.abs(max_el)
-            det = LA.det(U)
-            self.log.debug("Debugging phase correction algorithm")
-            self.log.debug("Matrix determinant at initial stage")
-            self.log.debug(det)
-            if isinstance(det,complex):
-                U[:,0]=U[:,0]*det.conjugate()
-            elif det < 0.: #real and negative -> must be -1
-                U[:,0] *= -1.
-            # sweeps
-            sweeps = 0
-            while True:
-                done = True
-                for j in range(U.shape[0]):
-                    for k in range(j + 1, U.shape[0]):
-                        # variable names follow eq.23 Subtonik paper with the following mapping
-                        # e.g. A1 below is Г_1^{jk} in the paper, A2 -> Г_2^{jk}
-                        # e.g. B1 below is Ξ_1^{jk} in the paper, B2 -> Ξ_2^{jk}
-                        A1= (6.0*np.real(np.dot(U[j,:],U[:,j])+np.dot(U[k,:],U[:,k]))-
-                        12.0*np.real(U[j,k]*U[k,j])-6.0*np.real(U[j,j]**2+U[k,k]**2)-16.0*np.real(U[j,j]+U[k,k])) 
-                        A2=3.0*np.real(U[j,j]**2+U[k,k]**2) 
-                        B1=(6.0*np.imag(np.dot(U[k,:],U[:,k])-np.dot(U[j,:],U[:,j]))-
-                        6.0*np.imag(U[k,k]**2-U[j,j]**2)-16.0*np.imag(U[k,k]-U[j,j]))
-                        B2=3.0*np.imag(U[k,k]**2-U[j,j]**2)
-                        #Minimizing delta function
-                        seed=np.random.uniform(0, 2 * np.pi)
-                        out=opt.minimize(delta_cmplx,seed,args=(A1,A2,B1,B2),method='BFGS',options={'gtol':1e-6}) 
-                        #Here we directly call a minimizer instead of following the analytical minimization of the paper.
-                        # That option did not work well, I did not figure out why.
-                        teta=out.x[0]
-                        #Applying phase correction
-                        U[:,j] *= np.exp(complex(0.,teta))
-                        U[:,k] *=  np.exp(complex(0.,-teta))
-                        if teta < -thold or teta > thold:
-                            done=False
-                sweeps += 1
-                if done:
-                    #Saving scaling factors i.e. phase corrections
-                    tmp=[U[:,i]/overlap[:,i] for i in range(U.shape[0])]
-                    phases=np.array([i[0] for i in tmp if np.all(np.round(i,9)==np.round(i[0],9))])
-                    self.log.debug("Total number of sweeps")
-                    self.log.debug(sweeps)
-                    self.log.debug("Matrix determinant at last stage")
-                    #self.log.debug(LA.det(U)) #uncomment only for testing otherwise it is always evaluated
-                    break
         return phases
     
 
