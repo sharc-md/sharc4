@@ -40,7 +40,7 @@ AUTHORS = "Marco Romanelli"
 VERSION = "1.0"
 VERSIONDATE = datetime.datetime(2025, 6, 4)
 NAME = "CPA"
-DESCRIPTION = "HYBRID interface for performing Classical-Path-Approximation (CPA) dynamics. Coding is based on ASE_DB"
+DESCRIPTION = "HYBRID interface for performing Classical-Path-Approximation (CPA) dynamics." 
 
 CHANGELOGSTRING = """ This hybrid interface only request the ground-state gradients to each child interface and 
 return to the driver call always the ground-state gradient for each excited-state. This is meant to be
@@ -138,10 +138,11 @@ class SHARC_CPA(SHARC_HYBRID):
         self.QMout = self._kindergarden["reference"].getQMout() #QMout from child is takes as in, only gradients are adjusted below -> CPA
         self.log.debug("nmstates requested to SHARC_CPA.py")
         self.log.debug(self.QMin.molecule["nmstates"])
-        if len(self.QMout.grad.shape)==2: #Means child can only provide 1 gradient, so the GS one.
-            self.QMout["grad"]=np.array([self.QMout["grad"] for i in range(self.QMin.molecule["nmstates"])]) #Each excited state has same GS gradient
-        else:
-            self.QMout["grad"]=np.array([self.QMout["grad"][0] for i in range(self.QMin.molecule["nmstates"])]) #retaining only GS gradient if child computes all
+        if self.QMin.requests["grad"] is not None:
+            if len(self.QMout.grad.shape)==2: #Means child can only provide 1 gradient, so the GS one.
+                self.QMout["grad"]=np.array([self.QMout["grad"] for i in range(self.QMin.molecule["nmstates"])]) #Each excited state has same GS gradient
+            else:
+                self.QMout["grad"]=np.array([self.QMout["grad"][0] for i in range(self.QMin.molecule["nmstates"])]) #retaining only GS gradient if child computes all
         return self.QMout
 
     def read_requests(self, requests_file="QM.in"):
@@ -221,7 +222,7 @@ class SHARC_CPA(SHARC_HYBRID):
 
         # Calling child prepare routine. Important to specify correct directory where SHARC_VASP.py is gonna be called
         # We don't care about child's scratchdir and savedir here because those are gonna be read in through child.resources otherwise warning will be raised.
-        qmdir=os.pathjoin(dir_path,"QM_"+self.QMin.template["reference"]["interface"])
+        qmdir=os.path.join(dir_path,"QM_"+self.QMin.template["reference"]["interface"])
         mkdir(qmdir) 
         self._kindergarden["reference"].prepare(INFOS, qmdir)
 

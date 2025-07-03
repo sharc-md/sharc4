@@ -410,7 +410,7 @@ class SHARC_VASP(SHARC_ABINITIO):
 
     def read_requests(self, requests_file: str = "QM.in") -> None:
         super().read_requests(requests_file)
-        
+
         for req, val in self.QMin.requests.items():
             if val and req != "retain" and req not in all_features:
                 self.log.error(f"Found unsupported request {req}.")
@@ -430,7 +430,9 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.error("Phase correction is not supported without overlap calculation here!")
             raise ValueError("Phase correction is not supported without overlap calculation here!")
         
-        if self.QMin.requests["grad"] != [1]: #SHARC_VASP is supposed to be called by SHARC_CPA now, only GS gradient from child interface.
+        self.log.debug("debugging grad requests")
+        self.log.debug(self.QMin.requests["grad"])
+        if isinstance(self.QMin.requests["grad"],list) and self.QMin.requests["grad"] != [1]: #SHARC_VASP is supposed to be called by SHARC_CPA now, only GS gradient from child interface.
             self.log.error("SHARC_VASP can only provide ground-state gradient only. You cannot request excited-state ones")
             raise ValueError("SHARC_VASP can only provide ground-state gradient only. You cannot request excited-state ones")
 
