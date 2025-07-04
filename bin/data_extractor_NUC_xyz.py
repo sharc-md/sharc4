@@ -75,6 +75,9 @@ def main(geomfile, ncfile):
         nstep, natom2, nspat = dat.variables["geom"].shape
         geom_rst = dat.variables["geom"]
         veloc_rst = dat.variables["veloc"]
+        sys.stderr.write("nframe from NetCDF: "+str(nstep)+'\n')
+        sys.stderr.write("natom  from NetCDF: "+str(natom2)+'\n')
+        sys.stderr.write("ndim   from NetCDF: "+str(nspat)+'\n')
 
         # figure out which step we want
         geom  = np.array( geom_rst[:, :, :], dtype=np.float32).reshape(nstep, 3, natom)
