@@ -243,7 +243,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
         self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
-        self.setupINFOS["scratchdir"] += '/$$/'
+        # self.setupINFOS["scratchdir"] += '/$$/'
 
         if os.path.isfile("MOLCAS.template"):
             self.log.info("Found MOLCAS.template in current directory")
@@ -362,12 +362,17 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "MOLCAS.resources"), "w", encoding="utf-8") as file:
-                for key in ("molcas", "scratchdir", "ncpu", "memory", 
-                    # "theodir",
-                    "theodore_prop",
-                    "theodore_fragment"):
+                for key in ("molcas", 
+                            # "scratchdir", 
+                            "ncpu", 
+                            "memory", 
+                            # "theodir",
+                            "theodore_prop",
+                            "theodore_fragment"):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
+                if "scratchdir" in self.setupINFOS:
+                    file.write(f"scratchdir {os.path.join(self.setupINFOS['scratchdir'], dir_path)}\n")
         else:
             create_file(expand_path(self._resource_file), os.path.join(dir_path, "MOLCAS.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "MOLCAS.template"))
@@ -1174,6 +1179,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "ORBLISTING=NOTHING\nPRWF=1.0e-12\n"
         if qmin.template["method"] == "cms-pdft":
             input_str += "CMSInter\n"
+        # TODO: The next piece of code makes the calculation quite a bit more expensive
         if qmin.maps["gradmap"] and len(qmin.maps["gradmap"]) > 0:
             input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
         else:

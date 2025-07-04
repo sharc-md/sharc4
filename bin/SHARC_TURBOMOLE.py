@@ -384,7 +384,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             with open(os.path.join(dir_path, "TURBOMOLE.resources"), "w", encoding="utf-8") as file:
                 for key in (
                     "turbodir",
-                    "scratchdir",
+                    # "scratchdir",
                     "ncpu",
                     "memory",
                     "wfoverlap",
@@ -395,6 +395,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 ):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
+                if "scratchdir" in self.setupINFOS:
+                    file.write(f"scratchdir {os.path.join(self.setupINFOS['scratchdir'], dir_path)}\n")
         else:
             create_file(expand_path(self._resources_file), os.path.join(dir_path, "TURBOMOLE.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "TURBOMOLE.template"))
