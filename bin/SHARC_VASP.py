@@ -792,6 +792,9 @@ class SHARC_VASP(SHARC_ABINITIO):
             S_ij.append(s_ij)
        
         #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
+        #this may need to be adjusted, so that the driver does that, before checking for intruder states
+        #if so, the orthogonalized matrix has to be stored anyway for phase corrections
+
         λ,V = LA.eigh(S_ij[0].T.conjugate() @ S_ij[0])
         T=S_ij[0] @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
        
