@@ -424,7 +424,7 @@ class SHARC_QMMM(SHARC_HYBRID):
                 self.atoms[x[1]].symbol for x in self._linkatoms
             ]  # add symbols of link atoms (original element -> proper bonded terms in MM calc)
 
-            self.mml_interface.setup_mol(
+            self.mms_interface.setup_mol(
                 {
                     "states": [1],
                     "charge": [0],
