@@ -107,8 +107,8 @@ class SHARC_ASE_DB(SHARC_HYBRID):
             raise ValueError
 
         if "format" in tmpl_dict:
-            if tmpl_dict["format"].lower() not in ("sharc", "spainn"):
-                self.log.error(f"{tmpl_dict['format']} is not a valid format! Either use SHARC or SPAINN.")
+            if tmpl_dict["format"].lower() not in ("sharc", "spainn", "mace"):
+                self.log.error(f"{tmpl_dict['format']} is not a valid format! Either use SHARC, MACE or SPAINN.")
                 raise ValueError
 
         if "output_steps" in tmpl_dict:
@@ -172,13 +172,27 @@ class SHARC_ASE_DB(SHARC_HYBRID):
                 if self.QMin.molecule["point_charges"]:
                     data["external_charge_positions"] = self.QMin.coords["pccoords"]
                     data["external_charges"] = self.QMin.coords["pccharge"]
+            elif self.QMin.template["format"].lower() == "mace":
+                data = {"mm_charges": np.zeros(1), "mm_positions": np.zeros((1,3))}
+                for prop in self.QMin.template["props_to_save"]:
+                    match prop:
+                        case "h":
+                            data["REF_energy"] = np.einsum("ii->i", self.QMout[prop]).reshape(1,-1)
+                        case "grad":
+                            data["REF_forces"] = -np.einsum("ijk->jik", self.QMout[prop])
+                        case "multipolar_fit":
+                            data["REF_multipolar_fit"] = np.stack([self.QMout[prop][(self.states[0], k)][:, 0] for k in self.states[1:]])
+                
             else:
                 if self.QMin.molecule["point_charges"]:
                     data["pccoords"] = self.QMin.coords["pccoords"]
                     data["pccharge"] = self.QMin.coords["pccharge"]
                 data = {k: self.QMout[k] for k in self.QMin.template["props_to_save"]}
 
-            db.write(ase.Atoms(symbols=self.QMin.molecule["elements"], positions=self.QMin.coords["coords"]), data=data)
+            if self.QMin.template["format"].lower() == "mace":
+                db.write(ase.Atoms(symbols=self.QMin.molecule["elements"], positions=self.QMin.coords["coords"], info=data))
+            else:
+                db.write(ase.Atoms(symbols=self.QMin.molecule["elements"], positions=self.QMin.coords["coords"]), data=data)
         return self.QMout
 
     def read_requests(self, requests_file="QM.in"):
