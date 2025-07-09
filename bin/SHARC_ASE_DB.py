@@ -110,6 +110,7 @@ class SHARC_ASE_DB(SHARC_HYBRID):
             if tmpl_dict["format"].lower() not in ("sharc", "spainn", "mace"):
                 self.log.error(f"{tmpl_dict['format']} is not a valid format! Either use SHARC, MACE or SPAINN.")
                 raise ValueError
+        self.QMin.template["format"] = tmpl_dict["format"]
 
         if "output_steps" in tmpl_dict:
             self.QMin.template["output_steps"] = tmpl_dict["output_steps"]
