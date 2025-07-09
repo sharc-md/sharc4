@@ -182,7 +182,7 @@ class SHARC_ASE_DB(SHARC_HYBRID):
                         case "grad":
                             data["REF_forces"] = -np.einsum("ijk->jik", self.QMout[prop])
                         case "multipolar_fit":
-                            data["REF_multipolar_fit"] = np.stack([self.QMout[prop][(self.states[0], k)][:, 0] for k in self.states[1:]])
+                            data["REF_multipolar_fit"] = np.einsum("ij->ji", np.stack([self.QMout[prop][(self.states[0], k)][:, 0] for k in self.states[1:]]))
             else:
                 if self.QMin.molecule["point_charges"]:
                     data["pccoords"] = self.QMin.coords["pccoords"]
