@@ -182,6 +182,8 @@ class SHARC_ASE_DB(SHARC_HYBRID):
                             data["REF_forces"] = -np.einsum("ijk->jik", self.QMout[prop])
                         case "multipolar_fit":
                             data["REF_multipolar_fit"] = np.stack([self.QMout[prop][(self.states[0], k)][:, 0] for k in self.states[1:]])
+                db.write(ase.Atoms(symbols=self.QMin.molecule["elements"], positions=self.QMin.coords["coords"], info=data))
+                return self.QMout
                 
             else:
                 if self.QMin.molecule["point_charges"]:
@@ -189,10 +191,7 @@ class SHARC_ASE_DB(SHARC_HYBRID):
                     data["pccharge"] = self.QMin.coords["pccharge"]
                 data = {k: self.QMout[k] for k in self.QMin.template["props_to_save"]}
 
-            if self.QMin.template["format"].lower() == "mace":
-                db.write(ase.Atoms(symbols=self.QMin.molecule["elements"], positions=self.QMin.coords["coords"], info=data))
-            else:
-                db.write(ase.Atoms(symbols=self.QMin.molecule["elements"], positions=self.QMin.coords["coords"]), data=data)
+            db.write(ase.Atoms(symbols=self.QMin.molecule["elements"], positions=self.QMin.coords["coords"]), data=data)
         return self.QMout
 
     def read_requests(self, requests_file="QM.in"):
