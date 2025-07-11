@@ -65,7 +65,7 @@ all_features = set(
         "phases",
         "molden",
         "point_charges",
-        "grad_pc",
+        # "grad_pc",
     ]
 )
 
