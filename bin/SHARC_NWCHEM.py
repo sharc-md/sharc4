@@ -391,7 +391,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         if self.QMin.template["nooverlap"]:
             return
 
-        basis_path = os.path.join(self.QMin.template["library_path"], self.QMin.template["basis"])
+        basis_path = os.path.join(self.QMin.template["library_path"], self.QMin.template["basis"].replace("(", "").replace(")", ""))
         if not os.path.isfile(basis_path):
             self.log.error(f"Basis {self.QMin.template['basis']} not in library path!")
             raise ValueError()
