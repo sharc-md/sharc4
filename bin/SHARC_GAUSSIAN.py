@@ -1094,7 +1094,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 s += f",root={root}"
             if QMin.template["td_conv"]:
                 s += f",conver={QMin.template['td_conv']}"
-            if QMin.template["noneqsolv"]:
+            if QMin.template["noneqsolv"] and QMin.template["scrf"]:
                 s += ",noneqsolv"
             s += ") "
             if dodens and root > 0 and QMin.template['state_densities'] == 'relaxed': 
