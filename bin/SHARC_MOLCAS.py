@@ -70,8 +70,8 @@ all_features = set(
         "molden",
         "theodore",
         "point_charges",
-        "grad_pc",
-        "nacdr_pc",
+        # "grad_pc",   # these two are not features
+        # "nacdr_pc",
         # raw data request
         "mol",
         "wave_functions",
@@ -1648,12 +1648,28 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         state_i, state_j = re.findall(r"nac=(\d+) (\d+)", output_file)[0]
         ovlp_mat = self._get_overlaps(output_file)
 
+        # check if overlap matrix is a unit matrix with random signs
+        # Check diagonal
+        good_overlaps = True
+        if not np.allclose(ovlp_mat, np.diag(np.diagonal(ovlp_mat)), atol=1e-8):
+            good_overlaps = False
+        if not np.allclose(np.abs(np.diagonal(ovlp_mat)), np.ones_like(np.diagonal(ovlp_mat)), atol=1e-8):
+            good_overlaps = False
+        if good_overlaps:
+            np.fill_diagonal(ovlp_mat, np.diagonal(ovlp_mat) / np.abs(np.diagonal(ovlp_mat)))
+
         # Adapt NAC to phase
-        return (
-            np.asarray(nac, dtype=float).reshape(-1, 3)
-            * ovlp_mat[int(state_i) - 1, int(state_i) - 1]
-            * ovlp_mat[int(state_j) - 1, int(state_j) - 1]
-        )
+        if good_overlaps:
+            return (
+                np.asarray(nac, dtype=float).reshape(-1, 3)
+                * ovlp_mat[int(state_i) - 1, int(state_i) - 1]
+                * ovlp_mat[int(state_j) - 1, int(state_j) - 1]
+            )
+        else:
+            self.log.warning("Could not align NAC phase to rest of calculation from overlaps!\nThis might happen in CASPT2 calculations.\n Check carefully your wave function propagation.")
+            return (
+                np.asarray(nac, dtype=float).reshape(-1, 3)
+            )
 
     def _get_overlaps(self, output_file: str | h5py.File) -> np.ndarray:
         """
