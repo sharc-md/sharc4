@@ -427,7 +427,12 @@ class SHARC_QMMM(SHARC_HYBRID):
 
         return
 
-    def run(self):
+    def set_coords(self, xyz, pc=False):
+        super().set_coords(xyz, pc)
+
+        if pc:
+            return
+
         qm_coords = np.array([self.QMin.coords["coords"][i].copy() for i in self.qm_ids])
         if len(self._linkatoms) > 0:
             # get linkatom coords
@@ -436,69 +441,62 @@ class SHARC_QMMM(SHARC_HYBRID):
                 return self.QMin.coords["coords"][qm_id] * self._qm_s + self.QMin.coords["coords"][mm_id] * self._mm_s
 
             link_coords = np.array([get_link_coord(link) for link in self._linkatoms])
-            self.qm_interface.QMin.coords["coords"] = np.vstack((qm_coords, link_coords))
+            self.qm_interface.set_coords(np.vstack((qm_coords, link_coords)), False)
         else:
-            self.qm_interface.QMin.coords["coords"] = qm_coords
+            self.qm_interface.set_coords(qm_coords, False)
         if self.QMin.template["embedding"] == "subtractive":
             if len(self._linkatoms) > 0:
                 mmlink_indices = [i[1] for i in self._linkatoms]
             else:
                 mmlink_indices = []
             self.qm_and_mmlink_indices = sorted(self.qm_ids + mmlink_indices)
-            mms_coords = np.array([self.QMin.coords["coords"][i].copy() for i in self.qm_and_mmlink_indices])
+            self.mms_interface.set_coords(np.array([self.QMin.coords["coords"][i].copy() for i in self.qm_and_mmlink_indices]))
 
-        self.mml_interface.QMin.coords["coords"] = self.QMin.coords["coords"].copy()
+        self.mml_interface.set_coords(self.QMin.coords["coords"].copy())
+
+    def read_requests(self, requests_file="QM.in"):
+        super().read_requests(requests_file)
+        self.qm_interface.read_requests(requests_file)
+
         # setting requests for qm and mm regions based on the QMMM requests
-
         all_requests = {k: v for (k, v) in self.QMin.requests.items() if v is not None}
+        mml_requests = {"step": self.QMin.save["step"]}
+        mms_requests = {"step": self.QMin.save["step"]}
 
         for key, value in all_requests.items():
             match key:
                 # if both interfaces have to compute a property
                 case "h" | "dm" | "multipolar_fit":
-                    self.qm_interface.QMin.requests[key] = value
-                    self.mml_interface.QMin.requests[key] = value
+                    mml_requests[key] = value
                     if self.QMin.template["embedding"] == "subtractive":
-                        self.mms_interface.QMin.requests[key] = value
+                        mms_requests[key] = value
                 # grad is special since we should always only have one state for the MM regions
                 case "grad":
-                    self.qm_interface.QMin.requests[key] = value
-                    self.mml_interface.QMin.requests[key] = value
+                    mml_requests[key] = value
                     if self.QMin.template["embedding"] == "subtractive":
-                        self.mms_interface.QMin.requests[key] = [1]
-                # for properties, which should only be computed with QM
-                case _:
-                    self.qm_interface.QMin.requests[key] = value
-        self.qm_interface.QMin.save["step"] = self.QMin.save["step"]
-        self.qm_interface._step_logic()
-        self.qm_interface._request_logic()
-        self.mml_interface.QMin.save["step"] = self.QMin.save["step"]
-        self.mml_interface._step_logic()
-        self.mml_interface._request_logic()
-        if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface.QMin.save["step"] = self.QMin.save["step"]
-            self.mms_interface._step_logic()
-            self.mms_interface._request_logic()
-
+                        mms_requests[key] = [1]
         # always set this request as these charges are required for the calculation of the point charges
-        self.mml_interface.QMin.requests["multipolar_fit"] = [1]
+        mml_requests["multipolar_fit"] = [1]
+
+        self.mml_interface.read_requests(mml_requests)
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface.read_requests(mms_requests)
+
+    def run(self):
 
         # calc mm
         with InDir(self.QMin.template["mml-dir"]) as _:
             self.mml_interface.run()
             self.mml_interface.getQMout()
-            self.mml_interface.write_step_file()
             # is analogous to the density fit from QM interfaces -> generated upon same request
             raw_pc = self.mml_interface.QMout["multipolar_fit"][(self.mml_interface.states[0], self.mml_interface.states[0])][
                 :, 0
             ]
 
         if self.QMin.template["embedding"] == "subtractive":
-            self.mms_interface.QMin.coords["coords"] = mms_coords
             with InDir(self.QMin.template["mms-dir"]) as _:
                 self.mms_interface.run()
                 self.mms_interface.getQMout()
-                self.mms_interface.write_step_file()
 
         # redistribution of mm pc of link atom (charge is not the same in qm calc but pc would be too close)
         for _, mmid in self._linkatoms:
@@ -512,7 +510,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         # self.non_link_mm = [i for i in self.mm_ids if i not in self.mm_links]  # shallow copy
         self.non_link_mm = [i for i in self.mm_ids]  # shallow copy
         # calc qm
-        self.qm_interface.QMin.coords["pccoords"] = self.QMin.coords["coords"][self.non_link_mm, :]
+        self.qm_interface.set_coords(self.QMin.coords["coords"][self.non_link_mm, :], True)
         if "SCALE_POINT_CHARGES" in os.environ:
             raw_pc = raw_pc * float(os.environ["SCALE_POINT_CHARGES"])
         self.qm_interface.set_pccharges(raw_pc[self.non_link_mm])
@@ -520,7 +518,6 @@ class SHARC_QMMM(SHARC_HYBRID):
         with InDir(self.QMin.template["qm-dir"]) as _:
             self.qm_interface.run()
             self.qm_interface.getQMout()
-            self.qm_interface.write_step_file()
 
     def getQMout(self):
         qmQMout = self.qm_interface.QMout
@@ -630,6 +627,13 @@ class SHARC_QMMM(SHARC_HYBRID):
         self.mml_interface.clean_savedir()
         if self.QMin.template["embedding"] == "subtractive":
             self.mms_interface.clean_savedir()
+
+    def write_step_file(self):
+        super().write_step_file()
+        self.qm_interface.write_step_file()
+        self.mml_interface.write_step_file()
+        if self.QMin.template["embedding"] == "subtractive":
+            self.mms_interface.write_step_file()
 
 
 if __name__ == "__main__":
