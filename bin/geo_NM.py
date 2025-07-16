@@ -176,7 +176,7 @@ def main():
         type="str",
         default="",
         dest="qm_list",
-        help="Specify 'QM' atoms as list starting from 1 (e.g. 1~3,5,8~12,20)\ndefault=\"\"",
+        help="Specify 'QM' atoms as list starting from 1 (e.g. '1~3 5 8~12 20')\ndefault=\"\"",
     )
 
     (options, args) = parser.parse_args()

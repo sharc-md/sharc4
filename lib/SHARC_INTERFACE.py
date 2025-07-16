@@ -666,7 +666,7 @@ class SHARC_INTERFACE(ABC):
         priority_order = ["SLURM_NTASKS_PER_NODE", " NSLOTS"]
         for prio in priority_order:
             if prio in os.environ:
-                self.QMin.resources["ncpu"] = max(1, int(os.environ[prio]))
+                # self.QMin.resources["ncpu"] = max(1, int(os.environ[prio]))
                 self.log.info(
                     f'Found env variable ncpu={os.environ[prio]}, resources["ncpu"] set to {self.QMin.resources["ncpu"]}',
                 )
