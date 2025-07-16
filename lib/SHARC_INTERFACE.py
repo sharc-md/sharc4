@@ -37,6 +37,7 @@ from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
 from typing import Any
+import uuid
 
 import numpy as np
 
@@ -106,7 +107,7 @@ class SHARC_INTERFACE(ABC):
         self.states = []
         self.setupINFOS = {}
 
-        logname = logname if isinstance(logname, str) else self.name()
+        logname = logname if isinstance(logname, str) else str(uuid.uuid4())
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
