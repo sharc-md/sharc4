@@ -331,21 +331,26 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.info("Found VASP.template in current directory")
             if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
                 self._template_file = "VASP.template"
+            else:
+                self.log.info("Specify a path to a VASP template file.")
+                template_file = question("Template path:", str, KEYSTROKES=KEYSTROKES,autocomplete=True)
+                while not os.path.isfile(template_file):
+                    self.log.info(f"File {template_file} does not exist!")
+                    template_file = question("Template path:", str, KEYSTROKES=KEYSTROKES,autocomplete=True)
+                self._template_file = template_file
         else:
             self.log.info("Specify a path to a VASP template file.")
-            while True:
-                template_file = question("Template path:", str, KEYSTROKES=KEYSTROKES)
-                if not os.path.isfile(template_file):
-                    self.log.info(f"File {template_file} does not exist!")
-                    continue
-                self._template_file = template_file
-                break
+            template_file = question("Template path:", str, KEYSTROKES=KEYSTROKES,autocomplete=True)
+            while not os.path.isfile(template_file):
+                self.log.info(f"File {template_file} does not exist!")
+                template_file = question("Template path:", str, KEYSTROKES=KEYSTROKES,autocomplete=True)
+            self._template_file = template_file
 
         if question("Do you have a VASP.resources file?", bool, KEYSTROKES=KEYSTROKES, default=False):
-            self._resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES)
+            self._resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
             while not os.path.isfile(self._resource_file):
                 self.log.info(f"{self._resource_file} does not exist!")
-                self._resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES)
+                self._resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
             with open(self._resource_file, "r", encoding="utf-8") as f:
                 resources_file = f.read()
             savedir_check=re.search(r"\s*savedir",resources_file) 
@@ -362,16 +367,16 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.setupINFOS["memory"] = question("Memory (MB):", int, default=[2000], KEYSTROKES=KEYSTROKES)[0]
 
             self.log.info("Specify the path to the VASP binary files")
-            self.setupINFOS["vaspdir"] = question("path to VASP binary files", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["vaspdir"] = question("path to VASP binary files", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
 
             self.log.info("Specify the path to the VASP potcar file")
-            self.setupINFOS["potcardir"] = question("path to VASP POTCAR file", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["potcardir"] = question("path to VASP POTCAR file", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
             
             self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the VASP calculation.")
-            self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
             
             self.log.info("\n\nSpecify a save directory. The save directory will keep important files for each VASP run.")
-            self.setupINFOS["savedir"] = question("Path to save directory:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["savedir"] = question("Path to save directory:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
         
         return INFOS
 
@@ -500,7 +505,6 @@ class SHARC_VASP(SHARC_ABINITIO):
         writefile(input_path, input_str)
         #POSCAR
         input_str = self._generate_inputstr_POSCAR()
-        #"indices" is necessary for proper sorting of output forces, see _generate_inputstr_POSCAR
         self.log.debug(f"Generating input string\n{input_str}")
         input_path = os.path.join(workdir, "POSCAR")
         self.log.debug(f"Write input into file {input_path}")
@@ -585,10 +589,10 @@ class SHARC_VASP(SHARC_ABINITIO):
         if self.QMin.requests["dm"]:
             self.QMout["dm"] = self._get_dipoles(OUTCAR)
         
-        # Populate forces (gradients)
+        # Populate gradients
         if self.QMin.requests["grad"]:
-            self.QMout.grad = self._get_forces(OUTCAR) #This is gonna be used in the parent SHARC_CPA interface for each excited-state
-            self.log.debug("Checking GS forces assigned to QMout and shape")
+            self.QMout.grad = self._get_gradients(OUTCAR) #This is gonna be used in the parent SHARC_CPA interface for each excited-state
+            self.log.debug("Checking GS gradients assigned to QMout and shape")
             self.log.debug(self.QMout.grad)
             self.log.debug(self.QMout.grad.shape)
 
@@ -607,11 +611,11 @@ class SHARC_VASP(SHARC_ABINITIO):
         return self.QMout
     
 
-    def _get_forces(self, vasp_out: str) -> np.ndarray:
+    def _get_gradients(self, vasp_out: str) -> np.ndarray:
         """
-        Get GS forces from VASP output (OUTCAR) file.
+        Get GS gradients from VASP output (OUTCAR) file.
         Each ES gradient does coincide with the GS one -> CPA approximation!!
-        Forces are output in au units and read in eV/Ang. from VASP OUTCAR
+        Gradients are output in Hartree/Bohr units and read in eV/Ang. from VASP OUTCAR
 
         vasp_out: VASP OUTCAR file
         """
@@ -634,8 +638,10 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         self.log.debug("GS forces out of VASP with SHARC format")
         self.log.debug(forces)
+
+        gradients= -forces.copy() #We get forces from VASP but we need to pass gradients to SHARC driver
         
-        return forces
+        return gradients
 
     def _get_dipoles(self, vasp_out: str) -> np.ndarray:
         """
@@ -700,8 +706,10 @@ class SHARC_VASP(SHARC_ABINITIO):
         #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
         energies=list()
         pattern=rf'  energy  without entropy=\s+(.*?)  energy\('
-        gs_en=float(re.search(pattern,vasp_out).group(1))/au2eV #GS energy in atomic units
-        energies.append(gs_en)
+        gs_en=float(re.search(pattern,vasp_out).group(1))
+        self.log.debug("debugging GS energy from VASP")
+        self.log.debug(gs_en)
+        energies.append(gs_en/au2eV)
         for i in ks_es.values():
             energies.append(energies[0]+i/au2eV)
 
@@ -904,7 +912,7 @@ class SHARC_VASP(SHARC_ABINITIO):
 # ---------------------------------| Saving files after each run |---------------------------------------------------
     def _save_files(self, workdir: str) -> None:
         """
-        Save files (WAVECAR, vasprun.xml , CONTCAR, POTCAR) to savedir
+        Save files (WAVECAR, vasprun.xml , CONTCAR, POTCAR, OUTCAR) to savedir
         Necessary for pawpyseed computation of overlap matrix 
         Naming convention: file.job.step
         """
@@ -930,6 +938,11 @@ class SHARC_VASP(SHARC_ABINITIO):
         #CONTCAR
         fromfile = os.path.join(workdir, "CONTCAR")
         tofile = os.path.join(savedir, f"CONTCAR.{step}")
+        shutil.copy(fromfile, tofile)
+        
+        #OUTCAR
+        fromfile = os.path.join(workdir, "OUTCAR")
+        tofile = os.path.join(savedir, f"OUTCAR.{step}")
         shutil.copy(fromfile, tofile)
         
         return

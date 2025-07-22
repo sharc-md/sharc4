@@ -187,10 +187,24 @@ class SHARC_CPA(SHARC_HYBRID):
 
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
         if not self._read_template:
-            self.template_file = question(
-                "Please specify the path to your CPA.template file", str, KEYSTROKES=KEYSTROKES, default="CPA.template"
-            )
-
+            if os.path.isfile("CPA.template"):
+                self.log.info("Found CPA.template in current directory")
+                if question("Use this template file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+                    self.template_file = "CPA.template"
+                else:
+                    self.template_file = question(
+                        "Please specify the path to your CPA.template file", str, KEYSTROKES=KEYSTROKES, default="CPA.template", autocomplete=True)
+                    while not os.path.isfile(self.template_file) :
+                        self.log.info(f"File {self.template_file} does not exist!")
+                        self.template_file = question(
+                            "Please specify the path to your CPA.template file", str, KEYSTROKES=KEYSTROKES, default="CPA.template",autocomplete=True)
+            else:
+                self.template_file = question(
+                    "Please specify the path to your CPA.template file", str, KEYSTROKES=KEYSTROKES, default="CPA.template", autocomplete=True)
+                while not os.path.isfile(self.template_file) :
+                    self.log.info(f"File {self.template_file} does not exist!")
+                    self.template_file = question(
+                        "Please specify the path to your CPA.template file", str, KEYSTROKES=KEYSTROKES, default="CPA.template",autocomplete=True)
             self.read_template(self.template_file)
 
         child_features = self._kindergarden["reference"].get_features(KEYSTROKES=KEYSTROKES)
