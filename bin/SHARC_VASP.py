@@ -346,19 +346,34 @@ class SHARC_VASP(SHARC_ABINITIO):
                 template_file = question("Template path:", str, KEYSTROKES=KEYSTROKES,autocomplete=True)
             self._template_file = template_file
 
-        if question("Do you have a VASP.resources file?", bool, KEYSTROKES=KEYSTROKES, default=False):
-            self._resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
-            while not os.path.isfile(self._resource_file):
-                self.log.info(f"{self._resource_file} does not exist!")
-                self._resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
-            with open(self._resource_file, "r", encoding="utf-8") as f:
-                resources_file = f.read()
-            savedir_check=re.search(r"\s*savedir",resources_file) 
-            scratchdir_check=re.search(r"\s*scratchdir",resources_file) 
-            if savedir_check is None:
-                self.log.warning("You have not specified savedir in the resource file. Please do it, this may cause issues.")
-            if scratchdir_check is None:
-                self.log.warning("You have not specified scratchdir in the resource file. Please do it, this may cause issues.")
+        if question("Do you have a VASP.resources file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+            if os.path.isfile("VASP.resources"):
+                self.log.info("Found VASP.resources in current directory")
+                if question("Use this resources file?", bool, KEYSTROKES=KEYSTROKES, default=True):
+                    self._resource_file = "VASP.resources"
+                else:
+                    self.log.info("Specify path to VASP resource file.")
+                    resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+                    while not os.path.isfile(resource_file):
+                        self.log.info(f"{resource_file} does not exist!")
+                        resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+                    self._resource_file=resource_file
+            else:
+                self.log.info("Specify path to VASP resource file.")
+                resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+                while not os.path.isfile(resource_file):
+                    self.log.info(f"{resource_file} does not exist!")
+                    resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+                self._resource_file=resource_file
+                #handling possible missing info in resource file
+                with open(self._resource_file, "r", encoding="utf-8") as f:
+                    resources_file = f.read()
+                savedir_check=re.search(r"\s*savedir",resources_file) 
+                scratchdir_check=re.search(r"\s*scratchdir",resources_file) 
+                if savedir_check is None:
+                    self.log.warning("You have not specified savedir in the resource file. Please do it, this may cause issues.")
+                if scratchdir_check is None:
+                    self.log.warning("You have not specified scratchdir in the resource file. Please do it, this may cause issues.")
         else:
             self.log.info("Specify the number of CPUs to be used.")
             self.setupINFOS["ncpu"] = question("Number of CPUs (at least 2):", int, default=[2], KEYSTROKES=KEYSTROKES)[0]
