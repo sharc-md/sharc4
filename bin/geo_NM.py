@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # ******************************************
 #
@@ -36,7 +36,18 @@ import numpy as np
 from utils import readfile
 import kabsch
 from constants import U_TO_AMU, BOHR_TO_ANG
-from setup_from_prmtop import expand_str_to_list
+# from setup_from_prmtop import expand_str_to_list
+
+def expand_str_to_list(input: str) -> list[int]:
+    out = []
+    for i in input.split():
+        if "~" in i:
+            q = i.split("~")
+            for j in range(int(q[0]), int(q[1]) + 1):
+                out.append(j)
+        else:
+            out.append(int(i))
+    return out
 
 
 
