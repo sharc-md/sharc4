@@ -461,7 +461,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         create_file = link if INFOS["link_files"] else shutil.copy
         for file in self.files:
-            self.log.info(f"Processing {file} to {workdir} as {file.split('/')[-1]}")
+            # TODO: the next line is not good for setup scripts, as they print progress bars
+            # self.log.info(f"Processing {file} to {workdir} as {file.split('/')[-1]}")
             create_file(file, os.path.join(workdir, file.split("/")[-1]))
         if self.guess_file is not None:
             create_file(self.guess_file, "GAUSSIAN.chk.init")
@@ -904,6 +905,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     def create_restart_files(self):
         self.log.print(">>>>>>>>>>>>> Saving files")
         starttime = datetime.datetime.now()
+        self.generate_joblist()
         for ijobset, jobset in enumerate(self.QMin.scheduling["schedule"]):
             if not jobset:
                 continue
@@ -1092,7 +1094,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 s += f",root={root}"
             if QMin.template["td_conv"]:
                 s += f",conver={QMin.template['td_conv']}"
-            if QMin.template["noneqsolv"]:
+            if QMin.template["noneqsolv"] and QMin.template["scrf"]:
                 s += ",noneqsolv"
             s += ") "
             if dodens and root > 0 and QMin.template['state_densities'] == 'relaxed': 

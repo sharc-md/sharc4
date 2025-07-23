@@ -1017,7 +1017,7 @@ def synchronize(all_data):
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
         if (
             len(all_data[fk]["time"]) == len(all_times)
-            and np.all(np.isclose(all_data[fk]["time"], all_times)) and not np.any(np.isnan(all_data[fk]["arr"]))
+            and np.all(np.isclose(all_data[fk]["time"] * discretizer, all_times)) and not np.any(np.isnan(all_data[fk]["arr"]))
         ):
             arr[i, ...] = all_data[fk]["arr"]
             counts += 1

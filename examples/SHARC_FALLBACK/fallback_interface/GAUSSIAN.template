@@ -1,0 +1,4 @@
+basis def2svp
+functional rcam-b3lyp
+denfit
+keys SCF=QC
