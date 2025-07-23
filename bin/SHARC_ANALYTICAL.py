@@ -317,6 +317,9 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         '''Calculates the MCH Hamiltonian, SOC matrix ,overlap matrix, gradients, DM'''
         nmstates = self.parsed_states["nmstates"]
         states = self.parsed_states["states"]
+        if states != self.QMin.molecule["states"]:
+            self.log.error('Number of states from driver/QMin and from template are inconsistent!')
+            raise ValueError('Number of states from driver/QMin and from template are inconsistent!')
         natom = self.QMin.molecule["natom"]
         #r3N = 3 * natom
         coords: np.ndarray = self.QMin.coords["coords"].copy()

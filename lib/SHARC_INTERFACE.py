@@ -37,6 +37,7 @@ from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
 from typing import Any
+import uuid
 
 import numpy as np
 
@@ -93,6 +94,8 @@ class SHARC_INTERFACE(ABC):
         logname: str | None = None,
         logfile: str | None = None,
         loglevel: int = loglevel,
+        *args,
+        **kwargs,
     ):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
@@ -104,7 +107,7 @@ class SHARC_INTERFACE(ABC):
         self.states = []
         self.setupINFOS = {}
 
-        logname = logname if isinstance(logname, str) else self.name()
+        logname = logname if isinstance(logname, str) else str(uuid.uuid4())
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
@@ -663,7 +666,7 @@ class SHARC_INTERFACE(ABC):
         priority_order = ["SLURM_NTASKS_PER_NODE", " NSLOTS"]
         for prio in priority_order:
             if prio in os.environ:
-                self.QMin.resources["ncpu"] = max(1, int(os.environ[prio]))
+                # self.QMin.resources["ncpu"] = max(1, int(os.environ[prio]))
                 self.log.info(
                     f'Found env variable ncpu={os.environ[prio]}, resources["ncpu"] set to {self.QMin.resources["ncpu"]}',
                 )

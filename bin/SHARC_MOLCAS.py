@@ -70,8 +70,8 @@ all_features = set(
         "molden",
         "theodore",
         "point_charges",
-        "grad_pc",
-        "nacdr_pc",
+        # "grad_pc",   # these two are not features
+        # "nacdr_pc",
         # raw data request
         "mol",
         "wave_functions",
@@ -243,7 +243,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
         self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
-        self.setupINFOS["scratchdir"] += '/$$/'
+        # self.setupINFOS["scratchdir"] += '/$$/'
 
         if os.path.isfile("MOLCAS.template"):
             self.log.info("Found MOLCAS.template in current directory")
@@ -362,12 +362,17 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "MOLCAS.resources"), "w", encoding="utf-8") as file:
-                for key in ("molcas", "scratchdir", "ncpu", "memory", 
-                    # "theodir",
-                    "theodore_prop",
-                    "theodore_fragment"):
+                for key in ("molcas", 
+                            # "scratchdir", 
+                            "ncpu", 
+                            "memory", 
+                            # "theodir",
+                            "theodore_prop",
+                            "theodore_fragment"):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
+                if "scratchdir" in self.setupINFOS:
+                    file.write(f"scratchdir {os.path.join(self.setupINFOS['scratchdir'], dir_path)}\n")
         else:
             create_file(expand_path(self._resource_file), os.path.join(dir_path, "MOLCAS.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "MOLCAS.template"))
@@ -711,7 +716,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Generate MO and det file for dyson
         if qmin.control["master"] and self._hdf5 and code == 0:
-            self._get_dets(workdir)
+            if qmin.requests["ion"]:
+                self._get_dets(workdir)
             self._get_mos(workdir)
 
         return code, datetime.datetime.now() - starttime
@@ -870,8 +876,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
             # Save VecDet files and rasscf.h5
             if self._hdf5:
-                for state in range(1, states + 1):
-                    tasks.append(["copy", f"MOLCAS.VecDet.{state}", f"MOLCAS.{mult+1}.VecDet.{state}"])
+                if qmin.requests["ion"]:
+                    for state in range(1, states + 1):
+                        tasks.append(["copy", f"MOLCAS.VecDet.{state}", f"MOLCAS.{mult+1}.VecDet.{state}"])
+                    if states >= 10:
+                        self.log.error("Currently, OpenMolcas cannot correctly write VecDet files for state 10 or higher!")
+                        raise ValueError
+
                 tasks.append(["copy", "MOLCAS.rasscf.h5", f"MOLCAS.{mult+1}.rasscf.h5"])
 
             # MOLDEN request
@@ -1174,6 +1185,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "ORBLISTING=NOTHING\nPRWF=1.0e-12\n"
         if qmin.template["method"] == "cms-pdft":
             input_str += "CMSInter\n"
+        # TODO: The next piece of code makes the calculation quite a bit more expensive
         if qmin.maps["gradmap"] and len(qmin.maps["gradmap"]) > 0:
             input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
         else:
@@ -1642,12 +1654,28 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         state_i, state_j = re.findall(r"nac=(\d+) (\d+)", output_file)[0]
         ovlp_mat = self._get_overlaps(output_file)
 
+        # check if overlap matrix is a unit matrix with random signs
+        # Check diagonal
+        good_overlaps = True
+        if not np.allclose(ovlp_mat, np.diag(np.diagonal(ovlp_mat)), atol=1e-8):
+            good_overlaps = False
+        if not np.allclose(np.abs(np.diagonal(ovlp_mat)), np.ones_like(np.diagonal(ovlp_mat)), atol=1e-8):
+            good_overlaps = False
+        if good_overlaps:
+            np.fill_diagonal(ovlp_mat, np.diagonal(ovlp_mat) / np.abs(np.diagonal(ovlp_mat)))
+
         # Adapt NAC to phase
-        return (
-            np.asarray(nac, dtype=float).reshape(-1, 3)
-            * ovlp_mat[int(state_i) - 1, int(state_i) - 1]
-            * ovlp_mat[int(state_j) - 1, int(state_j) - 1]
-        )
+        if good_overlaps:
+            return (
+                np.asarray(nac, dtype=float).reshape(-1, 3)
+                * ovlp_mat[int(state_i) - 1, int(state_i) - 1]
+                * ovlp_mat[int(state_j) - 1, int(state_j) - 1]
+            )
+        else:
+            self.log.warning("Could not align NAC phase to rest of calculation from overlaps!\nThis might happen in CASPT2 calculations.\n Check carefully your wave function propagation.")
+            return (
+                np.asarray(nac, dtype=float).reshape(-1, 3)
+            )
 
     def _get_overlaps(self, output_file: str | h5py.File) -> np.ndarray:
         """

@@ -28,7 +28,6 @@ import datetime
 import os
 import shutil
 from io import TextIOWrapper
-import shutil
 
 import yaml
 from SHARC_HYBRID import SHARC_HYBRID
@@ -44,26 +43,6 @@ DESCRIPTION = "   HYBRID interface for calling a fallback interface if primary i
 
 CHANGELOGSTRING = """
 """
-
-# all_features = {
-#     "h",
-#     "soc",
-#     "dm",
-#     "grad",
-#     "nacdr",
-#     "overlap",
-#     "phases",
-#     "ion",
-#     "dmdr",
-#     "socdr",
-#     "multipolar_fit",
-#     "theodore",
-#     "point_charges",
-#     # raw data request
-#     "mol",
-#     "wave_functions",
-#     "density_matrices",
-# }
 
 
 class SHARC_FALLBACK(SHARC_HYBRID):
@@ -103,6 +82,8 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             "kwargs": dict,  # Keyword args for child
         }
 
+        self._template_file = None
+
     @staticmethod
     def authors() -> str:
         return SHARC_FALLBACK._authors
@@ -134,7 +115,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
         # return all_features
         if not self._read_template:
-            self.template_file = question(
+            self._template_file = question(
                 "Please specify the path to your FALLBACK.template file", str, KEYSTROKES=KEYSTROKES, default="FALLBACK.template"
             )
             self.read_template(self.template_file)
@@ -170,17 +151,15 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str):
-        QMin = self.QMin
-
         # template
         if "link_files" in INFOS:
-            os.symlink(expand_path(self.template_file), os.path.join(dir_path, self.name() + ".template"))
+            os.symlink(expand_path(self._template_file), os.path.join(dir_path, self.name() + ".template"))
         else:
-            shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
+            shutil.copy(self._template_file, os.path.join(dir_path, self.name() + ".template"))
 
         # make empty resources file
         path = os.path.join(dir_path, "FALLBACK.resources")
-        open(path, "a").close()
+        open(path, "a", encoding="utf-8").close()
 
         # setup dirs
         traildir = os.path.join(dir_path, "trial_interface")
@@ -233,8 +212,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
 
     def run(self):
         self._trial_failed = False
-        self._trial_interface.QMin.save["step"] = self.QMin.save["step"] - self._nfails_total
-        self._fallback_interface.QMin.save["step"] = self._nfails_total
         try:
             with InDir("trial_interface"):
                 self._trial_interface.run()
@@ -245,7 +222,8 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._nfails_total += 1
             self._nfails += 1
             if self._nfails > self.QMin.template["stop_at_nfails"]:
-                raise
+                self.log.error(f"Total consecutive fails ({self.QMin.template['stop_at_nfails']}) exceeded!")
+                raise ValueError(f"Total consecutive fails ({self.QMin.template['stop_at_nfails']}) exceeded!")
             with InDir("fallback_interface"):
                 self._fallback_interface.run()
                 self._fallback_interface.getQMout()
@@ -253,12 +231,19 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._nsuccesses += 1
             if self._nsuccesses >= self.QMin.template["reset_fail_counter"]:
                 self._nfails = 0
-        
 
     def create_restart_files(self):
         super().create_restart_files()
-        self._trial_interface.create_restart_files()
-        self._fallback_interface.create_restart_files()
+
+        if not self.persistent:
+            with open(
+                os.path.join(self.QMin.save["savedir"], f"fail_counter.{self.QMin.save['step']}"), "w", encoding="utf-8"
+            ) as f:
+                yaml.dump({"nfails": self._nfails, "nfails_total": self._nfails_total, "successes": self._nsuccesses}, f)
+        if not self._trial_failed:
+            self._trial_interface.create_restart_files()
+        else:
+            self._fallback_interface.create_restart_files()
 
     def write_step_file(self):
         super().write_step_file()
@@ -282,11 +267,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self.log.error("Path trial_interface does not exist!")
             raise ValueError
 
-        # Counter of fails
-        self._nfails = 0
-        self._nsuccesses = 0
-        self._nfails_total = 0
-
         # Instantiate trial and fallback interfaces
         trial = self.QMin.template["trial_interface"]
         fallback = self.QMin.template["fallback_interface"]
@@ -296,6 +276,9 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._trial_interface.setup_mol(self.QMin)
             self._trial_interface.read_resources()
             self._trial_interface.read_template()
+            self._trial_interface.QMin.resources["scratchdir"] = os.path.join(
+                self.QMin.resources["scratchdir"], "trial_interface"
+            )
             self._trial_interface.setup_interface()
 
         with InDir("fallback_interface"):
@@ -303,10 +286,25 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._fallback_interface.setup_mol(self.QMin)
             self._fallback_interface.read_resources()
             self._fallback_interface.read_template()
+            self._fallback_interface.QMin.resources["scratchdir"] = os.path.join(
+                self.QMin.resources["scratchdir"], "fallback_interface"
+            )
             self._fallback_interface.setup_interface()
 
     def read_requests(self, requests_file="QM.in"):
         super().read_requests(requests_file)
+
+        if not self.persistent and self.QMin.save["step"] > 0:
+            with open(
+                os.path.join(self.QMin.save["savedir"], f"fail_counter.{self.QMin.save['step']-1}"), "r", encoding="utf-8"
+            ) as f:
+                fails = yaml.safe_load(f)
+                self._nfails = fails["nfails"]
+                self._nfails_total = fails["nfails_total"]
+                self._nsuccesses = fails["successes"]
+
+        self._trial_interface.QMin.save["step"] = self.QMin.save["step"] - self._nfails_total
+        self._fallback_interface.QMin.save["step"] = self._nfails_total
         self._trial_interface.read_requests(requests_file)
         self._fallback_interface.read_requests(requests_file)
 

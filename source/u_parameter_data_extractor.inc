@@ -23,6 +23,8 @@
   integer, parameter :: u_dm_diag=53      !< dip_mom_diag.out
   integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out
   integer, parameter :: u_proj=56         !< projections.inp
+  integer, parameter :: u_dipole=57       !< dipole.out
+  integer, parameter :: u_dipole_mch=58   !< dipole_MCH.out
 
   integer, parameter :: u_classd=61        !< JCP 139, 2111101 (2013), Method 1 (diag)
   integer, parameter :: u_classm=62        !< JCP 139, 2111101 (2013), Method 1 (MCH)

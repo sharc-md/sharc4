@@ -77,6 +77,7 @@ class QMout:
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: dict
     density_matrices: dict
+    multipolar_fit_settings: str
     mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
@@ -372,7 +373,7 @@ class QMout:
         # currently only skipping                   
         toskip = 4 + 3*num                          
         return {'Notes': 'not read'}, iline + toskip
-        # TODO: actually read in the notes as dict. Readig should stop at the first empty line
+        # TODO: actually read in the notes as dict. Reading should stop at the first empty line
 
     @staticmethod
     def get_property(data, iline, type, shape):
@@ -381,11 +382,15 @@ class QMout:
         for irow in range(num):
             keys.append(data[iline + 3 + irow].strip())
         iline += 3 + num
+        if len(shape) == 0:
+            iline += 1
         res = []
         for irow in range(num):
             result, iline = QMout.get_quantity(data, iline, type, shape)
             res.append(result)
             iline += 2
+            if len(shape) == 0:
+                iline -= 1
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
 
@@ -1222,16 +1227,11 @@ class QMout:
         Returns:
         1 string: multiline string with the Gradient vectors"""
 
-        states = self.states
-        nmstates = self.nmstates
         natom = self.natom
-        setting_str = ""
-        if "multipolar_fit" in self.notes:
-            setting_str = self.notes["multipolar_fit"]
         sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
         fit_order = self.multipolar_fit[sorted_states[0]].shape[1]
         string = (
-            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x{fit_order}) {setting_str}\n"
+            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x{fit_order}) {self.multipolar_fit_settings}\n"
         )
         for (s1, s2) in sorted_states:
             val = self.multipolar_fit[(s1, s2)]
