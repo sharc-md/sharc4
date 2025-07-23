@@ -39,6 +39,7 @@ from typing import Optional, Any, Iterable
 import sympy
 from scipy import linalg as LA
 from scipy import optimize
+import glob
 
 
 class InDir:
@@ -127,8 +128,10 @@ def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=Tru
             raise RuntimeError("Default for int or float questions must be list!")
     if typefunc == str and autocomplete:
         readline.set_completer_delims(" \t\n;")
+        readline.set_completer(completer)
         readline.parse_and_bind("tab: complete")  # activate autocomplete
     else:
+        readline.set_completer(None)
         readline.parse_and_bind("tab: ")  # deactivate autocomplete
 
     while True:
@@ -209,6 +212,12 @@ def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=Tru
                     logging.warning("Please enter integers!")
                 continue
 
+def completer(text, state):
+    """
+    Function to make the autocomplete feature of question() working also for python >= 3.12
+    """
+    matches = glob.glob(text + '*')
+    return matches[state] if state < len(matches) else None 
 
 # ======================================================================================================================
 # ======================================================================================================================
