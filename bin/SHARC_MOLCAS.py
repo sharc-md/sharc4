@@ -716,7 +716,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Generate MO and det file for dyson
         if qmin.control["master"] and self._hdf5 and code == 0:
-            self._get_dets(workdir)
+            if qmin.requests["ion"]:
+                self._get_dets(workdir)
             self._get_mos(workdir)
 
         return code, datetime.datetime.now() - starttime
@@ -875,8 +876,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
             # Save VecDet files and rasscf.h5
             if self._hdf5:
-                for state in range(1, states + 1):
-                    tasks.append(["copy", f"MOLCAS.VecDet.{state}", f"MOLCAS.{mult+1}.VecDet.{state}"])
+                if qmin.requests["ion"]:
+                    for state in range(1, states + 1):
+                        tasks.append(["copy", f"MOLCAS.VecDet.{state}", f"MOLCAS.{mult+1}.VecDet.{state}"])
+                    if states >= 10:
+                        self.log.error("Currently, OpenMolcas cannot correctly write VecDet files for state 10 or higher!")
+                        raise ValueError
+
                 tasks.append(["copy", "MOLCAS.rasscf.h5", f"MOLCAS.{mult+1}.rasscf.h5"])
 
             # MOLDEN request
