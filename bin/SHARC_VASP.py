@@ -779,10 +779,10 @@ class SHARC_VASP(SHARC_ABINITIO):
                                        cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
                                        vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
         
-        wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save["step"]-1}"), #previous timestep wf
-                                        wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save["step"]-1}"),
+        wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save['step']-1}"), #previous timestep wf
+                                        wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save['step']-1}"),
                                         cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
-                                        vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save["step"]-1}"))
+                                        vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
         
         self.log.info("-----------------------------")
         self.log.info("PAWPYSEED overlap calculation")
@@ -852,21 +852,21 @@ class SHARC_VASP(SHARC_ABINITIO):
         Generate INCAR input file string for VASP from QMin object
         """
         
-        inputstring = f"SISTEM = {self.QMin.template["system"]}\n"
-        inputstring = f"MAXMEM = {self.QMin.resources["memory"]}\n" #allocated memory in Mb for each MPI rank
-        inputstring += f"ISMEAR = {self.QMin.template["ismear"]}\n"
-        inputstring += f"SIGMA = {self.QMin.template["sigma"]}\n"
-        inputstring += f"ISPIN = {self.QMin.template["ispin"]}\n" #Only singlets currently available
-        inputstring += f"GGA = {self.QMin.template["gga"]}\n"
-        inputstring += f"TIME = {self.QMin.template["time_vasp"]}\n"
-        inputstring += f"IALGO = {self.QMin.template["ialgo"]}\n"
-        inputstring += f"NELM = {self.QMin.template["nelm"]}\n"
-        inputstring += f"EDIFF = {self.QMin.template["ediff"]}\n"
+        inputstring = f"SISTEM = {self.QMin.template['system']}\n"
+        inputstring = f"MAXMEM = {self.QMin.resources['memory']}\n" #allocated memory in Mb for each MPI rank
+        inputstring += f"ISMEAR = {self.QMin.template['ismear']}\n"
+        inputstring += f"SIGMA = {self.QMin.template['sigma']}\n"
+        inputstring += f"ISPIN = {self.QMin.template['ispin']}\n" #Only singlets currently available
+        inputstring += f"GGA = {self.QMin.template['gga']}\n"
+        inputstring += f"TIME = {self.QMin.template['time_vasp']}\n"
+        inputstring += f"IALGO = {self.QMin.template['ialgo']}\n"
+        inputstring += f"NELM = {self.QMin.template['nelm']}\n"
+        inputstring += f"EDIFF = {self.QMin.template['ediff']}\n"
         
         
         if self.QMin.template["nbands"] != 0:
-            inputstring += f"NBANDS = {self.QMin.template["nbands"]}\n" 
-        inputstring += f"ENCUT = {self.QMin.template["encut"]}" 
+            inputstring += f"NBANDS = {self.QMin.template['nbands']}\n" 
+        inputstring += f"ENCUT = {self.QMin.template['encut']}" 
         
         return inputstring
 
