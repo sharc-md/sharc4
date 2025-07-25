@@ -1,0 +1,3 @@
+children:
+    - "child1": {"interface": "ORCA", "args": [], "kwargs": {"loglevel": 10}}
+    - "child2": {"interface": "GAUSSIAN", "args": [], "kwargs": {"logfile": "gaussian.log"}}
