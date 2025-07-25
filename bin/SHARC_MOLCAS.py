@@ -1231,11 +1231,17 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         basis = [qmin.template['basis'] for i in qmin.coords["coords"]]
         if qmin.template["basis_per_element"] or qmin.template["basis_per_atom"]:
             custom_basis = True
+        if qmin.template["basis_per_element"]:
+            if len(qmin.template["basis_per_element"])==2:
+                qmin.template["basis_per_element"] = [qmin.template["basis_per_element"]]
             for batch in qmin.template["basis_per_element"]:
                 self.log.debug(f'Replacing basis set for element {batch[0]} with {batch[1]}')
                 for idx, el in enumerate(qmin.molecule["elements"]):
                     if el == batch[0]:
                         basis[idx] = batch[1]
+        if qmin.template["basis_per_atom"]:
+            if len(qmin.template["basis_per_atom"])==2:
+                qmin.template["basis_per_atom"] = [qmin.template["basis_per_atom"]]
             for batch in qmin.template['basis_per_atom']:
                 self.log.debug(f'Replacing basis set for atom number {batch[0]} with {batch[1]}')
                 basis[int(batch[0])-1] = batch[1]
@@ -1245,7 +1251,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.molecule["point_charges"] or custom_basis:
             input_str = "&GATEWAY\n"
             for idx, (charge, coord) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"]), 1):
-                input_str += f"basis set\n{charge}.{basis[idx-1]}....\n"
+                input_str += f"basis set\n{charge}.{basis[idx-1]}\n"
                 input_str += f"{charge}{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f}"
                 input_str += " /Angstrom\nend of basis\n\n"
         if qmin.molecule["point_charges"]:
