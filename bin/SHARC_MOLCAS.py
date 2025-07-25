@@ -35,6 +35,7 @@ from io import TextIOWrapper
 from itertools import product
 from math import ceil
 from typing import Any
+import sys
 
 import h5py
 import numpy as np
@@ -119,6 +120,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             {
                 "basis": None,
                 "baslib": None,
+                "basis_per_element": None,
+                "basis_per_atom": None,
                 "nactel": None,
                 "ras1": None,
                 "ras2": None,
@@ -146,6 +149,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             {
                 "basis": str,
                 "baslib": str,
+                "basis_per_element": list,
+                "basis_per_atom": list,
                 "nactel": list,
                 "ras1": int,
                 "ras2": int,
@@ -456,6 +461,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"], str)
 
     def read_template(self, template_file: str = "MOLCAS.template", kw_whitelist: list[str] | None = None) -> None:
+        kw_whitelist = ["basis_per_element", "basis_per_atom"]
         super().read_template(template_file, kw_whitelist)
 
         # Roots
@@ -1221,13 +1227,28 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Write GATEWAY part of MOLCAS input string
         """
+        custom_basis = False
+        basis = [qmin.template['basis'] for i in qmin.coords["coords"]]
+        if qmin.template["basis_per_element"] or qmin.template["basis_per_atom"]:
+            custom_basis = True
+            for batch in qmin.template["basis_per_element"]:
+                self.log.debug(f'Replacing basis set for element {batch[0]} with {batch[1]}')
+                for idx, el in enumerate(qmin.molecule["elements"]):
+                    if el == batch[0]:
+                        basis[idx] = batch[1]
+            for batch in qmin.template['basis_per_atom']:
+                self.log.debug(f'Replacing basis set for atom number {batch[0]} with {batch[1]}')
+                basis[int(batch[0])-1] = batch[1]
+
+
         input_str = f"&GATEWAY\nCOORD=MOLCAS.xyz\nGROUP=NOSYM\nBASIS={qmin.template['basis']}\n"
-        if qmin.molecule["point_charges"]:
+        if qmin.molecule["point_charges"] or custom_basis:
             input_str = "&GATEWAY\n"
             for idx, (charge, coord) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"]), 1):
-                input_str += f"basis set\n{charge}.{qmin.template['basis']}....\n"
+                input_str += f"basis set\n{charge}.{basis[idx-1]}....\n"
                 input_str += f"{charge}{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f}"
                 input_str += " /Angstrom\nend of basis\n\n"
+        if qmin.molecule["point_charges"]:
             for idx, (charge, coord) in enumerate(zip(qmin.coords["pccharge"], qmin.coords["pccoords"]), 1):
                 input_str += (
                     f"basis set\nX...0s.0s.\nX{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f} /Angstrom\n"
