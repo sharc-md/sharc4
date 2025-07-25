@@ -13,6 +13,7 @@ from utils import  expand_path, question, link,  mkdir,  writefile,is_exec,phase
 from scipy import linalg as LA
 from scipy import optimize as opt
 import importlib.util
+import sys
 
 
 __all__ = ["SHARC_VASP"]  # Only export interface class
@@ -784,25 +785,27 @@ class SHARC_VASP(SHARC_ABINITIO):
                                         cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
                                         vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
         
-        self.log.info("-----------------------------")
-        self.log.info("PAWPYSEED overlap calculation")
-        self.log.info("-----------------------------\n")
+        self.log.debug("-----------------------------")
+        self.log.debug("PAWPYSEED overlap calculation")
+        self.log.debug("-----------------------------\n")
+        
+        with suppress_stdout_stderr(): #This is just to suppress stdout output from pawpyseed, remove it to test pawpyseed output
+            if self.QMin.template["overlap_method"]=="pseudo":
+                pr=[Projector(wf_t, wf_t0,method=self.QMin.template["overlap_method"])]
+            else:
+                pr=[Projector(wf_t, wf_t0)]
+           
+            S=list()
+           
+            #pr is a list, multiple projector calcualtions could be added, for instance if tNACs have to be computed also S_{ji}(r,t+dt)^* is required.
+            #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
+            for j in pr:
+               tmp=list()
+               for i in act_sp.values():
+                   tmp.append(j.single_band_projection(i))
+               S.append(np.array(tmp))
 
-        if self.QMin.template["overlap_method"]=="pseudo":
-            pr=[Projector(wf_t, wf_t0,method=self.QMin.template["overlap_method"])]
-        else:
-            pr=[Projector(wf_t, wf_t0)]
-       
-        S=list()
-       
-        #pr is a list, multiple projector calcualtions could be added, for instance if tNACs have to be computed also S_{ji}(r,t+dt)^* is required.
-        #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
-        for j in pr:
-           tmp=list()
-           for i in act_sp.values():
-               tmp.append(j.single_band_projection(i))
-           S.append(np.array(tmp))
-       
+
         #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
         S_ij=list()
         #Actual retrieval of ij state overlaps via determinants of the corresponding full MOs overlap matrices
@@ -982,6 +985,32 @@ class SHARC_VASP(SHARC_ABINITIO):
     def read_and_append_densities(self) -> None:
         #empty function
         pass
+
+class suppress_stdout_stderr:
+    """
+    A context manager that redirects stdout and stderr to /dev/null (on Unix)
+    or NUL (on Windows), suppressing all output including C-level prints.
+    Added to suppress output from pawpyseed call to stdout in get_overlap().
+    So that no need to comment out printf statements in pawpyseed .c source files is necessary.
+    """
+
+    def __enter__(self):
+        # Open null files for stdout and stderr
+        self.null_fds = [os.open(os.devnull, os.O_RDWR) for _ in range(2)]
+        # Save the original file descriptors
+        self.save_fds = [os.dup(1), os.dup(2)]
+        # Redirect stdout and stderr to null
+        os.dup2(self.null_fds[0], 1)
+        os.dup2(self.null_fds[1], 2)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Restore original stdout and stderr file descriptors
+        os.dup2(self.save_fds[0], 1)
+        os.dup2(self.save_fds[1], 2)
+        # Close all fds
+        for fd in self.null_fds + self.save_fds:
+            os.close(fd)
+
 
 
 # ---------------------------------| Main Function |--------------------------------------------------------------------       
