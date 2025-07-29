@@ -1270,6 +1270,7 @@ module qm
     ! =============================
     if (ctrl%method==0) then !TSH
       traj%grad_ad(:,:)=real(traj%Gmatrix_ssad(traj%state_diag,traj%state_diag,:,:))
+      ! write(u_log,*) 'GRAAAAD0',(traj%grad_ad(1,1:3))
       if (printlevel>3) then
         write(u_log,*) ''
         write(u_log,*) 'Gradient of diagonal state',traj%state_diag,'picked.'
@@ -1595,7 +1596,7 @@ module qm
         traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*traj%phases_old_s(istate)
       endif
     enddo
-    ! Ket
+    ! Ket: TODO: need to complex conjugate all phases in the ket (or the bra?)
     do istate=1,ctrl%nstates
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)

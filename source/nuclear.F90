@@ -90,6 +90,7 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
   ! propagate positions
   select case (ctrl%thermostat)
     case (0) ! no thermostat
+      ! write(u_log,*) 'GRAAAAD1',(traj%grad_ad(1,1:3))
       do iatom=1,ctrl%natom
         if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         do idir=1,3
@@ -233,6 +234,7 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
   ! propagate velocities
   select case (ctrl%thermostat)
     case (0) ! no thermostat
+      ! write(u_log,*) 'GRAAAAD2',(traj%grad_ad(1,1:3))
       do iatom=1,ctrl%natom
         if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         do idir=1,3
