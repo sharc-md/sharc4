@@ -445,6 +445,7 @@ class INITCOND:
 
 def check_initcond_version(string, must_be_excited=False):
     if "sharc initial conditions file" not in string.lower():
+        print("Not an initconds file")
         return False
     f = string.split()
     for i, field in enumerate(f):
@@ -452,11 +453,14 @@ def check_initcond_version(string, must_be_excited=False):
             try:
                 v = float(f[i + 1])
                 if v not in versionneeded:
+                    print("Wrong version")
                     return False
             except IndexError:
+                print("IndexError")
                 return False
     if must_be_excited:
         if "excited" not in string.lower():
+            print("Must be excited")
             return False
     return True
 

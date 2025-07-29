@@ -87,7 +87,7 @@ class SHARC_SCHNARC(SHARC_FAST):
                 "grad",
                 "nacdr",
                 "point_charges",
-                "grad_pc",
+                # "grad_pc",
             ]
         )
 

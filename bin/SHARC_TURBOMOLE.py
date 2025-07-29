@@ -167,7 +167,7 @@ all_features = set(
         "phases",
         "molden",
         "point_charges",
-        "grad_pc",
+        # "grad_pc",
     ]
 )
 
@@ -384,7 +384,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
             with open(os.path.join(dir_path, "TURBOMOLE.resources"), "w", encoding="utf-8") as file:
                 for key in (
                     "turbodir",
-                    "scratchdir",
+                    # "scratchdir",
                     "ncpu",
                     "memory",
                     "wfoverlap",
@@ -395,6 +395,8 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 ):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
+                if "scratchdir" in self.setupINFOS:
+                    file.write(f"scratchdir {os.path.join(self.setupINFOS['scratchdir'], dir_path)}\n")
         else:
             create_file(expand_path(self._resources_file), os.path.join(dir_path, "TURBOMOLE.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "TURBOMOLE.template"))
@@ -464,14 +466,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Setup environment
         os.environ["TURBODIR"] = (turbodir := self.QMin.resources["turbodir"])
 
-        if (ncpu := self.QMin.resources["ncpu"]) > 1:
-            os.environ["PARA_ARCH"] = "SMP"
-            os.environ["PARANODES"] = str(ncpu)
-        os.environ["OMP_NUM_THREADS"] = str(ncpu)
-
-        arch = sp.Popen([os.path.join(turbodir, "scripts", "sysname")], stdout=sp.PIPE).communicate()[0].decode().strip()
-        os.environ["PATH"] = f"{turbodir}/scripts:{turbodir}/bin/{arch}:" + os.environ["PATH"]
-
     def setup_interface(self) -> None:
         super().setup_interface()
 
@@ -481,6 +475,17 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
 
         if self.QMin.resources["ncpu"] > 1 and self.QMin.template["spin-scaling"] == "lt-sos":
             self.log.warning("lt-sos is not fully SMP parallelized.")
+
+        self.log.info(f"nCPU for architecture: {self.QMin.resources['ncpu']}")
+        if (ncpu := self.QMin.resources["ncpu"]) > 1:
+            os.environ["PARA_ARCH"] = "SMP"
+            os.environ["PARANODES"] = str(ncpu)
+        os.environ["OMP_NUM_THREADS"] = str(ncpu)
+
+        turbodir = self.QMin.resources["turbodir"]
+        arch = sp.Popen([os.path.join(turbodir, "scripts", "sysname")], stdout=sp.PIPE).communicate()[0].decode().strip()
+        self.log.info(f"Architecture: {arch}")
+        os.environ["PATH"] = f"{turbodir}/scripts:{turbodir}/bin/{arch}:" + os.environ["PATH"]
 
         # Build job map
         self._build_jobs()

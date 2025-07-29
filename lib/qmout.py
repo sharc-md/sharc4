@@ -373,7 +373,7 @@ class QMout:
         # currently only skipping                   
         toskip = 4 + 3*num                          
         return {'Notes': 'not read'}, iline + toskip
-        # TODO: actually read in the notes as dict. Readig should stop at the first empty line
+        # TODO: actually read in the notes as dict. Reading should stop at the first empty line
 
     @staticmethod
     def get_property(data, iline, type, shape):
@@ -382,11 +382,15 @@ class QMout:
         for irow in range(num):
             keys.append(data[iline + 3 + irow].strip())
         iline += 3 + num
+        if len(shape) == 0:
+            iline += 1
         res = []
         for irow in range(num):
             result, iline = QMout.get_quantity(data, iline, type, shape)
             res.append(result)
             iline += 2
+            if len(shape) == 0:
+                iline -= 1
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
 
