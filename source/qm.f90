@@ -1239,6 +1239,7 @@ module qm
   subroutine Mix_gradients(traj,ctrl)
     use definitions
     use matrix
+    use restrictive_potential
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
