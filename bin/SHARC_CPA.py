@@ -147,13 +147,14 @@ class SHARC_CPA(SHARC_HYBRID):
 
     def read_requests(self, requests_file="QM.in"):
         super().read_requests(requests_file)
-        requests = {}
+        requests = {"step": self.QMin.save["step"]}
         for k,v in self.QMin.requests.items():  #to modify requests for child interfaces, only GS gradient can be requested from childs
             if v:
                 if k == "grad":
                     requests[k]=[1]
                     continue
                 requests[k]=v
+        self.log.debug("Requests after handling of CPA interface")
         self.log.debug(requests)
         self._kindergarden["reference"].read_requests(requests)
 

@@ -1001,18 +1001,17 @@ def phase_correction_cmplx(overlap,flag="simple"):
                 Robust for situations with non diagonally-dominant matrices i.e. trivial crossings or nearly trivial crossings
                 Complex matrices. More computationally expensive.
     
-    overlap: overlap matrix whose adiabatic states phase has to be fixed
+    overlap: overlap matrix whose adiabatic states phase has to be fixed prior to Löwdin's orthogonalization.
 
-    Return: phase corrected overlap matrix and phases for corrections 
+    Return: phases for corrections 
     """
     
-    if flag=="simple":
+    if flag=="simple": #This does not require the matrix to be exactly unitary
         phases=[]
         for i in range(len(overlap)):
             phases.append(np.conj(overlap[i,i]/np.abs(overlap[i,i])))
         phases=np.array(phases)
-        U=phases*overlap
-        return U,phases
+        return phases
     
     elif flag=="robust":
         thold=1e-6 #Threshold for convergence
@@ -1029,7 +1028,11 @@ def phase_correction_cmplx(overlap,flag="simple"):
             return out
         
         ##### start of actual algorithm ####
-        U = overlap.copy()
+        
+        #First we need to make the matrix unitary -> Löwdin's orthogonalization
+        λ,V = LA.eigh(overlap.T.conjugate() @ overlap)
+        S=overlap @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
+        U = S.copy()
         for i in range(U.shape[0]):
             tmp=np.argmax(np.abs(U[:,i]))
             max_el=U[tmp,i]
@@ -1071,9 +1074,9 @@ def phase_correction_cmplx(overlap,flag="simple"):
             sweeps += 1
             if done or sweeps > max_sweeps:
                 #Saving scaling factors
-                tmp=[U[:,i]/overlap[:,i] for i in range(U.shape[0])]
+                tmp=[U[:,i]/S[:,i] for i in range(U.shape[0])]
                 phases=[i[0] for i in tmp if np.all(np.round(i,9)==np.round(i[0],9))]
                 #logging.debug(f"Matrix determinant at last stage {LA.det(U)}") #Require extra computations, only for debugs
                 #logging.debug(f"Final Tr(|log(U)|^2) {trace_log(U)}")
                 break
-        return U,phases
+        return phases

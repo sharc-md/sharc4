@@ -419,8 +419,6 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.QMin.control["nslots_pool"].append(1)
         self.runjobs(schedule)
 
-        self._save_files(self.QMin.control["workdir"])
-        self.clean_savedir()
 
         self.log.debug("All jobs finished successful")
 
@@ -511,6 +509,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         # Setup workdir
         mkdir(workdir)
+        
+        # Reading wavefunction guess from step-1 for speeding up VASP calculation of step
+        self._copy_files(workdir,savedir)
 
         # Write VASP input files
         #INCAR 
@@ -543,7 +544,6 @@ class SHARC_VASP(SHARC_ABINITIO):
             workdir, exec_str, os.path.join(workdir, "VASP.out"), os.path.join(workdir, "VASP.err"))
 
         ### Checking correct execution of VASP calculation. ###
-        
         #Checking correct POSCAR and POTCAR format, only at first step is enough to make sure remaining steps run smoothly
         if self.QMin.save["step"] == 0:
             with open(os.path.join(workdir,"VASP.out"), "r", encoding="utf-8") as f:
@@ -557,9 +557,11 @@ class SHARC_VASP(SHARC_ABINITIO):
             with open(os.path.join(workdir, "VASP.err"), "r", encoding="utf-8") as f:
                 self.log.error("Please check your VASP.out, something went wrong with the VASP calculation!")
                 self.log.error(f.read())
-        
-        endtime = datetime.datetime.now()
+        elif exit_code ==0 and not self.QMin.save["samestep"]: #Saving files for overlap calculation 
+            self._save_files(workdir,savedir)
 
+        endtime = datetime.datetime.now()
+        
         return exit_code, endtime - starttime
 
 
@@ -775,28 +777,28 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug(len(det_ind)) 
         
         #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
-        wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
-                                       wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
-                                       cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
-                                       vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
-        
-        wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save['step']-1}"), #previous timestep wf
-                                        wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save['step']-1}"),
-                                        cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
-                                        vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
-        
-        self.log.debug("-----------------------------")
-        self.log.debug("PAWPYSEED overlap calculation")
-        self.log.debug("-----------------------------\n")
-        
-        with suppress_stdout_stderr(): #This is just to suppress stdout output from pawpyseed, remove it to test pawpyseed output
+        with suppress_stdout_stderr():  
+            wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
+                                           wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
+                                           cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
+                                           vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
+            
+            wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save['step']-1}"), #previous timestep wf
+                                            wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save['step']-1}"),
+                                            cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
+                                            vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
+            
+            self.log.debug("-----------------------------")
+            self.log.debug("PAWPYSEED overlap calculation")
+            self.log.debug("-----------------------------\n")
+            
             if self.QMin.template["overlap_method"]=="pseudo":
                 pr=[Projector(wf_t, wf_t0,method=self.QMin.template["overlap_method"])]
             else:
                 pr=[Projector(wf_t, wf_t0)]
-           
+            
             S=list()
-           
+            
             #pr is a list, multiple projector calcualtions could be added, for instance if tNACs have to be computed also S_{ji}(r,t+dt)^* is required.
             #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
             for j in pr:
@@ -818,13 +820,13 @@ class SHARC_VASP(SHARC_ABINITIO):
             S_ij.append(s_ij)
        
         #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
-        #this may need to be adjusted, so that the driver does that, before checking for intruder states
-        #if so, the orthogonalized matrix has to be stored anyway for phase corrections
+        #This may need to be commented, so it's the driver doing that, before checking for intruder states
+        #After discussion with Sebastian this is probably the safest option. 
 
-        λ,V = LA.eigh(S_ij[0].T.conjugate() @ S_ij[0])
-        T=S_ij[0] @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
+        #λ,V = LA.eigh(S_ij[0].T.conjugate() @ S_ij[0])
+        #T=S_ij[0] @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
        
-        return T
+        return S_ij[0]
 
     def _get_phases(self,flag: str, overlap: np.ndarray[complex,2] ) -> np.ndarray[complex,1]:
         ''' 
@@ -841,8 +843,8 @@ class SHARC_VASP(SHARC_ABINITIO):
         if flag=="none":
             phases=np.ones(self.QMin.molecule["nmstates"],dtype=complex) 
         
-        elif flag=="simple" or flag=="robust": 
-            phases=phase_correction_cmplx(overlap,flag)[1]
+        elif flag=="simple" or flag=="robust":
+            phases=phase_correction_cmplx(overlap,flag)
         
         return phases
     
@@ -927,15 +929,16 @@ class SHARC_VASP(SHARC_ABINITIO):
         return inputstring
 
 
-# ---------------------------------| Saving files after each run |---------------------------------------------------
-    def _save_files(self, workdir: str) -> None:
+# ---------------------------------| Saving & copying files after each run |---------------------------------------------------
+    def _save_files(self, workdir : str, savedir : str ) -> None:
         """
         Save files (WAVECAR, vasprun.xml , CONTCAR, POTCAR, OUTCAR) to savedir
         Necessary for pawpyseed computation of overlap matrix 
         Naming convention: file.job.step
         """
         step = self.QMin.save["step"]
-        savedir = self.QMin.save["savedir"]
+
+        self.log.debug(f"Saving files from step {step}")
         
         #POTCAR only once, never changes, to suppress pawpyseed warning
         if self.QMin.save["step"]==0:
@@ -964,7 +967,23 @@ class SHARC_VASP(SHARC_ABINITIO):
         shutil.copy(fromfile, tofile)
         
         return
+    
+    def _copy_files(self, workdir: str, savedir : str) -> None:
+        """
+        Copy WAVECAR from previous time step for speeding up density convergence of VASP calculation
 
+        workdir:    Working directory
+        savedir:    Save directory
+        """
+        
+        step = self.QMin.save["step"]
+
+        if step > 0:
+            if os.path.isfile(os.path.join(savedir,f"WAVECAR.{step-1}")):
+                self.log.debug(f"Using WAVECAR from step {step-1} for density preconditioning.")
+                shutil.copy(os.path.join(savedir, f"WAVECAR.{step-1}"), os.path.join(workdir, "WAVECAR"))
+        
+        return
 
 # ---------------------------------| Empty trivial functions otherwise external checks complain |---------------------
     def _create_aoovl(self) -> None:
@@ -986,6 +1005,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         #empty function
         pass
 
+# --------------------------------------------------------------------------------------------------------------------
+
+
 class suppress_stdout_stderr:
     """
     A context manager that redirects stdout and stderr to /dev/null (on Unix)
@@ -995,6 +1017,9 @@ class suppress_stdout_stderr:
     """
 
     def __enter__(self):
+        # Flush Python's sys.stdout and sys.stderr
+        sys.stdout.flush()
+        sys.stderr.flush()
         # Open null files for stdout and stderr
         self.null_fds = [os.open(os.devnull, os.O_RDWR) for _ in range(2)]
         # Save the original file descriptors
@@ -1004,6 +1029,9 @@ class suppress_stdout_stderr:
         os.dup2(self.null_fds[1], 2)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        # Flush Python's sys.stdout and sys.stderr
+        sys.stdout.flush()
+        sys.stderr.flush()
         # Restore original stdout and stderr file descriptors
         os.dup2(self.save_fds[0], 1)
         os.dup2(self.save_fds[1], 2)
