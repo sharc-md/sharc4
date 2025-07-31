@@ -1486,7 +1486,7 @@ module qm
       if (ctrl%calc_overlap==1) then
 
         if (printlevel>4) then 
-          write(u_log,*) 'phase correction based on overlaps'
+          write(u_log,*) 'Phases not found in QMout. Calculation of phase correction based on overlaps'
         endif 
         traj%phases_s=traj%phases_old_s
         do istate=1,ctrl%nstates
@@ -1573,6 +1573,10 @@ module qm
 
     ! check if phases have all norm 1
     ! all_unit_norm = .true.
+    if (printlevel>4) then 
+      write(u_log,*) 'Phases found in QMout. Applying phase correction.'
+    endif
+
     do istate=1,ctrl%nstates
       if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) traj%phases_s(istate) = dcmplx(1.d0,0.d0)
     enddo

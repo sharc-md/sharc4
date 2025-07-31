@@ -742,13 +742,13 @@ subroutine surface_hopping(traj,ctrl)
   endif
 
   !Scaling transition probabilities for upwards hops according to CPA approximation if CPA is enabled. Boltzmann scaling
-  if (ctrl%boltzmann_hopping_scaling==1) then
+  if (ctrl%boltz_hop==1) then
     do istate=1,ctrl%nstates
       if (real(traj%H_diag_ss(istate,istate)) > real(traj%H_diag_ss(traj%state_diag,traj%state_diag))) then
         deltaE=0.d0
         boltzmann_scaling=0.d0
         deltaE=abs(real(traj%H_diag_ss(istate,istate) - traj%H_diag_ss(traj%state_diag,traj%state_diag)))
-        boltzmann_scaling=exp(-deltaE/(boltzmann_k * ctrl%boltzmann_temperature))
+        boltzmann_scaling=exp(-deltaE/(boltzmann_k * ctrl%boltz_temp))
         traj%hopprob_s(istate)=traj%hopprob_s(istate)*boltzmann_scaling 
       endif
     enddo

@@ -37,7 +37,7 @@
 !> - reading restart.ctrl and restart.traj to initialize all arrays
 !>
 !>                   modified 2025 by Marco Romanelli
-!>                       addeded new variables (see definitions.F90) ctrl%boltzmann_hopping_scaling and ctrl%boltzmann_temperature
+!>                       addeded new variables (see definitions.F90) ctrl%boltz_hop and ctrl%boltz_temp
 !>
 !>
 module restart
@@ -171,8 +171,8 @@ module restart
      write(u,*) ctrl%track_phase
      write(u,*) ctrl%track_phase_at_zero
      write(u,*) ctrl%hopping_procedure
-     write(u,*) ctrl%boltzmann_hopping_scaling
-     write(u,*) ctrl%boltzmann_temperature
+     write(u,*) ctrl%boltz_hop
+     write(u,*) ctrl%boltz_temp
      write(u,*) ctrl%switching_procedure
      write(u,*) ctrl%army_ants
  
@@ -778,8 +778,8 @@ module restart
      read(u_ctrl,*) ctrl%track_phase
      read(u_ctrl,*) ctrl%track_phase_at_zero
      read(u_ctrl,*) ctrl%hopping_procedure
-     read(u_ctrl,*) ctrl%boltzmann_hopping_scaling
-     read(u_ctrl,*) ctrl%boltzmann_temperature
+     read(u_ctrl,*) ctrl%boltz_hop
+     read(u_ctrl,*) ctrl%boltz_temp
      read(u_ctrl,*) ctrl%switching_procedure
      read(u_ctrl,*) ctrl%army_ants
      
