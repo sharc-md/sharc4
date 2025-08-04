@@ -921,7 +921,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug("sorted VASP geometry") 
         self.log.debug(self._coords_vasp) 
         for i in self._coords_vasp:
-            inputstring += f" {i[0]*au2a:>16.9f}  {i[1]*au2a:>16.9f}  {i[2]*au2a:>16.9f}\n"
+            inputstring += f" {i[0]*au2a:>16.7f}  {i[1]*au2a:>16.7f}  {i[2]*au2a:>16.7f}\n"
         
         self.log.debug("Testing VASP geometry sorting indices")
         self.log.debug(self._indices_vasp)
