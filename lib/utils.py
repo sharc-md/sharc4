@@ -958,7 +958,7 @@ def phase_correction(matrix):
     """
     phases = np.ones(matrix.shape[-1])
     U = matrix.real.copy()
-    det_U = np.LA.det(U)
+    det_U = np.linalg.det(U)
     if det_U < 0:
         U[:, 0] *= -1.0  # this row/column convention is correct
         phases[0] *= -1.0
