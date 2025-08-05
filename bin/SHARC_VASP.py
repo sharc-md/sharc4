@@ -858,7 +858,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         """
         
         inputstring = f"SISTEM = {self.QMin.template['system']}\n"
-        inputstring = f"MAXMEM = {self.QMin.resources['memory']}\n" #allocated memory in Mb for each MPI rank
+        inputstring += f"MAXMEM = {self.QMin.resources['memory']}\n" #allocated memory in Mb for each MPI rank
         inputstring += f"ISMEAR = {self.QMin.template['ismear']}\n"
         inputstring += f"SIGMA = {self.QMin.template['sigma']}\n"
         inputstring += f"ISPIN = {self.QMin.template['ispin']}\n" #Only singlets currently available
