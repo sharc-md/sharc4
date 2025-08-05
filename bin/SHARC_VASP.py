@@ -751,6 +751,8 @@ class SHARC_VASP(SHARC_ABINITIO):
         if mth='pseudo' only pseudowavefunction overlaps
         '''
         
+        start = datetime.datetime.now()
+        
         from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
         
         act_sp={i:n for n,i in enumerate(mo_t0.keys())}
@@ -825,6 +827,10 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         #λ,V = LA.eigh(S_ij[0].T.conjugate() @ S_ij[0])
         #T=S_ij[0] @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
+        
+        end = datetime.datetime.now()
+        
+        self.log.info(check_timing(start,end))
        
         return S_ij[0]
 
@@ -1006,7 +1012,23 @@ class SHARC_VASP(SHARC_ABINITIO):
         pass
 
 # --------------------------------------------------------------------------------------------------------------------
+def check_timing(starttime : datetime.datetime ,endtime : datetime.datetime):
+    """ Simple function for computing runtime between starttime and endtime.
 
+        starttime: initial datetime.datetime.now() object
+        endtime: final datetime.datetime.now() object
+
+        return: Output string with Runtime in days, hours, minutes and seconds
+    """
+
+    runtime = endtime-starttime
+    hours = runtime.seconds // 3600
+    minutes = runtime.seconds // 60 - hours * 60
+    seconds = runtime.seconds % 60
+    seconds += 1.0e-6 * runtime.microseconds
+    output=("==> Runtime for pawpyseed overlap calculation:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n" % (runtime.days, hours, minutes, seconds))
+
+    return output
 
 class suppress_stdout_stderr:
     """
