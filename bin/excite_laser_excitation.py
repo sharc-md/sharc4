@@ -420,55 +420,68 @@ def gfsh_probs(istate, ic, INFOS):
                     exc_prob[tstep, exc_state] = np.max([0, gs_fac[tstep]*exc_prob_tdiff[tstep, exc_state]/max_prob[tstep]])
     #data_to_save = np.column_stack((range(time_steps), exc_prob))
     #np.savetxt("exc_state_%05i_traj_%05i" % (istate, ic+1), data_to_save, fmt="%.5e", delimiter="\t")
-    return exc_prob
+    return exc_prob, rho
 
 
 # ======================================================================= #
 
 
-def compute_max_prob(INFOS):
+def compute_max_prob(INFOS, rho_read=np.array([])):
     """
     Extract output.dat in every TRAJ folder for every setupstate
     """
     # check if trajectory was run? Otherwise skip
+    pleave_arr = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"])))
     pmax = 0.  # initialize maximum probability over all initial states and initial conditions (TRAJS) to ever leave the initial state
     # run the data extractor, if necessary
     # first check whether $SHARC contains the extractor
-    if INFOS["diag"]:
-        coeff_file = "coeff_diag.out"
-    else:
-        coeff_file = "coeff_MCH.out"
+    if rho_read.shape[0] != 0:  # if not the default rho_read
+        for i, istate in enumerate(INFOS["setupstates"]):  
+            for j, jcond in enumerate(INFOS["icond_sel"]):
+                p_init = rho_read[j, :, i]  # take the rho_list icond j and setup state j (ground state)
+                # print(int(2*(istate-1+1)))
+                # print(sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"]))))
+                pstay = 1.
+                for tstep in range(INFOS["nsteps"]):                     
+                    pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
+                pleave_arr[i, j] = 1.-pstay                                    
+                print("pleave_arr, pstay", pleave_arr[i, j], pstay)
 
-    INFOS["coeff_data"] = np.zeros((INFOS["ninit"], len(INFOS["setupstates"]), INFOS["nsteps"]+1, (2+2*int(INFOS["nstates"]))))  # initconds, initstates, timesteps, states
-    for i, istate in enumerate(INFOS["setupstates"]):  
-        for j, jcond in enumerate(INFOS["icond_sel"]):
-            #  p_traj = 0.  # Initialize the accumulated probability to leave the initial state for this trajectory
-            INFOS["coeff_data"][j, i, :, :] =  np.genfromtxt(get_iconddir(istate, INFOS) + "/TRAJ_%05i/output_data/%s" %(jcond, coeff_file), comments="#")
-            # TODO: probably would suffice to only take the initial state - defining a big array is not needed
-            # coeffs = np.zeros((coeff_data.shape[0], int((coeff_data.shape[1]-2)/2)), dtype=complex)
-            # for n_columns in range(0, len(coeffs[1])):
-            # coeffs[:, int(n_columns)] = coeff_data[:, int(2*(n_columns+1))] + 1.j*coeff_data[:, int(2*(n_columns+1)+1)]
-            coeff_init = INFOS["coeff_data"][j, i, :, int(2*(istate-1+1))] + 1.j*INFOS["coeff_data"][j, i, :, int(2*(istate-1+1)+1)]  # skip first two columns containing time and c**2, but istates start at 1
-            pstay = 1. 
-            p_init = np.abs(coeff_init)**2
-            for tstep in range(len(coeff_init)-1):
-                pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
-                # if istate==5:
-                #     if icond==3:
-                #         print(tstep, pstay, p_init[tstep])
-                # pstay *= 1. - (max(0, p_init[tstep]-p_init[tstep+1]))
-            pleave = 1.-pstay
-            # print("ISTATE: %i, ICOND: %i, pleave: %f" % (istate, icond, pleave))
-            if pleave > pmax:
-                pmax = pleave
-            # p_traj = 1
-            # for tstep in range(len(coeff_init)-1):
-            #     p_init_tdiff = p_init[tstep]-p_init[tstep+1]
-            #     if p_init_tdiff > 0:
-            #         p_traj *= (1-p_init_tdiff)  # prob to never hop
-            # if 1-p_traj > pmax:  # prob to hop at least once
-            #     pmax = 1-p_traj
-    return pmax 
+    else:
+        if INFOS["diag"]:
+            coeff_file = "coeff_diag.out"
+        else:
+            coeff_file = "coeff_MCH.out"
+
+        INFOS["coeff_data"] = np.zeros((INFOS["ninit"], len(INFOS["setupstates"]), INFOS["nsteps"]+1, (2+2*len(INFOS["statemap"]))))  # initconds, initstates, timesteps, states
+        for i, istate in enumerate(INFOS["setupstates"]):  
+            for j, jcond in enumerate(INFOS["icond_sel"]):
+                #  p_traj = 0.  # Initialize the accumulated probability to leave the initial state for this trajectory
+                INFOS["coeff_data"][j, i, :, :] =  np.genfromtxt(get_iconddir(istate, INFOS) + "/TRAJ_%05i/output_data/%s" %(jcond, coeff_file), comments="#")
+                # TODO: probably would suffice to only take the initial state - defining a big array is not needed
+                # coeffs = np.zeros((coeff_data.shape[0], int((coeff_data.shape[1]-2)/2)), dtype=complex)
+                # for n_columns in range(0, len(coeffs[1])):
+                # coeffs[:, int(n_columns)] = coeff_data[:, int(2*(n_columns+1))] + 1.j*coeff_data[:, int(2*(n_columns+1)+1)]
+                coeff_init = INFOS["coeff_data"][j, i, :, int(2*(istate-1+1))] + 1.j*INFOS["coeff_data"][j, i, :, int(2*(istate-1+1)+1)]  # skip first two columns containing time and c**2, but istates start at 1
+                pstay = 1. 
+                p_init = np.abs(coeff_init)**2
+                for tstep in range(len(coeff_init)-1):
+                    pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
+                pleave_arr[i, j] = 1.-pstay
+                # print("ISTATE: %i, ICOND: %i, pleave: %f" % (istate, icond, pleave))
+                # if pleave > pmax:
+                #     pmax = pleave
+                #     print("pmax_traj", (j, jcond))
+                #     print(f"{pmax:2.5e}")
+                # p_traj = 1
+                # for tstep in range(len(coeff_init)-1):
+                #     p_init_tdiff = p_init[tstep]-p_init[tstep+1]
+                #     if p_init_tdiff > 0:
+                #         p_traj *= (1-p_init_tdiff)  # prob to never hop
+                # if 1-p_traj > pmax:  # prob to hop at least once
+                #     pmax = 1-p_traj
+    pmax = np.max(pleave_arr)
+    return pmax, pleave_arr
 
 
 # ======================================================================= #
@@ -594,14 +607,52 @@ def read_coeff(INFOS, statelist, exc_list, istate):
                         coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, int(INFOS["coeff_time_idx"]), 3::2]
             except OSError:
                 print(f"Trajectory {traj} does not exist for setup state {istate}!")
-        print(coeff[itraj, INFOS["setupstates"][istate]-1, :, :])
-        print(istate, itraj, int(exc_list[istate, itraj, 0]), coeff.shape)
+        # print(coeff[itraj, INFOS["setupstates"][istate]-1, :, :])
+        # print(istate, itraj, int(exc_list[istate, itraj, 0]), coeff.shape)
         statelist[itraj].get_coeff(coeff[itraj, INFOS["setupstates"][istate]-1, :, :], INFOS["coeff_bool"])
     return statelist    
 
 # ======================================================================= #
 # ======================================================================= #
 # ======================================================================= #
+
+
+def write_probabilities(rho, initlist, exc_list, INFOS):
+    pmax, pleave_arr = compute_max_prob(INFOS, rho)
+    # pleave_arr_old = compute_max_prob(INFOS)[1]
+    n_states = sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))
+    n_trajs = len(INFOS["icond_sel"])
+
+    # Initialize arrays for storing excitation energies and oscillator strengths
+    exc_energies_all = np.zeros((n_trajs, n_states))
+    osc_strengths_all = np.zeros((n_trajs, n_states))
+
+    # Collect data
+    for ic, icond in enumerate(INFOS["icond_sel"]):
+        for j, jstate in enumerate(initlist[ic].statelist):
+            exc_energies_all[ic, j] = jstate.Eexc
+            osc_strengths_all[ic, j] = jstate.Fosc
+
+    # Write to file
+    with open("probabilities.txt", "w") as f:
+        # Write header
+        header = ["#No.TRAJ", "ptotk_old", "ptotk_new"]
+        header += [f"Eexc{j+1}" for j in range(n_states)]
+        header += [f"Fosc{j+1}" for j in range(n_states)]
+        header += ["Exc", "Exc_State", "Exc_Time"]
+        f.write(", ".join(header) + "\n")
+
+        n_digits = 5  # len(str(INFOS["ninit"] - 1))
+        for j, jstate in enumerate(INFOS["setupstates"]):
+            for k in range(n_trajs):
+                traj_label = f"TRAJ_{INFOS['icond_sel'][k]:0{n_digits}d}"
+                row = [traj_label, f"{INFOS['pleave_arr_old'][j, k]:.16f}", f"{pleave_arr[j, k]:.16f}"]
+                row += [f"{exc_energies_all[k, m]:.16f}" for m in range(n_states)]
+                row += [f"{osc_strengths_all[k, m]:.16f}" for m in range(n_states)]
+                row += [f"{exc_list[j, k, 2]:.16f}"] 
+                row += [f"{exc_list[j, k, 1]:.16f}"] 
+                row += [f"{exc_list[j, k, 0]:.12e}"] 
+                f.write("".join(s.rjust(20) for s in row) + "\n")
 
 
 def writeoutput(initlist, istate, INFOS):
@@ -779,11 +830,12 @@ def main():
         initlist[i] = get_QMout(INFOS, i, initlist[i])  # adding excited state information
         run_data_extractor(i, INFOS)
 
-    INFOS["max_prob"] = compute_max_prob(INFOS)  # Compute maximum probability to leave initial state
+    INFOS["max_prob"], INFOS["pleave_arr_old"] = compute_max_prob(INFOS)  # Compute maximum probability to leave initial state
     print("Computed pmax = %.2f" % INFOS["max_prob"])
     exc_probs = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), INFOS["nsteps"]+1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))))
     exc_probs_cumsum = np.zeros_like(exc_probs) 
     exc_list = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), 3))  # last index: 0: exc.time, 1: to which state was excited, 2: excitation or not
+    rho_list = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), INFOS["nsteps"]+1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))))  # last index: 0: exc.time, 1: to which state was excited, 2: excitation or no
     double_exc = False
     for isa, isample in enumerate(range(INFOS["sample_number"])):  # Sample up to the point, where double excitations occur; To increase probabilities
         isa_exc_list = np.zeros_like(exc_list)
@@ -797,7 +849,7 @@ def main():
                     continue
                 jump_to_next = False
                 if isa == 0:
-                    exc_probs[ist, ic, :, :] = gfsh_probs(ist, ic, INFOS)
+                    exc_probs[ist, ic, :, :], rho_list[ist, ic, :, :] = gfsh_probs(ist, ic, INFOS)  # time, exc_state
                     exc_probs_cumsum[ist, ic, :, :] = np.cumsum(exc_probs[ist, ic, :, :], axis=1) 
                 random_probs = []
                 for tstep in range(0, INFOS["nsteps"]+1):
@@ -813,15 +865,16 @@ def main():
                             jump_to_next = True
                 if isa_exc_list[ist, ic, 2] == 1.0 and exc_list[ist, ic, 2] == 1.0:
                     print("Double excitation @ run: %i. Only keep excitations up to sampling iteration %i" %(isa+1, isa))
-                    print
                     double_exc = True  # Skip all further iterations of isa - one TRAJ would be excited twice
         exc_list += isa_exc_list
     for ist, istate in enumerate(INFOS["setupstates"]):
         initlist[ist] = read_coeff(INFOS, initlist[ist], exc_list, istate-1)  # istate -1, because it could also be state 5 that is active
         initlist[ist] = excite(INFOS, initlist[ist], exc_list[:, :, :], ist)
         writeoutput(initlist[ist], ist, INFOS) 
+        write_probabilities(rho_list[ist, :, :, :], initlist[ist], exc_list[:, :, :], INFOS)
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
+
     close_keystrokes()
 
 

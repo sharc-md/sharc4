@@ -844,9 +844,9 @@ def do_calc(INFOS):
                     continue
                 f = line.split()
                 t += 1
-                print(t+shift_step[fileindex], t, shift_step[fileindex], nsteps)
+                # print(t+shift_step[fileindex], t, shift_step[fileindex], nsteps)
                 if t+shift_step[fileindex] >= nsteps:
-                    print("break", t+shift_step[fileindex], shift_step[fileindex])
+                    # print("break", t+shift_step[fileindex], shift_step[fileindex])
                     break
 
                 if INFOS['mode'] in [1, 2, 3, 4, 5, 6]:

@@ -347,7 +347,7 @@ class STATE:
         s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
-        s += "% 12.8f % 12.8f %s % s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.ExcTime, self.IState)
+        s += "% 12.8f % 12.8f %s % s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
         return s
 
     def Excite(self, max_Prob, erange):
@@ -671,14 +671,17 @@ def check_laserfile(filename, nsteps, dt):
         if len(line.split()) >= 8:
             n += 1
         else:
-            break
+            break 
+    print(line, n)
     if n < nsteps:
+        print(n, nsteps)
         log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
         return False
     for i in range(int(nsteps) - 1):
         t0 = float(data[i].split()[0])
         t1 = float(data[i + 1].split()[0])
-        if abs(abs(t1 - t0) - dt) > 1e-6:
+        if abs(abs(t1 - t0) - dt) > 1e-5:
+            print(t0, t1, dt)
             log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
             return False
     return True
@@ -758,10 +761,18 @@ from the initconds.excited files as provided by excite.py.
     line = initf.readline()
     if "excitation_times" in line.lower():
         if line.split()[1].strip().lower() == "true":
-            INFOS["coeff_bool"] = True
+            INFOS["exctime_bool"] = True
+            line = initf.readline()
+        else:
+            INFOS["exctime_bool"] = False
+            line = initf.readline()
     if "explicit_coefficients" in line.lower():
         if line.split()[1].strip().lower() == "true":
-            INFOS["exctime_bool"] = True
+            INFOS["coeff_bool"] = True
+            line = initf.readline()
+        else:
+            INFOS["coeff_bool"] = False
+            line = initf.readline()
     if "states" in line.lower():
         states = []
         li = line.split()

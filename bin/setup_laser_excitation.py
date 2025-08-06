@@ -661,8 +661,8 @@ def get_initconds(INFOS):
 
 def get_laser_time(filename):
     data = readfile(filename)
-    print( float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])/(len(data)))#-float(data[-2].split()[0])  # tmax, nsteps, dtstep 
-    return float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])/(len(data))#-float(data[-2].split()[0])  # tmax, nsteps, dtstep 
+    print( float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])/(len(data)-1))  # -float(data[-2].split()[0])  # tmax, nsteps, dtstep 
+    return float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])/(len(data)-1)  # -float(data[-2].split()[0])  # tmax, nsteps, dtstep 
     
 # ======================================================================================================================
 # ======================================================================================================================
