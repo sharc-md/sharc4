@@ -390,6 +390,7 @@ class SHARC_VASP(SHARC_ABINITIO):
             
             self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the VASP calculation.")
             self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+            #self.setupINFOS["scratchdir"] += '/$$/'
             
             self.log.info("\n\nSpecify a save directory. The save directory will keep important files for each VASP run.")
             self.setupINFOS["savedir"] = question("Path to save directory:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
