@@ -831,6 +831,7 @@ def determine_normal_modes_format(modes, molecule, nmodes, flag):
                 trace += result[i][i]
                 result[i][i] -= 1
             diagonalcheck[0].append(trace)
+
             # print all matrices
             if DEBUG:
                 for row in result:
@@ -839,7 +840,7 @@ def determine_normal_modes_format(modes, molecule, nmodes, flag):
                         string += "%4.1f" % (float(entry))
                     print(string)
                 print()
-            #####################
+            
             if any([abs(i) > thresh for j in result for i in j]):
                 diagonalcheck[1].append(0)
             else:
