@@ -1311,6 +1311,7 @@ def readQMin(QMinfilename):
     line = get_sh2AMS_environ(sh2AMS, 'scratchdir', False, False)
     if line is None:
         line = QMin['pwd'] + '/SCRATCHDIR/'
+    line = line.replace("$$", str(os.getpid()))
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
     line = os.path.abspath(line)
@@ -1428,12 +1429,12 @@ def readQMin(QMinfilename):
         except ValueError:
             print('Number of CPUs does not evaluate to numerical value!')
             sys.exit(41)
-    if os.environ.get('NSLOTS') is not None:
-        QMin['ncpu'] = int(os.environ.get('NSLOTS'))
-        print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
-    elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
-        QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
-        print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # if os.environ.get('NSLOTS') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('NSLOTS'))
+    #     print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
+    #     print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
     QMin['ncpu'] = max(1, QMin['ncpu'])
 
     QMin['delay'] = 0.0

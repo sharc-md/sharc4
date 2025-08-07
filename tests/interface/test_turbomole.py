@@ -178,6 +178,7 @@ def test_dm():
         test_interface.QMin.template["dipolelevel"] = lvl
         test_interface._read_resources = True
         test_interface._read_template = True
+        test_interface.QMin.resources["turbodir"] = expand_path("$TURBODIR")
         test_interface.setup_interface()
         try:  # skip orca error
             test_interface.read_requests(expand_path(os.path.join(PATH, path, "QM.in")))

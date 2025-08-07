@@ -831,7 +831,7 @@ def determine_normal_modes_format(modes, molecule, nmodes, flag):
                 trace += result[i][i]
                 result[i][i] -= 1
             diagonalcheck[0].append(trace)
-
+            
             # print all matrices
             if DEBUG:
                 for row in result:

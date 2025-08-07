@@ -682,6 +682,7 @@ at least one task"""
     if line is None:
         line = os.path.join(qmin["pwd"], "SCRATCHDIR")
 
+    line = line.replace("$$", str(os.getpid()))
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
     line = os.path.abspath(line)

@@ -1,0 +1,4 @@
+scratchdir $TMPDIR
+ncpu 1 
+memory 1000
+path_to_program ~/

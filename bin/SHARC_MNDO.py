@@ -241,7 +241,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
             self.log.info(
                 "\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
             )
-            INFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
             self.log.info("")
 
             # scratch
@@ -249,7 +249,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
             self.log.info(
                 "Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
             )
-            INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            # self.setupINFOS["scratchdir"] += '/$$/'
 
             self.log.info(f"{'MNDO Ressource usage':-^60}\n")
 
@@ -1039,7 +1040,7 @@ mocoef
             except IOError:
                 self.log.error('IOError during prepareMNDO, iconddir=%s' % (workdir))
                 quit(1)
-            string = 'scratchdir %s/\n' % self.setupINFOS['scratchdir']
+            string = 'scratchdir %s/%s/\n' % (self.setupINFOS['scratchdir'], workdir)
             string += 'mndodir %s\n' % self.setupINFOS['mndodir']
             string += 'memory %i\n' % (self.setupINFOS['memory'])
             if 'overlap' in INFOS['needed_requests']:

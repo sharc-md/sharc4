@@ -168,9 +168,9 @@ call write_final(traj)
       call do_qm_calculations(traj,ctrl)
       call Verlet_vstep(IRedo, 0)
       if (IRedo >= 1) call redo_qm_gradients(traj,ctrl)
-      if (ctrl%method==0) then
-        if (traj%kind_of_jump/=0) call Mix_gradients(traj,ctrl)
-      endif
+      ! if (ctrl%method==0) then
+      !   if (traj%kind_of_jump/=0) call Mix_gradients(traj,ctrl)
+      ! endif
       call Verlet_finalize(IExit, iskip)
       if (IExit .eq. 1) exit
     enddo

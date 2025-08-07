@@ -1148,6 +1148,7 @@ def get_sh2BAGEL_environ(sh2BAGEL, key, environ=True, crucial=True):
                 sys.exit(18)
             else:
                 return None
+    LINE = LINE.replace("$$", str(os.getpid()))
     LINE = os.path.expandvars(LINE)
     LINE = os.path.expanduser(LINE)
     if containsstring(';', LINE):
@@ -1472,12 +1473,12 @@ def readQMin(QMinfilename):
         except ValueError:
             print('Number of CPUs does not evaluate to numerical value!')
             sys.exit(40)
-    if os.environ.get('NSLOTS') is not None:
-        QMin['ncpu'] = int(os.environ.get('NSLOTS'))
-        print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
-    elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
-        QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
-        print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # if os.environ.get('NSLOTS') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('NSLOTS'))
+    #     print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
+    #     print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
     QMin['ncpu'] = max(1, QMin['ncpu'])
 
     QMin['mpi'] = False

@@ -64,8 +64,9 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
         async def _run_async(label, child):
             logger.info(f"Run child {label} in async queue.")
-            child.run()
-            child.getQMout()
+            with InDir(child.QMin.resources["pwd"]):
+                child.run()
+                child.getQMout()
 
         async def _gather():
             tasks = [_run_async(k, v) for k, v in children_dict.items()]
@@ -75,7 +76,12 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
     @staticmethod
     def run_queue(
-        logger, children_dict: dict[str, SHARC_INTERFACE], ncpu: int, delay: float = 0.1, exit_on_failure: bool = True, indent: str = "" 
+        logger,
+        children_dict: dict[str, SHARC_INTERFACE],
+        ncpu: int,
+        delay: float = 0.1,
+        exit_on_failure: bool = True,
+        indent: str = "",
     ) -> None:
         """
         Run all children in a parallel queue
@@ -94,7 +100,12 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         qmouts = manager.dict()
 
         def run_a_child(label, n_used_cpu, QMins, QMouts):
-            logger.info(indent+f"Running child {label} on {os.uname()[1]} with pid {os.getpid()} on "+str(children_dict[label].QMin.resources["ncpu"])+" cores")
+            logger.info(
+                indent
+                + f"Running child {label} on {os.uname()[1]} with pid {os.getpid()} on "
+                + str(children_dict[label].QMin.resources["ncpu"])
+                + " cores"
+            )
             try:
                 children_dict[label]._step_logic()
                 children_dict[label]._request_logic()
@@ -113,7 +124,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
                 logger.error(f"Exception type: {type(exc)}")
                 logger.error(f"Exception args: {exc.args}")
                 logger.error(f"Exception message: {str(exc)}")
-                logger.error(indent+traceback.format_exc())
+                logger.error(indent + traceback.format_exc())
                 sys.exit(1)  # Indicate failure of child process
             finally:
                 n_used_cpu.value -= children_dict[label].QMin.resources["ncpu"]
@@ -131,6 +142,8 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         for label, child in children_dict.items():
             logger.debug(f"Waiting to start child {label}")
             while True:
+                if exit_on_failure:
+                    SHARC_HYBRID._exit_on_failure(logger, processes)
                 if ncpu - n_used_cpu.value >= child.QMin.resources["ncpu"]:
                     processes.append(Process(target=run_a_child, args=(label, n_used_cpu, qmins, qmouts)))
                     n_used_cpu.value += child.QMin.resources["ncpu"]
@@ -140,15 +153,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
         # Kill all processes if one fails
         while exit_on_failure:
-            exit_on_failure = False
-            for process in processes:
-                if process.exitcode == 1:
-                    for p in processes:
-                        p.kill()
-                    logger.error("A child process did not finish successfuly")
-                    raise RuntimeError
-                if process.is_alive():
-                    exit_on_failure = True
+            exit_on_failure = SHARC_HYBRID._exit_on_failure(logger, processes)
             sleep(0.1)
 
         for process in processes:
@@ -161,6 +166,23 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             if child.QMout.mol is not None:
                 child.QMout.mol = Mole.unpack(child.QMout.mol)
                 child.QMout.mol.build()
+
+    @staticmethod
+    def _exit_on_failure(logger, processes) -> bool:
+        """
+        Loop over process and check if a process
+        returned exitcode 1. Kill all processes if true
+        """
+        exit_on_failure = False
+        for process in processes:
+            if process.exitcode == 1:
+                for p in processes:
+                    p.kill()
+                logger.error("A child process did not finish successfuly")
+                raise RuntimeError
+            if process.is_alive():
+                exit_on_failure = True
+        return exit_on_failure
 
     def instantiate_children(self, child_dict: dict[str, tuple[str, list, dict] | str]) -> None:
         """

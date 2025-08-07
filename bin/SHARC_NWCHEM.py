@@ -170,6 +170,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
         self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        # self.setupINFOS["scratchdir"] += '/$$/'
 
         if os.path.isfile("NWCHEM.template"):
             self.log.info("Found NWCHEM.template in current directory")
@@ -211,9 +212,16 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "NWCHEM.resources"), "w", encoding="utf-8") as file:
-                for key in ("nwchem", "scratchdir", "ncpu", "memory", "wfoverlap", "wfthres"):
+                for key in ("nwchem", 
+                            # "scratchdir", 
+                            "ncpu", 
+                            "memory", 
+                            "wfoverlap", 
+                            "wfthres"):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
+                if "scratchdir" in self.setupINFOS:
+                    file.write(f"scratchdir {os.path.join(self.setupINFOS['scratchdir'], dir_path)}\n")
         else:
             create_file(expand_path(self._resource_file), os.path.join(dir_path, "NWCHEM.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "NWCHEM.template"))
@@ -383,7 +391,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         if self.QMin.template["nooverlap"]:
             return
 
-        basis_path = os.path.join(self.QMin.template["library_path"], self.QMin.template["basis"])
+        basis_path = os.path.join(self.QMin.template["library_path"], self.QMin.template["basis"].replace("(", "").replace(")", ""))
         if not os.path.isfile(basis_path):
             self.log.error(f"Basis {self.QMin.template['basis']} not in library path!")
             raise ValueError()
