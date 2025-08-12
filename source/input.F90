@@ -296,6 +296,12 @@ module input
             endif
             write(u_log,*)
           endif
+        else
+          write(u_log,*) '============================================================='
+          write(u_log,*) '                       Simulation Time'
+          write(u_log,*) '============================================================='
+          write(u_log,*) 'Using Fixed stepsize Velocity-Verlet integrator'
+          write(u_log,*) 'Simulation time cannot be changed when an explicit laser pulse is read.'
         endif
       elseif (ctrl%integrator==0 .or. ctrl%integrator==1) then
         line=get_value_from_key('tmax',io)
