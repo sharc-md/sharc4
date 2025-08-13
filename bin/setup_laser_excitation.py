@@ -31,6 +31,7 @@ import math
 import sys
 import re
 import os
+import numpy as np
 import stat
 import shutil
 import datetime
@@ -40,14 +41,16 @@ from optparse import OptionParser
 from socket import gethostname
 import cProfile
 import subprocess as sp
-from align_laser_file import align_laser
 from logger import log
+from scipy.spatial.transform import Rotation as R
 # import factory
-from utils import question, itnmstates, expand_path, readfile
+from utils import question, itnmstates, expand_path, readfile, link
+from numba import njit
 from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
 from SHARC_INTERFACE import SHARC_INTERFACE
 from SHARC_QMOUT import SHARC_QMOUT
 from qmout import QMout
+
 
 # =========================================================0
 PI = math.pi
@@ -348,14 +351,14 @@ class STATE:
         s += "% 12.8f % 12.8f %s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited)
         return s
 
-    def Excite(self, max_Prob, erange):
-        try:
-            Prob = self.Prob / max_Prob
-        except ZeroDivisionError:
-            Prob = -1.0
-        if not (erange[0] <= self.Eexc <= erange[1]):
-            Prob = -1.0
-        self.Excited = random.random() < Prob
+    # def Excite(self, max_Prob, erange):
+    #     try:
+    #         Prob = self.Prob / max_Prob
+    #     except ZeroDivisionError:
+    #         Prob = -1.0
+    #     if not (erange[0] <= self.Eexc <= erange[1]):
+    #         Prob = -1.0
+    #     self.Excited = random.random() < Prob
 
 
 # ======================================================================================================================
@@ -627,6 +630,118 @@ def get_initconds(INFOS):
     INFOS["initlist"] = initlist
     # INFOS["n_issel"] = [True]+[False]*(INFOS["nstates"]-1)  # analyze_initconds(initlist, INFOS)
     return INFOS
+
+def get_laser(INFOS):
+    laser = np.genfromtxt(INFOS["laserfile"])
+    if laser.shape[1] != 8:
+        print("Laser file does not match specifications!")
+        raise IOError
+    else:
+        laser_tsteps, laser_freqs = laser[:, 0], laser[:, -1]
+        Er, Ei = laser[:, 1:6:2], laser[:, 2:7:2]
+    return laser_tsteps, laser_freqs, Er, Ei 
+
+def random_seed():
+    print("{:-^60}".format("Random number seed") + "\n")
+    print('Please enter a random number generator seed (type "!" to initialize the RNG from the system time).')
+    while True:
+        line = question("RNG Seed: ", str, "!", False)
+        if line == "!":
+            random.seed()
+            break
+        try:
+            rngseed = int(line)
+            random.seed(rngseed)
+        except ValueError:
+            print('Please enter an integer or "!".')
+            continue
+        break
+    print("")
+    return rngseed
+
+@njit
+def transform_fields(Rmat, Er=None, Ei=None, Br=None, Bi=None, Egradr=None, Egradi=None):
+    tsteps = Er.shape[0]
+    if Er is not None:
+        Er_rot = np.empty_like(Er)
+        Ei_rot = np.empty_like(Ei)
+    # if B != None:
+    #     B_rot = np.empty_like(B)
+    # if Egrad != None:
+    #     Egrad_rot = np.empty_like(Egrad)
+
+    for t in range(tsteps):
+        Er_rot[t] = np.ascontiguousarray(Er[t]) @ np.ascontiguousarray(Rmat)
+        Ei_rot[t] = np.ascontiguousarray(Ei[t]) @ np.ascontiguousarray(Rmat)
+        # B_rot[t] = B[t] @ Rmat
+        # Egrad_rot[t] = Rmat @ Egrad_rot[t] @ Rmat.T
+    # return E_rot, B_rot, Egrad_rot
+    return Er_rot, Ei_rot
+
+
+# def custom_formatter(val: float):                                           
+#     """                                                                     
+#     Formats the laser fields files' values in defined scientific notation   
+#     Args:                                                                   
+#        x (int):                                                            
+#     Returns:                                                                
+#       Formatted laser fields files' values                                 
+#     """                                                                     
+#     # assert isinstance(val, float), "val must be a float!"                 
+#     if val!=0.0:                                                            
+#         if np.abs(val)<1E-99:                                               
+#             val=0.0                                                         
+#     val_form = '{:.8e}'.format(val)  # Format with 3 digits for the exponent
+#     mantissa, exponent = val_form.split('e')                                
+#     sign = '  ' if float(mantissa) >= 0 else ' '  # Check if positive       
+#     return f'{sign}{mantissa}E{exponent[0]}{exponent[1:].zfill(2)}'         
+
+
+# def fast_formatter(arr):
+#     arr = arr.copy()
+#     arr[np.abs(arr) < 1e-99] = 0.0
+# 
+#     base_fmt = np.char.mod('%.8e', arr.ravel())  # flatten for formatting
+# 
+#     parts = np.char.split(base_fmt, 'e')
+#     mantissa = np.array([p[0] for p in parts])
+#     exponent = np.array([p[1] for p in parts])
+# 
+#     exponent = np.char.zfill(exponent, 3)
+#     exponent = np.char.upper(exponent)
+# 
+#     signs = np.where(mantissa.astype(float) >= 0, '  ', ' ')
+#     formatted = np.char.add(signs, mantissa)
+#     formatted = np.char.add(formatted, 'E')
+#     formatted = np.char.add(formatted, exponent)
+# 
+#     return formatted.reshape(arr.shape)
+# 
+# 
+def write_fields(output_name, laser_tsteps, laser_freqs, E=None):
+    rot_laser_fields = np.empty((E[0].shape[0], 8))
+    rot_laser_fields[:, 1:6:2], rot_laser_fields[:, 2:7:2] = E
+    rot_laser_fields[:, 0], rot_laser_fields[:, 7] = laser_tsteps, laser_freqs
+
+    # formatted_laser_file = np.empty(
+    #     (len(rot_laser_fields), rot_laser_fields.shape[1] + 1),
+    #     dtype="U16"
+    # )
+    # formatted_laser_file[:, 0] = " "
+    # formatted_laser_file[:, 1:] = fast_formatter(rot_laser_fields)
+
+    np.savetxt(output_name, rot_laser_fields, fmt="%1.8E", delimiter=" ", comments="")
+# 
+# # def write_fields(output_name, laser_tsteps, laser_freqs, E=None):
+# #     rot_laser_fields = np.empty((E[0].shape[0], 8))
+# #     rot_laser_fields[:, 1:6:2], rot_laser_fields[:, 2:7:2] = E
+# #     rot_laser_fields[:, 0], rot_laser_fields[:, 7] = laser_tsteps, laser_freqs
+# #     vectorized_formatter = np.vectorize(custom_formatter)  
+# #     formatted_laser_file = np.empty((len(rot_laser_fields), len(rot_laser_fields[0]) + 1), dtype="U16")                  
+# #     formatted_laser_file[:, 0] = " "  # First column filled with space                                                   
+# #     formatted_laser_file[:, 1:] = vectorized_formatter(rot_laser_fields)                                                 
+# #     # head=''.join(head)                                                                                                   
+# #     np.savetxt(output_name, formatted_laser_file, fmt="%s", delimiter="", comments='')        
 
 
 # ======================================================================================================================
@@ -963,8 +1078,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         """
         )
     while True:
-        INFOS["laserfile"] = question("Laser filename:", str)
-        log.info(os.getcwd())
+        INFOS["laserfile"] = os.path.abspath(question("Laser filename:", str))
         log.info(INFOS["laserfile"])
         if not os.path.isfile(INFOS["laserfile"]):
             log.info("File %s does not exist!" % (INFOS["laserfile"]))
@@ -1258,7 +1372,7 @@ def json_info(INFOS):
     return 
 
 
-def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
+def writeSHARCinput(INFOS, initobject, iconddir, istate, laser_tsteps, laser_freqs, Er, Ei, rng_gen, rot_vec_arr, ask=False):
     inputfname = iconddir + "/input"
     try:
         inputf = open(inputfname, "w")
@@ -1278,7 +1392,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         s += "%i " % nst
     s += "\nstate %i %s\n" % (istate, ["mch", "diag"][INFOS["diag"]])
     s += "coeff auto\n"
-    s += "rngseed %i\n\n" % (random.randint(-32768, 32767))
+    s += "rngseed %i\n\n" % (0)
     s += "ezero %18.10f\n" % (INFOS["eref"])
 
     s += "tmax %f\nstepsize %f\nnsubsteps %i\n" % (INFOS["tmax"], INFOS["dtstep"], INFOS["nsubstep"])
@@ -1389,17 +1503,15 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
        print('Please set $SHARC to the directory containing the SHARC executables!')
        sys.exit(1)
     if INFOS["rand_laser_pol"]:
-        # io = sp.call(sharcpath + '/align_laser_file.py -lf %s -of %s -r %i -np True' % (INFOS["laserfile"], laserfname, random.randint(1,int(1E6))), shell=True, stdout=sp.DEVNULL)
-        #io = sp.run(sharcpath + '/align_laser_file.py -lf %s -of %s -r %i -np True' % (INFOS["laserfile"], laserfname, random.randint(1,int(1E6))), shell=True)  # , capture_output=True, text=True)
-        align_laser(laser_file=INFOS["laserfile"], rot_matrix=None, output_name=laserfname, random_no=random.randint(1, int(1E6)), no_print=True)
+        rot = R.random(random_state=rng_gen)
+        Rmat = rot.as_matrix()
+        rot_vec_arr = np.vstack((rot_vec_arr, rot.as_rotvec()))
+        trans_fields = transform_fields(Rmat, Er=Er, Ei=Ei, Br=None, Bi=None, Egradr=None, Egradi=None) 
+        write_fields(laserfname, laser_tsteps, laser_freqs, E=trans_fields)
+        # align_laser(laser_file=INFOS["laserfile"], rot_matrix=None, output_name=laserfname, random_no=random.randint(1, int(1E6)), no_print=True)
     else: 
-        shutil.copy(INFOS["laserfile"], laserfname)
-    # TODO: proper error treatment
-    # if io != 0:
-    #     print('WARNING: Execution of random align laser field failed for %s! Exit code %i' % (laserfname, io))                                     
-    # else:
-    #     log.info("No file 'output.dat.nc' in %s. Quitting." % traj_path)                                                       
-    #     sys.exit(1)                                                                                                            
+        link(INFOS["laserfile"], laserfname)
+        # shutil.copy(INFOS["laserfile"], laserfname)
    
     # atommask file
     if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:
@@ -1412,7 +1524,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
                 atommf.write("F\n")
         atommf.close()
 
-    return
+    return rot_vec_arr
 
 
 # ======================================================================================================================
@@ -1585,6 +1697,9 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
 
 
     ask = True
+    laser_tsteps, laser_freqs, Er, Ei = get_laser(INFOS)
+    rng_gen = np.random.default_rng(seed=INFOS["rng_seed_laser"])
+    rot_vec_arr = np.empty((0,3))
     for istate in INFOS["setupstates"]:
         width = 50
         ntraj = len(INFOS["icond_sel"])  # INFOS["ntraj"]
@@ -1608,7 +1723,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 log.info("Skipping initial condition %i %i!" % (istate, icond))
                 continue
 
-            writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, ask=ask)
+            rot_vec_arr = writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, laser_tsteps, laser_freqs, Er, Ei, rng_gen, rot_vec_arr, ask=ask)
             ask = False
             io = make_directory(dirname + "/QM")
             io += make_directory(dirname + "/restart")
@@ -1658,7 +1773,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
         all_qsub.close()
         filename = "all_qsub_traj.sh"
         os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
-
+    np.savetxt("rot_vec_arr", rot_vec_arr)
     log.info("\n")
 
 
@@ -1688,6 +1803,7 @@ This interactive program prepares SHARC dynamics calculations.
     chosen_interface: SHARC_INTERFACE = SHARC_QMOUT()
     INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES)  # get patho of  QM.out file or to folder containing ICOND folders
     INFOS["path"] = chosen_interface.setupINFOS["path"]
+    INFOS["rng_seed_laser"] = random_seed()
     INFOS = get_general(INFOS)  
     INFOS = get_requests(INFOS, chosen_interface)
     INFOS = get_trajectory_info(INFOS)
@@ -1698,14 +1814,12 @@ This interactive program prepares SHARC dynamics calculations.
             log.info(f"{item:<25} {INFOS[item]}")
     log.info("")
     setup = question("Do you want to setup the specified calculations?", bool, True)
-    log.info("")
-
+    log.info("")    
     if setup:
         INFOS["link_files"] = False
         if question("Do you want to link the interface files?", bool, default=False, autocomplete=False):
             INFOS["link_files"] = True
         setup_all(INFOS, chosen_interface)
-
     json_info(INFOS) 
     close_keystrokes()
 
@@ -1713,9 +1827,7 @@ This interactive program prepares SHARC dynamics calculations.
 # ======================================================================================================================
 if __name__ == "__main__":
     try:
-        with cProfile.Profile() as pr:
             main()
-        pr.dump_stats("my_profile.pstats")
     except KeyboardInterrupt:
         log.info("\nCtrl+C makes me a sad SHARC ;-(\n")
         quit(0)

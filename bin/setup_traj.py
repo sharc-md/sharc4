@@ -2571,7 +2571,7 @@ This interactive program prepares SHARC dynamics calculations.
 
     displaywelcome()
     open_keystrokes()
-    INFOS = {"select_directly": True}  # deactivate in get_infos within interface!
+    INFOS = {"select_directly": True, "coeff_bool": 0}  # deactivate in get_infos within interface!, no starting coefficients
 
     INFOS = get_general(INFOS)
     chosen_interface: SHARC_INTERFACE = get_interface()()
@@ -2579,7 +2579,6 @@ This interactive program prepares SHARC dynamics calculations.
     INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES)
     INFOS = get_trajectory_info(INFOS, chosen_interface)
     INFOS = get_runscript_info(INFOS)
-
     log.info("\n" + f"{'Full input':#^60}" + "\n")
     for item in INFOS:
         if "initlist" not in item:

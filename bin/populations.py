@@ -655,7 +655,6 @@ def do_calc(INFOS):
                     print("Detected time shift")
                     initstate.append(int(np.genfromtxt(path+"/start.time")[1])-1)
                 else:
-                    print("lis")
                     pathfile = path + '/output.lis'
             elif INFOS['mode'] in [6]:
                 pathfile = path + '/output_data/fosc.out'
@@ -795,11 +794,11 @@ def do_calc(INFOS):
     longest = 0.
     shift_step = [None]*len(files)
     for fileindex, ifile in enumerate(files):
-        print(t0_list)
-        print(len(t0_list))
-        print(fileindex, ifile, t0_list[fileindex], dt)
+        # print(t0_list)
+        # print(len(t0_list))
+        # print(fileindex, ifile, t0_list[fileindex], dt)
         shift_step[fileindex] = int(np.ceil(t0_list[fileindex]/dt))  # shift to right index after start time
-        print("Shift step", shift_step)
+        # print("Shift step", shift_step)
         if INFOS['mode'] in [10, 11]:
             output_current = output_dat(ifile)
             istep = -1
@@ -907,12 +906,12 @@ def do_calc(INFOS):
                 elif INFOS['mode'] in [7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
                     for i in range(nstates):
                         pop_full[fileindex][t+shift_step[fileindex]][i] += vec[i]
-    print('Shortest trajectory: %f' % (shortest))
-    print('Longest trajectory: %f' % (longest))
-    print('Number of trajectories: %i' % (ntraj))
+    # print('Shortest trajectory: %f' % (shortest))
+    # print('Longest trajectory: %f' % (longest))
+    # print('Number of trajectories: %i' % (ntraj))
     INFOS['shortest'] = shortest
     INFOS['longest'] = longest
-    print(nsteps, shift_step)
+    # print(nsteps, shift_step)
     
     # make pop array
     pop = [[0. for j in range(nstates)] for i in range(nsteps)]        # first index is time, second is state
