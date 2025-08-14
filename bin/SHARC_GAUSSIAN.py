@@ -1229,8 +1229,11 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         for shell in try_shells:
             try:
                 sp.call(string, shell=True, executable=shell)
-            except OSError as e:
-                raise RuntimeError(f"Gaussian rwfdump has serious problems:\n {e}")
+                break
+            except OSError:
+                pass
+        else:
+            raise OSError(f"Gaussian rwfdump failed with all shells: {try_shells}")
         string = readfile(dumpname)
         os.chdir(prevdir)
         return string
