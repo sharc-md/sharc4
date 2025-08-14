@@ -30,7 +30,6 @@ import math
 import os
 import shutil
 import subprocess as sp
-import sys
 import traceback
 from copy import deepcopy
 from io import TextIOWrapper
@@ -43,7 +42,7 @@ from constants import IAn2AName, IToMult, au2eV, au2a
 from pyscf import gto
 
 # internal
-from logger import DEBUG, TRACE
+from logger import DEBUG
 from qmin import QMin as QMin_class
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import (
@@ -60,7 +59,8 @@ from utils import (
     strip_dir,
     triangular_to_full_matrix,
     writefile,
-    question
+    question,
+    InDir
     #  number_of_bubble_swaps,
 )
 
@@ -1220,22 +1220,19 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
     @staticmethod
     def get_rwfdump(groot, filename, number):
-        WORKDIR = os.path.dirname(filename)
-        prevdir = os.getcwd()
-        os.chdir(WORKDIR)
-        dumpname = "rwfdump.txt"
-        string = f"{groot}/rwfdump {os.path.basename(filename)} {dumpname} {number}"
-        try_shells = ["sh", "bash", "csh", "tcsh"]
-        for shell in try_shells:
-            try:
-                sp.call(string, shell=True, executable=shell)
-                break
-            except OSError:
-                pass
-        else:
-            raise OSError(f"Gaussian rwfdump failed with all shells: {try_shells}")
-        string = readfile(dumpname)
-        os.chdir(prevdir)
+        with InDir(os.path.dirname(filename)):
+            dumpname = "rwfdump.txt"
+            string = f"{groot}/rwfdump {os.path.basename(filename)} {dumpname} {number}"
+            try_shells = ["sh", "bash", "csh", "tcsh"]
+            for shell in try_shells:
+                try:
+                    sp.call(string, shell=True, executable=shell)
+                    break
+                except OSError:
+                    pass
+            else:
+                raise OSError(f"Gaussian rwfdump failed with all shells: {try_shells}")
+            string = readfile(dumpname)
         return string
 
     # ======================================================================= #
