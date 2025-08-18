@@ -69,7 +69,6 @@ program data_extractor
   integer, parameter :: u_expec_mch=29    !< expec_MCH.out
   integer, parameter :: u_fosc_act=30     !< fosc_act.out
   integer, parameter :: u_ref=31          !< Reference/QM.out
-  integer, parameter :: u_tshift=32          !< unit for start.time
   integer, parameter :: u_info=42         !< output.dat.ext
   integer, parameter :: u_ion_diag=51     !< ion_diag.out
   integer, parameter :: u_ion_mch=52      !< ion_mch.out
@@ -85,6 +84,7 @@ program data_extractor
   integer, parameter :: u_cmixd=64         !< JCP 139, 211101 (2013), Method 3 (diag)
   integer, parameter :: u_cmixm=65         !< JCP 139, 211101 (2013), Method 3 (MCH)
   integer, parameter :: u_cmixdiab=66      !< JCP 139, 211101 (2013), Method 3 (diabatic)
+  integer, parameter :: u_tshift=70        !< unit for start.time
 
   integer, parameter :: u_xyz=99         !< unit for output.xyz
 
@@ -1078,7 +1078,7 @@ program data_extractor
   inquire(file='start.time', exist=exists)
   if (exists) then
     open(unit=u_tshift, file='start.time', status='old', action='read')                                                                    
-    read(u_tshift,'(F10.3)') time_shift
+    read(u_tshift, *) time_shift
     close(u_tshift)
     write(*,*) 'Spotted time shift' 
     write(*,*) time_shift 
