@@ -70,14 +70,10 @@ def json_loads_byteified(json_text):
 
 
 def _byteify(data, ignore_dicts=False):
-    # if this is a list of values, return list of byteified values
     if isinstance(data, list):
         return [_byteify(item, ignore_dicts=True) for item in data]
-    # if this is a dictionary, return dictionary of byteified keys and values
-    # but only if we haven't already byteified it
     if isinstance(data, dict) and not ignore_dicts:
         return {_byteify(key, ignore_dicts=True): _byteify(value, ignore_dicts=True) for key, value in data.items()}
-    # if it's anything else, return it in its original form
     return data
 
 
@@ -143,12 +139,6 @@ class STATE:
             s += "% 12.8f % 12.8f %s % s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
         return s
 
-    # def Excite(self, max_Prob, erange):
-    #     if erange[0] <= self.Eexc <= erange[1]:
-    #         self.Excited = random.random() < (self.Prob / max_Prob)
-    #     else:
-    #         self.Excited = False
-
 
 # ======================================================================= #
 
@@ -174,7 +164,6 @@ class INITCOND:
             line = f.readline()
             if line == "\n":
                 continue
-            # if 'Index     %i' % (index) in line:
             if line.startswith("Index") and int(line.split()[-1]) == index:
                 break
             if line == "":
@@ -190,14 +179,10 @@ class INITCOND:
             m, vx, vy, vz = line.split()[-4:]
             self.Ekin += 0.5 * float(m) * U_TO_AMU * (float(vx) ** 2 + float(vy) ** 2 + float(vz) ** 2)
             atomlist.append(line)
-        # statelist = []
         while True:
             line = f.readline()
             if line.startswith("Ekin"):
                 break
-            # state = STATE()
-            # state.init_from_str(line)
-            # statelist.append(state)
         epot_harm = 0.0
         while line and line != "\n":
             line = f.readline()
@@ -208,13 +193,6 @@ class INITCOND:
         self.eref = eref
         self.Epot_harm = epot_harm
         self.natom = len(atomlist)
-        # self.Ekin = sum([atom.Ekin for atom in self.atomlist])
-        # self.statelist = statelist
-        # self.nstate = len(statelist)
-        # if self.nstate > 0:
-            # self.Epot = self.statelist[0].e - self.eref
-        # else:
-            # self.Epot = epot_harm
 
     def get_coeff(self, coeff, coeff_save):
         self.coeff = coeff
@@ -291,8 +269,6 @@ def run_data_extractor(initstate, INFOS):
     req_files_traj = ["geom", "input", "laser", "run.sh", "veloc"]
     req_folders_traj = ["QM", "restart"]
     width_bar = 80
-    # run the data extractor, if necessary
-    # first check whether $SHARC contains the extractor
     print('Running data_extractor...')
     sharcpath = os.getenv('SHARC')
     if sharcpath is None:
@@ -374,15 +350,10 @@ def run_data_extractor(initstate, INFOS):
 
 
 def gfsh_probs(istate, ic, INFOS):
-    # istate, ic are counter, not states / TRAJ names
     if INFOS["diag"]:
         coeff_file = "coeff_diag.out"
     else:
         coeff_file = "coeff_MCH.out"
-    # coeffs = np.zeros((coeff_data.shape[0], int((coeff_data.shape[1]-2)/2)), dtype=complex)
-    # TODO Decide, whether coeff_data.shape makes more sense or tsteps, setupstates
-    # Check, whether every file has same number of time steps, in case data_extractor failed in the middle of extracting
-    #coeffs = np.zeros((INFOS["nsteps"]+1, INFOS["nstates"]), dtype=complex)  # nstates
     coeffs = np.zeros((INFOS["nsteps"]+1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))), dtype=complex)  # nstates*multiplicity
     
     time_steps, states = coeffs.shape
@@ -393,23 +364,15 @@ def gfsh_probs(istate, ic, INFOS):
     max_prob = np.zeros(INFOS["nsteps"])
     rho = np.zeros_like(coeffs, dtype=float)
     rho[:, 1:] = np.abs(coeffs[:, 1:])**2/INFOS["max_prob"]  # excited state coefficients
-    # rho[:, 0] =  np.abs(coeffs[:, 0])**2  # ground state coefficients
-    # norm = np.sum(rho, axis=1)
-    # rho=rho/norm[:, np.newaxis]
     rho[:, 0] = 1.-np.sum(rho[:, 1:], axis=1)
-    # print(f"pmax_gfsh_probs: {max_prob}")
-    # nominator of 8.151
+    if np.any(rho[:, 0]<0):
+        np.log("Negative ground state prob encountered!")
     gs_fac = (1 - (rho[1:, 0] / rho[:-1, 0]))  # [time, ground state]
-    # Loop calculates the maximum in the denominator of 8.151
     for tstep in range(INFOS["nsteps"]):
         for exc_state in range(states):
-            # if exc_state==0:
-            #    continue
-            # else:
             exc_prob_tdiff[tstep, exc_state] = rho[tstep+1, exc_state] - rho[tstep, exc_state]
             if exc_prob_tdiff[tstep, exc_state] < 0.:  #  if difference is negative -> negative added to sum
                 max_prob[tstep] -= exc_prob_tdiff[tstep, exc_state]
-    # Loop calculates result of 8.151
     for tstep in range(INFOS["nsteps"]):
         if gs_fac[tstep]>0:
             for exc_state in range(states):
@@ -419,8 +382,6 @@ def gfsh_probs(istate, ic, INFOS):
                     continue
                 else:
                     exc_prob[tstep, exc_state] = np.max([0, gs_fac[tstep]*exc_prob_tdiff[tstep, exc_state]/max_prob[tstep]])
-    #data_to_save = np.column_stack((range(time_steps), exc_prob))
-    #np.savetxt("exc_state_%05i_traj_%05i" % (istate, ic+1), data_to_save, fmt="%.5e", delimiter="\t")
     return exc_prob, rho
 
 
@@ -431,22 +392,16 @@ def compute_max_prob(INFOS, rho_read=np.array([])):
     """
     Extract output.dat in every TRAJ folder for every setupstate
     """
-    # check if trajectory was run? Otherwise skip
     pleave_arr = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"])))
     pmax = 0.  # initialize maximum probability over all initial states and initial conditions (TRAJS) to ever leave the initial state
-    # run the data extractor, if necessary
-    # first check whether $SHARC contains the extractor
     if rho_read.shape[0] != 0:  # if not the default rho_read
         for i, istate in enumerate(INFOS["setupstates"]):  
             for j, jcond in enumerate(INFOS["icond_sel"]):
                 p_init = rho_read[j, :, i]  # take the rho_list icond j and setup state j (ground state)
-                # print(int(2*(istate-1+1)))
-                # print(sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"]))))
                 pstay = 1.
                 for tstep in range(INFOS["nsteps"]):                     
                     pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
                 pleave_arr[i, j] = 1.-pstay                                    
-                print("pleave_arr, pstay", pleave_arr[i, j], pstay)
 
     else:
         if INFOS["diag"]:
@@ -457,30 +412,13 @@ def compute_max_prob(INFOS, rho_read=np.array([])):
         INFOS["coeff_data"] = np.zeros((INFOS["ninit"], len(INFOS["setupstates"]), INFOS["nsteps"]+1, (2+2*len(INFOS["statemap"]))))  # initconds, initstates, timesteps, states
         for i, istate in enumerate(INFOS["setupstates"]):  
             for j, jcond in enumerate(INFOS["icond_sel"]):
-                #  p_traj = 0.  # Initialize the accumulated probability to leave the initial state for this trajectory
                 INFOS["coeff_data"][j, i, :, :] =  np.genfromtxt(get_iconddir(istate, INFOS) + "/TRAJ_%05i/output_data/%s" %(jcond, coeff_file), comments="#")
-                # TODO: probably would suffice to only take the initial state - defining a big array is not needed
-                # coeffs = np.zeros((coeff_data.shape[0], int((coeff_data.shape[1]-2)/2)), dtype=complex)
-                # for n_columns in range(0, len(coeffs[1])):
-                # coeffs[:, int(n_columns)] = coeff_data[:, int(2*(n_columns+1))] + 1.j*coeff_data[:, int(2*(n_columns+1)+1)]
                 coeff_init = INFOS["coeff_data"][j, i, :, int(2*(istate-1+1))] + 1.j*INFOS["coeff_data"][j, i, :, int(2*(istate-1+1)+1)]  # skip first two columns containing time and c**2, but istates start at 1
                 pstay = 1. 
                 p_init = np.abs(coeff_init)**2
                 for tstep in range(len(coeff_init)-1):
                     pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
                 pleave_arr[i, j] = 1.-pstay
-                # print("ISTATE: %i, ICOND: %i, pleave: %f" % (istate, icond, pleave))
-                # if pleave > pmax:
-                #     pmax = pleave
-                #     print("pmax_traj", (j, jcond))
-                #     print(f"{pmax:2.5e}")
-                # p_traj = 1
-                # for tstep in range(len(coeff_init)-1):
-                #     p_init_tdiff = p_init[tstep]-p_init[tstep+1]
-                #     if p_init_tdiff > 0:
-                #         p_traj *= (1-p_init_tdiff)  # prob to never hop
-                # if 1-p_traj > pmax:  # prob to hop at least once
-                #     pmax = 1-p_traj
     pmax = np.max(pleave_arr)
     return pmax, pleave_arr
 
@@ -491,24 +429,9 @@ def compute_max_prob(INFOS, rho_read=np.array([])):
 def get_initconds(INFOS):
     """
     """
-    # Skip first commented block, as INFOS["read_QMout"] is true
-
-    # print("Reading initial condition file ...")
-    # if not INFOS["read_QMout"] and not INFOS["make_list"]:
-    #     INFOS["initf"].seek(0)
-    #     while True:
-    #         line = INFOS["initf"].readline()
-    #         if "Repr" in line:
-    #             INFOS["diag"] = line.split()[1].lower() == "diag"
-    #             INFOS["repr"] = line.split()[1]
-    #         if "Eref" in line:
-    #             INFOS["eref"] = float(line.split()[1])
-    #             break
-
     initlist = []
     width_bar = 50
-    for icond in range(1, INFOS["ninit"] + 1):
-    # for ic, icond in enumerate(INFOS["icond_sel"]):
+    for ic, icond in enumerate(INFOS["icond_sel"]):
         initcond = INITCOND()
         initf = open(INFOS["initf"]) 
         initcond.init_from_file(initf, INFOS["eref"], icond)
@@ -529,9 +452,7 @@ def get_QMout(INFOS, initstate, initlist):
     print("\nReading QM.out data ...")
     ncond = 0
     width_bar = 50
-    for icond in range(1, INFOS["ninit"] + 1):
-    # for ic, icond in enumerate(INFOS["icond_sel"]):
-        # look for a QM.out file
+    for ic, icond in enumerate(INFOS["icond_sel"]):
         qmfilename = INFOS["path"]+"/ICOND_%05i/QM.out" % (icond)
         done = width_bar * (icond) // INFOS["ninit"]
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
@@ -591,8 +512,6 @@ def read_coeff(INFOS, statelist, exc_list, istate):
     coeff = np.zeros((INFOS["ninit"], INFOS["nstates"], INFOS["nstates"], 2))  # NTRAJ, NSTATES (only @ excited states filled)k NSTATES, COMPLEX 
     for itraj, traj in enumerate(["TRAJ_%05i" % int(el) for el in INFOS["icond_sel"]]):  # cycle through all TRAJ_directories in initstate folder
         if int(exc_list[istate, itraj, 2]) == 1:  # IF STATE/TRAJ COMBINATION IS EXCITED
-            # done = width_bar * (itraj) // len(INFOS["icond_sel"])
-            # sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
             try:
                 match INFOS["start_coeff"][0]:
                     case 0:  # Coeff from pure state 
@@ -608,8 +527,6 @@ def read_coeff(INFOS, statelist, exc_list, istate):
                         coeff[itraj, INFOS["setupstates"][istate]-1, :, 1] = INFOS["coeff_data"][itraj, istate, int(INFOS["coeff_time_idx"]), 3::2]
             except OSError:
                 print(f"Trajectory {traj} does not exist for setup state {istate}!")
-        # print(coeff[itraj, INFOS["setupstates"][istate]-1, :, :])
-        # print(istate, itraj, int(exc_list[istate, itraj, 0]), coeff.shape)
         statelist[itraj].get_coeff(coeff[itraj, INFOS["setupstates"][istate]-1, :, :], INFOS["coeff_bool"])
     return statelist    
 
@@ -620,7 +537,6 @@ def read_coeff(INFOS, statelist, exc_list, istate):
 
 def write_probabilities(rho, initlist, exc_list, INFOS):
     pmax, pleave_arr = compute_max_prob(INFOS, rho)
-    # pleave_arr_old = compute_max_prob(INFOS)[1]
     n_states = sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))
     n_trajs = len(INFOS["icond_sel"])
 
@@ -754,9 +670,7 @@ def sample_number():
 def excite(INFOS, initlist, exc_list, setupstate):
     print("\nSelecting initial states ...")
     width_bar = 50
-    # for i, icond in enumerate(initlist):
     for ic, icond in enumerate(INFOS["icond_sel"]):
-        # done = width_bar * (i + 1) // len(initlist)
         done = width_bar * (ic + 1) // len(INFOS["icond_sel"])
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
         if initlist[ic].statelist == []:
@@ -823,8 +737,6 @@ def main():
         quit(1)
     INFOS["rng_seed"] = random_seed()
     INFOS["sample_number"] = sample_number()
-    # INFOS = get_initconds(INFOS) - all necessary information in json file?
-    # TODO: check that the istates are correctly called - they start with 1, not 0
     initlist = []
     for i, istate in enumerate(INFOS["setupstates"]):
         initlist.append(get_initconds(INFOS))
@@ -873,8 +785,6 @@ def main():
         initlist[ist] = excite(INFOS, initlist[ist], exc_list[:, :, :], ist)
         writeoutput(initlist[ist], ist, INFOS) 
         write_probabilities(rho_list[ist, :, :, :], initlist[ist], exc_list[:, :, :], INFOS)
-    # set manually for old calcs
-    # INFOS['ignore_problematic_states'] = True
 
     close_keystrokes()
 
