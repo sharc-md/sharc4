@@ -947,7 +947,7 @@ def writeQMoutTHEODORE(QMin, QMout):
     string += '! Property Vectors (%ix%i, real)\n' % (nprop, nmstates)
     if 'theodore' in QMin:
         for i in range(QMin['template']['theodore_n']):
-            string += '! TheoDORE descriptor %i (%s)\n' % (i + 1, descriptors[i])
+            string += '%i ! TheoDORE descriptor %i (%s)\n' % (nmstates, i + 1, descriptors[i])
             for j in range(nmstates):
                 string += '%s\n' % (eformat(QMout['theodore'][j][i].real, 12, 3))
     string += '\n'
@@ -1311,6 +1311,7 @@ def readQMin(QMinfilename):
     line = get_sh2AMS_environ(sh2AMS, 'scratchdir', False, False)
     if line is None:
         line = QMin['pwd'] + '/SCRATCHDIR/'
+    line = line.replace("$$", str(os.getpid()))
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
     line = os.path.abspath(line)
@@ -1428,12 +1429,12 @@ def readQMin(QMinfilename):
         except ValueError:
             print('Number of CPUs does not evaluate to numerical value!')
             sys.exit(41)
-    if os.environ.get('NSLOTS') is not None:
-        QMin['ncpu'] = int(os.environ.get('NSLOTS'))
-        print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
-    elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
-        QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
-        print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # if os.environ.get('NSLOTS') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('NSLOTS'))
+    #     print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
+    #     print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
     QMin['ncpu'] = max(1, QMin['ncpu'])
 
     QMin['delay'] = 0.0
@@ -3193,7 +3194,7 @@ at_lists=%s
 def runTHEODORE(WORKDIR, THEODIR):
     prevdir = os.getcwd()
     os.chdir(WORKDIR)
-    string = os.path.join(THEODIR, 'bin', 'analyze_tden.py')
+    string = os.path.join(THEODIR, 'bin', 'theodore analyze_tden')
     stdoutfile = open(os.path.join(WORKDIR, 'theodore.out'), 'w')
     stderrfile = open(os.path.join(WORKDIR, 'theodore.err'), 'w')
     if PRINT or DEBUG:

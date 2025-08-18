@@ -288,14 +288,20 @@ module input
             write(u_log,*) '                       Simulation Time'
             write(u_log,*) '============================================================='
             write(u_log,*) 'Using Fixed stepsize Velocity-Verlet integrator'
-            write(u_log,'(a,1x,i6,1x,a,1x,f6.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep*au2fs,'fs.'
+            write(u_log,'(a,1x,i9,1x,a,1x,f12.4,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep*au2fs,'fs.'
             if (printlevel>1) then
-              write(u_log,'(a,1x,f9.3,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps*au2fs,'fs.'
-              write(u_log,'(a,1x,f7.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
+              write(u_log,'(a,1x,f12.4,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps*au2fs,'fs.'
+              write(u_log,'(a,1x,f12.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
               &ctrl%dtstep/ctrl%nsubsteps*au2fs, 'fs step.'
             endif
             write(u_log,*)
           endif
+        else
+          write(u_log,*) '============================================================='
+          write(u_log,*) '                       Simulation Time'
+          write(u_log,*) '============================================================='
+          write(u_log,*) 'Using Fixed stepsize Velocity-Verlet integrator'
+          write(u_log,*) 'Simulation time cannot be changed when an explicit laser pulse is read.'
         endif
       elseif (ctrl%integrator==0 .or. ctrl%integrator==1) then
         line=get_value_from_key('tmax',io)

@@ -15,7 +15,7 @@ stepsize     0.5
 nsubsteps    25
 
 surf         sharc
-coupling     overlap
+coupling     ktdc
 nogradcorrect
 ekincorrect  parallel_vel
 decoherence_scheme edc

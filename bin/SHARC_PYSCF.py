@@ -682,6 +682,7 @@ at least one task"""
     if line is None:
         line = os.path.join(qmin["pwd"], "SCRATCHDIR")
 
+    line = line.replace("$$", str(os.getpid()))
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
     line = os.path.abspath(line)
@@ -1438,9 +1439,9 @@ def write_ham(qmin, result):
 def write_dm(qmin, result):
     nmstates = qmin["nmstates"]
     string = f"! 2 Dipole Moment Matrices (3x{nmstates}x{nmstates}, complex)\n"
-    for dipole_xyz in result["dipole"][:nmstates,:nmstates]:    # TODO: does not work with several mults
+    for dipole_xyz in result["dipole"]:    # TODO: does not work with several mults
         string += f"{nmstates} {nmstates}\n"
-        for bra in dipole_xyz:
+        for bra in dipole_xyz[:nmstates,:nmstates]:
             for element in bra:
                 string += (
                     f"{eformat(element.real, 9, 3)} {eformat(element.imag, 9, 3)} "

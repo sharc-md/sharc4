@@ -18,6 +18,6 @@ cp $COPY_DIR/output.* $PRIMARYDIR
 if [ ! $err == 0 ];
 then
   cp $COPY_DIR/QM/* $PRIMARYDIR/QM/
+  rm -r $COPY_DIR
 fi
-rm -r $COPY_DIR
 exit $err

@@ -1013,7 +1013,7 @@ def writeQMoutTHEODORE(QMin, QMout):
     string += '! Property Vectors (%ix%i, real)\n' % (nprop, nmstates)
     if 'theodore' in QMin:
         for i in range(QMin['template']['theodore_n']):
-            string += '! TheoDORE descriptor %i (%s)\n' % (i + 1, descriptors[i])
+            string += '%i ! TheoDORE descriptor %i (%s)\n' % (nmstates, i + 1, descriptors[i])
             for j in range(nmstates):
                 string += '%s\n' % (eformat(QMout['theodore'][j][i].real, 12, 3))
     # if QMin['template']['qmmm']:
@@ -1148,6 +1148,7 @@ def get_sh2BAGEL_environ(sh2BAGEL, key, environ=True, crucial=True):
                 sys.exit(18)
             else:
                 return None
+    LINE = LINE.replace("$$", str(os.getpid()))
     LINE = os.path.expandvars(LINE)
     LINE = os.path.expanduser(LINE)
     if containsstring(';', LINE):
@@ -1472,12 +1473,12 @@ def readQMin(QMinfilename):
         except ValueError:
             print('Number of CPUs does not evaluate to numerical value!')
             sys.exit(40)
-    if os.environ.get('NSLOTS') is not None:
-        QMin['ncpu'] = int(os.environ.get('NSLOTS'))
-        print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
-    elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
-        QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
-        print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # if os.environ.get('NSLOTS') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('NSLOTS'))
+    #     print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
+    #     print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
     QMin['ncpu'] = max(1, QMin['ncpu'])
 
     QMin['mpi'] = False
@@ -3323,13 +3324,13 @@ def getQMout(QMin):
                         continue
                     if i == j:
                         QMout['h'][i][j] = energies[(m1, s1)]
-                    elif 'soc' in QMin and QMin['jobs'][job]['restr']:
-                        if m1 == m2 == 1:
-                            continue
-                        # TODO: invstatemap and submatrix are not defined
-                        x = invstatemap[(m1, s1, ms1)]
-                        y = invstatemap[(m2, s2, ms2)]
-                        QMout['h'][i][j] = submatrix[x - 1][y - 1]
+                    # elif 'soc' in QMin and QMin['jobs'][job]['restr']:
+                    #     if m1 == m2 == 1:
+                    #         continue
+                    #     # TODO: invstatemap and submatrix are not defined
+                    #     x = invstatemap[(m1, s1, ms1)]
+                    #     y = invstatemap[(m2, s2, ms2)]
+                    #     QMout['h'][i][j] = submatrix[x - 1][y - 1]
 
     # Dipole Moments
     if 'dm' in QMin:

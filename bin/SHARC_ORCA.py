@@ -24,7 +24,6 @@
 # ******************************************
 
 
-
 import datetime
 import math
 import os
@@ -66,11 +65,7 @@ all_features = set(
         "phases",
         "molden",
         "point_charges",
-        "grad_pc",
-        # raw data request
-        # "mol",
-        # "wave_functions",
-        # "density_matrices",
+        # "grad_pc",
     ]
 )
 
@@ -119,12 +114,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.template.update(
             {
                 "no_tda": False,
-                "basis": "6-31G",
+                "basis": "def2-SVP",
                 "auxbasis": None,
                 "functional": "PBE",
                 "dispersion": None,
                 "ri": None,
-                # "scf": None,
                 "keys": None,
                 "paste_input_file": None,
                 # "frozen": -1,           # TODO: currently has no effect
@@ -146,7 +140,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "functional": str,
                 "dispersion": str,
                 "ri": str,
-                # "scf": str,
                 "keys": str,
                 "paste_input_file": str,
                 # "frozen": int,
@@ -227,6 +220,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             "Please specify an appropriate scratch directory. This will be used to run the ORCA calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
         )
         self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] += "/$$/"
         self.log.info("")
 
         self.log.info(f"{'ORCA input template file':-^60}\n")
@@ -273,10 +267,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
             self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
-            # Ionization
-            # self.log.info('\n'+centerstring('Ionization probability by Dyson norms',60,'-')+'\n')
-            # INFOS['ion']=question('Dyson norms?',bool,False)
-            # if INFOS['ion']:
             if "overlap" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'WFoverlap setup':-^60}\n")
                 self.setupINFOS["wfoverlap"] = question(
@@ -326,7 +316,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 self.log.info("Please give a list of the properties to calculate by TheoDORE.\nPossible properties:")
                 string = ""
                 for i, p in enumerate(theodore_spelling):
-                    string += "%s " % (p)
+                    string += f"{p} "
                     if (i + 1) % 8 == 0:
                         string += "\n"
                 self.log.info(string)
@@ -335,7 +325,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 self.log.info("")
 
                 self.log.info("Please give a list of the fragments used for TheoDORE analysis.")
-                # self.log.info("You can use the list-of-lists from dens_ana.in")
                 self.log.info('Enter all atom numbers for one fragment in one line. After defining all fragments, type "end".')
                 self.log.info("Atom numbering starts at 1 for TheoDORE.")
                 self.setupINFOS["theodore_fragment"] = []
@@ -358,7 +347,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             with open(os.path.join(dir_path, "ORCA.resources"), "w", encoding="utf-8") as file:
                 for key in (
                     "orcadir",
-                    "scratchdir",
+                    # "scratchdir",
                     "ncpu",
                     "memory",
                     "scaling",
@@ -370,6 +359,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 ):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
+                if "scratchdir" in self.setupINFOS:
+                    file.write(f"scratchdir {os.path.join(self.setupINFOS['scratchdir'], dir_path)}\n")
         else:
             create_file(expand_path(self.resources_file), os.path.join(dir_path, "ORCA.resources"))
         create_file(expand_path(self.template_file), os.path.join(dir_path, "ORCA.template"))
@@ -474,6 +465,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.log.debug(f"Extracting AO matrix from {gbw_first} and {gbw_second} from orca_fragovl")
         gbw_first = os.path.join(workdir, gbw_first)
         gbw_second = os.path.join(workdir, gbw_second)
+
+        match = re.fullmatch(r"(?:STO|[\d+]+(?:-[\d+]+)?[Gg](?:\*{0,2}|\([^)]+\))?)",  self.QMin.template["basis"])
+        if match:
+            self.log.error("Detected a Pople basis set. These are not compatible with wfoverlap.x!")
+            raise ValueError("Detected a Pople basis set. These are not compatible with wfoverlap.x!")
 
         # run orca_fragovl
         string = f"{os.path.join(self.QMin.resources['orcadir'],'orca_fragovl')} {gbw_first} {gbw_second}"
@@ -696,7 +692,18 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 # Populate dipole moments
                 if self.QMin.requests["dm"]:
                     if self.QMin.resources["orcaversion"] >= (6, 0):
-                        dipoles = self._get_dipole_moment(log_file, True)
+                        # Diagonal elements
+                        dipole_dict = self._get_dipole_moment_orca6(log_file)
+                        self.log.info(dipole_dict)
+                        total_states = sum(job_states)
+                        dipoles = np.zeros((total_states, 3))
+                        start_idx = 0
+                        for mult in mults:
+                            for i in range(states[mult]):
+                                key = (mult, i)  # e.g., (1, 0) is ground, (3, 1) is triplet first excited
+                                if key in dipole_dict:
+                                    dipoles[start_idx + i] = dipole_dict[key]
+                            start_idx += states[mult] - 1  # only relevant for S+T
                         s_cnt = 0
                         for mult in mults:
                             for dim in range(3):
@@ -736,19 +743,17 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         if self.QMin.resources["orcaversion"] >= (6, 0):
                             dipoles_trans_dict = self._get_transition_dipoles_orca6(log_file)
                             for i in range(self.QMin.molecule["nmstates"]):
-                                m1,s1,ms1 = self.QMin.maps["statemap"][i+1]
+                                m1, s1, ms1 = self.QMin.maps["statemap"][i + 1]
                                 for j in range(self.QMin.molecule["nmstates"]):
-                                    m2,s2,ms2 = self.QMin.maps["statemap"][j+1]
+                                    m2, s2, ms2 = self.QMin.maps["statemap"][j + 1]
                                     if m1 != m2:
                                         continue
                                     if ms1 != ms2:
                                         continue
                                     if i == j:
                                         continue
-                                    # self.log.info(str([i,j,m1,s1,m2,s2]))
                                     try:
-                                        self.QMout["dm"][:,i,j] = dipoles_trans_dict[ (m1,s1), (m2,s2) ]
-                                        # self.log.info(str([i,j,m1,s1,m2,s2,'OK']))
+                                        self.QMout["dm"][:, i, j] = dipoles_trans_dict[(m1, s1), (m2, s2)]
                                     except KeyError:
                                         pass
                         else:
@@ -784,7 +789,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                         len(self.QMin.resources["theodore_prop"])
                                         + len(self.QMin.resources["theodore_fragment"]) ** 2
                                     ):
-                                        # theodore_arr[i, j] = props[(m1, s1)][j]
                                         theodore_arr[j][1][i] = props[(m1, s1)][j]
 
         if self.QMin.requests["theodore"]:
@@ -915,6 +919,30 @@ class SHARC_ORCA(SHARC_ABINITIO):
             return np.zeros(3)
         return np.asarray(find_dipole[0] if ground_state else find_dipole[-1])
 
+    def _get_dipole_moment_orca6(self, output: str) -> dict[tuple[int], list[float]]:
+        """
+        Extract dipole moment from ORCA6 outfile
+        output:     Content of outfile as string
+        """
+        mults1 = re.findall(r"Multiplicity\s+:\s+(\d+)", output)  # gives ["1", "1", "3", ...]
+        mults = [int(x) for x in mults1]
+
+        states1 = re.findall(r"Method\s*:\s*(SCF)|State\s*:\s*(\d+)", output)  # gives "SCF", "1", "2", "1", ...]
+        states = []
+        for method, state in states1:
+            if method:
+                states.append(0)
+            elif state:
+                states.append(int(state))
+        # now states is [0,1,2,3,...]
+
+        dipole_vectors1 = re.findall(r"Total Dipole Moment\s+:\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)", output)
+        dipole_vectors = [list(map(float, match)) for match in dipole_vectors1]
+        # is [ [1.,2.,3.], [...], ...]
+
+        dipoles = {(m, s): d for m, s, d in zip(mults, states, dipole_vectors)}
+        return dipoles  # dictionary {(mult, state): [x, y, z]}
+
     def _get_grad(self, grad_path: str, ground_state: bool = False) -> np.ndarray:
         """
         Extract gradients from ORCA outfile
@@ -955,8 +983,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         return np.asarray([list(map(float, x.split())) for x in transition_dipoles])
 
     def _get_transition_dipoles_orca6(self, output: str) -> dict:
-        """
-        """
+        """ """
         # extract the table
         find_transition_dipoles = re.search(
             r"  ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS(.*?)ABS", output, re.DOTALL
@@ -967,28 +994,26 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         def parse_label(string):
             "N-MA"
-            s = string.replace("A","").split("-")
-            n = int(s[0])+1
+            s = string.replace("A", "").split("-")
+            n = int(s[0]) + 1
             m = int(s[1])
-            return (m,n)
+            return (m, n)
 
         dictionary = {}
         for line in find_transition_dipoles.group(1).split("\n")[5:]:
-            # self.log.info(line)
             if not line:
                 break
             s = line.split()
             s0 = s[0]
             si = s[2]
-            d = np.asarray([ float(i) for i in s[-3:] ])
-            m1,n1 = parse_label(s0)
-            m2,n2 = parse_label(si)
+            d = np.asarray([float(i) for i in s[-3:]])
+            m1, n1 = parse_label(s0)
+            m2, n2 = parse_label(si)
             if m1 == m2:
-                dictionary[(m1,n1),(m2,n2)] = d
-                dictionary[(m2,n2),(m1,n1)] = d
+                dictionary[(m1, n1), (m2, n2)] = d
+                dictionary[(m2, n2), (m1, n1)] = d
         # self.log.info(dictionary)
         return dictionary
-
 
     def _get_socs(self, output: str) -> np.ndarray:
         """
@@ -1057,6 +1082,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         gsmult = mults[0]
         states_extract = deepcopy(self.QMin.molecule["states"])
         states_extract[gsmult - 1] -= 1
+        use_rpa = self.QMin.template["no_tda"]
 
         states_extract = [0 if idx + 1 not in mults else val for idx, val in enumerate(states_extract)]
         states_extract = [max(states_extract) if idx + 1 in mults else val for idx, val in enumerate(states_extract)]
@@ -1081,6 +1107,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         sub_states = 0
         if self.QMin.resources["orcaversion"] >= (6, 0):
             sub_states = states_extract[gsmult - 1]
+        if use_rpa:
+            sub_states = 0  
         for imult in mults:
             nstates = states_extract[imult - 1]
             for state, energy in iter_states:
@@ -1152,6 +1180,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Convert keys to string if list
         if isinstance(self.QMin.template["keys"], list):
             self.QMin.template["keys"] = " ".join(self.QMin.template["keys"])
+        elif self.QMin.template["keys"]:
+            self.QMin.template["keys"] = self.QMin.template["keys"].lower()
 
         # Check for deprecated keys
         for depr in self._deprecated:
@@ -1170,6 +1200,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if not os.path.isfile(self.QMin.template["paste_input_file"]):
                 self.log.error(f"paste_input_file {self.QMin.template['paste_input_file']} does not exist!")
                 raise FileNotFoundError()
+            
+        # Warn from Pople basis sets
+        match = re.fullmatch(r"(?:STO|[\d+]+(?:-[\d+]+)?[Gg](?:\*{0,2}|\([^)]+\))?)",  self.QMin.template["basis"])
+        if match:
+            self.log.warning("Detected a Pople basis set! Overlap calculations will not work properly")
+            
 
     def run(self) -> None:
         """
@@ -1592,6 +1628,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
         # Gaussian point charges
         if qmin.template["keys"] and "cpcm" in qmin.template["keys"]:
             string += "%cpcm\n\tsurfacetype vdw_gaussian\nend\n\n"
+
+        # Keep single points with and without gradients consistent
+        if qmin.template["keys"] and "zora" in qmin.template["keys"]:
+            string += "%rel\n\tonecenter true\nend\n\n"
 
         # Excited states
         if max(states_to_do) > 0:

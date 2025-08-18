@@ -309,6 +309,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             )
             self.setupINFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
             self.setupINFOS["scratchdir_numdiff"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            # self.setupINFOS["scratchdir_numdiff"] += '/$$/'
 
             # TODO: could use schedule scaling and Amdahl, but SHARC_HYBRID does not have it
 
@@ -344,7 +345,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".resources"))
 
         # write resource file
-        string = 'ncpu %i\nscratchdir %s\nuse_all_cores_for_ref True\n' % (self.setupINFOS['ncpu_numdiff'], self.setupINFOS["scratchdir_numdiff"])
+        string = 'ncpu %i\nscratchdir %s/%s\nuse_all_cores_for_ref True\n' % (self.setupINFOS['ncpu_numdiff'], self.setupINFOS["scratchdir_numdiff"], dir_path)
         writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
         # Setup sub-dir for the QM calcs
@@ -740,10 +741,11 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                     shutil.copy(fromfile,tofile)
                 # TODO: extra copy rules for LEGACY interface
                 if self.QMin.template['qm-program'].upper() == "LEGACY":
-                    for f in ["MOLPRO", "COLUMBUS", "ADF_AMS", "BAGEL"]:
+                    self.log.info("Copying subdirectories for LEGACY interface...")
+                    for f in ["MOLPRO", "COLUMBUS", "AMS_ADF", "BAGEL", "PYSCF"]:
                         fromdir = os.path.join(self.ref_interface.QMin.save['savedir'],f)
                         if os.path.isdir(fromdir):
-                            self.log.info("Copying subdirectories for LEGACY interface")
+                            self.log.info(f"Copying subdirectories for LEGACY interface {f}")
                             todir = os.path.join(self._kindergarden[label].QMin.save['savedir'],f)
                             shutil.copytree(fromdir, todir)
                 # set step for displaced child
@@ -896,6 +898,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                                                 denominator[np.diag_indices_from(denominator)] = np.inf
                                                 denominator[denominator == 0.] = np.inf
                                                 self.QMout['nacdr'][:,:,iatom,cart_directions[idir]] = result / denominator
+                                                # TODO: comparing to OpenMolcas we have to multiply the NAC from here by the energy gap to get consistent results...
                 case "normal_modes":
                     raise NotImplementedError("Normal mode displacements not allowed")
                     # TODO: probably the same as for Cartesian, but afterwards we have to do a coordinate transformation of all derivatives

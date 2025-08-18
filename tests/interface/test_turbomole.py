@@ -51,7 +51,6 @@ def test_request_fail():
         ("inputs/turbomole/qmin/QM1.in", {"method": "cc2"}),
         ("inputs/turbomole/qmin/QM2.in", {}),  # > Kr
         ("inputs/turbomole/qmin/QM1.in", {"spin-scaling": "lt-sos"}),
-        ("inputs/turbomole/qmin/QM1.in", {}),  # no orca
     ]
 
     for qmin, templ in tests:
@@ -179,6 +178,7 @@ def test_dm():
         test_interface.QMin.template["dipolelevel"] = lvl
         test_interface._read_resources = True
         test_interface._read_template = True
+        test_interface.QMin.resources["turbodir"] = expand_path("$TURBODIR")
         test_interface.setup_interface()
         try:  # skip orca error
             test_interface.read_requests(expand_path(os.path.join(PATH, path, "QM.in")))

@@ -2000,6 +2000,7 @@ def readQMin(QMinfilename):
     line = get_sh2pro_environ(sh2pro, 'scratchdir', False, False)
     if not line:
         line = os.path.join(QMin['pwd'], 'SCRATCHDIR/')
+    line = line.replace("$$", str(os.getpid()))
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
     line = os.path.abspath(line)
@@ -2799,7 +2800,7 @@ def writeMOLPROinput(tasks, QMin):
             energy = 1e-8
             gradient = 1e-7
             step = 1e-3
-            string += '{casscf,maxit=%i,energy=%.10f,gradient=%.10f,step=%.10f\n' % (maxit, energy, gradient, step)
+            string += '{multi,maxit=%i,energy=%.10f,gradient=%.10f,step=%.10f\n' % (maxit, energy, gradient, step)
             string += 'frozen,0\nclosed,%i\nocc,%i\n' % (QMin['template']['closed'][task[1] - 1], QMin['template']['occ'][task[1] - 1])
             if task[1] in QMin['initorbs']:
                 string += 'start,2140.3\n'
@@ -2846,7 +2847,7 @@ def writeMOLPROinput(tasks, QMin):
             energy = 1e-8
             gradient = 1e-7
             step = 1e-3
-            string += '{casscf,maxit=%i,energy=%.10f,gradient=%.10f,step=%.10f\n' % (maxit, energy, gradient, step)
+            string += '{multi,maxit=%i,energy=%.10f,gradient=%.10f,step=%.10f\n' % (maxit, energy, gradient, step)
             string += 'frozen,0\nclosed,%i\nocc,%i\n' % (QMin['template']['closed'][task[1] - 1], QMin['template']['occ'][task[1] - 1])
             if task[1] in QMin['initorbs']:
                 string += 'start,2140.2\n'

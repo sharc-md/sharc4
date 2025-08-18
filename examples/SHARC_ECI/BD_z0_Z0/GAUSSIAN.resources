@@ -1,0 +1,4 @@
+groot $g16root
+ncpu 16
+memory 16000
+wfthres 1.9999

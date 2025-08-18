@@ -77,6 +77,7 @@ class QMout:
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: dict
     density_matrices: dict
+    multipolar_fit_settings: str
     mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
@@ -129,6 +130,20 @@ class QMout:
                         line = f.readline()
                     shape = []
                     block_length = 0
+                elif flag in {21}:
+                    data = [line]
+                    line = f.readline()
+                    data.append(line)
+                    nprop = int(line.split()[0])
+                    for i in range(nprop+2):
+                        data.append(f.readline())
+                    for i in range(nprop):
+                        line = f.readline()
+                        data.append(line)
+                        nblock = int(line.split()[0])
+                        for j in range(nblock):
+                            data.append(f.readline())
+                    iline = 0
                 elif flag in {20, 23}:
                     data = [line]
                     line = f.readline()
@@ -358,7 +373,7 @@ class QMout:
         # currently only skipping                   
         toskip = 4 + 3*num                          
         return {'Notes': 'not read'}, iline + toskip
-        # TODO: actually read in the notes as dict. Readig should stop at the first empty line
+        # TODO: actually read in the notes as dict. Reading should stop at the first empty line
 
     @staticmethod
     def get_property(data, iline, type, shape):
@@ -366,11 +381,16 @@ class QMout:
         keys = []
         for irow in range(num):
             keys.append(data[iline + 3 + irow].strip())
-        iline += 4 + num
+        iline += 3 + num
+        if len(shape) == 0:
+            iline += 1
         res = []
         for irow in range(num):
-            res.append(QMout.get_quantity(data, iline, type, shape)[0])
+            result, iline = QMout.get_quantity(data, iline, type, shape)
+            res.append(result)
             iline += 2
+            if len(shape) == 0:
+                iline -= 1
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
 
@@ -1207,23 +1227,18 @@ class QMout:
         Returns:
         1 string: multiline string with the Gradient vectors"""
 
-        states = self.states
-        nmstates = self.nmstates
         natom = self.natom
-        setting_str = ""
-        if "multipolar_fit" in self.notes:
-            setting_str = self.notes["multipolar_fit"]
         sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
+        fit_order = self.multipolar_fit[sorted_states[0]].shape[1]
         string = (
-            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x10) {setting_str}\n"
+            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x{fit_order}) {self.multipolar_fit_settings}\n"
         )
-
         for (s1, s2) in sorted_states:
             val = self.multipolar_fit[(s1, s2)]
             istate, imult, ims = s1.N, s1.S, s1.M
             jstate, jmult, jms = s2.N, s2.S, s2.M
 
-            string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
+            string += f"{natom} {fit_order} ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
             string += (
                 "\n".join(
                     map(

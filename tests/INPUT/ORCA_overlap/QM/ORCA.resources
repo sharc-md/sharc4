@@ -1,0 +1,13 @@
+    ## This is a commented version of the ORCA.resources file 
+
+    ## ======== ORCA setup ============
+
+    ## 
+orcadir $ORCA
+scratchdir $SCRADIR/WORK
+ncpu 1
+memory 1000
+
+wfoverlap $SHARC/wfoverlap.x
+wfthres 0.99
+

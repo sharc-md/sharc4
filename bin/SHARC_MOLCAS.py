@@ -35,6 +35,7 @@ from io import TextIOWrapper
 from itertools import product
 from math import ceil
 from typing import Any
+import sys
 
 import h5py
 import numpy as np
@@ -70,8 +71,8 @@ all_features = set(
         "molden",
         "theodore",
         "point_charges",
-        "grad_pc",
-        "nacdr_pc",
+        # "grad_pc",   # these two are not features
+        # "nacdr_pc",
         # raw data request
         "mol",
         "wave_functions",
@@ -119,6 +120,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             {
                 "basis": None,
                 "baslib": None,
+                "basis_per_element": None,
+                "basis_per_atom": None,
                 "nactel": None,
                 "ras1": None,
                 "ras2": None,
@@ -128,6 +131,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "method": "casscf",
                 "functional": "t:pbe",
                 "ipea": 0.25,
+                "cort_or_dort": "CORT",
                 "imaginary": 0.0,
                 "frozen": None,
                 "gradaccudefault": 1e-4,
@@ -145,6 +149,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             {
                 "basis": str,
                 "baslib": str,
+                "basis_per_element": list,
+                "basis_per_atom": list,
                 "nactel": list,
                 "ras1": int,
                 "ras2": int,
@@ -154,6 +160,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "method": str,
                 "functional": str,
                 "ipea": float,
+                "cort_or_dort": str,
                 "imaginary": float,
                 "frozen": int,
                 "gradaccudefault": float,
@@ -241,6 +248,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
         self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        # self.setupINFOS["scratchdir"] += '/$$/'
 
         if os.path.isfile("MOLCAS.template"):
             self.log.info("Found MOLCAS.template in current directory")
@@ -303,28 +311,24 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         # TheoDORE
         theodore_spelling = [
             "Om",
-            "PRNTO",
-            "Z_HE",
-            "S_HE",
-            "RMSeh",
             "POSi",
             "POSf",
             "POS",
+            "CT",
+            "CT2",
+            "CTnt",
             "PRi",
             "PRf",
             "PR",
             "PRh",
-            "CT",
-            "CT2",
-            "CTnt",
+            "DEL",
+            "COH",
+            "COHh",
             "MC",
             "LC",
             "MLCT",
             "LMCT",
             "LLCT",
-            "DEL",
-            "COH",
-            "COHh",
         ]
         # INFOS['theodore']=question('TheoDORE analysis?',bool,False)
         if "theodore" in INFOS["needed_requests"]:
@@ -340,7 +344,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 if (i + 1) % 8 == 0:
                     string += "\n"
             self.log.info(string)
-            line = question("TheoDORE properties:", str, default="Om  PRNTO  S_HE  Z_HE  RMSeh", KEYSTROKES=KEYSTROKES)
+            line = question("TheoDORE properties:", str, default="Om PR POS COH", KEYSTROKES=KEYSTROKES)
             self.setupINFOS["theodore_prop"] = line.split()
             self.log.info("")
 
@@ -363,12 +367,17 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "MOLCAS.resources"), "w", encoding="utf-8") as file:
-                for key in ("molcas", "scratchdir", "ncpu", "memory", 
-                    # "theodir",
-                    "theodore_prop",
-                    "theodore_fragment"):
+                for key in ("molcas", 
+                            # "scratchdir", 
+                            "ncpu", 
+                            "memory", 
+                            # "theodir",
+                            "theodore_prop",
+                            "theodore_fragment"):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
+                if "scratchdir" in self.setupINFOS:
+                    file.write(f"scratchdir {os.path.join(self.setupINFOS['scratchdir'], dir_path)}\n")
         else:
             create_file(expand_path(self._resource_file), os.path.join(dir_path, "MOLCAS.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "MOLCAS.template"))
@@ -452,6 +461,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"], str)
 
     def read_template(self, template_file: str = "MOLCAS.template", kw_whitelist: list[str] | None = None) -> None:
+        kw_whitelist = ["basis_per_element", "basis_per_atom"]
         super().read_template(template_file, kw_whitelist)
 
         # Roots
@@ -712,7 +722,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Generate MO and det file for dyson
         if qmin.control["master"] and self._hdf5 and code == 0:
-            self._get_dets(workdir)
+            if qmin.requests["ion"]:
+                self._get_dets(workdir)
             self._get_mos(workdir)
 
         return code, datetime.datetime.now() - starttime
@@ -871,8 +882,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
             # Save VecDet files and rasscf.h5
             if self._hdf5:
-                for state in range(1, states + 1):
-                    tasks.append(["copy", f"MOLCAS.VecDet.{state}", f"MOLCAS.{mult+1}.VecDet.{state}"])
+                if qmin.requests["ion"]:
+                    for state in range(1, states + 1):
+                        tasks.append(["copy", f"MOLCAS.VecDet.{state}", f"MOLCAS.{mult+1}.VecDet.{state}"])
+                    if states >= 10:
+                        self.log.error("Currently, OpenMolcas cannot correctly write VecDet files for state 10 or higher!")
+                        raise ValueError
+
                 tasks.append(["copy", "MOLCAS.rasscf.h5", f"MOLCAS.{mult+1}.rasscf.h5"])
 
             # MOLDEN request
@@ -1010,7 +1026,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         tasks.append(["alaska"])
                     case "ms-caspt2" | "xms-caspt2" | "caspt2":
                         tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                        tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nrlxroot = {grad[1]}"])
+                        if qmin.template['ipea'] != 0:
+                            cort_or_dort = qmin.template["cort_or_dort"] + "\n"
+                        else:
+                            cort_or_dort = ""
+                        tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\n{cort_or_dort}rlxroot = {grad[1]}"])
                         tasks.append(["mclr", qmin.template["gradaccudefault"]])
                         tasks.append(["alaska"])
 
@@ -1032,7 +1052,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["alaska"])
                 case "ms-caspt2" | "xms-caspt2" | "caspt2":
                     tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
-                    tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\nnac = {nac[1]} {nac[3]}"])
+                    if qmin.template['ipea'] != 0:
+                        cort_or_dort = qmin.template["cort_or_dort"] + "\n"
+                    else:
+                        cort_or_dort = ""
+                    tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\n{cort_or_dort}nac = {nac[1]} {nac[3]}"])
                     tasks.append(["alaska", nac[1], nac[3]])
 
             tasks += self._gen_ovlp_task(qmin, mult, states)
@@ -1167,6 +1191,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "ORBLISTING=NOTHING\nPRWF=1.0e-12\n"
         if qmin.template["method"] == "cms-pdft":
             input_str += "CMSInter\n"
+        # TODO: The next piece of code makes the calculation quite a bit more expensive
         if qmin.maps["gradmap"] and len(qmin.maps["gradmap"]) > 0:
             input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
         else:
@@ -1202,13 +1227,34 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Write GATEWAY part of MOLCAS input string
         """
+        custom_basis = False
+        basis = [qmin.template['basis'] for i in qmin.coords["coords"]]
+        if qmin.template["basis_per_element"] or qmin.template["basis_per_atom"]:
+            custom_basis = True
+        if qmin.template["basis_per_element"]:
+            if len(qmin.template["basis_per_element"])==2:
+                qmin.template["basis_per_element"] = [qmin.template["basis_per_element"]]
+            for batch in qmin.template["basis_per_element"]:
+                self.log.debug(f'Replacing basis set for element {batch[0]} with {batch[1]}')
+                for idx, el in enumerate(qmin.molecule["elements"]):
+                    if el == batch[0]:
+                        basis[idx] = batch[1]
+        if qmin.template["basis_per_atom"]:
+            if len(qmin.template["basis_per_atom"])==2:
+                qmin.template["basis_per_atom"] = [qmin.template["basis_per_atom"]]
+            for batch in qmin.template['basis_per_atom']:
+                self.log.debug(f'Replacing basis set for atom number {batch[0]} with {batch[1]}')
+                basis[int(batch[0])-1] = batch[1]
+
+
         input_str = f"&GATEWAY\nCOORD=MOLCAS.xyz\nGROUP=NOSYM\nBASIS={qmin.template['basis']}\n"
-        if qmin.molecule["point_charges"]:
+        if qmin.molecule["point_charges"] or custom_basis:
             input_str = "&GATEWAY\n"
             for idx, (charge, coord) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"]), 1):
-                input_str += f"basis set\n{charge}.{qmin.template['basis']}....\n"
+                input_str += f"basis set\n{charge}.{basis[idx-1]}\n"
                 input_str += f"{charge}{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f}"
                 input_str += " /Angstrom\nend of basis\n\n"
+        if qmin.molecule["point_charges"]:
             for idx, (charge, coord) in enumerate(zip(qmin.coords["pccharge"], qmin.coords["pccoords"]), 1):
                 input_str += (
                     f"basis set\nX...0s.0s.\nX{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f} /Angstrom\n"
@@ -1224,8 +1270,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.template["method"] != "cms-pdft":
             input_str += f"CDTHreshold={qmin.template['cholesky_accu']}\n"
         if qmin.template["pcmset"]:
-            input_str += f"TF-INPUT\nPCM-MODEL\nSOLVENT = {qmin.template['pcmset']['solvent']}\n"
-            input_str += f"AARE = {qmin.template['pcmset']['aare']}\nR-MIN = {qmin.template['pcmset']['r-min']}"
+            input_str += f"RF-INPUT\nPCM-MODEL\nSOLVENT = {qmin.template['pcmset']['solvent']}\n"
+            input_str += f"AARE = {qmin.template['pcmset']['aare']}\nR-MIN = {qmin.template['pcmset']['r-min']}\nEND of RF-INPUT\n\n"
         return input_str
 
     def _write_geom(self, atoms: list[str], coords: list[list[float]] | np.ndarray) -> str:
@@ -1253,12 +1299,19 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         self.log.error(f"*pt2 with NACs/grad. Number of roots does not equal number of states in mult {mult}.")
                         raise ValueError
 
+        # if (
+        #     self.QMin.template["method"] in ("ms-caspt2", "xms-caspt2")
+        #     and self.QMin.template["ipea"] > 0
+        #     and (self.QMin.requests["grad"] or self.QMin.requests["nacdr"])
+        # ):
+        #     self.log.error("Analytical gradients/NACs are not possible with pt2 methods and ipea shift!")
+        #     raise ValueError()
+
         if (
-            self.QMin.template["method"] in ("ms-caspt2", "xms-caspt2")
-            and self.QMin.template["ipea"] > 0
+            self.QMin.template["pcmset"]
             and (self.QMin.requests["grad"] or self.QMin.requests["nacdr"])
         ):
-            self.log.error("Analytical gradients/NACs are not possible with pt2 methods and ipea shift!")
+            self.log.error("Analytical gradients/NACs are not possible with PCM!")
             raise ValueError()
 
         if self.QMin.requests["theodore"]:
@@ -1628,12 +1681,28 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         state_i, state_j = re.findall(r"nac=(\d+) (\d+)", output_file)[0]
         ovlp_mat = self._get_overlaps(output_file)
 
+        # check if overlap matrix is a unit matrix with random signs
+        # Check diagonal
+        good_overlaps = True
+        if not np.allclose(ovlp_mat, np.diag(np.diagonal(ovlp_mat)), atol=1e-8):
+            good_overlaps = False
+        if not np.allclose(np.abs(np.diagonal(ovlp_mat)), np.ones_like(np.diagonal(ovlp_mat)), atol=1e-8):
+            good_overlaps = False
+        if good_overlaps:
+            np.fill_diagonal(ovlp_mat, np.diagonal(ovlp_mat) / np.abs(np.diagonal(ovlp_mat)))
+
         # Adapt NAC to phase
-        return (
-            np.asarray(nac, dtype=float).reshape(-1, 3)
-            * ovlp_mat[int(state_i) - 1, int(state_i) - 1]
-            * ovlp_mat[int(state_j) - 1, int(state_j) - 1]
-        )
+        if good_overlaps:
+            return (
+                np.asarray(nac, dtype=float).reshape(-1, 3)
+                * ovlp_mat[int(state_i) - 1, int(state_i) - 1]
+                * ovlp_mat[int(state_j) - 1, int(state_j) - 1]
+            )
+        else:
+            self.log.warning("Could not align NAC phase to rest of calculation from overlaps!\nThis might happen in CASPT2 calculations.\n Check carefully your wave function propagation.")
+            return (
+                np.asarray(nac, dtype=float).reshape(-1, 3)
+            )
 
     def _get_overlaps(self, output_file: str | h5py.File) -> np.ndarray:
         """

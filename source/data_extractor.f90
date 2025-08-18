@@ -76,6 +76,8 @@ program data_extractor
   integer, parameter :: u_dm_diag=53      !< dip_mom_diag.out
   integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out
   integer, parameter :: u_proj=56         !< projections.inp
+  integer, parameter :: u_dipole=57       !< dipole.out
+  integer, parameter :: u_dipole_mch=58   !< dipole_MCH.out
 
   integer, parameter :: u_classd=61        !< JCP 139, 211101 (2013), Method 1 (diag)
   integer, parameter :: u_classm=62        !< JCP 139, 211101 (2013), Method 1 (MCH)
@@ -147,6 +149,8 @@ program data_extractor
   real*8,allocatable :: expec_ion_diag(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_ion_mch(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
+  real*8,allocatable :: dipole_mch(:)               !< static dipole moment per state in MCH basis
+  real*8,allocatable :: dipole_diag(:)               !< static dipole moment per state in diagonal basis
   real*8,allocatable :: dm_proj_sp(:,:)           !< dipole moment per state projected onto vector yet to be defined
   real*8,allocatable :: proj_vec_pd(:,:)           !< vectors to project dipole moment onto
   real*8,allocatable :: norm_proj_vec_p(:)          !< norm of vectors to project dipole moment onto
@@ -168,7 +172,8 @@ program data_extractor
   logical :: exists
   logical :: is_integer
   logical :: write_energy
-  logical :: write_dip
+  logical :: write_dip          !< transition dipole moments
+  logical :: write_dipoles      !< static dipole moments
   logical :: write_spin
   logical :: write_coeffdiag
   logical :: write_coeffmch
@@ -212,6 +217,7 @@ program data_extractor
   ! defaults for writing options
   write_energy    = .false.
   write_dip       = .false.
+  write_dipoles   = .false.
   write_spin      = .false.
   write_coeffdiag = .false.
   write_coeffmch  = .false.
@@ -283,11 +289,14 @@ program data_extractor
       write_ionmch = .true.
     elseif (trim(args(i)) == "-sk") then
       skip_geom_vel_grad_nac = .true.
+    elseif (trim(args(i)) == "-dm") then
+      write_dipoles = .true.
     elseif (trim(args(i)) == "-xyz") then
       write_geometry = .true.
     ! all flags true
     elseif (trim(args(i)) == "-xl") then
       write_energy = .true.
+      write_dipoles = .true.
       write_dip = .true.
       write_spin = .true.
       write_coeffdiag = .true.
@@ -304,6 +313,7 @@ program data_extractor
     ! large set of flags true
     elseif (trim(args(i)) == "-l") then
       write_energy = .true.
+      write_dipoles = .true.
       write_dip = .true.
       write_spin = .true.
       write_coeffdiag = .true.
@@ -319,6 +329,7 @@ program data_extractor
     ! small set of flags true
     elseif (trim(args(i)) == "-s") then
       write_energy = .true.
+      write_dipoles = .true.
       write_dip = .true.
       write_spin = .true.
       write_coeffdiag = .true.
@@ -350,6 +361,7 @@ program data_extractor
   if (.not.anyoptions) then
     ! defaults for writing options
     write_energy    = .true.
+    write_dipoles   = .true.
     write_dip       = .true.
     write_spin      = .true.
     write_coeffdiag = .true.
@@ -537,6 +549,7 @@ program data_extractor
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
+    allocate( dipole_mch(nstates), dipole_diag(nstates) )
     allocate( spin0_s(nstates) )
     allocate( element_a(natom))
     if ((.not. skip_geom_vel_grad_nac) .or. (write_geometry)) then
@@ -647,6 +660,7 @@ program data_extractor
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
+    allocate( dipole_mch(nstates), dipole_diag(nstates) )
     allocate( spin0_s(nstates) )
     allocate( element_a(natom))
     if ((.not. skip_geom_vel_grad_nac) .or. (write_geometry)) then
@@ -773,7 +787,7 @@ program data_extractor
 
     ! skip the "End of header array data" separator line
     read(u_dat,*) string1
-    write(*,*) "END OF HEADER", string1
+    ! write(*,*) "END OF HEADER", string1
   endif
 
   ! =============================================================================================
@@ -796,7 +810,10 @@ program data_extractor
   if (write_energy)    open(unit=u_ener, file='output_data/energy.out', status='replace', action='write')           ! -e
   if (write_dip)       open(unit=u_dm, file='output_data/fosc.out', status='replace', action='write')               ! -d
   if (write_spin)      open(unit=u_spin, file='output_data/spin.out', status='replace', action='write')             ! -s
-  if (write_geometry)    open(unit=u_xyz, file='output.xyz', status='replace', action='write')           ! -xyz
+  if (write_geometry)  open(unit=u_xyz, file='output.xyz', status='replace', action='write')           ! -xyz
+  
+  if (write_dipoles)   open(unit=u_dipole_mch, file='output_data/dipoles_MCH.out', status='replace', action='write')           ! -dm
+  if (write_dipoles)   open(unit=u_dipole, file='output_data/dipoles_diag.out', status='replace', action='write')           ! -dm
 
   if (write_coeffdiag) open(unit=u_coefd, file='output_data/coeff_diag.out', status='replace', action='write')      ! -cd
   if (write_coeffmch)  open(unit=u_coefm, file='output_data/coeff_MCH.out', status='replace', action='write')       ! -cm
@@ -833,6 +850,15 @@ program data_extractor
     write(u_dm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
     write(u_dm,'(A1,1X,3(A20,1X))') '#','Time |','f_osc (state) |','=== f_osc ===>'
     write(u_dm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif
+
+  if (write_dipoles) then
+    write(u_dipole_mch,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_dipole_mch,'(A1,1X,3(A20,1X))') '#','Time |','|DM| (state) |','=== |DM| ===>'
+    write(u_dipole_mch,'(A1,1X,3(A20,1X))') '#','[fs] |','[Debye] |','[Debye] |'
+    write(u_dipole,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_dipole,'(A1,1X,3(A20,1X))') '#','Time |','|DM| (state) |','=== |DM| ===>'
+    write(u_dipole,'(A1,1X,3(A20,1X))') '#','[fs] |','[Debye] |','[Debye] |'
   endif
 
   if (write_dipact) then
@@ -1211,6 +1237,25 @@ program data_extractor
       enddo
     endif
     
+    ! compute static dipole moments for all states
+    if (write_dipoles) then
+      dipole_mch = 0.d0
+      dipole_diag = 0.d0
+      do idir=1,3
+        A_ss=DM_mch_ssd(:,:,idir)
+        do i=1,nstates
+          dipole_mch(i)=dipole_mch(i)+real(A_ss(i,i)*A_ss(i,i))
+        enddo
+        call transform(nstates,A_ss,U_ss,'utau')
+        do i=1,nstates
+          dipole_diag(i)=dipole_diag(i)+real(A_ss(i,i)*A_ss(i,i))
+        enddo
+      enddo
+      dipole_mch=dsqrt(dipole_mch)*au2debye
+      dipole_diag=dsqrt(dipole_diag)*au2debye
+    endif
+
+
     ! calculate length of projection of dipole moment onto vector
     ! projection length is scalar product of dip mom with unit vector of desired direction (proj_vec/norm_proj_vec)
     if (write_dm_proj) then
@@ -1247,6 +1292,8 @@ program data_extractor
         enddo
       enddo
     endif
+
+
 
     ! calculate ionization
     if (write_iondiag .or. write_ionmch) then
@@ -1294,6 +1341,16 @@ program data_extractor
 !       &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
+
+    if (write_dipoles) then
+      write(u_dipole_mch,'(2X,1000(ES20.12E3,1X))') &
+      &microtime, dipole_diag(state_diag),&
+      (dipole_mch(istate),istate=1,nstates)
+      write(u_dipole,'(2X,1000(ES20.12E3,1X))') &
+      &microtime, dipole_diag(state_diag),&
+      (dipole_diag(istate),istate=1,nstates)
+    endif 
+
 
 
     if (write_iondiag) then
@@ -2201,6 +2258,8 @@ program data_extractor
     write(u,*) '       -xs : extrasmall = energy (-e), coeffdiag (-cd), coeffmch (-cm), prob (-p), expec (-x), dip (-d), skip (-sk)'
     write(u,*) '       -e  : write energy file              (output_data/energy.out)'
     write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
+    write(u,*) '       -dm : write static dipole moments    (output_data/dipoles_MCH.out'
+    write(u,*) '                                             output_data/dipoles_diag.out),'
     write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
     write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out,'
     write(u,*) '                                             output_data/coeff_class_diag.out,'

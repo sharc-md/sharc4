@@ -150,6 +150,8 @@ def read_QMin(path, request):
             if iline <= natom + 2:
                 continue
             s = line.split(None, 1)
+            if len(s)<1:
+                continue
             if r in s[0]:
                 QMin[s[0]] = s[1]
     if 'natom' in request:

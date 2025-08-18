@@ -48,6 +48,7 @@ from resp import Resp, multipoles_from_dens_parallel
 from scipy.linalg import fractional_matrix_power
 from SHARC_INTERFACE import SHARC_INTERFACE
 from sympy.physics.wigner import wigner_3j
+from threadpoolctl import threadpool_limits
 from utils import (InDir, convert_dict, convert_list, density_representation,
                    electronic_state, expand_path, is_exec, itmult, link, mkdir,
                    readfile, safe_cast, shorten_DIR, writefile)
@@ -108,7 +109,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_betas": [0.0005, 0.0015, 0.003],
                 "resp_layers": 4,
                 "resp_first_layer": 1.4,
-                "resp_density": 10.0,
+                "resp_density": 4.0,
                 "resp_fit_order": 2,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
@@ -161,6 +162,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.resources["wfoverlap"] = expand_path(self.QMin.resources["wfoverlap"])
         if self.QMin.resources["theodore_fragment"]:
             self.QMin.resources["theodore_fragment"] = convert_list(self.QMin.resources["theodore_fragment"])
+        self.QMin.resources["resp_betas"] = convert_list(self.QMin.resources["resp_betas"], float)
         if self.QMin.resources["resp_vdw_radii"]:
             self.QMin.resources["resp_vdw_radii"] = convert_list(self.QMin.resources["resp_vdw_radii"], float)
         if self.QMin.resources["resp_vdw_radii_symbol"]:
@@ -331,11 +333,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 resp_flayer = self.QMin.resources["resp_first_layer"]
                 resp_order = self.QMin.resources["resp_fit_order"]
                 resp_grid = self.QMin.resources["resp_grid"]
-                self.QMout.notes["multipolar_fit"] = (
-                    f" settings [order grid firstlayer density layers] {resp_order} {resp_grid} {resp_flayer} {resp_density} {resp_layers}"
-                )
-                # self.QMin.requests.types["multipolar_fit"] = dict          # TODO: wtf?
-                # self.QMin.requests["multipolar_fit"] = {dme: [] for dme in requested_dmes}
+                self.QMout.multipolar_fit_settings = f" order: {resp_order}, grid: {resp_grid}, firstlayer: {resp_flayer}, density: {resp_density}, layers: {resp_layers}"
                 self.multipolar_fit_list = {dme: [] for dme in requested_dmes}
 
             self.QMin.requests["density_matrices"] = sorted(requested_densities, key=lambda x: (x[0], x[1], x[2]))
@@ -773,7 +771,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     self.log.debug(f"Doing dM0 densities from determinants for multiplicity = {dens_s1 + 1}")
                     nst, dets, ci, mos = self.read_dets_and_mos(self.QMin.save["savedir"], dens_s1, self.QMin.save["step"])
                     t1 = time.time()
+                    threadpool_limits(limits=self.QMin.resources["ncpu"])
                     rhos = wf2rho.deltaS0(self.QMin.template["tCI"], nst, dets, ci, mos)
+                    rhos = np.einsum(
+                        "ia,smnab,bj->smnij", mos, rhos, mos.T, optimize=["einsum_path", (0, 1), (0, 1)], casting="no"
+                    )
                     t2 = time.time()
                     self.log.debug(f" Time elapsed in CI2rho_dM0 = {round(t2 - t1, 3)}sec.")
                     for density in densities:
@@ -787,7 +789,11 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     nst1, dets1, ci1, mos1 = self.read_dets_and_mos(self.QMin.save["savedir"], dens_s1, self.QMin.save["step"])
                     nst2, dets2, ci2, mos2 = self.read_dets_and_mos(self.QMin.save["savedir"], dens_s2, self.QMin.save["step"])
                     t1 = time.time()
+                    threadpool_limits(limits=self.QMin.resources["ncpu"])
                     rhos = wf2rho.deltaS1(self.QMin.template["tCI"], nst1, nst2, dets1, dets2, ci1, ci2, mos1, mos2)
+                    rhos = np.einsum(
+                        "ia,mnab,bj->mnij", mos1, rhos, mos2.T, optimize=["einsum_path", (0, 1), (0, 1)], casting="no"
+                    )
                     t2 = time.time()
                     self.log.debug(f" Time elapsed in CI2rho_dM1 = {round(t2 - t1, 3)}sec.")
                     for density in densities:
@@ -1457,8 +1463,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         return chrg
 
-
     def create_restart_files(self) -> None:
         # Ab initio interfaces will do this every time step anyways, so can be empty
         pass
-

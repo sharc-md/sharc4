@@ -888,10 +888,10 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
             try:
                     n = int(geo[line-Tshift_index].split()[0])
             except IndexError:
-                sys.stderr.write('ERROR: did not find number of atoms! Line= %i, step= %i' % (line-Tshift_index, t))
+                sys.stderr.write('ERROR: did not find number of atoms! Line= %i, step= %i\n' % (line-Tshift_index, t))
                 sys.exit(1)
             if not n == natom:
-                sys.stderr.write('ERROR: Number of atoms inconsistent! Line= %i, step= %i' % (line-Tshift_index, t))
+                sys.stderr.write('ERROR: Number of atoms inconsistent! Line= %i, step= %i\n' % (line-Tshift_index, t))
                 sys.exit(1)
             line += 1
             comm = geo[line-Tshift_index]  # Comment line
@@ -922,7 +922,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
             s = calculate(g, ["NaN"]*len(req), "")
             print(formatstring % ((t) * dt) + s)
         t += 1
-        sys.stderr.write('\rNumber of geometries: % 6i' % (t))
+        sys.stderr.write('\rNumber of geometries: % 6i   ' % (t))
 
     sys.stderr.write('\nFINISHED!\n\n')
     sys.exit(0)

@@ -1,0 +1,8 @@
+turbodir $TURBOMOLE
+scratchdir $SCRADIR/WORK
+
+memory 1000
+ncpu 1
+
+
+dipolelevel 1

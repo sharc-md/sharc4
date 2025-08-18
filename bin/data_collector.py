@@ -1030,7 +1030,7 @@ def synchronize(all_data):
         else:
             idx = [all_times_idx[t] for t in (all_data[fk]["time"] * discretizer).astype(int)]
             arr[i, idx, ...] = all_data[fk]["arr"]
-            counts[idx] += np.sum(~np.any(np.isnan(all_data[fk]["arr"]), axis=1), axis=-1).reshape(-1)
+            counts[idx] += ~np.any(np.isnan(all_data[fk]["arr"]), axis=(1,2))
     sys.stdout.write("  Done\n")
 
     # arr has shape time, files, XorY, cols
