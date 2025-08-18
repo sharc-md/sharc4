@@ -384,12 +384,13 @@ def gfsh_probs(istate, ic, INFOS):
     # Check, whether every file has same number of time steps, in case data_extractor failed in the middle of extracting
     #coeffs = np.zeros((INFOS["nsteps"]+1, INFOS["nstates"]), dtype=complex)  # nstates
     coeffs = np.zeros((INFOS["nsteps"]+1, sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))), dtype=complex)  # nstates*multiplicity
+    
     time_steps, states = coeffs.shape
     for n_columns in range(0, len(coeffs[1])):
         coeffs[:, int(n_columns)] = INFOS["coeff_data"][ic, istate, :, int(2*(n_columns+1))] + 1.j*INFOS["coeff_data"][ic, istate, :, int(2*(n_columns+1)+1)]
-    exc_prob = np.zeros((time_steps, int(states)))
-    exc_prob_tdiff = np.zeros((time_steps-1, int(states)))
-    max_prob = np.zeros(time_steps-1)
+    exc_prob = np.zeros((INFOS["nsteps"]+1, len(INFOS["statemap"])))
+    exc_prob_tdiff = np.zeros((INFOS["nsteps"], len(INFOS["statemap"])))
+    max_prob = np.zeros(INFOS["nsteps"])
     rho = np.zeros_like(coeffs, dtype=float)
     rho[:, 1:] = np.abs(coeffs[:, 1:])**2/INFOS["max_prob"]  # excited state coefficients
     # rho[:, 0] =  np.abs(coeffs[:, 0])**2  # ground state coefficients
@@ -400,7 +401,7 @@ def gfsh_probs(istate, ic, INFOS):
     # nominator of 8.151
     gs_fac = (1 - (rho[1:, 0] / rho[:-1, 0]))  # [time, ground state]
     # Loop calculates the maximum in the denominator of 8.151
-    for tstep in range(time_steps-1):
+    for tstep in range(INFOS["nsteps"]):
         for exc_state in range(states):
             # if exc_state==0:
             #    continue
@@ -409,7 +410,7 @@ def gfsh_probs(istate, ic, INFOS):
             if exc_prob_tdiff[tstep, exc_state] < 0.:  #  if difference is negative -> negative added to sum
                 max_prob[tstep] -= exc_prob_tdiff[tstep, exc_state]
     # Loop calculates result of 8.151
-    for tstep in range(time_steps-1):
+    for tstep in range(INFOS["nsteps"]):
         if gs_fac[tstep]>0:
             for exc_state in range(states):
                 if exc_state==0:

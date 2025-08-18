@@ -478,7 +478,7 @@ def displaywelcome():
         " ",
         "Setup trajectories for SHARC dynamics",
         " ",
-        "Authors: Sebastian Mai, Philipp Marquetand, Severin Polonius",
+        "Authors: Lorenz Grünewald, Sebastian Mai",
         " ",
         "Version: %s" % (version),
         "Date: %s" % (versiondate.strftime("%d.%m.%y")),
@@ -776,7 +776,6 @@ def write_fields(output_name, laser_tsteps, laser_freqs, E=None):
 
 def get_laser_time(filename):
     data = readfile(filename)
-    print( float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])/(len(data)-1))  # -float(data[-2].split()[0])  # tmax, nsteps, dtstep 
     return float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])/(len(data)-1)  # -float(data[-2].split()[0])  # tmax, nsteps, dtstep 
     
 # ======================================================================================================================
@@ -1372,7 +1371,7 @@ def json_info(INFOS):
     return 
 
 
-def writeSHARCinput(INFOS, initobject, iconddir, istate, laser_tsteps, laser_freqs, Er, Ei, rng_gen, rot_vec_arr, ask=False):
+def writeSHARCinput(INFOS, initobject, iconddir,istate, laser_tsteps, laser_freqs, Er, Ei, rng_gen, ask=False):
     inputfname = iconddir + "/input"
     try:
         inputf = open(inputfname, "w")
@@ -1392,7 +1391,6 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, laser_tsteps, laser_fre
         s += "%i " % nst
     s += "\nstate %i %s\n" % (istate, ["mch", "diag"][INFOS["diag"]])
     s += "coeff auto\n"
-    s += "rngseed %i\n\n" % (0)
     s += "ezero %18.10f\n" % (INFOS["eref"])
 
     s += "tmax %f\nstepsize %f\nnsubsteps %i\n" % (INFOS["tmax"], INFOS["dtstep"], INFOS["nsubstep"])
@@ -1505,13 +1503,10 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, laser_tsteps, laser_fre
     if INFOS["rand_laser_pol"]:
         rot = R.random(random_state=rng_gen)
         Rmat = rot.as_matrix()
-        rot_vec_arr = np.vstack((rot_vec_arr, rot.as_rotvec()))
         trans_fields = transform_fields(Rmat, Er=Er, Ei=Ei, Br=None, Bi=None, Egradr=None, Egradi=None) 
         write_fields(laserfname, laser_tsteps, laser_freqs, E=trans_fields)
-        # align_laser(laser_file=INFOS["laserfile"], rot_matrix=None, output_name=laserfname, random_no=random.randint(1, int(1E6)), no_print=True)
     else: 
         link(INFOS["laserfile"], laserfname)
-        # shutil.copy(INFOS["laserfile"], laserfname)
    
     # atommask file
     if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:
@@ -1524,7 +1519,7 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, laser_tsteps, laser_fre
                 atommf.write("F\n")
         atommf.close()
 
-    return rot_vec_arr
+    return 
 
 
 # ======================================================================================================================
@@ -1699,7 +1694,6 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     ask = True
     laser_tsteps, laser_freqs, Er, Ei = get_laser(INFOS)
     rng_gen = np.random.default_rng(seed=INFOS["rng_seed_laser"])
-    rot_vec_arr = np.empty((0,3))
     for istate in INFOS["setupstates"]:
         width = 50
         ntraj = len(INFOS["icond_sel"])  # INFOS["ntraj"]
@@ -1723,7 +1717,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 log.info("Skipping initial condition %i %i!" % (istate, icond))
                 continue
 
-            rot_vec_arr = writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, laser_tsteps, laser_freqs, Er, Ei, rng_gen, rot_vec_arr, ask=ask)
+            writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, laser_tsteps, laser_freqs, Er, Ei, rng_gen, ask=ask)
             ask = False
             io = make_directory(dirname + "/QM")
             io += make_directory(dirname + "/restart")
@@ -1773,7 +1767,6 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
         all_qsub.close()
         filename = "all_qsub_traj.sh"
         os.chmod(filename, os.stat(filename).st_mode | stat.S_IXUSR)
-    np.savetxt("rot_vec_arr", rot_vec_arr)
     log.info("\n")
 
 
