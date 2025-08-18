@@ -419,7 +419,7 @@ def compute_max_prob(INFOS, rho_read=np.array([])):
                 for tstep in range(len(coeff_init)-1):
                     pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
                 pleave_arr[i, j] = 1.-pstay
-    pmax = np.max(pleave_arr)
+    pmax = np.max(pleave_arr)*INFOS["renorm_scale_fac"]
     return pmax, pleave_arr
 
 
@@ -652,6 +652,21 @@ def random_seed():
     return rngseed
 
 
+def scale_pmax():
+    print("{:-^60}".format("Renormalization of hopping probabilities") + "\n")
+    print('Please enter a number greater than 1 (full renormalization). High values result in lower excitation yields.')
+    while True:
+        line = question("Renormalization scaling factor: ", int, [1], False)
+        try:
+            renorm_scale_fac = float(line[0])
+        except ValueError:
+            print('Please enter a float.')
+            continue
+        break
+    print("")
+    return renorm_scale_fac
+
+
 def sample_number():
     print("{:-^60}".format("Sample iterations of initial conditions") + "\n")
     print('Please enter a the number of iterations to sample the initial conditions.')
@@ -736,6 +751,7 @@ def main():
         print("IOError during opening readable %s - file. Quitting." % (setup_laser_excitation_info_filename))
         quit(1)
     INFOS["rng_seed"] = random_seed()
+    INFOS["renorm_scale_fac"] = scale_pmax()
     INFOS["sample_number"] = sample_number()
     initlist = []
     for i, istate in enumerate(INFOS["setupstates"]):

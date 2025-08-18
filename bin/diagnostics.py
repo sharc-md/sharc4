@@ -700,13 +700,11 @@ def check_consistency(path, trajectories, data, filename):
     # checks if no timesteps are omitted in a given file
     problem = ''
     deltatime = float(trajectories[path]['dtstep'])
-    # if filename == 'output.lis':
-    #     deltatime = 1
     if filename == 'output.lis':
         for line in data:
             if '#' not in line:
                 x = line.split()
-                if float(x[1]) ==  0.:  #  trajectories[path]['start_time']:
+                if float(x[1]) ==  0.:  # trajectories[path]['start_time']:
                     prevtime = float(x[1])
                     tana = float(x[1])
                 elif abs(float(x[1]) - deltatime - prevtime) <= 1e-9:

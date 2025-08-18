@@ -794,11 +794,7 @@ def do_calc(INFOS):
     longest = 0.
     shift_step = [None]*len(files)
     for fileindex, ifile in enumerate(files):
-        # print(t0_list)
-        # print(len(t0_list))
-        # print(fileindex, ifile, t0_list[fileindex], dt)
         shift_step[fileindex] = int(np.ceil(t0_list[fileindex]/dt))  # shift to right index after start time
-        # print("Shift step", shift_step)
         if INFOS['mode'] in [10, 11]:
             output_current = output_dat(ifile)
             istep = -1
@@ -824,13 +820,12 @@ def do_calc(INFOS):
             if dt * istep > longest:
                 longest = dt * istep
             if istep == -1:
-                print('%s' % (ifile) + ' ' * (width - len(ifile)) + ' %i\tZero Timesteps found!' % (t))
+                print('%s' % (ifile) + ' ' * (width - len(ifile)) + '%i\tZero Timesteps found!' % (t))
                 ntraj -= 1
                 continue
             else:
                 print('%s' % (ifile) + ' ' * (width - len(ifile)) + ' %i' % (istep))
             while istep + 1 < nsteps:
-                print("istep", istep, nsteps)
                 istep += 1
                 if INFOS['mode'] in [10, 11]:
                     for i in range(nstates):
@@ -843,9 +838,7 @@ def do_calc(INFOS):
                     continue
                 f = line.split()
                 t += 1
-                # print(t+shift_step[fileindex], t, shift_step[fileindex], nsteps)
                 if t+shift_step[fileindex] >= nsteps:
-                    # print("break", t+shift_step[fileindex], shift_step[fileindex])
                     break
 
                 if INFOS['mode'] in [1, 2, 3, 4, 5, 6]:
@@ -906,14 +899,11 @@ def do_calc(INFOS):
                 elif INFOS['mode'] in [7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
                     for i in range(nstates):
                         pop_full[fileindex][t+shift_step[fileindex]][i] += vec[i]
-    # print('Shortest trajectory: %f' % (shortest))
-    # print('Longest trajectory: %f' % (longest))
-    # print('Number of trajectories: %i' % (ntraj))
+    print('Shortest trajectory: %f' % (shortest))
+    print('Longest trajectory: %f' % (longest))
+    print('Number of trajectories: %i' % (ntraj))
     INFOS['shortest'] = shortest
     INFOS['longest'] = longest
-    # print(nsteps, shift_step)
-    
-    # make pop array
     pop = [[0. for j in range(nstates)] for i in range(nsteps)]        # first index is time, second is state
     for i in range(nsteps):
         for fileindex, ifile in enumerate(files):

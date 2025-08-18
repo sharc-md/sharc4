@@ -820,7 +820,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     parser.add_option('-T', dest='T', type=int, nargs=1, default=0, help="start counting the timesteps at T (default=0)")
     parser.add_option('-n', dest='n', action="store_true", help="prepend set to start at 0 fs and fill with NaN values")
     (options, args) = parser.parse_args()
-    global p, f, Bohrs, Radians
+    global p, f, Bohrs, Radians, Fill_Nan
     if options.f >= 20:
         f = options.f
     else:
