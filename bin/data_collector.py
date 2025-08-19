@@ -1064,7 +1064,8 @@ def calc_average(INFOS, all_data):
     sys.stdout.write("\r  Progress: [" + "="*25 + " "*25 + "]  50%")
     mean = X / N[np.newaxis, np.newaxis, :]
     variance = X2 / N[np.newaxis, np.newaxis, :] - mean**2
-    variance *= N[np.newaxis, np.newaxis, :] / (N[np.newaxis, np.newaxis, :] - 1)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        variance *= N[np.newaxis, np.newaxis, :] / (N[np.newaxis, np.newaxis, :] - 1)
     if INFOS["averaging"]["post"]: 
         mean = INFOS["averaging"]["post"](mean)
         variance = INFOS["averaging"]["post"](variance) - 1  # -1 only for geometric!
