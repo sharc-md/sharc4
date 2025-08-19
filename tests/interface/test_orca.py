@@ -377,7 +377,7 @@ def test_template():
             {
                 "paddingstates": None,
                 "no_tda": False,
-                "basis": "6-31G",
+                "basis": "def2-SVP",
                 "auxbasis": None,
                 "functional": "b3lyp",
                 "dispersion": "D3",
@@ -398,7 +398,7 @@ def test_template():
             {
                 "paddingstates": None,
                 "no_tda": False,
-                "basis": "6-31G",
+                "basis": "def2-SVP",
                 "auxbasis": None,
                 "functional": "b3lyp",
                 "dispersion": "D3",
