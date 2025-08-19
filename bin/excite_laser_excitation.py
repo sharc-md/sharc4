@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -27,11 +27,11 @@ import datetime
 import os
 import sys
 import json
-import math
+# import math
 import numpy as np
 import subprocess as sp
-from scipy.linalg import fractional_matrix_power
-from itertools import starmap, chain
+# from scipy.linalg import fractional_matrix_power
+# from itertools import starmap, chain
 from optparse import OptionParser
 from qmout import QMout
 import random
@@ -656,11 +656,9 @@ def scale_pmax():
     print("{:-^60}".format("Renormalization of hopping probabilities") + "\n")
     print('Please enter a number greater than 1 (full renormalization). High values result in lower excitation yields.')
     while True:
-        line = question("Renormalization scaling factor: ", int, [1], False)
-        try:
-            renorm_scale_fac = float(line[0])
-        except ValueError:
-            print('Please enter a float.')
+        renorm_scale_fac = question("Renormalization scaling factor: ", float, [1.], False)[0]
+        if not renorm_scale_fac>=1.:
+            print("Must be >=1!")
             continue
         break
     print("")
@@ -668,18 +666,18 @@ def scale_pmax():
 
 
 def sample_number():
-    print("{:-^60}".format("Sample iterations of initial conditions") + "\n")
-    print('Please enter a the number of iterations to sample the initial conditions.')
-    while True:
-        line = question("Sample iterations: ", int, [1], False)
-        try:
-            sample_number = int(line[0])
-        except ValueError:
-            print('Please enter an integer.')
-            continue
-        break
-    print("")
-    return sample_number
+    # print("{:-^60}".format("Sample iterations of initial conditions") + "\n")
+    # print('Please enter a the number of iterations to sample the initial conditions.')
+    # while True:
+    #     line = question("Sample iterations: ", int, [1], False)
+    #     try:
+    #         sample_number = int(line[0])
+    #     except ValueError:
+    #         print('Please enter an integer.')
+    #         continue
+    #     break
+    # print("")
+    return 1
 
 
 def excite(INFOS, initlist, exc_list, setupstate):

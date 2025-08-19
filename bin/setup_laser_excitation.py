@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -22,10 +22,6 @@
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ******************************************
-
-# Interactive script for the setup of dynamics calculations for SHARC
-#
-# usage: python setup_traj.py
 
 import math
 import sys
@@ -853,12 +849,12 @@ from the initcond files as provided by wigner.py.
     INFOS["natom"] = int(initf.readline().split()[1])
     log.info("Number of atoms is %i" % (INFOS["natom"]))
     INFOS["repr"] = initf.readline().split()[1]
-    if INFOS["repr"].lower() == "mch":
+    if INFOS["repr"].lower() == "diag":
         INFOS["diag"] = False
-        INFOS["repr"] = "MCH"
+        INFOS["repr"] = "diag"
     else:
         INFOS["diag"] = True
-        INFOS["repr"] = "diag"
+        INFOS["repr"] = "MCH"
 
     INFOS["eref"] = float(initf.readline().split()[1])
     INFOS["eharm"] = float(initf.readline().split()[1])
@@ -1087,7 +1083,8 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     INFOS["rand_laser_pol"] = question("Do you want to have an isotropic laser polarization distribution:", bool, True)
     INFOS["tmax"], INFOS["nsteps"], INFOS["dtstep"] = get_laser_time(INFOS["laserfile"])
     log.info("Total simulation time: %f"  % INFOS["tmax"])
-    log.info("\nSimulation will have %i timesteps." % (INFOS["dtstep"]))
+    log.info("\nSimulation will have %i time steps." % (INFOS["nsteps"]-1))
+    log.info("\nSimulation will have %.2f fs time steps." % (INFOS["dtstep"]))
 
 
     # Integrator
@@ -1108,7 +1105,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     log.info(
         "\nDo you want to perform the dynamics in the diagonal representation (SHARC dynamics) or in the MCH representation (regular TSH/SCP)?"
     )
-    surf = question("SHARC dynamics?", bool, True)
+    surf = question("Do you want to use the diagonal representation (True=diag, False=MCH)?", bool, False)
     if INFOS['method']=='tsh':
         INFOS['surf'] = ['mch', 'diagonal'][surf]
 
