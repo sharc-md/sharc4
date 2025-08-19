@@ -573,20 +573,25 @@ def check_files(path, trajectories, INFOS):
 def check_runtime(path, trajectories, INFOS):
     # get maximum run time
     f = os.path.join(path, 'output.log')
+    # print(f)
     f = readfile(f)
     if not check_printlevel(f):
         pass
     trajectories[path]['tana'] = 0
+    # print(trajectories[path]['tana'])
     for line in reversed(f):
         trajectories[path]['laststep'] = 0
         trajectories[path]['maxsteps'] = 1
         if 'entering timestep' in line.lower():
             trajectories[path]['laststep'] = int(line.split()[3])
             break
+    # print(trajectories[path]['laststep'])
     for line in reversed(f):
         if 'found nsteps=' in line.lower():
             trajectories[path]['maxsteps'] = int(line.split()[2])
             trajectories[path]['dtstep'] = float(line.split()[5])
+    # print(trajectories[path]['maxsteps'])
+    # print(trajectories[path]['dtstep'])
     s = '    Progress:         ['
     progress = float(trajectories[path]['laststep']) / trajectories[path]['maxsteps']
     s += '=' * int(25 * progress) + ' ' * (25 - int(25 * progress)) + ']     %.1f of %.1f fs' % (trajectories[path]['laststep'] * trajectories[path]['dtstep'], trajectories[path]['maxsteps'] * trajectories[path]['dtstep'])
