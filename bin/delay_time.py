@@ -23,9 +23,6 @@
 #
 # ******************************************
 
-# Interactive script for the setup of dynamics calculations for SHARC
-#
-# usage: python setup_traj.py
 
 import copy
 import math

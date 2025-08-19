@@ -37,7 +37,7 @@ import datetime
 import random
 from optparse import OptionParser
 from socket import gethostname
-
+import numpy as np
 from logger import log
 import factory
 from utils import question, itnmstates, expand_path
@@ -318,6 +318,8 @@ class STATE:
         self.eref = eref.real
         self.dip = dip
         self.Excited = False
+        self.ExcTime = ""
+        self.IState = ""
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -332,6 +334,8 @@ class STATE:
         self.eref = try_read(f, 2, float, 0.0)
         self.dip = [complex(try_read(f, i, float, 0.0), try_read(f, i + 1, float, 0.0)) for i in [3, 5, 7]]
         self.Excited = try_read(f, 11, bool, False)
+        self.IState = try_read(f, 12, str, "")
+        self.ExcTime = try_read(f, 13, str, "")
         self.Eexc = self.e - self.eref
         self.Fosc = (2.0 / 3.0 * self.Eexc * sum([i * i.conjugate() for i in self.dip])).real
         if self.Eexc == 0.0:
@@ -343,7 +347,7 @@ class STATE:
         s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
-        s += "% 12.8f % 12.8f %s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited)
+        s += "% 12.8f % 12.8f %s % s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
         return s
 
     def Excite(self, max_Prob, erange):
@@ -376,6 +380,8 @@ class INITCOND:
         self.Epot = self.statelist[0].e - self.eref
 
     def init_from_file(self, f, eref, index):
+        # Turn on, once implemented
+        # have_coeff = False
         while True:
             line = f.readline()
             # if 'Index     %i' % (index) in line:
@@ -391,7 +397,12 @@ class INITCOND:
         self.Ekin = 0.
         while True:
             line = f.readline()
-            if "States" in line:
+            # Turn on, once implemented
+            # if "excitation_times" in line:
+            #     have_exc_times = True
+            # if "explicit_coefficients" in line:
+            #     have_coeff = True
+            if "States" in line:  # "States" must be the last variable in the header
                 break
             m, vx, vy, vz = line.split()[-4:]
             self.Ekin += 0.5 * float(m) * U_TO_AMU * (float(vx) ** 2 + float(vy) ** 2 + float(vz) ** 2)
@@ -401,9 +412,29 @@ class INITCOND:
             line = f.readline()
             if "Ekin" in line:
                 break
+            # Turn on, once implemented
+            # if "Coefficients" in line:
+            #     have_coeff = True
+            #     break
             state = STATE()
             state.init_from_str(line)
             statelist.append(state)
+        self.statelist = statelist
+        self.nstate = len(statelist)
+        # Turn on, once implemented
+        # if have_coeff:
+        #     self.coeff = np.zeros((self.nstate, self.nstate, 2))
+        #     for i, istate in enumerate(self.statelist):
+        #         if istate.Excited:
+        #             line = f.readline()
+        #             if ("Coef" in line) and i == int(line.split()[1])-1:
+        #                 # read coefficients
+        #                 for j in range(self.nstate):
+        #                     line = f.readline()
+        #                     self.coeff[i, j] = np.array([float(line.split()[k]) for k in range(1, 3)])
+        #             else:
+        #                 log.info(f"Did not find coefficients for starting in state {i}!")
+        #                 quit(1)
         epot_harm = 0.0
         while not line == "\n" and not line == "":
             line = f.readline()
@@ -415,8 +446,6 @@ class INITCOND:
         self.Epot_harm = epot_harm
         self.natom = len(atomlist)
         # self.Ekin = sum([atom.Ekin for atom in self.atomlist])
-        self.statelist = statelist
-        self.nstate = len(statelist)
         if self.nstate > 0:
             self.Epot = self.statelist[0].e - self.eref
         else:
@@ -647,7 +676,7 @@ def check_laserfile(filename, nsteps, dt):
         if len(line.split()) >= 8:
             n += 1
         else:
-            break
+            break 
     if n < nsteps:
         log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
         return False
@@ -732,6 +761,21 @@ from the initconds.excited files as provided by excite.py.
 
     # get guess for number of states
     line = initf.readline()
+    # Turn on, once implemented
+    if "excitation_times" in line.lower():
+    #     if line.split()[1].strip().lower() == "true":
+    #         INFOS["exctime_bool"] = True
+            line = initf.readline()
+    #     else:
+    #         INFOS["exctime_bool"] = False
+    #         line = initf.readline()
+    if "explicit_coefficients" in line.lower():
+    #     if line.split()[1].strip().lower() == "true":
+    #         INFOS["coeff_bool"] = True
+            line = initf.readline()
+    #     else:
+    #         INFOS["coeff_bool"] = False
+    #         line = initf.readline()
     if "states" in line.lower():
         states = []
         li = line.split()
@@ -1883,7 +1927,10 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     for nst in INFOS["charge"]:
         s += "%i " % nst
     s += "\nstate %i %s\n" % (istate, ["mch", "diag"][INFOS["diag"]])
-    s += "coeff auto\n"
+    if INFOS["coeff_bool"]:
+        s += "coeff external\n"
+    else:
+        s += "coeff auto\n"
     s += "rngseed %i\n\n" % (random.randint(-32768, 32767))
     s += "ezero %18.10f\n" % (INFOS["eref"])
 
@@ -2110,6 +2157,15 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     for atom in initobject.atomlist:
         velocf.write(atom[60:])
     velocf.close()
+    
+    if INFOS["coeff_bool"]:
+        coefffname = iconddir + "/coeff"
+        header =  str(istate) + ' '
+        if (INFOS["repr"] == "MCH"):
+          header += 'mch'
+        else: 
+          header += 'diag'
+        np.savetxt(coefffname, initobject.coeff[istate-1], fmt='% .10f', header=header)
 
     # laser file
     if INFOS["laser"]:
@@ -2323,15 +2379,20 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             if io != 0:
                 log.info("Skipping initial condition %i %i!" % (istate, icond))
                 continue
+            if initlist[icond-1].statelist[istate-1].ExcTime != "":
+                with open(os.path.join(dirname, "start.time"), "w") as tfile:
+                    exc_time_rd = np.ceil(float(initlist[icond-1].statelist[istate-1].ExcTime)/INFOS["dtstep"])*INFOS["dtstep"]
+                    tfile.write(f"{exc_time_rd:.3f}\n")
+                    tfile.write(f"{int(initlist[icond-1].statelist[istate-1].IState)}\n")
 
             writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, ask=ask)
             ask = False
-            io = make_directory(dirname + "/QM")
-            io += make_directory(dirname + "/restart")
+            io = make_directory(os.path.join(dirname, "QM"))
+            io += make_directory(os.path.join(dirname, "restart"))
             if io != 0:
                 log.info("Could not make QM or restart directory!")
                 continue
-            interface.prepare(INFOS, dirname + "/QM")
+            interface.prepare(INFOS, os.path.join(dirname, "QM"))
             
             if not INFOS["pysharc"]:
                 run_qm = open(dirname + "/QM/runQM.sh", "w")
@@ -2384,11 +2445,6 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
     log.info("\n")
 
 
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-
-
 def main():
     """Main routine"""
 
@@ -2403,7 +2459,7 @@ This interactive program prepares SHARC dynamics calculations.
 
     displaywelcome()
     open_keystrokes()
-    INFOS = {"select_directly": True}  # deactivate in get_infos within interface!
+    INFOS = {"select_directly": True, "coeff_bool": 0}  # deactivate in get_infos within interface!, no starting coefficients
 
     INFOS = get_general(INFOS)
     chosen_interface: SHARC_INTERFACE = get_interface()()
@@ -2411,7 +2467,6 @@ This interactive program prepares SHARC dynamics calculations.
     INFOS = chosen_interface.get_infos(INFOS, KEYSTROKES)
     INFOS = get_trajectory_info(INFOS, chosen_interface)
     INFOS = get_runscript_info(INFOS)
-
     log.info("\n" + f"{'Full input':#^60}" + "\n")
     for item in INFOS:
         if "initlist" not in item:
