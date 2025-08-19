@@ -91,6 +91,8 @@ private alloc_list, resize_list
     character*8000 :: line, line_precomment, line_postcomment
     integer :: io
 
+    ! stat = 0
+    io = 0
     do
       ! read a line
       read(nunit,'(A)', iostat=io) line

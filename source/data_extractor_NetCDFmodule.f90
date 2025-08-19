@@ -70,6 +70,7 @@ module data_extractor_NetCDFmodule
   type Tshdata
     integer              :: state_diag, state_MCH, time_step
     real*8               :: Ekin, Epot, randnum, Etot
+    real*8              :: time_shift
     integer, allocatable :: nstates_m(:)    !< number of states per multiplicity
     complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_ssd(:,:,:)
     complex*16, allocatable :: Prop2d_xss(:,:,:)
@@ -1015,6 +1016,17 @@ contains
       write(6,*) 'WARNING: Reference overlap not available! Data in coeff_diab.out will be incompatible with other trajectories.'
     endif
   endif
+
+  shdata%time_shift = 0.
+  inquire(file='start.time', exist=exists)
+  if (exists) then
+    open(unit=u_tshift, file='start.time', status='old', action='read')
+    read(u_tshift,'(F10.3)') shdata%time_shift
+    close(u_tshift)
+    write(*,*) 'Spotted time shift'
+    write(*,*) shdata%time_shift
+  endif
+
   end subroutine initialize_data
 
 ! -----------------------------------------------------------------------------
@@ -1115,7 +1127,8 @@ contains
 
     if (write_options%write_geometry) then
       write(u_xyz,'(I12)') general_infos%natom
-      write(u_xyz,'(A5, 1X, F14.5, 1X, I4, 1X, i4)') 't= ',time_step*general_infos%dtstep, shdata%state_diag, shdata%state_MCH
+      write(u_xyz,'(A5, 1X, F14.5, 1X, I4, 1X, i4)') 't= ',shdata%time_step*general_infos%dtstep, &
+      &shdata%state_diag, shdata%state_MCH
       do iatom=1,general_infos%natom
         write(u_xyz,'(A2,3(1X,F16.9))') shdata%element_a(iatom), (shdata%geom_ad(iatom,idir)*au2a,idir=1,3)
       enddo
@@ -1127,7 +1140,7 @@ contains
     if (write_options%write_energy) then
       ! write to energy.out
       write(u_ener,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
       (real(shdata%H_diag_ss(istate,istate)*au2eV),istate=1,nstates)
     endif
 
@@ -1135,13 +1148,13 @@ contains
     if (write_options%write_dip) then
       ! write to fosc.out
       write(u_dm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%expec_dm(shdata%state_diag),&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%expec_dm(shdata%state_diag),&
       (shdata%expec_dm(istate),istate=1,nstates)
     endif
     if (write_options%write_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
-      & time_step*general_infos%dtstep,(abs(real(shdata%H_diag_ss(istate,istate)&
+      & shdata%time_step*general_infos%dtstep+shdata%time_shift,(abs(real(shdata%H_diag_ss(istate,istate)&
       & -shdata%H_diag_ss(shdata%state_diag,shdata%state_diag)))*au2eV,istate=1,nstates),&
       & (shdata%expec_dm_act(istate),istate=1,nstates)
 !       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
@@ -1151,10 +1164,10 @@ contains
 
     if (write_options%write_dipoles) then
       write(u_dipole_mch,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%dipole_diag(shdata%state_diag),&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%dipole_diag(shdata%state_diag),&
       (shdata%dipole_mch(istate),istate=1,nstates)
       write(u_dipole,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%dipole_diag(shdata%state_diag),&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%dipole_diag(shdata%state_diag),&
       (shdata%dipole_diag(istate),istate=1,nstates)
     endif 
 
@@ -1163,14 +1176,14 @@ contains
     if (write_options%write_iondiag) then
       ! write to ion_diag.out
       write(u_ion_diag,'(2X,ES20.12E3,1X,I20,1X,1000(ES20.12E3,1X))') &
-      & time_step*general_infos%dtstep,shdata%state_diag,(real(shdata%H_diag_ss(istate,istate)&
+      & shdata%time_step*general_infos%dtstep+shdata%time_shift,shdata%state_diag,(real(shdata%H_diag_ss(istate,istate)&
       & -shdata%H_diag_ss(shdata%state_diag,shdata%state_diag))*au2eV,istate=1,nstates),&
       & (shdata%expec_ion_diag(istate),istate=1,nstates)
     endif
     if (write_options%write_ionmch) then
       ! write to ion_mch.out
       write(u_ion_mch,'(2X,ES20.12E3,1X,I20,1X,1000(ES20.12E3,1X))') &
-      & time_step*general_infos%dtstep,shdata%state_diag,(real(shdata%H_mch_ss(istate,istate) &
+      & shdata%time_step*general_infos%dtstep+shdata%time_shift,shdata%state_diag,(real(shdata%H_mch_ss(istate,istate) &
       & -shdata%H_mch_ss(shdata%state_mch,shdata%state_mch))*au2eV,istate=1,nstates),&
       & (shdata%expec_ion_mch(istate),istate=1,nstates)
     endif
@@ -1179,7 +1192,7 @@ contains
     if (write_options%write_spin) then
       ! write to spin.out
       write(u_spin,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%expec_s(shdata%state_diag),&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%expec_s(shdata%state_diag),&
       (shdata%expec_s(istate),istate=1,nstates)
     endif
 
@@ -1192,15 +1205,15 @@ contains
       enddo
       ! write to coeff_diag.out
       write(u_coefd,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, sumc,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, sumc,&
       (shdata%coeff_diag_s(istate),istate=1,nstates)
       ! write to coeff_class_diag.out
       write(u_classd,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (delta(istate,shdata%state_diag),istate=1,nstates)
       ! write to coeff_mixed_diag.out
       write(u_cmixd,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (delta(istate,shdata%state_diag),istate=1,nstates)
     endif
 
@@ -1213,11 +1226,11 @@ contains
       enddo
       ! write to coeff_MCH.out
       write(u_coefm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, sumc,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, sumc,&
       (shdata%coeff_MCH_s(istate),istate=1,nstates)
       ! write to coeff_class_MCH.out
       write(u_classm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (real(abs(shdata%U_ss(istate,shdata%state_diag))**2),istate=1,nstates)
       ! write to coeff_mixed_MCH.out
       expec_pop=0.d0
@@ -1236,7 +1249,7 @@ contains
         enddo
       enddo
       write(u_cmixm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (expec_pop(istate),istate=1,nstates)
     endif
 
@@ -1249,12 +1262,12 @@ contains
       enddo
       ! write to coeff_diab.out
       write(u_coefdiab,'(2X,1000(ES20.12E3,X))') &
-      &time_step*general_infos%dtstep, sumc,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, sumc,&
       (shdata%coeff_diab_s(istate),istate=1,nstates)
       ! write to coeff_class_diab.out
       call matmultiply(nstates,shdata%ref_ovl_ss,shdata%U_ss,A_ss,'nn')
       write(u_classdiab,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (real(abs(A_ss(istate,shdata%state_diag))**2),istate=1,nstates)
       ! write to coeff_mixed_diab.out
       expec_pop=0.d0
@@ -1273,7 +1286,7 @@ contains
         enddo
       enddo
       write(u_cmixdiab,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (expec_pop(istate),istate=1,nstates)
     endif
 
@@ -1285,7 +1298,7 @@ contains
       enddo
       ! write to prob.out
       write(u_prob,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%randnum,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%randnum,&
       (shdata%hopprob_s(istate),istate=1,nstates)
     endif
 
@@ -1295,7 +1308,7 @@ contains
       ! this infos are also in energy.out, spin.out and fosc.out
       ! but in order to plot them together they are also written in one file
       write(u_expec,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
       &(real(shdata%H_diag_ss(istate,istate)*au2eV),istate=1,nstates),&
       &(shdata%expec_s(istate),istate=1,nstates),&
       &(shdata%expec_dm(istate),istate=1,nstates)
@@ -1304,7 +1317,7 @@ contains
 
     if (write_options%write_expecmch) then
       write(u_expec_mch,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
       &(real(shdata%H_MCH_ss(istate,istate)*au2eV),istate=1,nstates),&
       &(shdata%spin0_s(istate),istate=1,nstates),&
       &(shdata%expec_dm_mch(istate),istate=1,nstates)

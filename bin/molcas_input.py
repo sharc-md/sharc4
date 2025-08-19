@@ -834,9 +834,9 @@ mkdir -p $WorkDir
     string += 'cd $WorkDir'
 
     if os.path.isfile(os.path.join(INFOS['molcas'], 'bin', 'pymolcas')):
-        string += '\n$MOLCAS/bin/pymolcas MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
+        string += '\n$MOLCAS/bin/pymolcas $HomeDir/MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
     elif os.path.isfile(os.path.join(INFOS['molcas'], 'bin', 'molcas.exe')):
-        string += '\n$MOLCAS/bin/molcas.exe MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
+        string += '\n$MOLCAS/bin/molcas.exe $HomeDir/MOLCAS.input &> $CurrDir/MOLCAS.log\n\n'
     else:
         print('Could not find MOLCAS driver in %s' % os.path.join(INFOS['molcas'], 'bin'))
         sys.exit(1)
@@ -849,6 +849,7 @@ mkdir -p $WorkDir
         string += 'cp $WorkDir/%sOrbitals.* $WorkDir/*.molden $WorkDir/*RasOrb $HomeDir\n' % (IToMult[mult])
 
     string += '#mkdir -p $HomeDir/TRD/\n#cp $WorkDir/TRD2_* $HomeDir/TRD/\n'
+    string += 'cp -r $WorkDir/* $HomeDir\n'
 
     if INFOS['delete_scratch']:
         string += '\nrm -r $SCRATCH_DIR\n'
@@ -859,7 +860,7 @@ mkdir -p $WorkDir
     try:
         runf = open(runscript, 'w')
     except IOError:
-        print('Could not write %s' (runscript))
+        print('Could not write %s' % (runscript))
         return
     runf.write(string)
     runf.close()
