@@ -820,7 +820,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     parser.add_option('-T', dest='T', type=int, nargs=1, default=0, help="start counting the timesteps at T (default=0)")
     parser.add_option('-n', dest='n', action="store_true", help="prepend set to start at 0 fs and fill with NaN values")
     (options, args) = parser.parse_args()
-    global p, f, Bohrs, Radians
+    global p, f, Bohrs, Radians, Fill_Nan
     if options.f >= 20:
         f = options.f
     else:
@@ -834,7 +834,7 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     Fill_Nan = options.n
     dt = options.t
     if os.path.exists("start.time") and options.T==0:
-        Tshift = float(np.genfromtxt("start.time")[0]/options.t)
+        Tshift = int(np.genfromtxt("start.time")[0]/options.t)
     else:
         Tshift = options.T
 
@@ -878,8 +878,8 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     t = 0
     # Set variables for outputting NaNs as preprend
     if Fill_Nan and Tshift != 0.0:
-        len_geo = len(geo)+int(Tshift/dt)
-        Tshift_index = int(Tshift/dt)
+        len_geo = len(geo)+int(Tshift)
+        Tshift_index = Tshift
     else:
         len_geo = len(geo)
         Tshift_index = int(0)

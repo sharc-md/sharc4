@@ -84,6 +84,7 @@ program data_extractor
   integer, parameter :: u_cmixd=64         !< JCP 139, 211101 (2013), Method 3 (diag)
   integer, parameter :: u_cmixm=65         !< JCP 139, 211101 (2013), Method 3 (MCH)
   integer, parameter :: u_cmixdiab=66      !< JCP 139, 211101 (2013), Method 3 (diabatic)
+  integer, parameter :: u_tshift=70        !< unit for start.time
 
   integer, parameter :: u_xyz=99         !< unit for output.xyz
 
@@ -108,6 +109,7 @@ program data_extractor
   integer :: nsubsteps                    !< number of substeps (needed to read the laser field)
   integer :: nprojections                    !< number of vectors to project dipole moment onto
   integer :: adaptive                     !< whether using adaptive time step
+  real*8 :: time_shift                   !< if file start.time is detected in TRAJ folder, shift the time by this float
 
   !> # Information that is needed in adaptive timestep
   real*8 :: dtstep_adapted                !< adapted nuclear timestep
@@ -1072,6 +1074,16 @@ program data_extractor
     endif
   endif
 
+  time_shift = 0.
+  inquire(file='start.time', exist=exists)
+  if (exists) then
+    open(unit=u_tshift, file='start.time', status='old', action='read')                                                                    
+    read(u_tshift, *) time_shift
+    close(u_tshift)
+    write(*,*) 'Spotted time shift' 
+    write(*,*) time_shift 
+  endif
+
   ! =============================================================================================
   !                                Main loop
   ! =============================================================================================
@@ -1085,9 +1097,12 @@ program data_extractor
     if (io/=0) exit
     if (adaptive==0) then 
       read(u_dat,*) step
-      microtime=step*dtstep
+      microtime=step*dtstep+time_shift
+      write(*,*) 'Applied time shift (no adaptive step)'
     else if (adaptive==1) then
       read(u_dat,*) nsteps_adapted, microtime, dtstep_adapted
+      microtime=microtime+time_shift
+      write(*,*) 'Applied time shift (adaptive step)'
     endif
     call matread(nstates,H_MCH_ss,u_dat,string1)
     call matread(nstates,U_ss,u_dat,string1)
