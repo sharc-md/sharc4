@@ -114,7 +114,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.QMin.template.update(
             {
                 "no_tda": False,
-                "basis": "6-31G",
+                "basis": "def2-SVP",
                 "auxbasis": None,
                 "functional": "PBE",
                 "dispersion": None,
@@ -465,6 +465,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self.log.debug(f"Extracting AO matrix from {gbw_first} and {gbw_second} from orca_fragovl")
         gbw_first = os.path.join(workdir, gbw_first)
         gbw_second = os.path.join(workdir, gbw_second)
+
+        match = re.fullmatch(r"(?:STO|[\d+]+(?:-[\d+]+)?[Gg](?:\*{0,2}|\([^)]+\))?)",  self.QMin.template["basis"])
+        if match:
+            self.log.error("Detected a Pople basis set. These are not compatible with wfoverlap.x!")
+            raise ValueError("Detected a Pople basis set. These are not compatible with wfoverlap.x!")
 
         # run orca_fragovl
         string = f"{os.path.join(self.QMin.resources['orcadir'],'orca_fragovl')} {gbw_first} {gbw_second}"
@@ -1077,6 +1082,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         gsmult = mults[0]
         states_extract = deepcopy(self.QMin.molecule["states"])
         states_extract[gsmult - 1] -= 1
+        use_rpa = self.QMin.template["no_tda"]
 
         states_extract = [0 if idx + 1 not in mults else val for idx, val in enumerate(states_extract)]
         states_extract = [max(states_extract) if idx + 1 in mults else val for idx, val in enumerate(states_extract)]
@@ -1101,6 +1107,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
         sub_states = 0
         if self.QMin.resources["orcaversion"] >= (6, 0):
             sub_states = states_extract[gsmult - 1]
+        if use_rpa:
+            sub_states = 0  
         for imult in mults:
             nstates = states_extract[imult - 1]
             for state, energy in iter_states:
@@ -1192,6 +1200,12 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if not os.path.isfile(self.QMin.template["paste_input_file"]):
                 self.log.error(f"paste_input_file {self.QMin.template['paste_input_file']} does not exist!")
                 raise FileNotFoundError()
+            
+        # Warn from Pople basis sets
+        match = re.fullmatch(r"(?:STO|[\d+]+(?:-[\d+]+)?[Gg](?:\*{0,2}|\([^)]+\))?)",  self.QMin.template["basis"])
+        if match:
+            self.log.warning("Detected a Pople basis set! Overlap calculations will not work properly")
+            
 
     def run(self) -> None:
         """

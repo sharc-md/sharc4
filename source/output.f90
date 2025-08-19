@@ -106,8 +106,8 @@ subroutine write_logtimestep(u,step,trajtime)
   date=ctime(idate)
   if (printlevel>0) then
     write(u,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<============================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-    write(u,'(A,I6,A)') '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Entering timestep ',step,'  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-    write(u,'(A,F12.5,A)') '<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Trajectory time in fs',trajtime*au2fs,'  >>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+    write(u,'(A,I9,A)') '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Entering timestep ',step,'  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+    write(u,'(A,F12.4,A)') '<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Trajectory time in fs',trajtime*au2fs,'  >>>>>>>>>>>>>>>>>>>>>>>>>>>>'
     write(u,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<============================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
     write(u,'(56X,A12,A)')     'Start time: ', trim(date)
     write(u,*)
@@ -282,7 +282,7 @@ subroutine write_list_line(u, traj, ctrl)
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: u, imult,ims,istate,jstate,i,iatom,idir
-  real*8 :: expec_dm, expec_s, grad_length, temp_dm, den
+  real*8 :: expec_dm, expec_s, grad_length, temp_dm, den, gap
   real*8 :: p(ctrl%natom,3), r(ctrl%natom,3), summass, com(3), jmag, j(3)
 
   ! calculate properties
@@ -361,26 +361,30 @@ subroutine write_list_line(u, traj, ctrl)
   jmag = dsqrt(jmag)
 
   if ( (ctrl%time_uncertainty==1 .and. traj%in_time_uncertainty==0) .or. ctrl%time_uncertainty==0 ) then 
+  gap = (traj%H_diag_ss(traj%state_diag,traj%state_diag)-traj%H_diag_ss(traj%state_diag_old,traj%state_diag_old))*au2eV
   select case (traj%kind_of_jump)
     case (0)
       continue
     case (1)
-      write(u,'(A,1X,A,1X,I4,1X,A,1X,I4,1X,A,1X,F12.9)') &
-      &'#','Surface Hop/Pointer State Switch: new state=',traj%state_diag,'old state=',traj%state_diag_old,'randnum=',traj%randnum
+      write(u,'(A,1X,A,1X,I6,1X,A,1X,I6,1X,A,1X,F12.9,1X,A,1X,F9.6,1X,A2)') &
+      &'#','Surface Hop/Pointer State Switch: new state=',traj%state_diag,&
+      &'old state=',traj%state_diag_old,'randnum=',traj%randnum,'gap=',gap,'eV'
     case (2)
       write(u,'(A)') '# Jump frustrated.'
     case (3)
-      write(u,'(A,1X,A,1X,I4,1X,A,1X,I4,1X,A,1X,F12.9)') &
-      &'#','Surface Hop: new state=',traj%state_diag,'old state=',traj%state_diag_old,'randnum=',traj%randnum
+      write(u,'(A,1X,A,1X,I6,1X,A,1X,I6,1X,A,1X,F12.9,1X,A,1X,F9.6,1X,A2)') &
+      &'#','Surface Hop: new state=',traj%state_diag,&
+      &'old state=',traj%state_diag_old,'randnum=',traj%randnum,'gap=',gap,'eV'
       write(u,'(A)') '# Transition resonant to laser.'
     case (4)
       write(u,'(A)') '# Forced jump to ground state.'
-      write(u,'(A,1X,A,1X,I4,1X,A,1X,I4,1X,A,1X,F12.9)') &
-      &'#','Surface Hop: new state=',traj%state_diag,'old state=',traj%state_diag_old,'randnum=',traj%randnum
+      write(u,'(A,1X,A,1X,I6,1X,A,1X,I6,1X,A,1X,F12.9,1X,A,1X,F9.6,1X,A2)') &
+      &'#','Surface Hop: new state=',traj%state_diag,&
+      &'old state=',traj%state_diag_old,'randnum=',traj%randnum,'gap=',gap,'eV'
   endselect
   endif
 
-  write(u,'(1X,I9,3X,F12.5,3X,2(I5,3X),8(F12.6,3X),I10)') &
+  write(u,'(1X,I9,3X,F12.4,3X,2(I5,3X),8(F12.6,3X),I10)') &
   &traj%step, au2fs*traj%microtime, &
   &traj%state_diag, traj%state_MCH, &
   &traj%Ekin*au2eV, traj%Epot*au2eV, traj%Etot*au2eV, &
