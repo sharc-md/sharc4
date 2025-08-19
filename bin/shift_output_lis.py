@@ -54,22 +54,8 @@ def update_time(path):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python update_time_in_folders.py <directory_path>")
+        print("Usage: python shift_output_lis.py <directory_path>")
         sys.exit(1)
     
-    # Get the base directory from the command-line argument
-    base_dir = [sys.argv[i] for i in range(1,len(sys.argv[:]))]
-    
-    for state_dir in base_dir:
-        # Check if the directory exists
-        if not os.path.isdir(state_dir):
-            print(f"Error: {state_dir} is not a valid directory.")
-            sys.exit(1)
-        
-        # Iterate through each subfolder in the base directory
-        for subfolder in os.listdir(state_dir):
-            subfolder_path = os.path.join(state_dir, subfolder)
-            if os.path.isdir(subfolder_path) and subfolder.startswith("TRAJ_"):
-                update_time(subfolder_path)
-    
-    print("Processing completed.")
+    update_time(os.path.abspath(sys.argv[1]))
+   

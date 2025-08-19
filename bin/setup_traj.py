@@ -622,7 +622,6 @@ def analyze_initconds(initlist, INFOS):
                 if i.statelist[state].Excited:
                     display.add("#")
                     n_issel[-1] += 1
-                    log.info(i.statelist[state].Excited)
                 else:
                     display.add(".")
         if INFOS["show_content"]:
@@ -678,16 +677,13 @@ def check_laserfile(filename, nsteps, dt):
             n += 1
         else:
             break 
-    print(line, n)
     if n < nsteps:
-        print(n, nsteps)
         log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
         return False
     for i in range(int(nsteps) - 1):
         t0 = float(data[i].split()[0])
         t1 = float(data[i + 1].split()[0])
-        if abs(abs(t1 - t0) - dt) > 1e-5:
-            print(t0, t1, dt)
+        if abs(abs(t1 - t0) - dt) > 1e-6:
             log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
             return False
     return True

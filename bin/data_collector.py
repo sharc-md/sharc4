@@ -1007,7 +1007,7 @@ def synchronize(all_data):
     all_times = np.array(sorted(all_times))
     all_times_idx = {k: i for i, k in enumerate(all_times)}
 
-    counts = np.zeros_like(all_times)
+    counts = np.zeros_like(all_times) 
 
     file_keys = sorted(all_data.keys())
     arr = np.full((len(file_keys), len(all_times), 2, all_data[filekey]["arr"].shape[2]), np.nan)
@@ -1017,17 +1017,21 @@ def synchronize(all_data):
         sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
         if (
             len(all_data[fk]["time"]) == len(all_times)
-            and np.all(np.isclose(all_data[fk]["time"], all_times)) and not np.any(np.isnan(all_data[fk]["arr"]))
+            and np.all(np.isclose(all_data[fk]["time"] * discretizer, all_times)) and not np.any(np.isnan(all_data[fk]["arr"]))
         ):
+            # print("Mode 1")
             arr[i, ...] = all_data[fk]["arr"]
             counts += 1
         elif (
             len(all_data[fk]["time"]) == len(all_times)
-            and np.all(np.isclose(all_data[fk]["time"], all_times))
+            and np.all(np.isclose(all_data[fk]["time"] * discretizer, all_times))
         ):
+            # print("Mode 2")
             arr[i, ...] = all_data[fk]["arr"]
-            counts += ~np.any(np.isnan(all_data[fk]["arr"]), axis=1).reshape(-1)
+            # counts += ~np.any(np.isnan(all_data[fk]["arr"]), axis=1).reshape(-1)
+            counts += ~np.any(np.isnan(all_data[fk]["arr"]), axis=(1,2))
         else:
+            # print("Mode 3")
             idx = [all_times_idx[t] for t in (all_data[fk]["time"] * discretizer).astype(int)]
             arr[i, idx, ...] = all_data[fk]["arr"]
             counts[idx] += ~np.any(np.isnan(all_data[fk]["arr"]), axis=(1,2))
