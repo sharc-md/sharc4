@@ -111,7 +111,9 @@ program data_extractor
     ! ========== Calculating is done for this time step =============
     call write_data_to_file(nstates, istep, general_infos, write_options, shdata)
     ! write progress to screen
-    write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',shdata%time_step*general_infos%dtstep+shdata%time_shift,' fs'
+    write(*,'(A,F9.2,A)') 't=',shdata%time_step*general_infos%dtstep+shdata%time_shift,' fs'
+    ! write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',&
+    ! &shdata%time_step*general_infos%dtstep+shdata%time_shift,' fs'
 
     istep = istep + 1
     if (istep == nsteps) then

@@ -1098,11 +1098,11 @@ program data_extractor
     if (adaptive==0) then 
       read(u_dat,*) step
       microtime=step*dtstep+time_shift
-      write(*,*) 'Applied time shift (no adaptive step)'
+      ! write(*,*) 'Applied time shift (no adaptive step)'
     else if (adaptive==1) then
       read(u_dat,*) nsteps_adapted, microtime, dtstep_adapted
       microtime=microtime+time_shift
-      write(*,*) 'Applied time shift (adaptive step)'
+      ! write(*,*) 'Applied time shift (adaptive step)'
     endif
     call matread(nstates,H_MCH_ss,u_dat,string1)
     call matread(nstates,U_ss,u_dat,string1)
