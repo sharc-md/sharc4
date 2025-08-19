@@ -696,7 +696,7 @@ def do_calc(INFOS):
     if ntraj == 0:
         print('No valid trajectories found, exiting...')
         sys.exit(0)
-    t0_list = [0.0] * ntraj
+    t0_list = [0.0 for _ in range(ntraj)]
 
     # get timestep
     if INFOS['mode'] in [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
@@ -911,7 +911,7 @@ def do_calc(INFOS):
                 pop[i][initstate[fileindex]] += 1
             for j in range(nstates):
                 pop[i][j] += pop_full[fileindex][i][j]
-        print(f"SUM @ {i*dt} fs: {np.sum(pop[i][:])}")
+        # print(f"SUM @ {i*dt} fs: {np.sum(pop[i][:])}")
     # write populations
     s = '#Mode: %i\n' % INFOS['mode']
     s += '#%15i ' % (1)

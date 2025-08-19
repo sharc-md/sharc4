@@ -762,17 +762,17 @@ from the initconds.excited files as provided by excite.py.
     # get guess for number of states
     line = initf.readline()
     # Turn on, once implemented
-    # if "excitation_times" in line.lower():
+    if "excitation_times" in line.lower():
     #     if line.split()[1].strip().lower() == "true":
     #         INFOS["exctime_bool"] = True
-    #         line = initf.readline()
+            line = initf.readline()
     #     else:
     #         INFOS["exctime_bool"] = False
     #         line = initf.readline()
-    # if "explicit_coefficients" in line.lower():
+    if "explicit_coefficients" in line.lower():
     #     if line.split()[1].strip().lower() == "true":
     #         INFOS["coeff_bool"] = True
-    #         line = initf.readline()
+            line = initf.readline()
     #     else:
     #         INFOS["coeff_bool"] = False
     #         line = initf.readline()
