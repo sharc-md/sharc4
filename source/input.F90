@@ -2862,6 +2862,7 @@ module input
       endif
       do i=1,ctrl%nstates
         read(u_i_coeff,'(A)') line
+        if (line(1:1) == "#") read(u_i_coeff,'(A)') line! possible comment line starting with "#"
         call split(line,' ',values,n)
         if (n<2) then
           write(0,*) 'Problem reading the coefficients file!'
@@ -3070,7 +3071,8 @@ module input
             stop 1
           endif
         endif
-        b=ctrl%dtstep/ctrl%nsubsteps
+        ! b=ctrl%tmax/(ctrl%nsubsteps*ctrl%nsteps)
+        b=ctrl%dtstep/ctrl%nsubsteps 
         if ( dabs(a-b*(i-1))>0.001d0) then 
           write(0,*) 'Laser field spacing does not match substep spacing!'
           stop 1

@@ -191,7 +191,6 @@ def main():
     )
 
     (options, args) = parser.parse_args()
-
     # open files
     file_size_mb = os.path.getsize(options.g) / (1024 * 1024)
     # buffered = file_size_mb<50.
@@ -219,6 +218,11 @@ def main():
     string += " %-12s" % "Comment"
     print(string)
 
+    if os.path.exists("start.time") and options.T==0:         
+        Tshift = int(np.genfromtxt("start.time")[0]/options.t)
+    else:                                                     
+        Tshift = options.T
+
     # iteration
     for igeom, geom in enumerate(TRAJ):
         # process coordinates
@@ -233,7 +237,7 @@ def main():
         Q = np.sqrt(V0["Om"]) * (V0["Km"] @ (coords_in_ref_frame.flatten() - ref_coords.flatten()))
 
         # format output
-        time = (igeom + options.T) * options.t
+        time = (igeom + Tshift) * options.t
         string = "%6.2f " % time
         for i in Q:
             string += ' %12.9f' % i

@@ -70,6 +70,7 @@ module data_extractor_NetCDFmodule
   type Tshdata
     integer              :: state_diag, state_MCH, time_step
     real*8               :: Ekin, Epot, randnum, Etot
+    real*8              :: time_shift
     integer, allocatable :: nstates_m(:)    !< number of states per multiplicity
     complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_ssd(:,:,:)
     complex*16, allocatable :: Prop2d_xss(:,:,:)
@@ -1015,6 +1016,17 @@ contains
       write(6,*) 'WARNING: Reference overlap not available! Data in coeff_diab.out will be incompatible with other trajectories.'
     endif
   endif
+
+  shdata%time_shift = 0.
+  inquire(file='start.time', exist=exists)
+  if (exists) then
+    open(unit=u_tshift, file='start.time', status='old', action='read')
+    read(u_tshift,'(F10.3)') shdata%time_shift
+    close(u_tshift)
+    write(*,*) 'Spotted time shift'
+    write(*,*) shdata%time_shift
+  endif
+
   end subroutine initialize_data
 
 ! -----------------------------------------------------------------------------
