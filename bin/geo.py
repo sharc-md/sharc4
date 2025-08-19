@@ -818,7 +818,8 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     parser.add_option('-g', dest='g', type="string", nargs=1, default="output.xyz", help="geometry file in xyz format (default=output.xyz)")
     parser.add_option('-t', dest='t', type=float, nargs=1, default=1.0, help="timestep between successive geometries is fs (default=1.0 fs)")
     parser.add_option('-T', dest='T', type=int, nargs=1, default=0, help="start counting the timesteps at T (default=0)")
-    parser.add_option('-n', dest='n', action="store_true", help="prepend set to start at 0 fs and fill with NaN values")
+    parser.add_option('--ignore_start_time', dest='TSF', action="store_true", help="ignore start.time file")
+    parser.add_option('-n', dest='n', action="store_true", help="pad with NaNs between 0fs and first time step (if using -T or start.time file)")
     (options, args) = parser.parse_args()
     global p, f, Bohrs, Radians, Fill_Nan
     if options.f >= 20:
@@ -833,8 +834,9 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     Radians = options.r
     Fill_Nan = options.n
     dt = options.t
-    if os.path.exists("start.time") and options.T==0:
+    if os.path.exists("start.time") and options.T==0 and not options.TSF:
         Tshift = int(np.genfromtxt("start.time")[0]/options.t)
+        sys.stderr.write("Spotted time shift = %f!\n" % Tshift)
     else:
         Tshift = options.T
 

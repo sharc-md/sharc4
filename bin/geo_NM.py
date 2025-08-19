@@ -181,6 +181,7 @@ def main():
     parser.add_option('-T', dest='T', type=int, nargs=1, default=0, help="start counting the timesteps at T (default=0)")
     parser.add_option('-k', dest='k', action='store_true', help="Switch on aligning via the Kabsch algorithm")
     parser.add_option('-b', dest='b', action='store_true', help="Switch on buffered reading")
+    parser.add_option('--ignore_start_time', dest='TSF', action="store_true", help="ignore start.time file")
     parser.add_option(
         "-q",
         "--qm-list",
@@ -218,8 +219,9 @@ def main():
     string += " %-12s" % "Comment"
     print(string)
 
-    if os.path.exists("start.time") and options.T==0:         
+    if os.path.exists("start.time") and options.T==0 and not options.TSF:         
         Tshift = int(np.genfromtxt("start.time")[0]/options.t)
+        sys.stderr.write("Spotted time shift = %f!\n" % Tshift)
     else:                                                     
         Tshift = options.T
 
