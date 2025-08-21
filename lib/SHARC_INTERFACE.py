@@ -496,7 +496,7 @@ class SHARC_INTERFACE(ABC):
                         )
                         pccharge.append(float(pcharges[3]))
 
-                    self.QMin.coords["pccoords"] = pccoords
+                    self.QMin.coords["pccoords"] = np.array(pccoords)
                     self.QMin.coords["pccharge"] = pccharge
                     self.QMin.molecule["npc"] = len(pccharge)
                 elif key == "retain":
