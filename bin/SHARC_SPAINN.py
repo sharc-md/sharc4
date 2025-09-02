@@ -126,7 +126,7 @@ class SHARC_SPAINN(SHARC_FAST):
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'SPAINN interface setup':^76}||\n{'||':<78}||")
+        self.log.info(f"||{'SPAINN interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
         if os.path.isfile("SPAINN.template"):

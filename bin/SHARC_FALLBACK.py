@@ -136,7 +136,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         # Setup some output to log
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'FALLBACK interface setup':^76}||\n{'||':<78}||")
+        self.log.info(f"||{'FALLBACK interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
 

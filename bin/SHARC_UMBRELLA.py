@@ -137,7 +137,7 @@ class SHARC_UMBRELLA(SHARC_HYBRID):
     def get_infos(self, INFOS, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'UMBRELLA interface setup':=^76}||\n{'||':<78}||")
+        self.log.info(f"||{'UMBRELLA interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
 

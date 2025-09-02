@@ -1316,7 +1316,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if self.QMin.requests["theodore"]:
             if not self._wfa or not self._hdf5:
-                self.log.error("Theodore not possible without WFA or HDF5!")
+                self.log.error("Theodore not possible without WFA or HDF5 in OpenMolcas!")
                 raise ValueError()
             if not self.QMin.resources["theodore_prop"] or not self.QMin.resources["theodore_fragment"]:
                 self.log.error("theodore_prop and theodore_frag have to be set in resources!")
@@ -1324,7 +1324,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"] or self.QMin.requests["mol"]:
             if not self._hdf5:
-                self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support!")
+                self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support in OpenMolcas!")
                 raise ValueError()
         if self.QMin.requests["multipolar_fit"] and self.QMin.molecule["point_charges"]:
             self.log.error("Multipolar fit not compatible with point charges!")
