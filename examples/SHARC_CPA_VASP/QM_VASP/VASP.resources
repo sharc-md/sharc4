@@ -24,8 +24,8 @@ savedir ./SAVEDIR
 
     ## ======== RESOURCES ============
     ## Number of CPU cores the interface can use.
-ncpu 2
+ncpu 4
 
 # This is gonna be memory in Mb for each MPI rank in VASP. Check MAXMEM keyword in VASP wiki. Default is 2000
-memory 2000 
+memory 2500 
 

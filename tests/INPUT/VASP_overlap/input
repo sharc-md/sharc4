@@ -1,0 +1,36 @@
+geomfile "geom"
+veloc external
+velocfile "veloc"
+
+nstates 2 
+actstates 2 
+charge 0 
+state 2 mch
+coeff auto
+rngseed -7579
+
+ezero      -0.8134194767
+tmax 1.000000
+stepsize 0.500000
+nsubsteps 25
+integrator fvv
+
+method tsh
+surf diagonal
+coupling overlap
+nogradcorrect
+ekincorrect none
+reflect_frustrated none
+decoherence_scheme edc
+decoherence_param 0.1
+hopping_procedure sharc
+grad_all
+select_directly
+nospinorbit
+output_format ascii
+output_dat_steps 1
+
+ 
+boltz_hop yes
+boltz_temp 300.0
+phases_from_interface

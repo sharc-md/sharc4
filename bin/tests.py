@@ -111,7 +111,8 @@ INTERFACES = {'MOLPRO': 'MOLPRO',
               'NWCHEM': 'NWCHEM',
               'MNDO': 'MNDO',
               'MOPACPI': 'MOPACPI',
-              'PYSCF': 'PYSCF'
+              'PYSCF': 'PYSCF',
+              'VASP': 'CPA' 
               }
 
 # ======================================================================================================================
@@ -311,6 +312,8 @@ def get_infos():
     for index, i in enumerate(testlist):
         if 'scripts' in i:
             sys.stdout.write('%5i  ' % (index + 1) + i[0] + ' ' * (35 - len(i[0])) + '\n')
+        elif 'VASP' in i:
+            sys.stdout.write('%5i  ' % (index + 1) + i[0] + ' ' * (35 - len(i[0])) + 'via SHARC_%s.py (calling SHARC_VASP.py)\n' % (INTERFACES[i[1]]))
         else:
             sys.stdout.write('%5i  ' % (index + 1) + i[0] + ' ' * (35 - len(i[0])) + 'via SHARC_%s.py\n' % (INTERFACES[i[1]]))
     sys.stdout.write('\n')
