@@ -809,6 +809,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                for i in act_sp.values():
                    tmp.append(j.single_band_projection(i))
                S.append(np.array(tmp))
+            #np.savetxt('overlap_VASP.dat',S[0]) #Printing out full MOs overlap matrix for VASP check
 
 
         #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
