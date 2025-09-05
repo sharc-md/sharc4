@@ -2274,6 +2274,13 @@ module input
     !Checking whether user has specified both Boltzmann scaling and some velocity rescaling upon hopping.
     ! This should not be allowed
     if ((ctrl%boltz_hop==1) .and. (ctrl%ekincorrect > 0)) then
+      write(0,*) '"boltz_hop" only makes sense within trajectory surface hopping, please set method to tsh in input'
+      stop 1
+    endif
+    
+    !Checking whether user has specified both Boltzmann scaling and a method different than tsh.
+    ! This should not be allowed
+    if ((ctrl%boltz_hop==1) .and. (ctrl%method /= 0)) then
       write(u_log,'(a)') 'if "boltz_hop" is activated you should avoid any sort of velocity rescaling. "ekincorrect" changed to "none"'
       write(u_log,'(a)') 'CPA approximation theoretically account for velocity rescaling via Boltzmann scaling of upwards hops probability.'
       ctrl%ekincorrect=0
