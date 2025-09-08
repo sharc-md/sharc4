@@ -5,7 +5,7 @@ import numpy as np
 import re
 from constants import ANG_TO_BOHR
 
-def vibration_from_outcar(file_outcar='OUTCAR',file_poscar='POSCAR',file_out='vasp.molden'):
+def vibration_from_outcar(file_outcar,file_poscar,file_out,remove_rotations):
     '''
     Read vibration eigenvectors and eigenvalues from OUTCAR and create molden file for SHARC wigner.py
     '''
@@ -65,6 +65,11 @@ def vibration_from_outcar(file_outcar='OUTCAR',file_poscar='POSCAR',file_out='va
     modes=np.array(modes,dtype=np.float64)
     freqs[0:3]=0.0 #3 translations to zero
     modes[0:3,:,3:]=0.0
+    #Remove rotarions if selected. Only for isolated system in a vacuum box.
+    if remove_rotations:
+        print("You have selected to remove rotational degrees of freedom. You must be simulating an isolate system in a vacuum box.\n")
+        freqs[3:6]=0.0
+        modes[3:6,:,3:]=0.0
     
     ##### Writing out molden file for SHARC #####
     
@@ -119,12 +124,15 @@ def parse_cml_args(cml):
                      default='vasp.molden',
                      help='Name of output molden file. Default is vasp.molden')
     
+    arg.add_argument('--remove_rot', dest='RR', action='store_true',
+                     help='Remove rotational degrees of freedom. Only necessary when simulating non-periodic systems in a vacuum box.')
+    
     return arg.parse_args(cml)
 
 def main(cml):
     arg = parse_cml_args(cml)
     print("\nGenerating molden file from VASP frequency calculation\n")
-    vibration_from_outcar(arg.outcar,arg.poscar,arg.file_out)
+    vibration_from_outcar(arg.outcar,arg.poscar,arg.file_out,arg.RR)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
