@@ -1149,11 +1149,12 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
 
     # Phase tracking
     INFOS["phases_from_interface"] = False
-    if Couplings[INFOS["coupling"]]["name"] != "overlap":
-        if "phases" in int_features:
-            INFOS["phases_from_interface"] = question("Do you want to track wavefunction phases through overlaps?", bool, True)
-            if INFOS["phases_from_interface"]:
-                INFOS["needed_requests"].add("phases")
+    if "phases" in int_features:
+        if Couplings[INFOS["coupling"]]["name"] != "overlap":
+            INFOS["phases_from_interface"] = True
+        INFOS["phases_from_interface"] = question("Do you want to track wavefunction phases through overlaps?", bool, INFOS["phases_from_interface"])
+        if INFOS["phases_from_interface"]:
+            INFOS["needed_requests"].add("phases")
 
 
     # Gradient correction (only for diagonal PESs)
@@ -1220,7 +1221,6 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
                 INFOS["needed_requests"].add(i)
 
 
-
         # frustrated reflection
         log.info(
             "\nIf a surface hop is refused (frustrated) due to insufficient energy, the velocity can either be left unchanged or reflected:"
@@ -1246,6 +1246,14 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             for i in EkinCorrect[INFOS["ekincorrect"]]["required"]:
                 INFOS["needed_requests"].add(i)
 
+        #Boltzmann scaling for upward hopping probability (Usually to be used with CPA hybrid interface)
+        log.info("\nDo you want to scale the hopping probability of upwards hops according to Boltzmann scaling?") 
+        log.info("(usually to be used with CPA interface and no kinetic energy correction, EKinCorrect=1)")
+        boltz_hop=question("Activate Boltzmann scaling?",bool, False)
+        INFOS["boltz_hop"]=boltz_hop
+        if boltz_hop:
+            boltz_temp=question("Please input temperature value in K:",float, [300.0])[0]
+            INFOS["boltz_temp"]=boltz_temp
 
         # decoherence
         log.info("\nPlease choose a decoherence correction for the %s states:" % (["MCH", "diagonal"][INFOS["surf"] == "diagonal"]))
@@ -1909,6 +1917,10 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     if INFOS['method'] == 'tsh':
         s += 'ekincorrect %s\n' % (EkinCorrect[INFOS['ekincorrect']]['name'])
         s += 'reflect_frustrated %s\n' % (EkinCorrect[INFOS['reflect']]['name'])
+        #Boltzmann scaling, if activated
+        if INFOS['boltz_hop']:
+            s += 'boltz_hop yes\n'
+            s += 'boltz_temp %f\n' % (INFOS['boltz_temp'])
         s += 'decoherence_scheme %s\n' % (INFOS['decoherence'][0])
         if INFOS['decoherence'][1]:
             s += 'decoherence_param %s\n' % (INFOS['decoherence'][1])
