@@ -146,6 +146,7 @@ def main():
     ap.add_argument("--tmin", type=float, help="Min time for convolution grid")
     ap.add_argument("--tmax", type=float, help="Max time for convolution grid")
     ap.add_argument("--tpoints", type=int, help="Number of points in convolution grid")
+    ap.add_argument("--ref_av_n", type=int, default=1, help="Use average of the first N time steps as reference")
     args = ap.parse_args()
 
     # Time mapping
@@ -172,11 +173,13 @@ def main():
         raise ValueError("No matching files found.")
 
     data = {}
-    first_time_vals = {}
+    # first_time_vals = {}
     x_values = None
+    times = []
 
     for idx, fname in files:
         time = get_time(idx)
+        times.append(time)
         xy = np.loadtxt(fname, comments='#', usecols=(args.x_col-1, args.y_col-1))
         if x_values is None:
             x_values = xy[:, 0]
@@ -185,8 +188,14 @@ def main():
         y_vals = xy[:, 1]
         for x, y in zip(x_values, y_vals):
             data.setdefault(x, {})[time] = y
-            if x not in first_time_vals:
-                first_time_vals[x] = y
+            # if x not in first_time_vals:
+            #     first_time_vals[x] = y
+
+    first_times = sorted(times)[:args.ref_av_n]  # first N times
+    first_time_vals = {}
+    for x in x_values:
+        vals = [data[x][t] for t in first_times if t in data[x]]
+        first_time_vals[x] = np.mean(vals)
 
     # Convolution or raw output
     if args.convolution:
