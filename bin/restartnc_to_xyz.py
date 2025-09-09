@@ -34,6 +34,11 @@ from itertools import chain
 import datetime
 import os
 from optparse import OptionParser
+try:
+    import parmed as pmd
+    parmed = True
+except ImportError: 
+    parmed = False
 
 from constants import au2fs, ANG_TO_BOHR, AMBERVEL_TO_AU, IAn2AName
 from utils import readfile
@@ -48,14 +53,98 @@ DEBUG = False
 version = '4.0'
 versiondate = datetime.date(2025, 4, 1)
 
+# =========================================================
+
+def residue_signatures(prmtop_path, charge_tol=1e-6):
+    parm = pmd.load_file(prmtop_path)
+    sig_to_residues = {}
+    
+    for i, res in enumerate(parm.residues):
+        atom_data = []
+        for atom in res.atoms:
+            # round charges to tolerance to avoid FP issues
+            q = round(atom.charge, int(-np.log10(charge_tol)))
+            atom_data.append((atom.name, atom.type, q))
+        
+        # connectivity: bonds as pairs of atom names
+        bonds = []
+        for atom in res.atoms:
+            for bonded_atom in atom.bond_partners:
+                if bonded_atom.residue == res:  # only intra-residue bonds
+                    pair = tuple(sorted([atom.name, bonded_atom.name]))
+                    bonds.append(pair)
+        bonds = tuple(sorted(set(bonds)))
+        signature = (res.name, tuple(atom_data), bonds)
+        
+        # Atom indices (0-based here)
+        atom_indices = [atom.idx for atom in res.atoms]
+
+        sig_to_residues.setdefault(signature, []).append((i, atom_indices))
+    
+    return sig_to_residues
 
 
+def center_of_mass(geom, indices, masses=None):
+    """Compute COM for given atom indices.
+    If masses=None, just average coordinates."""
+    coords = geom[indices]
+    if masses is None:
+        return coords.mean(axis=0)
+    else:
+        m = np.array(masses)[indices]
+        return np.average(coords, axis=0, weights=m)
+    
 
+def build_reorder_indices(groups, geom, qm_list, masses=None, whitelist=None):
+    """
+    groups: dict {signature: [(res_idx, atom_indices), ...]}
+    geom: (natom,3) numpy array of coordinates
+    qm_list: list of atom indices (reference COM)
+    masses: optional list/array of atomic masses
+    Returns: numpy array of reordered atom indices (length = natom)
+    """
+    ref_com = center_of_mass(geom, qm_list, masses=masses)
+    reorder = []
 
+    for sig, residues in groups.items():
+        resname = sig[0]  # first element of signature = residue name
+        can_reorder = (whitelist is None) or (resname in whitelist)
 
+        if len(residues) == 1 or not can_reorder    :
+            # only one residue → no reordering
+            reorder.extend(residues[0][1])
+        else:
+            # compute distances
+            dists = []
+            for res_idx, atom_indices in residues:
+                res_com = center_of_mass(geom, atom_indices, masses=masses)
+                dist = np.linalg.norm(res_com - ref_com)
+                dists.append((dist, atom_indices))
+            # sort residues by distance
+            dists.sort(key=lambda x: x[0])
+            # append atoms in sorted order
+            for _, atom_indices in dists:
+                reorder.extend(atom_indices)
 
+    return np.array(reorder, dtype=int)
 
-def main(prmtop, rst_file, dt, ang, app, gv, ini):
+# =========================================================
+
+def expand_str_to_list(input: str) -> list[int]:
+    '''This version of the script already subtracts 1, unlike in other SHARC scripts'''
+    out = []
+    for i in input.split():
+        if "~" in i:
+            q = i.split("~")
+            for j in range(int(q[0]), int(q[1]) + 1):
+                out.append(j-1)
+        else:
+            out.append(int(i)-1)
+    return out
+
+# =========================================================
+
+def main(prmtop, rst_file, dt, ang, app, gv, ini, qm_list):
     # get number of atoms and elements
     natom = -1
     with open(prmtop, "r") as f:
@@ -81,6 +170,9 @@ def main(prmtop, rst_file, dt, ang, app, gv, ini):
                 masses = [float(x) for x in chain(*map(lambda x: f.readline().split(), range(nl)))]
             line = f.readline()
 
+    if qm_list and parmed:
+        signatures = residue_signatures(prmtop)
+
     with Dataset(rst_file) as dat:
         geom_rst = dat.variables["coordinates"]
         na = dat.dimensions["atom"].size
@@ -97,6 +189,12 @@ def main(prmtop, rst_file, dt, ang, app, gv, ini):
 
         # move geom halve a timestep back (AMBER uses leapfrog!!!)
         geom = geom - 0.5 * dt * veloc / au2fs
+
+        # get reordering and apply to geom and veloc
+        if qm_list and parmed:
+            reorder_idx = build_reorder_indices(signatures, geom, qm_list, masses=masses)
+            geom = geom[reorder_idx]
+            veloc = veloc[reorder_idx]
 
         if gv:
             # write geom and veloc files
@@ -148,12 +246,21 @@ def main(prmtop, rst_file, dt, ang, app, gv, ini):
 
 if __name__ == "__main__":
 
-    parser = OptionParser()
+    usage = "python restartnc_to_xyz.py [options] <prmtop> <restartnc>"
+    parser = OptionParser(usage=usage)
     parser.add_option("-t", "--timestep", dest="dt", type="float", help="specify the timestep in fs")
     parser.add_option("-a", "--angstrom", dest='ang', action='store_true', help="Output in Angstrom (default in Bohr)")
     parser.add_option("-q", "--append_qmin", dest='app', action='store_true', help="Append request lines from file 'QM.in'")
     parser.add_option("-i", "--initconds", dest='ini', action='store_true', help="Produce output to append to initconds instead of xyz")
     parser.add_option("-g", "--geom_veloc", dest='gv', action='store_true', help="Produce geom and veloc files instead of writing to stdout")
+    parser.add_option(
+        "-r",
+        "--reorder_like_residues",
+        type="str",
+        default="",
+        dest="qm_list",
+        help="Reorder coordinates of identical residues by COM distance from given list of atoms, starting from 1 (e.g. 1~3,5,8~12,20)\ndefault=\"\"",
+    )
 
     (options, args) = parser.parse_args()
     if len(args) == 0:
@@ -173,7 +280,14 @@ if __name__ == "__main__":
             sys.stderr.write("Ignoring -a flag while -i is active")
         if options.app:
             sys.stderr.write("Ignoring -q flag while -i is active")
-    main(*args, options.dt, options.ang, options.app, options.gv, options.ini)
+    qm_list = []
+    if options.qm_list:
+        if parmed:
+            qm_list = expand_str_to_list(options.qm_list)
+            sys.stderr.write('Reference atoms: '+str(qm_list)+'\n')
+        else:
+            sys.stderr.write("No parmed library found, -r option not available")
+    main(*args, options.dt, options.ang, options.app, options.gv, options.ini, qm_list)
 
 
 
