@@ -61,7 +61,8 @@ def package_check():
         "torch": "SHARC_ANALYTICAL.py and SHARC_SCHNARC.py will not work.",
         "threadpoolctl": "SHARC_ECI.py and ab initio interfaces will not work.",
         "opt_einsum": "SHARC_ECI.py will not work.",
-        "parmed": "setup_from_prmtop.py will not work."
+        "parmed": "setup_from_prmtop.py will not work.",
+        "pawpyseed" : "SHARC_VASP.py will not work."
     }
 
     fails = 0
