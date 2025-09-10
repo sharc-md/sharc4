@@ -2255,10 +2255,10 @@ module input
           if (printlevel>1) then
             write(u_log,'(a)') 'Scaling of upwards hop probability is enabled. CPA approximation dynamics is considered'
           endif
-        case ('no') 
+        case ('none') 
           continue
         case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "boltz_hop"! Specify "yes" or "no"'
+          write(0,*) 'Unknown keyword ',trim(line),' to "boltz_hop"! Specify "yes" or "none"'
           stop 1
       endselect
     endif
