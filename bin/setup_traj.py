@@ -1249,9 +1249,9 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         #Boltzmann scaling for upward hopping probability (Usually to be used with CPA hybrid interface)
         log.info("\nDo you want to scale the hopping probability of upwards hops according to Boltzmann scaling?") 
         log.info("(usually to be used with CPA interface and no kinetic energy correction, EKinCorrect=1)")
-        boltzmann_hopping=question("Activate Boltzmann scaling?",bool, False)
-        INFOS["boltzmann_hopping"]=boltzmann_hopping
-        if boltzmann_hopping:
+        boltzmann_hop=question("Activate Boltzmann scaling?",bool, False)
+        INFOS["boltzmann_hop"]=boltzmann_hop
+        if boltzmann_hop:
             boltzmann_temperature=question("Please input temperature value in K:",float, [300.0])[0]
             INFOS["boltzmann_temperature"]=boltzmann_temperature
 
@@ -1918,8 +1918,8 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         s += 'ekincorrect %s\n' % (EkinCorrect[INFOS['ekincorrect']]['name'])
         s += 'reflect_frustrated %s\n' % (EkinCorrect[INFOS['reflect']]['name'])
         #Boltzmann scaling, if activated
-        if INFOS['boltzmann_hopping']:
-            s += 'boltzmann_hopping \n'
+        if INFOS['boltzmann_hop']:
+            s += 'boltzmann_hop \n'
             s += 'boltzmann_temperature %f\n' % (INFOS['boltzmann_temperature'])
         s += 'decoherence_scheme %s\n' % (INFOS['decoherence'][0])
         if INFOS['decoherence'][1]:

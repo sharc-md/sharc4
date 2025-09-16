@@ -31,6 +31,6 @@ output_format ascii
 output_dat_steps 1
 
  
-boltzmann_hopping
+boltzmann_hop
 boltzmann_temperature 300.0
 phases_from_interface
