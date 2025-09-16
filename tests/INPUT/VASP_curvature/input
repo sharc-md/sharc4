@@ -31,5 +31,5 @@ output_format ascii
 output_dat_steps 1
 
  
-boltz_hop yes
-boltz_temp 300.0
+boltzmann_hopping
+boltzmann_temperature 300.0

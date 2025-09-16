@@ -66,7 +66,7 @@
 !>                         added keywords for no_write_restart and split netCDF files
 !>
 !>                   modified 2025 by Marco Romanelli
-!>                         added ctrl%boltz_hop and ctrl%boltz_temp for scaling
+!>                         added ctrl%boltzmann_hop and ctrl%boltzmann_temp for scaling
 !>                         upwards hops probability. CPA approximation for excited-state dynamics.
 !>                         added Boltzmann constant as well as parameter
 !>
@@ -493,8 +493,8 @@ module definitions
     integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
     integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
     integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
-    integer :: boltz_hop      !< 0=no scaling (default), 1=boltzmann scaling for upwards hops -> CPA approximation
-    real*8  :: boltz_temp          !< temperature value for Boltzmann scaling of hops probability. default will be 300K
+    logical :: boltzmann_hop                  !< if .true. it activates boltzmann scaling for upwards hops -> CPA approximation
+    real*8  :: boltzmann_temp                 !< temperature value for Boltzmann scaling of hops probability. default will be 300K
     integer :: switching_procedure            !< 0=no switches, 1=CSDM, 2=SCDM, 3=NDM
     integer :: army_ants                      !< 0=no army ants,i.e. anteater algorithm, 1=army ants algorithm
     integer :: output_format                  !< 0 ASCII, 1 NetCDF
