@@ -32,7 +32,7 @@ charge 0                  # Charge of the system depending on the multiplicity
     ## ===============================================
     # Quantity requests:
 h                       # Calculation of energies for each state
-grad                # Selection of states for which gradients are needed
+grad 1                # Selection of states for which gradients are needed
 #overlap            # Overlap calculation. This is the only supported propagation scheme currently available for VASP 
 #phases             #phase correction based on overlap matrix
     

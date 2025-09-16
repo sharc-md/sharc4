@@ -25,6 +25,9 @@ savedir $SCRADIR/SAVEDIR
     ## ======== RESOURCES ============
     ## Number of CPU cores the interface can use.
 ncpu 2
+   
+    ## Number of allocated cores that work on each orbital. check VASP NCORE 
+ncore 1
 
 # This is gonna be memory in Mb for each MPI rank in VASP. Check MAXMEM keyword in VASP wiki. Default is 2000
 memory 2500 

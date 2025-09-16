@@ -63,6 +63,7 @@ class SHARC_VASP(SHARC_ABINITIO):
             {
                 "vaspdir": None, # Path to the executable of VASP
                 "potcardir": None, # Path to the POTCAR VASP file with PAW pseudopotentials
+                "ncore" : 1, #Default number of compute cores to work on a single orbital in VASP 
                 "ncpu" : 2, #Default number of cpus for mpi run with VASP 
                 "memory" : 2000,
                 "wfoverlap" : "", #easy workaround to prevent bin_executable check, pawpyseed used here! 
@@ -72,6 +73,7 @@ class SHARC_VASP(SHARC_ABINITIO):
             {
                 "vaspdir": str,
                 "potcardir": str, 
+                "ncore":int, 
             }
         )
 
@@ -284,6 +286,9 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.error("Please specify pathway to POTCAR file in resource file!")
             raise ValueError()
     
+        if not self.QMin.resources["ncore"]:
+            self.log.warning(" No ncore keyword found in the resource file. Default value of 1 is applied.")
+    
         if not self.QMin.resources["ncpu"]:
             self.log.warning(" No ncpu keyword found in the resource file. Default value of 2 is applied.")
     
@@ -387,6 +392,9 @@ class SHARC_VASP(SHARC_ABINITIO):
 
             self.log.info("Specify the path to the VASP potcar file")
             self.setupINFOS["potcardir"] = question("path to VASP POTCAR file", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+
+            self.log.info("Specify the number of cores you want to work on each single orbital")
+            self.setupINFOS["ncore"] = question("NCORE: ", int, default=[1],KEYSTROKES=KEYSTROKES)[0]
             
             self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the VASP calculation.")
             self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
@@ -401,7 +409,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "VASP.resources"), "w", encoding="utf-8") as file:
-                for key in ("vaspdir", "potcardir", "scratchdir", "ncpu", "memory", "savedir"):
+                for key in ("vaspdir", "potcardir", "scratchdir", "ncpu", "memory", "savedir","ncore"):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
         else:
@@ -867,6 +875,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         inputstring = f"SISTEM = {self.QMin.template['system']}\n"
         inputstring += f"MAXMEM = {self.QMin.resources['memory']}\n" #allocated memory in Mb for each MPI rank
+        inputstring += f"NCORE = {self.QMin.resources['ncore']}\n" #n. of cores working on a single orbital.
         inputstring += f"ISMEAR = {self.QMin.template['ismear']}\n"
         inputstring += f"SIGMA = {self.QMin.template['sigma']}\n"
         inputstring += f"ISPIN = {self.QMin.template['ispin']}\n" #Only singlets currently available
