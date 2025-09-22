@@ -933,7 +933,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         for i in self._el_vasp:  
             inputstring += f" {len(i)}"
         inputstring += f"\n"
-        inputstring += f"cart\n" #Hard-coded cartesian coordinates (Ang.) for input. Other options may be available in VASP
+        inputstring += f"Cartesian\n" #Hard-coded cartesian coordinates (Ang.) for input. Other options may be available in VASP
         
         self.log.debug("sorted VASP geometry") 
         self.log.debug(self._coords_vasp) 
