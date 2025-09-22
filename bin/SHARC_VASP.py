@@ -732,7 +732,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         ks_es= dict(itertools.islice(ks_es_all.items(), nmstates-1)) # Getting first nmstates-1 excitation energies
         #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
         energies=list()
-        pattern=rf'  energy  without entropy=\s+(.*?)  energy\('
+        pattern=rf'  energy  without entropy=.*energy\(sigma->0\)\s+=\s+(.*?)\n'
         gs_en=float(re.search(pattern,vasp_out).group(1))
         self.log.debug("debugging GS energy from VASP")
         self.log.debug(gs_en)
