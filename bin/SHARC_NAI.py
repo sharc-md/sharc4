@@ -270,7 +270,7 @@ class SHARC_NAI(SHARC_FAST):
 
         # ======================================== assign to QMout =========================================
         self.log.debug(f"requests: {self.QMin.requests}")
-        self.QMout.states = req_states
+        self.QMout.states = [req_states]
         self.QMout.nstates = self.QMin.molecule["nstates"]
         self.QMout.nmstates = self.QMin.molecule["nmstates"]
         self.QMout.natom = self.QMin.molecule["natom"]
