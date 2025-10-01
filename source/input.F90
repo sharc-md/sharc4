@@ -76,7 +76,7 @@ module input
   character*255 :: filename
   character*8000 :: geomfilename, line, rattlefilename
   character*8000, allocatable :: values(:)
-  integer :: narg, io, nlines, selg, selt
+  integer :: narg, io, io_freq, nlines, selg, selt
   integer :: i,j,k,n
   integer :: min_order, max_order
   integer :: imult,ims
@@ -90,7 +90,7 @@ module input
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
   logical :: selectdirectly_bool, file_exists
-
+  logical :: tmp
   
 #ifndef __PYSHARC__
   ! get the input filename from the command line argument

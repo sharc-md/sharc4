@@ -387,7 +387,8 @@ module definitions
     logical,allocatable :: atommask_a(:)      !< atoms which are considered for decoherence, rescaling, ...
   logical,allocatable :: atommask_b(:)      !< atoms which are considered for verlocity verlet (-> use to freeze atoms)
     integer :: maxmult                        !< highest spin quantum number (determines length of nstates_m)
-    integer,allocatable :: nstates_m(:)       !< numer of states considered in each multiplicy
+    integer,allocatable :: nstates_m(:)       !< number of states considered in each multiplicy
+    integer,allocatable :: charges_m(:)       !< charge in each multiplicy 
     integer :: nstates                        !< total number of states
     integer :: nsteps                         !< total number of simulation steps
     integer :: nsubsteps                      !< number of steps for the electron propagation
@@ -411,18 +412,22 @@ module definitions
     logical,allocatable :: actstates_s(:)     !< mask of the active states
     integer :: output_steps_stride(3)         !< how often output.dat is written
     integer :: output_steps_limits(3)         !< switches stride for output.dat writing
-    integer :: output_steps_stride_nuc(3)     !< how often sharc_traj_xyz.nc is written
-    integer :: output_steps_limits_nuc(3)     !< switches stride for sharc_traj_xyz.nc writing
+    integer :: output_steps_stride_nuc(3)     !< how often output_NUC.dat.nc is written
+    integer :: output_steps_limits_nuc(3)     !< switches stride for output_NUC.dat.nc writing
+    integer :: retain_restart_files           !< how many previous time steps should be kept
   
   ! methods and switches
     logical :: restart                        !< restart yes or no
-    logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
+    ! logical :: restart_rerun_last_qm_step     !< if true, then qm.f90 will write "restart" instruction
     logical :: write_restart_files            !< if false skips the generation of all restart files and logic
     integer :: method                         !< 0=trajectory surface hopping(tsh), 1=self-consistent potential(scp)
     integer :: integrator                     !< integrator used, 0=Bulirsch-Stoer, 1=adaptive Velocity Verlet, 2=fixed stepzie Velocity Verlet
     integer :: staterep                       !< 0=initial state is given in diag representation, 1=in MCH representation
     integer :: initcoeff                      !< 0=initial coefficients are diag, 1=initial coefficients are MCH, 2=auto diag, 3=auto MCH
     integer :: laser                          !< 0=none, 1=internal, 2=external
+    logical :: laser_e = .false.                  !< false=none, true=exists (Laser E-field)
+    logical :: laser_b = .false.                  !< false=none, true=exists/ (Laser B-field)
+    logical :: laser_egrad = .false.              !< false=none, true=exists (Laser E-field gradients)
     integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
     integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation
     integer :: kmatrix_method                 !< 0=gradient based approximation, 1=energy based approximation
@@ -511,7 +516,9 @@ module definitions
     ! laser
     real*8 :: laser_bandwidth                       !< for detecting induced hops (in a.u.)
     integer :: nlasers
-    complex*16, allocatable :: laserfield_td(:,:)   !< complex valued laser field
+    complex*16, allocatable :: laserfield_e_tp(:,:)   !< complex valued laser field (E-field)
+    complex*16, allocatable :: laserfield_b_tp(:,:)   !< complex valued laser field (B-field)
+    complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
     complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
   
     ! thermostat
@@ -538,23 +545,38 @@ module definitions
   !< -1=+ internal steps
   !< -2=+ input parsing infos
   !< -3 and higher=+ print various numerical values per timestep
+  !< numerical value of constants obtained from scipy.physical_constants (see lib/constants.py)
   ! =========================================================== !
   
-  real*8,parameter:: au2a=0.529177211d0             !< length
-  real*8,parameter:: au2fs=0.024188843d0            !< time
-  real*8,parameter:: au2u=5.4857990943d-4           !< mass
-  real*8,parameter:: au2rcm=219474.631370d0         !< energy
-  real*8,parameter:: au2eV=27.21138386d0            !< energy
-  real*8,parameter:: au2debye=2.5417469d0           !< dipole moment
+  real*8,parameter:: au2u = 5.485799088728282d-4           ! mass
+  real*8,parameter:: au2rcm = 219474.63136319697d0         ! energy
+  real*8,parameter:: au2debye = 2.541746473194078d0        ! dipole moment
+  real*8,parameter:: au2a = 0.529177210903d0               ! transforms length in a.u. to Angstrom
+  real*8,parameter:: cm2au = 4.556335252912d-6             ! transforms energy in wavenumbers to a.u.
+  real*8,parameter:: au2fs = 0.024188843265857d0           ! transforms time in a.u. to femtoseconds
+  real*8,parameter:: ram2au = 1822.8884862086923d0         ! transforms mass in relative atomic mass units to a.u.
+  real*8,parameter:: J2eV = 6.241509074d18                 ! transforms energy in J to eV
+  real*8,parameter:: D2au = 0.39343026951989946d0          ! transforms dipole moment in debye to a.u.
+  real*8,parameter:: au2V_m = 514220674763d0               ! transforms electric field in a.u. to V/m
+  real*8,parameter:: au2J = 4.3597447222071d-18            ! transforms energy in a.u. to J
+  real*8,parameter:: au2eV = 27.211386245988d0             ! transforms energy in a.u. to eV
+  real*8,parameter:: D2Cm = 3.33564095198152d-30           ! transforms dipole moment in d to C * m
+  real*8,parameter:: au2I = 3.50944552058977d16            ! transforms (intensity in a.u.)^2 to W/cm^2, attention: watch the square!!!
+  real*8,parameter:: au2GV_m = 514.220674763d0             ! transforms (field strength in a.u.) to GV/m
+  real*8,parameter:: speed_of_light_au = 137.0359990836958  
   
   complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
   real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
+  real*8,parameter:: alpha=7.2973525693d-3          !< fine-structure constant
+  
+  logical :: debug
+  integer :: allocatestatus
   
   character*20,parameter :: multnames(8)=(/'Singlet','Doublet','Triplet','Quartet','Quintet',' Sextet',' Septet','  Octet'/)
   !< strings used to represent the multiplicities
   ! =========================================================== !
   
-  character*255, parameter :: version='3.0 (January 26, 2023)'    !< string holding the version number
+  character*255, parameter :: version='4.0 (April 1, 2025)'    !< string holding the version number
   
   integer, parameter :: u_log=1                !< long output file
   integer, parameter :: u_lis=2                !< short output file
@@ -570,10 +592,10 @@ module definitions
   integer, parameter :: u_i_laser=16           !< numerical laser field
   integer, parameter :: u_i_atommask=17        !< which atoms are active for rescaling/decoherence/...
   integer, parameter :: u_i_rattle=18          !< atoms for constraints
-integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
-integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
-integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
-  
+  integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
+  integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
+  integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
+  integer, parameter :: u_i_laser_freq=51      !< numerical laser field freq
   integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
   integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)
   
@@ -725,6 +747,30 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
         allocate(traj%DM_print_ssd(nstates,nstates,3),stat=status)
         if (status/=0) stop 'Could not allocate DM_print_ssd'
         traj%DM_print_ssd=-123.d0
+        
+        allocate(traj%MDM_ssd(nstates,nstates,3),stat=status)
+        if (status/=0) stop 'Could not allocate MDM_ssd'
+        traj%MDM_ssd=-123.d0
+  
+        allocate(traj%MDM_old_ssd(nstates,nstates,3),stat=status)
+        if (status/=0) stop 'Could not allocate MDM_old_ssd'
+        traj%MDM_old_ssd=-123.d0
+  
+        allocate(traj%MDM_print_ssd(nstates,nstates,3),stat=status)
+        if (status/=0) stop 'Could not allocate MDM_print_ssd'
+        traj%MDM_print_ssd=-123.d0
+        
+        allocate(traj%EQM_ssdd(nstates,nstates,3,3),stat=status)
+        if (status/=0) stop 'Could not allocate EQM_ssdd'
+        traj%EQM_ssdd=-123.d0
+  
+        allocate(traj%EQM_old_ssdd(nstates,nstates,3,3),stat=status)
+        if (status/=0) stop 'Could not allocate EQM_old_ssdd'
+        traj%EQM_old_ssdd=-123.d0
+  
+        allocate(traj%EQM_print_ssdd(nstates,nstates,3,3),stat=status)
+        if (status/=0) stop 'Could not allocate EQM_print_ssdd'
+        traj%EQM_print_ssdd=-123.d0
   
         allocate(traj%Rtotal_ss(nstates,nstates),stat=status)
         if (status/=0) stop 'Could not allocate Rtotal_ss'
@@ -1098,11 +1144,15 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
         type(ctrl_type), intent(inout) :: ctrl
   
         if (allocated(ctrl%nstates_m))                  deallocate(ctrl%nstates_m)
+        if (allocated(ctrl%charges_m))                  deallocate(ctrl%charges_m)
         if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
         if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
       if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
-        if (allocated(ctrl%laserfield_td))              deallocate(ctrl%laserfield_td)
+        if (allocated(ctrl%laserfield_e_tp))            deallocate(ctrl%laserfield_e_tp)
+        if (allocated(ctrl%laserfield_b_tp))            deallocate(ctrl%laserfield_b_tp)
+        if (allocated(ctrl%laserfield_egrad_tpd))       deallocate(ctrl%laserfield_egrad_tpd)
         if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
+        !if (allocated(ctrl%laser_freq_file_path))       deallocate(ctrl%laser_freq_file_path)
         if (allocated(ctrl%lpzpe_ah))                   deallocate(ctrl%lpzpe_ah)
         if (allocated(ctrl%lpzpe_bc))                   deallocate(ctrl%lpzpe_bc)
         if (allocated(ctrl%lpzpe_ke_zpe_ah))            deallocate(ctrl%lpzpe_ke_zpe_ah)
@@ -1125,6 +1175,8 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       ! Pointer routines
       if (associated(traj%H_MCH_ss))                  deallocate(traj%H_MCH_ss)
       if (associated(traj%DM_ssd))                    deallocate(traj%DM_ssd)
+      if (associated(traj%MDM_ssd))                   deallocate(traj%MDM_ssd)
+      if (associated(traj%EQM_ssdd))                  deallocate(traj%EQM_ssdd)
       if (associated(traj%overlaps_ss))               deallocate(traj%overlaps_ss)
       if (associated(traj%grad_MCH_sad))              deallocate(traj%grad_MCH_sad)
       if (associated(traj%NACdR_ssad))                deallocate(traj%NACdR_ssad)
@@ -1132,6 +1184,8 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
 #else
       if (allocated(traj%H_MCH_ss))                   deallocate(traj%H_MCH_ss)
       if (allocated(traj%DM_ssd))                     deallocate(traj%DM_ssd)
+      if (allocated(traj%MDM_ssd))                    deallocate(traj%MDM_ssd)
+      if (allocated(traj%EQM_ssdd))                   deallocate(traj%EQM_ssdd)
       if (allocated(traj%overlaps_ss))                deallocate(traj%overlaps_ss)
       if (allocated(traj%grad_MCH_sad))               deallocate(traj%grad_MCH_sad)
       if (allocated(traj%NACdR_ssad))                 deallocate(traj%NACdR_ssad)
@@ -1171,7 +1225,11 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       if (allocated(traj%pNACdR_MCH_ssad))            deallocate(traj%pNACdR_MCH_ssad)
       if (allocated(traj%pNACdR_diag_ssad))           deallocate(traj%pNACdR_diag_ssad)
       if (allocated(traj%DM_old_ssd))                 deallocate(traj%DM_old_ssd)
+      if (allocated(traj%MDM_old_ssd))                deallocate(traj%MDM_old_ssd)
+      if (allocated(traj%EQM_old_ssdd))               deallocate(traj%EQM_old_ssdd)
       if (allocated(traj%DM_print_ssd))               deallocate(traj%DM_print_ssd)
+      if (allocated(traj%MDM_print_ssd))              deallocate(traj%MDM_print_ssd)
+      if (allocated(traj%EQM_print_ssdd))             deallocate(traj%EQM_print_ssdd)
       if (allocated(traj%Rtotal_ss))                  deallocate(traj%Rtotal_ss)
       if (allocated(traj%RDtotal_ss))                 deallocate(traj%RDtotal_ss)
       if (allocated(traj%Dtotal_ss))                  deallocate(traj%Dtotal_ss)
@@ -1256,6 +1314,8 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       ! Pointer routines
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        associated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          associated(traj%DM_ssd          )
+      write(u,'(A20,1X,L1)') 'MDM_ssd',         associated(traj%MDM_ssd         )
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',        associated(traj%EQM_ssdd        )
       write(u,'(A20,1X,L1)') 'overlaps_ss',     associated(traj%overlaps_ss     )
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    associated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      associated(traj%NACdR_ssad      )
@@ -1263,6 +1323,8 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
 #else
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        allocated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
+      write(u,'(A20,1X,L1)') 'MDM_ssd',         allocated(traj%MDM_ssd         )
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',        allocated(traj%EQM_ssdd        )
       write(u,'(A20,1X,L1)') 'overlaps_ss',     allocated(traj%overlaps_ss     )
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    allocated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      allocated(traj%NACdR_ssad      )
@@ -1309,7 +1371,11 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'dendt_MCH_ss',    allocated(traj%dendt_MCH_ss    )
       write(u,'(A20,1X,L1)') 'dendt_diag_ss',   allocated(traj%dendt_diag_ss   )
       write(u,'(A20,1X,L1)') 'DM_old_ssd',      allocated(traj%DM_old_ssd      )
+      write(u,'(A20,1X,L1)') 'MDM_old_ssd',     allocated(traj%MDM_old_ssd     )
+      write(u,'(A20,1X,L1)') 'EQM_old_ssdd',    allocated(traj%EQM_old_ssdd    )
       write(u,'(A20,1X,L1)') 'DM_print_ssd',    allocated(traj%DM_print_ssd    )
+      write(u,'(A20,1X,L1)') 'MDM_print_ssd',   allocated(traj%MDM_print_ssd   )
+      write(u,'(A20,1X,L1)') 'EQM_print_ssdd',  allocated(traj%EQM_print_ssdd  )
       write(u,'(A20,1X,L1)') 'Rtotal_ss',       allocated(traj%Rtotal_ss       )
       write(u,'(A20,1X,L1)') 'RDtotal_ss',      allocated(traj%RDtotal_ss      )
       write(u,'(A20,1X,L1)') 'Dtotal_ss',       allocated(traj%Dtotal_ss       )
@@ -1370,6 +1436,7 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'lpzpe_ke_ah',      allocated(traj%lpzpe_ke_ah      )
       write(u,'(A20,1X,L1)') 'lpzpe_ke_bc',      allocated(traj%lpzpe_ke_bc      )
       write(u,'(A20,1X,L1)') 'nstates_m',        allocated(ctrl%nstates_m        )
+      write(u,'(A20,1X,L1)') 'charges_m',        allocated(ctrl%charges_m        )
       write(u,'(A20,1X,L1)') 'actstates_s',      allocated(ctrl%actstates_s      )
   
       write(u,*) '_______________________ CHECKING NaNs _______________________'
@@ -1441,10 +1508,16 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'NACdR_diag_ssad', any((real(traj%NACdR_diag_ssad )).ne.(real(traj%NACdR_diag_ssad )))
       write(u,'(A20,1X,L1)') 'overlaps_ss',     any((real(traj%overlaps_ss     )).ne.(real(traj%overlaps_ss     )))
       write(u,'(A20,1X,L1)') 'DM_ssd',          any((real(traj%DM_ssd          )).ne.(real(traj%DM_ssd          )))
+      write(u,'(A20,1X,L1)') 'MDM_ssd',         any((real(traj%MDM_ssd         )).ne.(real(traj%MDM_ssd         )))
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',        any((real(traj%EQM_ssdd        )).ne.(real(traj%EQM_ssdd        )))
       write(u,'(A20,1X,L1)') 'DM_old_ssd',      any((real(traj%DM_old_ssd      )).ne.(real(traj%DM_old_ssd      )))
+      write(u,'(A20,1X,L1)') 'MDM_old_ssd',     any((real(traj%MDM_old_ssd     )).ne.(real(traj%MDM_old_ssd     )))
+      write(u,'(A20,1X,L1)') 'EQM_old_ssdd',    any((real(traj%EQM_old_ssdd   )).ne.(real(traj%EQM_old_ssdd     )))
       write(u,'(A20,1X,L1)') 'Property2d_xss',  any((real(traj%Property2d_xss  )).ne.(real(traj%Property2d_xss  )))
       write(u,'(A20,1X,L1)') 'Property1d_ys',   any((real(traj%Property1d_ys   )).ne.(real(traj%Property1d_ys   )))
       write(u,'(A20,1X,L1)') 'DM_print_ssd',    any((real(traj%DM_print_ssd    )).ne.(real(traj%DM_print_ssd    )))
+      write(u,'(A20,1X,L1)') 'MDM_print_ssd',   any((real(traj%MDM_print_ssd   )).ne.(real(traj%MDM_print_ssd   )))
+      write(u,'(A20,1X,L1)') 'EQM_print_ssdd',  any((real(traj%EQM_print_ssdd  )).ne.(real(traj%EQM_print_ssdd  )))
       write(u,'(A20,1X,L1)') 'Rtotal_ss',       any((real(traj%Rtotal_ss       )).ne.(real(traj%Rtotal_ss       )))
       write(u,'(A20,1X,L1)') 'RDtotal_ss',      any((real(traj%RDtotal_ss      )).ne.(real(traj%RDtotal_ss      )))
       write(u,'(A20,1X,L1)') 'Dtotal_ss',       any((real(traj%Dtotal_ss       )).ne.(real(traj%Dtotal_ss       )))
@@ -1495,6 +1568,12 @@ integer, parameter :: u_i_droplet=21         !< which atoms are part of the rest
       write(u,'(A20,1X,L1)') 'DM_ssd',          any((aimag(traj%DM_ssd          )).ne.(aimag(traj%DM_ssd          )))
       write(u,'(A20,1X,L1)') 'DM_old_ssd',      any((aimag(traj%DM_old_ssd      )).ne.(aimag(traj%DM_old_ssd      )))
       write(u,'(A20,1X,L1)') 'DM_print_ssd',    any((aimag(traj%DM_print_ssd    )).ne.(aimag(traj%DM_print_ssd    )))
+      write(u,'(A20,1X,L1)') 'MDM_ssd',          any((aimag(traj%MDM_ssd          )).ne.(aimag(traj%MDM_ssd          )))
+      write(u,'(A20,1X,L1)') 'MDM_old_ssd',      any((aimag(traj%MDM_old_ssd      )).ne.(aimag(traj%MDM_old_ssd      )))
+      write(u,'(A20,1X,L1)') 'MDM_print_ssd',    any((aimag(traj%MDM_print_ssd    )).ne.(aimag(traj%MDM_print_ssd    )))
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',          any((aimag(traj%EQM_ssdd          )).ne.(aimag(traj%EQM_ssdd          )))
+      write(u,'(A20,1X,L1)') 'EQM_old_ssdd',      any((aimag(traj%EQM_old_ssdd      )).ne.(aimag(traj%EQM_old_ssdd      )))
+      write(u,'(A20,1X,L1)') 'EQM_print_ssdd',    any((aimag(traj%EQM_print_ssdd    )).ne.(aimag(traj%EQM_print_ssdd    )))
       write(u,'(A20,1X,L1)') 'Property2d_xss',  any((aimag(traj%Property2d_xss  )).ne.(aimag(traj%Property2d_xss  )))
   !     write(u,'(A20,1X,L1)') 'Property1d_ys',   any((aimag(traj%Property1d_ys   )).ne.(aimag(traj%Property1d_ys   )))
       write(u,'(A20,1X,L1)') 'Rtotal_ss',       any((aimag(traj%Rtotal_ss       )).ne.(aimag(traj%Rtotal_ss       )))

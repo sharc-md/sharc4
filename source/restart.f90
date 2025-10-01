@@ -64,7 +64,7 @@ module restart
      integer :: u
      type(ctrl_type) :: ctrl
  
-     integer :: imult, istate, ilaser, iatom, iconstr, ipair
+     integer :: imult, istate, ilaser, iatom, iconstr, ipair, idir
  
      ! the ctrl restart file is only written once at the beginning to avoid writing the laser field
      ! each timestep
@@ -695,7 +695,7 @@ module restart
      use misc
      use decoherence_afssh
      implicit none
-     integer :: iconstr
+     integer :: iconstr, idir
      integer :: u_ctrl,u_traj
      type(trajectory_type) :: traj
      type(ctrl_type) :: ctrl
@@ -892,7 +892,6 @@ module restart
          enddo
        endif
        allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
-      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u_ctrl, line)
        do ilaser=1,ctrl%nlasers
          call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, line)
        enddo

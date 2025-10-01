@@ -143,7 +143,7 @@ program data_extractor
   integer :: step
   complex*16, allocatable :: H_mch_ss(:,:),U_ss(:,:),DM_mch_ssd(:,:,:),DM_diag_ssd(:,:,:)
   complex*16, allocatable :: MDM_mch_ssd(:,:,:),MDM_diag_ssd(:,:,:)
-  complex*16, allocatable :: EQM_diag_ssdd(:,:,:,:),EQM_diag_ssdd(:,:,:,:)
+  complex*16, allocatable :: EQM_mch_ssdd(:,:,:,:),EQM_diag_ssdd(:,:,:,:)
   complex*16, allocatable :: Prop2d_xss(:,:,:)
   real*8, allocatable     :: Prop1d_ys(:,:)
   complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:), ref_ovl_ss(:,:)
@@ -744,7 +744,6 @@ program data_extractor
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
-    allocate( 
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
     allocate( dipole_mch(nstates), dipole_diag(nstates) )
     allocate( spin0_s(nstates) )

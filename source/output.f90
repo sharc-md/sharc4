@@ -282,7 +282,6 @@ subroutine write_list_line(u, traj, ctrl)
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: u, imult,ims,istate,jstate,i,iatom,idir, jdir
-  real*8 :: expec_dm, expec_s, grad_length, temp_dm, den, gap
   real*8 :: expec_dm, expec_mdm, expec_eqm, expec_s, grad_length, temp_dm, temp_mdm, temp_eqm, den, gap
   real*8 :: p(ctrl%natom,3), r(ctrl%natom,3), summass, com(3), jmag, j(3)
 
