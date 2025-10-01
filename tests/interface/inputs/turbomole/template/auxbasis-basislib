@@ -1,0 +1,4 @@
+basis def2-SVP
+basislib /test/
+auxbasis def2-SVP
+# basislib and auxbasis incompatible

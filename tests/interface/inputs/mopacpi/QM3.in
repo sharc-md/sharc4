@@ -1,0 +1,33 @@
+6
+
+C  0.000000000   0.000000000    0.000010000 
+N  0.000000000   0.000000000    1.349920000 
+H  0.943103000   0.000000000   -0.544600000 
+H  0.943101000   0.000000000    1.879400000 
+H -0.943101000   0.000000000    1.878500000 
+H -0.943103000   0.000000000   -0.544600000 
+    ## The first few lines have to comply with the xyz file format (number of atoms, comment, atoms)
+    ## Comments at the end of these lines cause errors
+
+    ## from here, comments can be put at the end of each line
+    ## blank lines can be used freely
+    ## order of keywords does not matter
+    ## only the first instance of every keyword is used
+    ## everything is case-insensitive
+
+    ## ===============================================
+    ## Control keywords:
+init
+
+    ## ===============================================
+    # Settings:
+unit angstrom
+states 4 0 0
+charge 0
+    
+    ## ===============================================
+    # Quantity requests:
+h
+dm       
+grad 1 2 4
+

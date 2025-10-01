@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -94,7 +94,6 @@ program data_extractor
   write(6,*) 'Running...'
   istep = 0 
   do 
-        
     call read_sharc_ncoutputdat_istep(nsteps, istep, general_infos%natom, nstates, &
        &  shdata%H_MCH_ss, shdata%U_ss, shdata%DM_ssd, shdata%MDM_ssd, shdata%EQM_ssdd, shdata%overlaps_ss,&
        &  shdata%coeff_diag_s, Energy, shdata%hopprob_s, &
@@ -105,20 +104,25 @@ program data_extractor
    shdata%Etot = Energy(1)
    shdata%Epot = Energy(2)
    shdata%Ekin = Energy(3)
+
 !    call read_properties_from_output(nstates, step, u_dat, general_infos, prop_info, shdata, io)
 !    if (io/=0) exit
     ! ========== Reading is done for this time step =============
-    call process_data(nstates, istep, general_infos, write_options, shdata)
+    call process_data(nstates, istep, general_infos, write_options, shdata, prop_info)
     ! ========== Calculating is done for this time step =============
     call write_data_to_file(nstates, istep, general_infos, write_options, shdata)
     ! write progress to screen
-    write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',shdata%time_step*general_infos%dtstep,' fs'
+    write(*,'(A,F9.2,A)') 't=',shdata%time_step*general_infos%dtstep+shdata%time_shift,' fs'
+    ! write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',&
+    ! &shdata%time_step*general_infos%dtstep+shdata%time_shift,' fs'
+
     istep = istep + 1
     if (istep == nsteps) then
         exit
     endif
   enddo
-  
+  call close_ncfile(ncdat%id)
+  write(*,*) "closed ncfile"
 endprogram
 
 

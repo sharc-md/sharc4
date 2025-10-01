@@ -1,0 +1,5 @@
+thresholds: {"dm": 0.01}
+interfaces:
+    - {"label": "model1", "interface": "SPAINN", "args": [], "kwargs": {}}
+    - {"label": "model2", "interface": "SPAINN", "args": [], "kwargs": {}}
+exit_on_fail: 9

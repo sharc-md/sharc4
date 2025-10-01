@@ -2,7 +2,7 @@
 #
 # SHARC Program Suite
 #
-#    Copyright (c) 2023 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -41,7 +41,9 @@ install: lib/libsharc.so lib/libsharcnc.so build_ext
 clean:
 	python sharc_setup clean --all
 	rm -f lib/libsharc.so lib/libsharcnc.so
-	rm -f sharc/sharc.so
+	rm -f ../lib/*.so
+	rm -f sharc/sharc.*.so
+	rm -f netcdf/*.o
 
 lib/libsharc.so: lib/libsharcnc.so
 	cd ../source; make libsharc

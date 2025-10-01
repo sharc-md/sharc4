@@ -5,8 +5,6 @@
     ## 
 orcadir /usr/license/orca42/orca_4_2_1_linux_x86-64_openmpi216/
 
-tinker /usr/license/openmolcas/tinker-6.3.3/
-
 
     ## ======== SCRATCH and SAVE ============
 
@@ -107,19 +105,5 @@ theodore_fragment 3
     ## Always use an orbital guess, even if starting orbitals are present in the savedir.
 #always_guess
 
-    ## Increase verbosity of the interface and do not delete scratchdir after all jobs are finished.
-debug
-
-    ## Decrease the verbosity of the interface.
-#no_print
 
 
-    ## saves the ORCA log file, gbw and cis files within the SAVEDIR
-save_stuff
-
-
-qmmm_table    ORCA.qmmm.table
-qmmm_ff_file  /usr/license/molcas/molcas80/tinker/params/oplsaa.prm
-
-
-# kate: syntax python

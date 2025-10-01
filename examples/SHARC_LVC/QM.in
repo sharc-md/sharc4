@@ -6,10 +6,9 @@ O    0.0000000    1.0854010    0.9578718       0.0000000    0.0001854    0.00058
 unit angstrom
 states   4  0  3
 dt    20.670687
-step    2000
-savedir $TMPDIR/SAVEDIR
+step    0
+savedir ./SAVEDIR
 SOC
 DM
 GRAD all
-init
 

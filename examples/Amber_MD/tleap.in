@@ -1,0 +1,7 @@
+source leaprc.water.tip3p
+source leaprc.gaff2
+mol = loadmol2 thioformaldehyde.mol2
+solvateoct mol TIP3PBOX 15.
+loadamberparams thioformaldehyde.frcmod
+saveamberparm mol system.prmtop system.inpcrd
+quit

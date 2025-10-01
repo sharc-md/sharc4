@@ -1,0 +1,3 @@
+cutoff 10.0
+nac_key smooth_nacs
+properties energy forces dipoles smooth_nacs

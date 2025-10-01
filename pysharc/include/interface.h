@@ -2,7 +2,7 @@
 //
 //    SHARC Program Suite
 //
-//    Copyright (c) 2023 University of Vienna
+//    Copyright (c) 2025 University of Vienna
 //
 //    This file is part of SHARC.
 //
@@ -41,6 +41,8 @@ extern "C" {
 #endif
 // GET INFO for QMIN etc.
 void get_states_(char * string);
+void get_charges_(char * string);
+void get_retain_(char *string);
 void get_dt_(char * string);
 void get_savedir_(char * string);
 void get_tasks_(char * string, int * icall);

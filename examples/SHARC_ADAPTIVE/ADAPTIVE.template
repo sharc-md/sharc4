@@ -1,0 +1,9 @@
+thresholds: {"h": 1e-3, "grad": 1e-4}
+error_function: "custom"
+exit_on_fail: True
+write_geoms: True
+geom_file: "geoms.xyz"
+interfaces: 
+    - {"label": "lead", "interface": "LVC", "args": [], "kwargs": {}}
+    - {"label": "advisor", "interface": "LVC", "args": [], "kwargs": {}}
+custom_error: {"name": "custom", "file": "custom", "function": "some_error_func"}

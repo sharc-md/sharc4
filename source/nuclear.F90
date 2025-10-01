@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -90,6 +90,7 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
   ! propagate positions
   select case (ctrl%thermostat)
     case (0) ! no thermostat
+      ! write(u_log,*) 'GRAAAAD1',(traj%grad_ad(1,1:3))
       do iatom=1,ctrl%natom
         if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         do idir=1,3
@@ -184,10 +185,10 @@ subroutine VelocityVerlet_xstep(traj,ctrl)
       ! break the loop when all constraints are satisfied
       if ( all(check_constraints) ) exit
     end do
-  endif
-  if (.not. all(check_constraints) ) then
-    write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (xstep)!'
-    stop 1
+    if (.not. all(check_constraints) ) then
+      write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (xstep)!'
+      stop 1
+    endif
   endif
 
 
@@ -233,6 +234,7 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
   ! propagate velocities
   select case (ctrl%thermostat)
     case (0) ! no thermostat
+      ! write(u_log,*) 'GRAAAAD2',(traj%grad_ad(1,1:3))
       do iatom=1,ctrl%natom
         if (ctrl%atommask_b(iatom) .eqv. .false.) cycle ! skip for frozen atoms
         do idir=1,3
@@ -305,10 +307,10 @@ subroutine VelocityVerlet_vstep(traj,ctrl)
       ! break the loop when all constraints are satisfied
       if ( all(check_constraints) ) exit
     end do
-  endif
-  if (.not. all(check_constraints) ) then
-    write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (vstep)!'
-    stop 1
+    if (.not. all(check_constraints) ) then
+      write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (vstep)!'
+      stop 1
+    endif
   endif
   
 

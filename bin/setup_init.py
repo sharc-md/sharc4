@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -50,9 +50,9 @@ from SHARC_INTERFACE import SHARC_INTERFACE
 # some constants
 PI = math.pi
 
-version = "3.0"
+version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2023, 8, 24)
+versiondate = datetime.date(2025, 4, 1)
 global KEYSTROKES
 old_question = question
 
@@ -262,6 +262,7 @@ class INITCOND:
 
 def check_initcond_version(string, must_be_excited=False):
     if "sharc initial conditions file" not in string.lower():
+        print("Not an initconds file")
         return False
     f = string.split()
     for i, field in enumerate(f):
@@ -269,11 +270,14 @@ def check_initcond_version(string, must_be_excited=False):
             try:
                 v = float(f[i + 1])
                 if v not in versionneeded:
+                    print("Wrong version")
                     return False
             except IndexError:
+                print("IndexError")
                 return False
     if must_be_excited:
         if "excited" not in string.lower():
+            print("Must be excited")
             return False
     return True
 
@@ -287,7 +291,7 @@ def displaywelcome():
     string += "  " + "=" * 80 + "\n"
     input = [
         " ",
-        "Setup trajectories for SHARC dynamics",
+        "Setup initial conditions for SHARC dynamics",
         " ",
         "Authors: Sebastian Mai, Severin Polonius",
         " ",
@@ -407,7 +411,7 @@ def get_general(INFOS):
     log.info("\nScript will use initial conditions %i to %i (%i in total).\n" % (irange[0], irange[1], irange[1] - irange[0] + 1))
     INFOS["irange"] = irange
 
-    log.info(f"{'Number of states':-^60}")
+    log.info(f"{'Number of states and charge':-^60}")
     log.info(
         "\nPlease enter the number of states as a list of integers\ne.g. 3 0 3 for three singlets, zero doublets and three triplets."
     )
@@ -420,6 +424,18 @@ def get_general(INFOS):
             continue
         break
     log.info("")
+
+    print("\nPlease enter the molecular charge for each chosen multiplicity\ne.g. 0 +1 0 for neutral singlets and triplets and cationic doublets.")
+    default = [i % 2 for i in range(len(states))]
+    while True:
+        charges = question("Molecular charges per multiplicity:", int, default)
+        if not states:
+            continue
+        if len(charges) != len(states):
+            print("Charges array must have same length as states array")
+            continue
+        break
+
     nstates = 0
     for mult, i in enumerate(states):
         nstates += (mult + 1) * i
@@ -427,6 +443,7 @@ def get_general(INFOS):
     log.info("Total number of states: %i\n" % (nstates))
     INFOS["states"] = states
     INFOS["nstates"] = nstates
+    INFOS["charge"] = charges
 
     # # Setup origin for calculation of multipole moment operators 
     # log.info("\n" + f"{'Definition of geometrical origin for Multipole Moment Operators:-^60'}" + "\n")
@@ -440,15 +457,16 @@ def get_general(INFOS):
 def get_interface() -> SHARC_INTERFACE:
     "asks for interface and instantiates it"
     Interfaces = factory.get_available_interfaces()
+    log.info("")
     log.info("{:-^60}".format("Choose the quantum chemistry interface"))
     log.info("\nPlease specify the quantum chemistry interface (enter any of the following numbers):")
     possible_numbers = []
-    for i, (name, interface) in enumerate(Interfaces):
-        if type(interface) == str:
-            log.info("%i\t%s: %s" % (i, name, interface))
+    for i, (name, interface, possible) in enumerate(Interfaces):
+        if not possible:
+            log.info("% 3i %-20s %s" % (i+1, name, interface))
         else:
-            log.info("%i\t%s: %s" % (i, name, interface.description()))
-            possible_numbers.append(i)
+            log.info("% 3i %-20s %s" % (i+1, name, interface.description()))
+            possible_numbers.append(i+1)
     log.info("")
     while True:
         num = question("Interface number:", int)[0]
@@ -457,16 +475,19 @@ def get_interface() -> SHARC_INTERFACE:
         else:
             log.info("Please input one of the following: %s!" % (possible_numbers))
     log.info("")
-    return Interfaces[num][1]
+    log.info("The following interface was selected:")
+    log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
+    return Interfaces[num-1][1]
 
 
 def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     """get requests for every single point"""
     interface.QMin.molecule["states"] = INFOS["states"]
     int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
-    log.debug(int_features)
+    log.info("\nThe following features are available from this interface:")
+    log.info(int_features)
 
-    INFOS["needed_requests"] = ["h", "dm"]
+    INFOS["needed_requests"] = set(["h", "dm"])
     states = INFOS["states"]
 
     # Setup SOCs
@@ -486,7 +507,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     log.info("")
     INFOS["soc"] = soc
     if INFOS["soc"]:
-        INFOS["needed_requests"].append("soc")
+        INFOS["needed_requests"].add("soc")
 
     # Setup Dyson spectra
     if "ion" in int_features:
@@ -498,7 +519,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             log.info("Do you want to compute Dyson norms between neutral and ionic states?")
             INFOS["ion"] = question("Dyson norms?", bool, False)
             if INFOS["ion"]:
-                INFOS["needed_requests"].append("ion")
+                INFOS["needed_requests"].add("ion")
 
     # Setup initconds with reference overlap
     if "overlap" in int_features:
@@ -508,7 +529,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         )
         INFOS["refov"] = question("Reference overlaps?", bool, False)
         if INFOS["refov"]:
-            INFOS["needed_requests"].append("overlap")
+            INFOS["needed_requests"].add("overlap")
 
     # Setup theodore
     if "theodore" in int_features:
@@ -516,7 +537,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         log.info("Do you want to run TheoDORE to obtain one-electron descriptors for the electronic wave functions?")
         INFOS["theodore"] = question("TheoDORE?", bool, False)
         if INFOS["theodore"]:
-            INFOS["needed_requests"].append("theodore")
+            INFOS["needed_requests"].add("theodore")
 
     # Setup Magnetic Dipole and/or Electric Quadrupole moments
     if "mdeqm" in int_features:
@@ -525,17 +546,6 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         if INFOS["mdeqm"]:
             INFOS["needed_requests"].append("mdeqm")
     return INFOS
-
-
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
-# ======================================================================================================================
 
 
 # ======================================================================================================================
@@ -669,6 +679,10 @@ def writeQMin(INFOS, iconddir):
 
     string += "unit bohr\nstates "
     for i in INFOS["states"]:
+        string += "%i " % (i)
+    string += "\n"
+    string += "charge "
+    for i in INFOS["charge"]:
         string += "%i " % (i)
     string += "\n"
 

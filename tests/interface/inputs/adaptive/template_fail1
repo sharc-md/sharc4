@@ -1,0 +1,4 @@
+---
+interfaces:
+    - {"label": "model1", "interface": "SPAINN", "args": [], "kwargs": {}}
+    - {"label": "model2", "interface": "SPAINN", "args": [], "kwargs": {}}

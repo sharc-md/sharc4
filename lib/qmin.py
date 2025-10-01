@@ -1,3 +1,28 @@
+
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
 import os
 from collections import UserDict
 from copy import deepcopy
@@ -62,7 +87,8 @@ class QMinMolecule(QMinBase):
         "elements": list,
         "unit": str,
         "factor": float,
-        "states": list,
+        "states": list[int],
+        "charge": list[int],
         "nstates": int,
         "nmstates": int,
         "point_charges": bool,
@@ -83,6 +109,7 @@ class QMinMolecule(QMinBase):
             "unit": None,
             "factor": None,
             "states": None,
+            "charge": None,
             "nstates": None,
             "nmstates": None,
             "point_charges": False,
@@ -101,6 +128,7 @@ class QMinMolecule(QMinBase):
             "unit": str,
             "factor": float,
             "states": list,
+            "charge": list,
             "nstates": int,
             "nmstates": int,
             "point_charges": bool,
@@ -190,7 +218,6 @@ class QMinRequests(QMinBase):
         "multipolar_fit": list,
         "theodore": bool,
         "cleanup": bool,
-        "backup": str,
         "retain": int,
         "molden": bool,
         "savestuff": bool,

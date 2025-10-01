@@ -2,7 +2,7 @@
 #
 #SHARC Program Suite
 #
-#    Copyright (c) 2023 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -78,12 +78,12 @@ endif
 $(info VAR="$(USE_COMPILER)" )
 
 ifeq ($(USE_COMPILER), )
-  USE_COMPILER := gnu
+  USE_COMPILER:=gnu
 endif
 ifeq ($(USE_COMPILER), gnu)
-  CC := gcc
-  F90 := gfortran 
-  EXTRAFLAGS := -ffree-line-length-none -fcheck=all 
+  CC :=gcc
+  F90 :=gfortran 
+  EXTRAFLAGS := -ffree-line-length-none 
 else ifeq ($(USE_COMPILER), intel)
   CC := icc -O
   F90 := ifort
@@ -126,7 +126,7 @@ CINCLUDE= -I$(ANACONDA)/include
 F90FLAGS = -O3 -fPIC -g  $(EXTRAFLAGS)
 
 # debug
-DEBUGFLAGS  = -traceback -g #-Wall -Wextra -Winline -Wno-unused-parameter -Wimplicit-interface -fbounds-check -fimplicit-none -fbacktrace -g 
+DEBUGFLAGS  = #-Wall -Wextra -Winline -Wno-unused-parameter -Wimplicit-interface -fbounds-check -fimplicit-none -fbacktrace -g 
 
 # C flags
 CLIB= -lgfortran
@@ -161,7 +161,7 @@ TOOLS = definitions.o \
 	string.o \
 	input_list.o
 
-SHARC  =  driver.o \
+SHARC  =  integrators.o \
           misc.o \
 	  output.o \
 	  restart.o \
@@ -178,8 +178,7 @@ SHARC  =  driver.o \
           tsh_tu.o \
           army_ants.o \
           pointer_basis.o \
-	  ziggurat.o \
-          restrictive_potential.o
+	  ziggurat.o 
 
 ifeq ($(USE_PYSHARC),true)
 SHARC += interface.o
@@ -219,9 +218,9 @@ DATA_CONVERTER_TO_ASCII = data_converter_to_ASCII.o data_extractor_NetCDFmodule.
 # -------------------------------------- rules ---------------------------------------
 
 ifeq ($(USE_PYSHARC),true)
-all: sharc data_extractor diagonalizer laser sharcvars libsharc data_extractor_NetCDF data_converter data_converter_to_ASCII
+all: sharc data_extractor laser sharcvars libsharc data_extractor_NetCDF data_converter data_converter_to_ASCII
 else
-all: sharc data_extractor diagonalizer laser sharcvars
+all: sharc data_extractor laser sharcvars
 endif
 
 
@@ -332,18 +331,18 @@ test_path:
 ifeq ($(USE_PYSHARC),true)
 main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o interface.o
 else
-main.o: driver.o output.o qm.o bsh.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
+main.o: integrators.o output.o qm.o bsh.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
 endif
 
-driver.o: output.o qm.o bsh.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
+integrators.o: output.o qm.o bsh.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
 interface.o: electronic.o definitions.o definitions_NetCDF.o output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
 misc.o: definitions.o
 output.o: $(TOOLS) build_info misc.o
 nuclear.o: $(TOOLS) decoherence_afssh.o decoherence_dom.o ziggurat.o misc.o
 electronic.o: nuclear.o $(TOOLS) decoherence_afssh.o decoherence_dom.o
 electronic_laser.o: electronic.o $(TOOLS)
-input.o: $(TOOLS) output.o restart.o misc.o restrictive_potential.o
-qm.o: $(TOOLS) electronic.o nuclear.o qm_out.o restart.o restrictive_potential.o
+input.o: $(TOOLS) output.o restart.o misc.o
+qm.o: $(TOOLS) electronic.o nuclear.o qm_out.o restart.o
 bsh.o: $(TOOLS) electronic.o decoherence_dom.o qm.o
 qm_out.o: $(TOOLS)
 restart.o: $(TOOLS) misc.o decoherence_afssh.o ziggurat.o
@@ -353,7 +352,6 @@ zpe.o: $(TOOLS) definitions.o nuclear.o
 tsh_tu.o: $(TOOLS) definitions.o electronic.o nuclear.o army_ants.o
 army_ants.o: $(TOOLS) definitions.o electronic.o 
 pointer_basis.o: $(TOOLS) definitions.o
-restrictive_potential.o: $(TOOLS) definitions.o
 
 LASER_input.o: definitions.o 
 LASER_calc_fftw.o: definitions.o

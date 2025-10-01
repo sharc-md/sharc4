@@ -1,4 +1,29 @@
 #!/usr/bin/env python3
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
+
 import datetime
 import itertools
 import math
@@ -19,14 +44,15 @@ from utils import containsstring, expand_path, question, link, makecmatrix, mkdi
 __all__ = ["SHARC_MNDO"]
 
 AUTHORS = "Nadja K. Singer, Hans Georg Gallmetzer"
-VERSION = "0.2"
-VERSIONDATE = datetime.datetime(2024, 4, 3)
+VERSION = "4.0"
+VERSIONDATE = datetime.datetime(2025, 4, 1)
 NAME = "MNDO"
-DESCRIPTION = "SHARC interface for the MNDO program"
+DESCRIPTION = "AB INITIO interface for the MNDO program (OM2-MRCI)"
 
 CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Only OM2/MRCI
 - Only singlets
+- Not functioning
 
 24.04.2024:     New implementation version 0.2 by Georg
 - also ODM2/MRCI
@@ -34,6 +60,10 @@ CHANGELOGSTRING = """27.10.2021:     Initial version 0.1 by Nadja
 - Overlaps/Phases
 - NACDR
 - Problems with the MO-Tracking through imomap file.
+
+02.12.2024:     Minor fixes/changes, version 1.0 by Georg
+- Fully working version.
+- Problems with MO-Tracking through imomap file could not be resolved.
 """
 
 all_features = set(
@@ -86,12 +116,9 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "kitscf": 5000,
                 "ici1": 0,
                 "ici2": 0,
-                "act_orbs": [1],
-                "movo": 0,
-                "kharge": 0,
+                "act_orbs": [],
                 "imomap": 0,
-                "disp": 0,
-                "iop": -6,
+                "hamiltonian": None,
                 "fomo": 0,
                 "rohf": 0,
                 "levexc": 2,
@@ -106,11 +133,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ici1": int,
                 "ici2": int,
                 "act_orbs": list,
-                "movo": int,
-                "kharge": int,
                 "imomap": int,
-                "disp": int,
-                "iop": int,
+                "hamiltonian": str,
                 "fomo": int,
                 "rohf": int,
                 "levexc": int,
@@ -176,24 +200,10 @@ class SHARC_MNDO(SHARC_ABINITIO):
         """
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'MDNO interface setup': ^76}||\n{'||':<78}||")
+        self.log.info(f"||{'MNDO interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
         self.files = []
-
-        self.log.info(
-            "\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
-        )
-        INFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
-        self.log.info("")
-
-        # scratch
-        self.log.info(f"{'Scratch directory':-^60}\n")
-        self.log.info(
-            "Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
-        )
-        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
-        self.log.info("")
 
         self.template_file = None
         self.log.info(f"{'MNDO input template file':-^60}\n")
@@ -214,6 +224,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
         self.files.append(self.template_file)
 
         self.make_resources = False
+        
         # Resources
         # TODO: either ask for resource file at the top of this routine or not at all...
         if question("Do you have a 'MNDO.resources' file?", bool, KEYSTROKES=KEYSTROKES, default=True):
@@ -227,22 +238,34 @@ class SHARC_MNDO(SHARC_ABINITIO):
                     self.log.info(f"file at {resources_file} does not exist!")
         else:
             self.make_resources = True
+            self.log.info(
+                "\nPlease specify path to MNDO directory (SHELL variables and ~ can be used, will be expanded when interface is started).\n"
+            )
+            self.setupINFOS["mndodir"] = question("Path to MNDO:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("")
+
+            # scratch
+            self.log.info(f"{'Scratch directory':-^60}\n")
+            self.log.info(
+                "Please specify an appropriate scratch directory. This will be used to run the MNDO calculations. The scratch directory will be deleted after the calculation. Remember that this script cannot check whether the path is valid, since you may run the calculations on a different machine. The path will not be expanded by this script."
+            )
+            self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            # self.setupINFOS["scratchdir"] += '/$$/'
+
             self.log.info(f"{'MNDO Ressource usage':-^60}\n")
 
-            INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
             
             if "overlap" in INFOS["needed_requests"]:
                 self.log.info(f"\n{'WFoverlap setup':-^60}\n")
-                INFOS["wfoverlap"] = question(
+                self.setupINFOS["wfoverlap"] = question(
                     "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
                 )
 
         return INFOS
 
 
-    def create_restart_files(self):
-        pass
 
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
@@ -268,10 +291,8 @@ class SHARC_MNDO(SHARC_ABINITIO):
             shutil.copy(saved_file, orbital_tracking)
 
         # Write MNDO input
-        input_str = self.generate_inputstr(qmin)
+        input_str = self._generate_inputstr()
 
-        # save_input_file = os.path.join(savedir, f"input.{step}.exp")
-        # writefile(save_input_file, input_str)
 
         self.log.debug(f"Generating input string\n{input_str}")
         input_path = os.path.join(workdir, "MNDO.inp")
@@ -333,11 +354,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         mo = os.path.join(savedir, f"mos.{step}")
         writefile(mo, mos)
 
-        # mo_e = os.path.join(savedir, f"mo_energies.{step}.exp")
-        # with open(mo_e, 'w') as f:
-        #     for line in mo_energies:
-        #         f.write(f"{line}\n")
-
         
         #AO_OVL
         aos = self.get_Double_AOovl(NAO)
@@ -357,17 +373,6 @@ class SHARC_MNDO(SHARC_ABINITIO):
         det = os.path.join(savedir, f"dets.{step}")
         writefile(det, determinants)
 
-
-        # tofile = os.path.join(savedir, f"MNDO.out.{step}")
-        # shutil.copy(log_file, tofile)
-
-        # out_file = os.path.join(workdir, "fort.15")
-        # tofile = os.path.join(savedir, f"fort.15.{step}")
-        # shutil.copy(out_file, tofile)
-
-        # mm_file = os.path.join(workdir, "fort.20")
-        # tofile = os.path.join(savedir, f"fort.20.{step}")
-        # shutil.copy(mm_file, tofile)
 
         return
 
@@ -612,8 +617,6 @@ mocoef
 
         # add MO occupancy to ci_vector
         active_mos = [*self._get_active_space(log_file)]
-        # ci_vectors["active MOs"] = active_mos
-        # active_mos = [*get_active_space(logfile)]
         ci_vectors["active MOs"] = [*range(1, len(MO_occ)+1)]
 
         # get CSFs from log_file
@@ -692,6 +695,7 @@ mocoef
 
         #Energies and TDMs are taken from the MNDO.out file
         log_file = os.path.join(self.QMin.control["workdir"], "MNDO.out")
+
         #Gradients and NACs are taken from the fort.15 file, this file has many more significant digits 
         grads_nacs_file = os.path.join(self.QMin.control["workdir"], "fort.15")
         
@@ -726,7 +730,8 @@ mocoef
         # Populate overlaps, only singlets so this function is simpler than normal
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             if "overlap" not in self.QMout:
-                self.QMout["overlap"] = makecmatrix(nmstates, nmstates)
+                self.QMout["overlap"] = np.zeros((nmstates, nmstates))
+                
             outfile = os.path.join(self.QMin.resources["scratchdir"], "wfovl.out")
             ovlp_mat = self.parse_wfoverlap(outfile)
             for i in range(nmstates):
@@ -871,7 +876,7 @@ mocoef
         # nac = np.fromiter(map(), count=).reshape()
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i]
-            #dE = self.QMout["h"][s2,s2].real - self.QMout["h"][s1,s1].real # In MNDO cannot calculate imaginary energies
+
             for j in range(natom):
                 line = f[iline]
                 s = line.split()
@@ -893,9 +898,6 @@ mocoef
                 iline += 1
             nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
             nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
-            # if (dE != 0.0):
-            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE # kcal/mol*Ang --> 1/a_0
-            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
         
         return nac
     
@@ -924,7 +926,7 @@ mocoef
         # make nac matrix
         for i, (s1, s2) in enumerate(interstates):
             iline = line_marker[i] 
-            #dE = self.QMout["h"][s2, s2].real - self.QMout["h"][s1, s1].real # In MNDO cannot calculate imaginary energies
+
             for j in range(ncharges):
                 line = f[iline]
                 s = line.split() 
@@ -938,9 +940,7 @@ mocoef
 
             nac[s1,s2,...] = nac[s1,s2,...] * BOHR_TO_ANG # 1/Ang --> 1/a_0
             nac[s2,s1,...] = nac[s2,s1,...] * BOHR_TO_ANG
-            # if (dE != 0.0):
-            #     nac[s1,s2,...] = nac[s1,s2,...] * kcal_to_Eh * BOHR_TO_ANG / dE  # kcal/mol*Ang --> 1/a_0 
-            #     nac[s2,s1,...] = nac[s2,s1,...] * kcal_to_Eh * BOHR_TO_ANG / dE
+
 
         return nac
 
@@ -1040,17 +1040,17 @@ mocoef
             except IOError:
                 self.log.error('IOError during prepareMNDO, iconddir=%s' % (workdir))
                 quit(1)
-            string = 'scratchdir %s/\n' % INFOS['scratchdir']
-            string += 'mndodir %s\n' % INFOS['mndodir']
-            string += 'memory %i\n' % (INFOS['memory'])
+            string = 'scratchdir %s/%s/\n' % (self.setupINFOS['scratchdir'], workdir)
+            string += 'mndodir %s\n' % self.setupINFOS['mndodir']
+            string += 'memory %i\n' % (self.setupINFOS['memory'])
             if 'overlap' in INFOS['needed_requests']:
-                string += 'wfoverlap %s\n' % (INFOS['wfoverlap'])
+                string += 'wfoverlap %s\n' % (self.setupINFOS['wfoverlap'])
 
             resources_file.write(string)
             resources_file.close()
             
         create_file = link if INFOS["link_files"] else shutil.copy
-        print(self.files)
+        # print(self.files)
         for file in self.files:
             create_file(expand_path(file), os.path.join(workdir, file.split("/")[-1]))
 
@@ -1080,27 +1080,39 @@ mocoef
         if self.QMin["template"]["nciref"] < 1 or self.QMin["template"]["nciref"] > 20:
             raise ValueError(f"number of references can only be between 1 and 20.")
 
-        self.QMin["template"]["kharge"] = int(self.QMin["template"]["kharge"]) #cast template inputs to int
+        self.QMin["template"]["kharge"] = self.QMin.molecule['charge'][0] #int(self.QMin["template"]["kharge"]) #cast template inputs to int
         self.QMin["template"]["imomap"] = int(self.QMin["template"]["imomap"])
-        self.QMin["template"]["disp"] = int(self.QMin["template"]["disp"])
+        # self.QMin["template"]["disp"] = int(self.QMin["template"]["disp"])
         
         if self.QMin["template"]["imomap"] < 0 or self.QMin["template"]["imomap"] > 1:  # Check if imomap is not out of range.
             raise ValueError(f"imomap can either be 0 (false) or 1 (true). Negative numbers not supported!")
         if self.QMin["template"]["imomap"] == 1:
             self.QMin["template"]["imomap"] = 3   #Orbital tracking activated when imomap=3 in the MNDO.inp file.
         
-        if self.QMin["template"]["disp"] < 0 or self.QMin["template"]["disp"] > 1:  # Check if disp is not out of range.
-            raise ValueError(f"disp can either be 0 (false) or 1 (true). Negative numbers not supported!")
-        if self.QMin["template"]["disp"] == 1:
-            self.QMin["template"]["iop"] = -22 
+        if self.QMin["template"]["hamiltonian"] != None:
+            if self.QMin["template"]["hamiltonian"].lower() == "om2":
+                self.QMin["template"]["iop"] = -6
+            elif self.QMin["template"]["hamiltonian"].lower() == "odm2":
+                self.QMin["template"]["iop"] = -22
+            else:
+                raise ValueError(f"Hamiltonian can either be OM2 or ODM2 (with dispersion correction). Other hamiltonians are currently not supported!")
+        else:
+            raise ValueError(f"You have to set the hamiltonian keyword. Hamiltonian can either be OM2 or ODM2 (with dispersion correction). Other hamiltonians are currently not supported!")
+                 
 
         
-        self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
-        if self.QMin["template"]["movo"] > 1 or self.QMin["template"]["movo"] < 0 :
-            raise ValueError(f"movo can only be 0 (false) or 1 (true).")
+        # self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
+        # if self.QMin["template"]["movo"] > 1 or self.QMin["template"]["movo"] < 0 :
+        #     raise ValueError(f"movo can only be 0 (false) or 1 (true).")
         
-        if self.QMin["template"]["movo"] == 1 :
+        if len(self.QMin["template"]["act_orbs"]) > 0 :
             self.QMin["template"]["act_orbs"] = [int(i) for i in self.QMin["template"]["act_orbs"]]
+            self.QMin["template"]["movo"] = 1
+            if len(self.QMin["template"]["act_orbs"]) != (int(self.QMin["template"]["ici1"]) + int(self.QMin["template"]["ici2"])):
+                raise ValueError(f"Number of entries in act_orbs has to be the same as ici1 + ici2.")
+        else:
+            self.QMin["template"]["movo"] = 0
+
         
         self.QMin["template"]["fomo"] = int(self.QMin["template"]["fomo"])
         if self.QMin["template"]["fomo"] > 1 or self.QMin["template"]["fomo"] < 0 :
@@ -1113,10 +1125,17 @@ mocoef
         self.QMin["template"]["levexc"] = int(self.QMin["template"]["levexc"])
         if self.QMin["template"]["levexc"] > 6 or self.QMin["template"]["levexc"] < 1 :
             raise ValueError(f"levexc can only be between 1 (singlets) and 6 (sextets).")
+
+
+
+        if self.QMin["template"]["mciref"] < 0 or self.QMin["template"]["mciref"] > 1:  # Check if mciref is not out of range.
+            raise ValueError(f"mciref can either be 0 (false) or 1 (true). Negative numbers not supported!")
+        if self.QMin["template"]["mciref"] == 1:
+            self.QMin["template"]["mciref"] = 3 
         
-        self.QMin["template"]["mciref"] = int(self.QMin["template"]["mciref"])
-        if self.QMin["template"]["mciref"] != 3 and self.QMin["template"]["mciref"] != 0:
-            raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plus 85% of something).")
+        # self.QMin["template"]["mciref"] = int(self.QMin["template"]["mciref"])
+        # if self.QMin["template"]["mciref"] != 3 and self.QMin["template"]["mciref"] != 0:
+        #     raise ValueError(f"mciref can only be between 0 (automatic definition) or 3 (mciref 0 plus 85% of something).")
 
 
 
@@ -1144,17 +1163,15 @@ mocoef
         schedule = [{"mndo_calc" : self.QMin}] #Generate fake schedule
         self.QMin.control["nslots_pool"].append(1)
         self.runjobs(schedule)
-        #self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)+
+        
 
         self._save_files(self.QMin.control["workdir"])
-        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
+        self.clean_savedir()
         # Run wfoverlap
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             self._run_wfoverlap()
 
         self.log.debug("All jobs finished successfully")
-
-        # self.saveGeometry()
 
         self.QMout["runtime"] = datetime.datetime.now() - starttime
 
@@ -1204,7 +1221,6 @@ mocoef
         )
 
         # Link files
-        # breakpoint()
         link(
             os.path.join(self.QMin.save["savedir"], f"dets.{self.QMin.save['step']}"),
             os.path.join(workdir, "det.a"),
@@ -1234,19 +1250,24 @@ mocoef
             raise OSError()
 
 
-    @staticmethod
-    def generate_inputstr(qmin: QMin) -> str:
+    def _generate_inputstr(self) -> str:
         """
         Generate MNDO input file string from QMin object
         """
-
+        qmin = self.QMin
+        ncigrd = 1
+        grads = [1]
+        icross = 1                                              #calc gradients
         natom = qmin["molecule"]["natom"]
-        if qmin.requests["grad"]:
-            ncigrd = len(qmin["maps"]["gradmap"])
-            grads = [y for _,y in qmin["maps"]["gradmap"]]
-        else:
-            ncigrd = 1
-            grads = [1]
+        if qmin.requests["grad"] or qmin.requests["nacdr"]:
+            if qmin.requests["nacdr"]:
+                icross = 7                                      #calc gradients and NACs
+                grads = self._check_grads_request(qmin)
+                ncigrd = len(grads)
+            else:
+                ncigrd = len(qmin["maps"]["gradmap"])
+                grads = [y for _,y in qmin["maps"]["gradmap"]]
+
 
         coords = qmin["coords"]["coords"]
         elements = qmin["molecule"]["elements"]
@@ -1266,11 +1287,9 @@ mocoef
         mciref = qmin["template"]["mciref"]
 
         nfloat = ici1 + ici2
-        icross = 1
 
 
-        if qmin.requests["nacdr"]:
-            icross = 7
+        
 
         if qmin["template"]["fomo"] == 1:
             inputstring = f"iop={iop} jop=-2 imult={rohf} iform=1 igeom=1 mprint=1 icuts=-1 icutg=-1 dstep=1e-05 kci=5 ioutci=1 iroot={iroot} icross={icross} ncigrd={ncigrd} inac=0 imomap={imomap} iscf=9 iplscf=9 kitscf={kitscf} nciref={nciref} mciref={mciref} levexc={levexc} mapthr=70 iuvcd=3 nsav13=2 kharge={kharge} multci=1 cilead=1 ncisym=-1 nsav15=9 iuhf=-6 nfloat={nfloat}"
@@ -1300,8 +1319,22 @@ mocoef
             inputstring += str(l) + " "
 
         return inputstring
-    
 
+    @staticmethod
+    def _check_grads_request(qmin: QMin) -> list:
+        
+        grads = [y for _,y in qmin["maps"]["gradmap"]]
+        nac_i = list(map(lambda x: x[1], qmin["maps"]["nacmap"]))
+        nac_j = list(map(lambda x: x[3], qmin["maps"]["nacmap"]))
+        naclist = nac_i + nac_j
+        together = grads + naclist
+        no_duplicates = list(dict.fromkeys(together))
+        ordered = sorted(no_duplicates)
+        
+        return ordered
+
+
+    
     def _create_aoovl(self) -> None:
         #empty function
         pass

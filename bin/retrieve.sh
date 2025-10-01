@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#******************************************
+# ******************************************
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2018 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -21,7 +21,7 @@
 #    You should have received a copy of the GNU General Public License
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
-#******************************************
+# ******************************************
 
 
 

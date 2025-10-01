@@ -3,6 +3,7 @@ veloc        external
 velocfile    "veloc"
 
 nstates      2
+charge       0
 actstates    2
 state        2 mch
 coeff        auto
@@ -24,3 +25,4 @@ eselect      0.5
 select_directly
 
 nospinorbit
+output_format ascii

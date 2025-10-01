@@ -3,7 +3,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -27,7 +27,9 @@ from utils import expand_path
 from typing import Union
 from logger import log
 import glob
+import time
 from SHARC_INTERFACE import SHARC_INTERFACE
+from SHARC_OLD import SHARC_OLD
 
 global AVAILABLE_INTERFACES
 AVAILABLE_INTERFACES = None
@@ -47,42 +49,62 @@ def get_available_interfaces() -> list[tuple[str, Union[SHARC_INTERFACE, str]]]:
         return AVAILABLE_INTERFACES
 
     sharc_bin = expand_path('$SHARC')
-    log.debug(f"factory interface collection: {sharc_bin}")
+    log.info(f"Loading interface collection from {sharc_bin} ...")
     interfaces = []
-    for path in sorted(glob.glob(sharc_bin + '/SHARC_*.py')):
+    start = time.time_ns()
+    pathlist = sorted(glob.glob(sharc_bin + '/SHARC_*.py'))
+    # ninterface = len(pathlist)
+    # interfaces_done = 0
+    # width_progressbar = 50
+    for path in pathlist:
         filename = path.split('/')[-1]
         interface_name = filename.split('.')[0]
         try:
             mod = import_module(interface_name)
         except TypeError as e:
             log.debug(f"{interface_name} could not be imported (not a package)\n\t{e}")
-            interfaces.append((interface_name, "(Not Available!)"))
+            interfaces.append((interface_name, "          (Not Available!)", False))
             continue
         except (ModuleNotFoundError, ImportError) as e:
             log.debug(f"{interface_name} could not be imported (missing dependencies)\n\t{e}")
-            interfaces.append((interface_name, "(Not Available!)"))
+            interfaces.append((interface_name, "          (Not Available!)", False))
             continue
 
         try:
             interface = getattr(mod, interface_name)
         except AttributeError as e:
             log.debug(f"class {interface_name} not found in {mod}\n\t{e}")
-            interfaces.append((interface_name, "(Not Available!)"))
+            interfaces.append((interface_name, "          (Not Available!)", False))
+            continue
+
+        if issubclass(interface, SHARC_OLD):
+            log.debug(f"class {interface_name} in {mod} is a legacy class")
+            interfaces.append((interface_name, "          (Not Available! Use SHARC_LEGACY to work with this interface)", False))
             continue
 
         if type(interface) == str or not issubclass(interface, SHARC_INTERFACE):
             log.debug(f"class {interface_name} in {mod} is not derived from 'SHARC_INTERFACE'")
-            interfaces.append((interface_name, "(Not Available!)"))
+            interfaces.append((interface_name, "          (Not Available!)", False))
             continue
 
-        interfaces.append((interface_name, interface))
+        interfaces.append((interface_name, interface, True))
+
+        # interfaces_done += 1
+        # done = interfaces_done * width_progressbar // ninterface
+        # log.info(
+        #     "\rProgress: [" + "=" * done + " " * (width_progressbar - done) + "] %3i%%" % (done * 100 // width_progressbar)
+        # )
+
+
+    stop = time.time_ns()
+    log.debug("Timing for finding interfaces: %.1f sec" % ((stop - start) * 1e-9) )
     log.debug(interfaces)
     AVAILABLE_INTERFACES = interfaces[:]
     return interfaces
 
 
 def factory(name: str) -> SHARC_INTERFACE:
-    available_interfaces = [i[1] for i in get_available_interfaces() if i[1] != "(Not Available!)"]
+    available_interfaces = [i[1] for i in get_available_interfaces() if i[2] ]
     names = [i.__name__.split("_", maxsplit=1)[1] for i in available_interfaces]
     log.debug(f"{available_interfaces}\n{names}")
     try:

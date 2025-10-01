@@ -1,0 +1,649 @@
+2025-05-06 19:24:35.809950 tellurium3 /user/pitesa/sharc_main/examples/SHARC_ECI
+  ============================================================================
+||                                                                            ||
+||                          SHARC - ECI - Interface                           ||
+||                                                                            ||
+||               Authors: Tomislav Piteša & Sascha Mausenberger               ||
+||                                                                            ||
+||                                Version: 4.0                                ||
+||                              Date: 01.05.2025                              ||
+||                                                                            ||
+  ============================================================================
+Found 2 fragments in template file.
+Interface: 
+
+Molecule: 
+comment: BODIPY x 2
+
+natom: 42
+elements: ['N', 'N', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'B', 'F', 'F', 'H', 'H', 'H', 'H', 'H', 'H', 'H', 'N', 'N', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'C', 'B', 'F', 'F', 'H', 'H', 'H', 'H', 'H', 'H', 'H']
+unit: angstrom
+factor: 1.8897261259077822
+states: [6, 0, 6]
+charge: [0, 1, 0]
+nstates: 12
+nmstates: 24
+point_charges: False
+npc: 0
+Atomcharge: 196
+frozcore: 28
+Ubasis: [[      0.0       0.0]
+ [      0.0       0.0]]
+mol: None
+
+Coords: 
+coords: [[-11.09344 -3.067957  20.21407]
+ [-12.40982 -3.779186  15.72357]
+ [-11.01477 -2.929157  22.76859]
+ [-9.063366 -1.382255  23.58265]
+ [-7.820705 -0.5207386  21.43119]
+ [-9.109635 -1.567961  19.32415]
+ [-8.736778 -1.255901   16.7271]
+ [-10.35209 -2.305035  14.93998]
+ [-10.47811 -2.119332   12.2731]
+ [-12.52774 -3.425008  11.44317]
+ [ -13.7069 -4.428195  13.63875]
+ [-12.91758 -4.617729  18.50724]
+ [-12.43626 -7.194813   18.7824]
+ [-15.42918 -4.139109  19.16134]
+ [ -7.45958 -0.1531585  16.24311]
+ [-15.09834 -5.379693  13.66604]
+ [-6.418372  0.6317789  21.47023]
+ [-8.568666 -0.9955304  25.29456]
+ [-13.14075 -3.637515  9.756019]
+ [-12.11395 -4.020411  23.75213]
+ [-9.215506  -1.03382  11.31432]
+ [-1.510641  6.504451  20.21407]
+ [-2.827019  5.793222  15.72357]
+ [ -1.43197  6.643251  22.76859]
+ [ 0.5194347  8.190152  23.58265]
+ [ 1.762096  9.051669  21.43119]
+ [ 0.4731666  8.004447  19.32415]
+ [ 0.8460228  8.316507   16.7271]
+ [-0.7692905  7.267373  14.93998]
+ [-0.8953088  7.453076   12.2731]
+ [-2.944936    6.1474  11.44317]
+ [-4.124097  5.144212  13.63875]
+ [-3.334783  4.954679  18.50724]
+ [-2.853456  2.377595   18.7824]
+ [-5.846376  5.433299  19.16134]
+ [ 2.123221  9.419249  16.24311]
+ [ -5.51554  4.192715  13.66604]
+ [  3.16443  10.20419  21.47023]
+ [ 1.014135  8.576877  25.29456]
+ [-3.557948  5.934893  9.756019]
+ [-2.531152  5.551996  23.75213]
+ [ 0.3672947  8.538588  11.31432]]
+pccoords: None
+pccharge: None
+
+Save: 
+savedir: /user/pitesa/sharc_main/examples/SHARC_ECI/SAVE
+step: 0
+previous_step: None
+init: True
+newstep: False
+samestep: False
+always_guess: False
+always_orb_init: False
+restart: False
+
+Requests: 
+h: True
+soc: False
+dm: True
+grad: None
+nacdr: None
+overlap: False
+phases: False
+ion: False
+socdr: False
+dmdr: False
+multipolar_fit: None
+theodore: False
+cleanup: False
+retain: 5
+molden: False
+savestuff: False
+nooverlap: False
+mol: False
+density_matrices: None
+dyson_orbitals: None
+
+Maps: 
+statemap: {1: [1, 1, 0.0], 2: [1, 2, 0.0], 3: [1, 3, 0.0], 4: [1, 4, 0.0], 5: [1, 5, 0.0], 6: [1, 6, 0.0], 7: [3, 1, -1.0], 8: [3, 2, -1.0], 9: [3, 3, -1.0], 10: [3, 4, -1.0], 11: [3, 5, -1.0], 12: [3, 6, -1.0], 13: [3, 1, 0.0], 14: [3, 2, 0.0], 15: [3, 3, 0.0], 16: [3, 4, 0.0], 17: [3, 5, 0.0], 18: [3, 6, 0.0], 19: [3, 1, 1.0], 20: [3, 2, 1.0], 21: [3, 3, 1.0], 22: [3, 4, 1.0], 23: [3, 5, 1.0], 24: [3, 6, 1.0]}
+mults: None
+gsmap: None
+gradmap: None
+nacmap: None
+densmap: None
+ionmap: None
+chargemap: {1: 0, 2: 1, 3: 0}
+multmap: None
+
+Resources: 
+pwd: /user/pitesa/sharc_main/examples/SHARC_ECI
+cwd: /user/pitesa/sharc_main/examples/SHARC_ECI
+scratchdir: /user/pitesa/sharc_main/examples/SHARC_ECI/SCRATCH
+ncpu: 40
+ngpu: 0
+memory: 1000
+sitejobs: [('BA', 0), ('BA', -1), ('BD', 0), ('BD', 1)]
+
+Template: 
+paddingstates: []
+fragments: {'BD': {'atoms': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], 'aufbau_site_states': [S0_(0)^(0), D0_(-1/2)^(1+), D0_(+1/2)^(1+)], 'EHF': {'interface': 'GAUSSIAN', 'embedding_site_state': {0: S0_(0)^(0)}, 'guess': True, 'write': True, 'max_cycles': 10, 'forced': False, 'tQ': 0.01}, 'SSC': {'interface': 'GAUSSIAN', 'data': 'w', 'states': {0: [2, 0, 1], 1: [0, 1, 0]}}}, 'BA': {'atoms': [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41], 'aufbau_site_states': [S0_(0)^(0), D0_(-1/2)^(1-), D0_(+1/2)^(1-)], 'EHF': {'interface': 'GAUSSIAN', 'embedding_site_state': {0: S0_(0)^(0)}, 'guess': True, 'write': True, 'max_cycles': 10, 'forced': False, 'tQ': 0.01}, 'SSC': {'interface': 'GAUSSIAN', 'data': 'w', 'states': {0: [2, 0, 1], -1: [0, 1, 0]}}}}
+calculation: {'tO': 0.9, 'RI': {'active': True, 'Jauxbasis': 'def2svpjkfit', 'Kauxbasis': 'def2svpjkfit', 'tS': 0.0001, 'tC': 0.001, 'chunksize': -1}, 'excitonic_basis': {'ECI': {0: True, 1: [['BD'], ['BA']], 2: [['BD', 'BA']]}}, 'active_integrals': {'J': {(0, 0): [('BD', 'BA')], (0, 1): [('BD', 'BA')], (0, 2): [('BD', 'BA')]}, 'K': {(0, 0): [('BD', 'BA')], (0, 1): [('BD', 'BA')], (0, 2): [('BD', 'BA')]}}}
+
+Scheduling: 
+
+Control: 
+jobid: None
+workdir: None
+master: False
+gradonly: False
+densonly: False
+states_to_do: None
+jobs: None
+
+Full-system charges to do: {0}
+
+ ===========================================================================
+ ============== ECI CALCULATION FOR THE FULL-SYSTEM CHARGE 0 ===============
+ ===========================================================================
+
+
+ ============================= EHF calculation =============================
+
+    Trying to read guess embedding charges for fragment BD...
+       Failed! Defaulting guess charges to zeros...
+    Trying to read guess embedding charges for fragment BA...
+       Failed! Defaulting guess charges to zeros...
+
+    GUESS DATA
+
+       FRAGMENT BD:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:    0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000
+
+       FRAGMENT BA:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:    0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000   0.00000
+
+
+    CYCLE 1
+
+       Running 2 fragments in this cycle...
+       Running child BD on tellurium3 with pid 64357 on 20 cores
+       Running child BA on tellurium3 with pid 64359 on 20 cores
+
+       FRAGMENT BD:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:   -0.02206  -0.05563  -0.05097  -0.22320  -0.17833   0.02400  -0.10435   0.04379  -0.16322  -0.23491  -0.00337   0.44386  -0.34030  -0.35579   0.18178   0.17861   0.17300   0.17118   0.17511   0.18176   0.15904
+          Delta:          -0.02206  -0.05563  -0.05097  -0.22320  -0.17833   0.02400  -0.10435   0.04379  -0.16322  -0.23491  -0.00337   0.44386  -0.34030  -0.35579   0.18178   0.17861   0.17300   0.17118   0.17511   0.18176   0.15904
+          Converged:          NO        NO        NO        NO        NO        NO        NO        NO        NO        NO       YES        NO        NO        NO        NO        NO        NO        NO        NO        NO        NO    
+
+       FRAGMENT BA:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:   -0.02206  -0.05563  -0.05097  -0.22320  -0.17833   0.02400  -0.10435   0.04379  -0.16322  -0.23491  -0.00337   0.44386  -0.34030  -0.35579   0.18178   0.17861   0.17300   0.17118   0.17511   0.18176   0.15904
+          Delta:          -0.02206  -0.05563  -0.05097  -0.22320  -0.17833   0.02400  -0.10435   0.04379  -0.16322  -0.23491  -0.00337   0.44386  -0.34030  -0.35579   0.18178   0.17861   0.17300   0.17118   0.17511   0.18176   0.15904
+          Converged:          NO        NO        NO        NO        NO        NO        NO        NO        NO        NO       YES        NO        NO        NO        NO        NO        NO        NO        NO        NO        NO    
+
+    CYCLE 2
+
+       Running 2 fragments in this cycle...
+       Running child BD on tellurium3 with pid 65156 on 20 cores
+       Running child BA on tellurium3 with pid 65158 on 20 cores
+
+       FRAGMENT BD:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:   -0.05364  -0.04319  -0.02599  -0.24705  -0.16311   0.05493  -0.11060   0.03514  -0.16693  -0.23541  -0.02269   0.44688  -0.34313  -0.35666   0.18935   0.17963   0.19536   0.16998   0.17248   0.17383   0.15082
+          Delta:          -0.03159   0.01243   0.02498  -0.02385   0.01523   0.03093  -0.00625  -0.00865  -0.00371  -0.00050  -0.01932   0.00302  -0.00282  -0.00087   0.00757   0.00102   0.02236  -0.00120  -0.00263  -0.00793  -0.00822
+          Converged:          NO        NO        NO        NO        NO        NO       YES       YES       YES       YES        NO       YES       YES       YES       YES       YES        NO       YES       YES       YES       YES    
+
+       FRAGMENT BA:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:    0.01296  -0.02309  -0.05688  -0.22108  -0.17522   0.01098  -0.09125   0.03200  -0.16142  -0.23362  -0.01788   0.38336  -0.33861  -0.34551   0.18145   0.17298   0.17575   0.17362   0.17681   0.18241   0.16223
+          Delta:           0.03502   0.03253  -0.00591   0.00212   0.00311  -0.01302   0.01310  -0.01179   0.00181   0.00129  -0.01451  -0.06050   0.00169   0.01028  -0.00034  -0.00563   0.00276   0.00245   0.00169   0.00065   0.00319
+          Converged:          NO        NO       YES       YES       YES        NO        NO        NO       YES       YES        NO        NO       YES        NO       YES       YES       YES       YES       YES       YES       YES    
+
+    CYCLE 3
+
+       Running 2 fragments in this cycle...
+       Running child BD on tellurium3 with pid 65952 on 20 cores
+       Running child BA on tellurium3 with pid 65954 on 20 cores
+
+       FRAGMENT BD:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:   -0.05429  -0.04299  -0.02604  -0.24795  -0.16328   0.05638  -0.11164   0.03573  -0.16716  -0.23577  -0.02338   0.44640  -0.34326  -0.35660   0.19105   0.17955   0.19639   0.16978   0.17233   0.17362   0.15113
+          Delta:          -0.00065   0.00021  -0.00005  -0.00091  -0.00017   0.00145  -0.00104   0.00058  -0.00023  -0.00036  -0.00070  -0.00048  -0.00013   0.00005   0.00170  -0.00008   0.00103  -0.00019  -0.00015  -0.00021   0.00032
+          Converged:         YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES    
+
+       FRAGMENT BA:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:    0.01971  -0.01531  -0.05852  -0.22109  -0.17493   0.00805  -0.08843   0.02875  -0.16114  -0.23281  -0.01912   0.37082  -0.33876  -0.34470   0.18130   0.17349   0.17636   0.17415   0.17759   0.18168   0.16288
+          Delta:           0.00675   0.00779  -0.00164  -0.00001   0.00029  -0.00293   0.00282  -0.00325   0.00028   0.00081  -0.00124  -0.01254  -0.00015   0.00081  -0.00014   0.00051   0.00061   0.00052   0.00078  -0.00073   0.00065
+          Converged:         YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES        NO       YES       YES       YES       YES       YES       YES       YES       YES       YES    
+
+    CYCLE 4
+
+       Running 2 fragments in this cycle...
+       Running child BD on tellurium3 with pid 66799 on 20 cores
+       Running child BA on tellurium3 with pid 66801 on 20 cores
+
+       FRAGMENT BD:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:   -0.05455  -0.04286  -0.02586  -0.24813  -0.16312   0.05665  -0.11178   0.03569  -0.16726  -0.23580  -0.02365   0.44641  -0.34329  -0.35662   0.19120   0.17957   0.19676   0.16978   0.17229   0.17354   0.15103
+          Delta:          -0.00026   0.00012   0.00018  -0.00017   0.00016   0.00027  -0.00014  -0.00004  -0.00010  -0.00003  -0.00026   0.00001  -0.00004  -0.00001   0.00015   0.00001   0.00037   0.00000  -0.00004  -0.00007  -0.00010
+          Converged:         YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES    
+
+       FRAGMENT BA:
+          Atoms:              N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+          RESP charges:    0.02019  -0.01494  -0.05860  -0.22107  -0.17489   0.00786  -0.08828   0.02863  -0.16114  -0.23276  -0.01928   0.37007  -0.33875  -0.34460   0.18130   0.17342   0.17639   0.17418   0.17762   0.18171   0.16293
+          Delta:           0.00047   0.00037  -0.00009   0.00002   0.00005  -0.00019   0.00015  -0.00012  -0.00001   0.00005  -0.00016  -0.00075   0.00001   0.00010  -0.00000  -0.00007   0.00003   0.00004   0.00003   0.00003   0.00004
+          Converged:         YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES       YES    
+
+    EHF convergence reached in 4 cycles!
+    Time elapsed in EHF.run = 79.857 sec.
+    Writing QMout object of EHF fragment BD to /user/pitesa/sharc_main/examples/SHARC_ECI/BD_embedding_Z0/QM.out
+    Writing QMout object of EHF fragment BA to /user/pitesa/sharc_main/examples/SHARC_ECI/BA_embedding_Z0/QM.out
+
+ ========================= End of EHF calculation ==========================
+
+
+ ========================= Site-state calculations =========================
+
+    SSC children to be runned: ('BD', 0), ('BD', 1), ('BA', 0), ('BA', -1)
+    Running child ('BA', 0) on tellurium3 with pid 67602 on 16 cores
+    Running child ('BA', -1) on tellurium3 with pid 67604 on 4 cores
+    Running child ('BD', 0) on tellurium3 with pid 67610 on 16 cores
+    Running child ('BD', 1) on tellurium3 with pid 67614 on 4 cores
+
+    Time elapsed in site-state calculations = 143.451 sec.
+    Writing QMout object of SSC fragment ('BD', 0) to /user/pitesa/sharc_main/examples/SHARC_ECI/BD_z0_Z0/QM.out
+    Writing QMout object of SSC fragment ('BD', 1) to /user/pitesa/sharc_main/examples/SHARC_ECI/BD_z1_Z0/QM.out
+    Writing QMout object of SSC fragment ('BA', 0) to /user/pitesa/sharc_main/examples/SHARC_ECI/BA_z0_Z0/QM.out
+    Writing QMout object of SSC fragment ('BA', -1) to /user/pitesa/sharc_main/examples/SHARC_ECI/BA_z-1_Z0/QM.out
+
+ ===================== End of site-state calculations ======================
+
+
+ Calculating site-specific dipole-moment matrices from the densities...
+
+
+ ================== Excitonic part of the ECI calculation ==================
+
+    BASIC INFOS OF THE CALCULATION:
+
+       The number of CPUs for NumPY and PySCF set up to 40
+       Multiplicities to be calculated: [1, 3]
+       ECI level:
+          GS: True
+          LE: [[BD], [BA]]
+         DLE: [[BD, BA]]
+
+    BASIC INFOS OF THE SITES:
+
+       Site: BD
+
+                  Atoms:       N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+           RESP charges:   -0.05455  -0.04286  -0.02586  -0.24813  -0.16312   0.05665  -0.11178   0.03569  -0.16726  -0.23580  -0.02365   0.44641  -0.34329  -0.35662   0.19120   0.17957   0.19676   0.16978   0.17229   0.17354   0.15103
+
+            Site states:       S0_(0)^(0)      S1_(0)^(0)     T1_(-1)^(0)      T1_(0)^(0)     T1_(+1)^(0)  D0_(-1/2)^(1+)  D0_(+1/2)^(1+)
+          Site energies:    -680.54580417   -680.41734691   -680.48556468   -680.48556468   -680.48556468   -680.26156327   -680.26156327
+            Num. of el.:      98.00000001     98.00000001     97.99999999     97.99999999     97.99999999     97.00000000     97.00000000
+                  Alpha:      49.00000001     49.00000001     47.99999998     48.99999999     50.00000043     49.00000000     49.00000000
+                   Beta:      49.00000001     49.00000001     50.00000000     48.99999999     48.00000041     48.00000000     48.00000000
+
+       Site: BA
+
+                  Atoms:       N         N         C         C         C         C         C         C         C         C         C         B         F         F         H         H         H         H         H         H         H         
+           RESP charges:    0.02019  -0.01494  -0.05860  -0.22107  -0.17489   0.00786  -0.08828   0.02863  -0.16114  -0.23276  -0.01928   0.37007  -0.33875  -0.34460   0.18130   0.17342   0.17639   0.17418   0.17762   0.18171   0.16293
+
+            Site states:       S0_(0)^(0)      S1_(0)^(0)     T1_(-1)^(0)      T1_(0)^(0)     T1_(+1)^(0)  D0_(-1/2)^(1-)  D0_(+1/2)^(1-)
+          Site energies:    -680.54624350   -680.41830441   -680.48648910   -680.48648910   -680.48648910   -680.61761335   -680.61761335
+            Num. of el.:      97.99999999     97.99999999     97.99999999     97.99999999     97.99999999     98.99999999     98.99999999
+                  Alpha:      48.99999999     49.00000000     47.99999998     48.99999999     50.00000068     49.99999999     49.99999999
+                   Beta:      48.99999999     49.00000000     50.00000001     48.99999999     48.00000066     48.99999999     48.99999999
+
+    CONSTRUCTION OF THE ECI BASIS:
+
+       Aufbau ESDs ( # = 5 ):
+          [ BD^(0) : S0_(0) | BA^(0) : S0_(0) ]
+          [ BD^(1+) : D0_(-1/2) | BA^(1-) : D0_(-1/2) ]
+          [ BD^(1+) : D0_(-1/2) | BA^(1-) : D0_(+1/2) ]
+          [ BD^(1+) : D0_(+1/2) | BA^(1-) : D0_(-1/2) ]
+          [ BD^(1+) : D0_(+1/2) | BA^(1-) : D0_(+1/2) ]
+
+       Number of aufbau and excited ESDs before overlap criterion: 29
+
+       Overlap criterion:
+
+          (Fragment,charge) pair: (BD,0), (BA,0):
+             The best complement overlap: 1 - < T1_(+1) | S0_(0) > = 0.9946171197248376
+             No site-state pair need to be expelled!
+
+          (Fragment,charge) pair: (BD,0), (BA,-1):
+             The best complement overlap: 1 - < S0_(0) | D0_(-1/2) > = 0.9942053512389523
+             No site-state pair need to be expelled!
+
+          (Fragment,charge) pair: (BD,1), (BA,0):
+             The best complement overlap: 1 - < D0_(-1/2) | S0_(0) > = 0.9955291827033321
+             No site-state pair need to be expelled!
+
+          (Fragment,charge) pair: (BD,1), (BA,-1):
+             The best complement overlap: 1 - < D0_(-1/2) | D0_(-1/2) > = 0.995172836907765
+             No site-state pair need to be expelled!
+
+       Number of aufbau and excited ESDs after overlap criterion: 29
+
+       Spin adaptation for multiplicity 1:
+          Found 13 ESDs with MS = 0.0
+          Constructed 6 ECSFs spanned by 9 ESDs:
+
+             ( 0 ) = 
+               1.000000[ BD^(0) : S0_(0) | BA^(0) : S0_(0) ]
+
+             ( BD^(1+) : D0 | BA^(1-) : D0 ) = 
+              -0.707107[ BD^(1+) : D0_(-1/2) | BA^(1-) : D0_(+1/2) ]
+               0.707107[ BD^(1+) : D0_(+1/2) | BA^(1-) : D0_(-1/2) ]
+
+             ( BD^(0) : S1 ) = 
+               1.000000[ BD^(0) : S1_(0) | BA^(0) : S0_(0) ]
+
+             ( BA^(0) : S1 ) = 
+               1.000000[ BD^(0) : S0_(0) | BA^(0) : S1_(0) ]
+
+             ( BD^(0) : S1 | BA^(0) : S1 ) = 
+               1.000000[ BD^(0) : S1_(0) | BA^(0) : S1_(0) ]
+
+             ( BD^(0) : T1 | BA^(0) : T1 ) = 
+               0.577350[ BD^(0) : T1_(-1) | BA^(0) : T1_(+1) ]
+              -0.577350[ BD^(0) : T1_(0) | BA^(0) : T1_(0) ]
+               0.577350[ BD^(0) : T1_(+1) | BA^(0) : T1_(-1) ]
+
+       Spin adaptation for multiplicity 3:
+          Found 7 ESDs with MS = 1.0
+          Constructed 6 ECSFs spanned by 7 ESDs:
+
+             ( BD^(1+) : D0 | BA^(1-) : D0 ) = 
+               1.000000[ BD^(1+) : D0_(+1/2) | BA^(1-) : D0_(+1/2) ]
+
+             ( BD^(0) : T1 ) = 
+               1.000000[ BD^(0) : T1_(+1) | BA^(0) : S0_(0) ]
+
+             ( BA^(0) : T1 ) = 
+               1.000000[ BD^(0) : S0_(0) | BA^(0) : T1_(+1) ]
+
+             ( BD^(0) : S1 | BA^(0) : T1 ) = 
+               1.000000[ BD^(0) : S1_(0) | BA^(0) : T1_(+1) ]
+
+             ( BD^(0) : T1 | BA^(0) : T1 ) = 
+              -0.707107[ BD^(0) : T1_(0) | BA^(0) : T1_(+1) ]
+               0.707107[ BD^(0) : T1_(+1) | BA^(0) : T1_(0) ]
+
+             ( BD^(0) : T1 | BA^(0) : S1 ) = 
+               1.000000[ BD^(0) : T1_(+1) | BA^(0) : S1_(0) ]
+
+       Time spent in constructing the ECI basis (sec) = 0.194
+
+    CONSTRUCTION OF THE ECI HAMILTONIAN:
+
+       Generating the dictionary of ECI integrals took 0.002 sec.
+
+       Calculating ECI V-integrals...
+           Site: BD, Nuclei: BA
+              Took 0.275 sec.
+           Site: BA, Nuclei: BD
+              Took 0.246 sec.
+
+        Calculating ECI J-integrals...
+          Site 1: BD, Site 2: BA
+             Calculation of P-matrix of dim. (2368, 2368) took 0.557 sec.
+             Calculation of L-tensors of dims. (231, 231, 2368) and (231, 231, 2368) took 0.274 sec.
+             First contraction took 0.705 sec.
+             Second contraction took 0.001 sec.
+             Distribution took 0.0 sec.
+
+       Calculating ECI K-integrals...
+          Site 1: BD, Site 2: BA
+             Number of atoms per fragment: 18/21 and 14/21
+             Number of shells per fragment: 59/105 and 56/105
+             Number of AOs per fragment: 127/231 and 128/231
+             Calculation of P-matrix of dim. (2368, 2368) and its Cholesky decomposition took 0.056 sec.
+             Calculation of L-tensor of dim. (2368, 127, 128) took 0.04 sec.
+             Calculation of Cholesky factors took 0.231 sec.
+             Prescreening took 0.217 sec.
+             Chunk 1 ( contracting 34 densities of the first fragment )...
+             Done in 0.464 sec.
+
+       Summing up J- and K-matrices, adding site energies and VNN to the diagonal, and rotating J-, K-, and H-matrices to the basis of ECSFs...
+
+       Total inter-fragment nuclear-nuclear repulsion (au) = 708.5748067825044
+
+       H-, J-, K-matrices for multiplicity 1 in the basis of ECSFs:
+          H-matrix:
+             -1361.0908170219         0.0000000000         0.0002633589        -0.0000163767        -0.0021649706         0.0000000055
+                 0.0000000000     -1360.9466692682         0.0000000000         0.0000000000         0.0000000000         0.0000000000
+                 0.0002633589         0.0000000000     -1360.9624256767        -0.0021647097        -0.0004058655        -0.0000000000
+                -0.0000163767         0.0000000000        -0.0021647097     -1360.9628891486         0.0002815168         0.0000000000
+                -0.0021649706         0.0000000000        -0.0004058655         0.0002815168     -1360.8344752745         0.0000000038
+                 0.0000000055         0.0000000000        -0.0000000000         0.0000000000         0.0000000038     -1360.9708519071
+          J-matrix:
+                 0.0038412791         0.0000000000         0.0000963575        -0.0000245858        -0.0021640119         0.0000000000
+                 0.0000000000        -0.0652318496         0.0000000000         0.0000000000         0.0000000000         0.0000000000
+                 0.0000963575         0.0000000000         0.0038187393        -0.0021640119        -0.0004141251         0.0000000000
+                -0.0000245858         0.0000000000        -0.0021640119         0.0038391154         0.0001141444         0.0000000000
+                -0.0021640119         0.0000000000        -0.0004141251         0.0001141444         0.0038391762         0.0000000000
+                 0.0000000000         0.0000000000         0.0000000000         0.0000000000         0.0000000000         0.0038239461
+          K-matrix:
+                 0.0026106372         0.0000000000        -0.0001670014        -0.0000082092         0.0000009587        -0.0000000055
+                 0.0000000000         0.0022608037         0.0000000000         0.0000000000         0.0000000000         0.0000000000
+                -0.0001670014         0.0000000000         0.0026540078         0.0000006978        -0.0000082596         0.0000000000
+                -0.0000082092         0.0000000000         0.0000006978         0.0026196904        -0.0001673724        -0.0000000000
+                 0.0000009587         0.0000000000        -0.0000082596        -0.0001673724         0.0026631326        -0.0000000038
+                -0.0000000055         0.0000000000         0.0000000000        -0.0000000000        -0.0000000038         0.0026220760
+
+       H-, J-, K-matrices for multiplicity 3 in the basis of ECSFs:
+          H-matrix:
+             -1360.9466693170         0.0000000000         0.0000000000         0.0000000000         0.0000000000         0.0000000000
+                 0.0000000000     -1361.0305897046        -0.0000000037         0.0000000000         0.0000000041        -0.0006912055
+                 0.0000000000        -0.0000000037     -1361.0310644110         0.0002927320        -0.0000000247         0.0000000000
+                 0.0000000000         0.0000000000         0.0002927320     -1360.9026700488         0.0000044933         0.0000000000
+                 0.0000000000         0.0000000041        -0.0000000247         0.0000044933     -1360.9708492798        -0.0000006056
+                 0.0000000000        -0.0006912055         0.0000000000         0.0000000000        -0.0000006056     -1360.9026214656
+          J-matrix:
+                -0.0652318496         0.0000000000         0.0000000000         0.0000000000         0.0000000000         0.0000000000
+                 0.0000000000         0.0038292045         0.0000000000         0.0000000000         0.0000000000        -0.0006994799
+                 0.0000000000         0.0000000000         0.0038402936         0.0001256440         0.0000000000         0.0000000000
+                 0.0000000000         0.0000000000         0.0001256440         0.0038207655         0.0000000000         0.0000000000
+                 0.0000000000         0.0000000000         0.0000000000         0.0000000000         0.0038239461         0.0000000000
+                 0.0000000000        -0.0006994799         0.0000000000         0.0000000000         0.0000000000         0.0038674041
+          K-matrix:
+                 0.0022608525         0.0000000000         0.0000000000         0.0000000000         0.0000000000         0.0000000000
+                 0.0000000000         0.0026107342         0.0000000037         0.0000000000        -0.0000000041        -0.0000082744
+                 0.0000000000         0.0000000037         0.0026114386        -0.0001670880         0.0000000247         0.0000000000
+                 0.0000000000         0.0000000000        -0.0001670880         0.0026548039        -0.0000044933         0.0000000000
+                 0.0000000000        -0.0000000041         0.0000000247        -0.0000044933         0.0026194488         0.0000006056
+                 0.0000000000        -0.0000082744         0.0000000000         0.0000000000         0.0000006056         0.0026197850
+       Time spent in calculating ECI Hamiltonian (sec) = 3.429
+
+    FULL-SYSTEM STATES:
+
+       Ground state is of multiplicity 1
+       Ground-state energy = -1361.090835832
+
+       Full-systems states for multiplicity 1 in the basis of ECSFs:
+          -----------------------------------
+          State     Eex/eV      fosc     Psi
+          -----------------------------------
+              0      0.000     0.0000    1.000( 0 )  0.008( BD^(0) : S1 | BA^(0) : S1 ) -0.002( BD^(0) : S1 )
+              1      3.265     0.0000    1.000( BD^(0) : T1 | BA^(0) : T1 )
+              2      3.429     0.0038    0.744( BA^(0) : S1 )  0.668( BD^(0) : S1 )  0.001( 0 )
+              3      3.547     1.3838    0.744( BD^(0) : S1 ) -0.668( BA^(0) : S1 )  0.004( BD^(0) : S1 | BA^(0) : S1 )  0.002( 0 )
+              4      3.923     0.0000    1.000( BD^(1+) : D0 | BA^(1-) : D0 )
+              5      6.976     0.0000    1.000( BD^(0) : S1 | BA^(0) : S1 ) -0.008( 0 ) -0.003( BD^(0) : S1 )  0.002( BA^(0) : S1 )
+          -----------------------------------
+
+       Full-systems states for multiplicity 3 in the basis of ECSFs:
+          -----------------------------------
+          State     Eex/eV               Psi
+          -----------------------------------
+              1      1.626               1.000( BA^(0) : T1 ) -0.002( BD^(0) : S1 | BA^(0) : T1 )
+              2      1.639               1.000( BD^(0) : T1 )  0.005( BD^(0) : T1 | BA^(0) : S1 )
+              3      3.265               1.000( BD^(0) : T1 | BA^(0) : T1 )
+              4      3.923               1.000( BD^(1+) : D0 | BA^(1-) : D0 )
+              5      5.120               1.000( BD^(0) : S1 | BA^(0) : T1 )  0.002( BA^(0) : T1 )
+              6      5.122               1.000( BD^(0) : T1 | BA^(0) : S1 ) -0.005( BD^(0) : T1 )
+          -----------------------------------
+
+    Time elapsed in the excitonic part = 3.905 sec.
+ ============== End of excitonic part of the ECI calculation ===============
+
+ ===========================================================================
+ =========== END OF ECI CALCULATION FOR THE FULL-SYSTEM CHARGE 0 ===========
+ ===========================================================================
+
+
+
+===> Results:
+
+=> Hamiltonian Matrix:
+Diagonal Shift:  -1361.00
+Real Part:
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|-9.084e-02                                                        |                                                                  |                                                                  |                                                                  |
+|            2.915e-02                                             |                                                                  |                                                                  |                                                                  |
+|                       3.517e-02                                  |                                                                  |                                                                  |                                                                  |
+|                                  3.952e-02                       |                                                                  |                                                                  |                                                                  |
+|                                             5.333e-02            |                                                                  |                                                                  |                                                                  |
+|                                                        1.655e-01 |                                                                  |                                                                  |                                                                  |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  |-3.107e-02                                                        |                                                                  |                                                                  |
+|                                                                  |           -3.059e-02                                             |                                                                  |                                                                  |
+|                                                                  |                       2.915e-02                                  |                                                                  |                                                                  |
+|                                                                  |                                  5.333e-02                       |                                                                  |                                                                  |
+|                                                                  |                                             9.733e-02            |                                                                  |                                                                  |
+|                                                                  |                                                        9.738e-02 |                                                                  |                                                                  |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  |                                                                  |-3.107e-02                                                        |                                                                  |
+|                                                                  |                                                                  |           -3.059e-02                                             |                                                                  |
+|                                                                  |                                                                  |                       2.915e-02                                  |                                                                  |
+|                                                                  |                                                                  |                                  5.333e-02                       |                                                                  |
+|                                                                  |                                                                  |                                             9.733e-02            |                                                                  |
+|                                                                  |                                                                  |                                                        9.738e-02 |                                                                  |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  |                                                                  |                                                                  |-3.107e-02                                                        |
+|                                                                  |                                                                  |                                                                  |           -3.059e-02                                             |
+|                                                                  |                                                                  |                                                                  |                       2.915e-02                                  |
+|                                                                  |                                                                  |                                                                  |                                  5.333e-02                       |
+|                                                                  |                                                                  |                                                                  |                                             9.733e-02            |
+|                                                                  |                                                                  |                                                                  |                                                        9.738e-02 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+=> Dipole Moment Matrices:
+
+Polarisation X:
+Real Part:
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| 2.800e+00  1.734e-08 -7.170e-02  1.062e+00  2.720e-12 -3.480e-03 |                                                                  |                                                                  |                                                                  |
+| 1.734e-08  2.375e+00 -5.005e-09  7.745e-08  1.900e-10 -6.508e-09 |                                                                  |                                                                  |                                                                  |
+|-7.170e-02 -5.005e-09  2.745e+00 -1.817e-03  1.658e-11  4.286e-02 |                                                                  |                                                                  |                                                                  |
+| 1.062e+00  7.745e-08 -1.817e-03  2.739e+00  2.613e-11 -1.082e+00 |                                                                  |                                                                  |                                                                  |
+| 2.720e-12  1.900e-10  1.658e-11  2.613e-11 -7.052e+00 -3.385e-13 |                                                                  |                                                                  |                                                                  |
+|-3.480e-03 -6.508e-09  4.286e-02 -1.082e+00 -3.385e-13  2.694e+00 |                                                                  |                                                                  |                                                                  |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  | 2.585e+00 -1.663e-08 -4.945e-05             7.485e-01 -6.563e-06 | 2.585e+00 -1.663e-08 -4.945e-05             7.485e-01 -6.563e-06 | 2.585e+00 -1.663e-08 -4.945e-05             7.485e-01 -6.563e-06 |
+|                                                                  |-1.663e-08  2.582e+00 -6.829e-06            -6.415e-06 -7.698e-01 |-1.663e-08  2.582e+00 -6.829e-06            -6.415e-06 -7.698e-01 |-1.663e-08  2.582e+00 -6.829e-06            -6.415e-06 -7.698e-01 |
+|                                                                  |-4.945e-05 -6.829e-06  2.375e+00            -1.061e-05  1.476e-06 |-4.945e-05 -6.829e-06  2.375e+00            -1.061e-05  1.476e-06 |-4.945e-05 -6.829e-06  2.375e+00            -1.061e-05  1.476e-06 |
+|                                                                  |                                 -7.052e+00                       |                                 -7.052e+00                       |                                 -7.052e+00                       |
+|                                                                  | 7.485e-01 -6.415e-06 -1.061e-05             2.530e+00  1.039e-08 | 7.485e-01 -6.415e-06 -1.061e-05             2.530e+00  1.039e-08 | 7.485e-01 -6.415e-06 -1.061e-05             2.530e+00  1.039e-08 |
+|                                                                  |-6.563e-06 -7.698e-01  1.476e-06             1.039e-08  2.543e+00 |-6.563e-06 -7.698e-01  1.476e-06             1.039e-08  2.543e+00 |-6.563e-06 -7.698e-01  1.476e-06             1.039e-08  2.543e+00 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  | 2.585e+00 -1.663e-08 -4.945e-05             7.485e-01 -6.563e-06 | 2.585e+00 -1.663e-08 -4.945e-05             7.485e-01 -6.563e-06 | 2.585e+00 -1.663e-08 -4.945e-05             7.485e-01 -6.563e-06 |
+|                                                                  |-1.663e-08  2.582e+00 -6.829e-06            -6.415e-06 -7.698e-01 |-1.663e-08  2.582e+00 -6.829e-06            -6.415e-06 -7.698e-01 |-1.663e-08  2.582e+00 -6.829e-06            -6.415e-06 -7.698e-01 |
+|                                                                  |-4.945e-05 -6.829e-06  2.375e+00            -1.061e-05  1.476e-06 |-4.945e-05 -6.829e-06  2.375e+00            -1.061e-05  1.476e-06 |-4.945e-05 -6.829e-06  2.375e+00            -1.061e-05  1.476e-06 |
+|                                                                  |                                 -7.052e+00                       |                                 -7.052e+00                       |                                 -7.052e+00                       |
+|                                                                  | 7.485e-01 -6.415e-06 -1.061e-05             2.530e+00  1.039e-08 | 7.485e-01 -6.415e-06 -1.061e-05             2.530e+00  1.039e-08 | 7.485e-01 -6.415e-06 -1.061e-05             2.530e+00  1.039e-08 |
+|                                                                  |-6.563e-06 -7.698e-01  1.476e-06             1.039e-08  2.543e+00 |-6.563e-06 -7.698e-01  1.476e-06             1.039e-08  2.543e+00 |-6.563e-06 -7.698e-01  1.476e-06             1.039e-08  2.543e+00 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  | 2.585e+00 -1.663e-08 -4.945e-05             7.485e-01 -6.563e-06 | 2.585e+00 -1.663e-08 -4.945e-05             7.485e-01 -6.563e-06 | 2.585e+00 -1.663e-08 -4.945e-05             7.485e-01 -6.563e-06 |
+|                                                                  |-1.663e-08  2.582e+00 -6.829e-06            -6.415e-06 -7.698e-01 |-1.663e-08  2.582e+00 -6.829e-06            -6.415e-06 -7.698e-01 |-1.663e-08  2.582e+00 -6.829e-06            -6.415e-06 -7.698e-01 |
+|                                                                  |-4.945e-05 -6.829e-06  2.375e+00            -1.061e-05  1.476e-06 |-4.945e-05 -6.829e-06  2.375e+00            -1.061e-05  1.476e-06 |-4.945e-05 -6.829e-06  2.375e+00            -1.061e-05  1.476e-06 |
+|                                                                  |                                 -7.052e+00                       |                                 -7.052e+00                       |                                 -7.052e+00                       |
+|                                                                  | 7.485e-01 -6.415e-06 -1.061e-05             2.530e+00  1.039e-08 | 7.485e-01 -6.415e-06 -1.061e-05             2.530e+00  1.039e-08 | 7.485e-01 -6.415e-06 -1.061e-05             2.530e+00  1.039e-08 |
+|                                                                  |-6.563e-06 -7.698e-01  1.476e-06             1.039e-08  2.543e+00 |-6.563e-06 -7.698e-01  1.476e-06             1.039e-08  2.543e+00 |-6.563e-06 -7.698e-01  1.476e-06             1.039e-08  2.543e+00 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Polarisation Y:
+Real Part:
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| 2.797e+00  1.037e-08 -4.535e-02  6.113e-01  1.549e-12 -1.956e-03 |                                                                  |                                                                  |                                                                  |
+| 1.037e-08  2.544e+00 -2.974e-09  4.457e-08  1.913e-10 -4.091e-09 |                                                                  |                                                                  |                                                                  |
+|-4.535e-02 -2.974e-09  2.768e+00 -1.662e-03  1.644e-11  2.069e-02 |                                                                  |                                                                  |                                                                  |
+| 6.113e-01  4.457e-08 -1.662e-03  2.764e+00  2.604e-11 -6.231e-01 |                                                                  |                                                                  |                                                                  |
+| 1.549e-12  1.913e-10  1.644e-11  2.604e-11 -6.949e+00  8.470e-13 |                                                                  |                                                                  |                                                                  |
+|-1.956e-03 -4.091e-09  2.069e-02 -6.231e-01  8.470e-13  2.741e+00 |                                                                  |                                                                  |                                                                  |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  | 2.669e+00 -7.827e-09 -2.829e-05             4.281e-01 -3.799e-06 | 2.669e+00 -7.827e-09 -2.829e-05             4.281e-01 -3.799e-06 | 2.669e+00 -7.827e-09 -2.829e-05             4.281e-01 -3.799e-06 |
+|                                                                  |-7.827e-09  2.668e+00 -3.957e-06            -3.674e-06 -4.461e-01 |-7.827e-09  2.668e+00 -3.957e-06            -3.674e-06 -4.461e-01 |-7.827e-09  2.668e+00 -3.957e-06            -3.674e-06 -4.461e-01 |
+|                                                                  |-2.829e-05 -3.957e-06  2.544e+00            -6.482e-06  9.138e-07 |-2.829e-05 -3.957e-06  2.544e+00            -6.482e-06  9.138e-07 |-2.829e-05 -3.957e-06  2.544e+00            -6.482e-06  9.138e-07 |
+|                                                                  |                                 -6.949e+00                       |                                 -6.949e+00                       |                                 -6.949e+00                       |
+|                                                                  | 4.281e-01 -3.674e-06 -6.482e-06             2.639e+00  7.147e-09 | 4.281e-01 -3.674e-06 -6.482e-06             2.639e+00  7.147e-09 | 4.281e-01 -3.674e-06 -6.482e-06             2.639e+00  7.147e-09 |
+|                                                                  |-3.799e-06 -4.461e-01  9.138e-07             7.147e-09  2.648e+00 |-3.799e-06 -4.461e-01  9.138e-07             7.147e-09  2.648e+00 |-3.799e-06 -4.461e-01  9.138e-07             7.147e-09  2.648e+00 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  | 2.669e+00 -7.827e-09 -2.829e-05             4.281e-01 -3.799e-06 | 2.669e+00 -7.827e-09 -2.829e-05             4.281e-01 -3.799e-06 | 2.669e+00 -7.827e-09 -2.829e-05             4.281e-01 -3.799e-06 |
+|                                                                  |-7.827e-09  2.668e+00 -3.957e-06            -3.674e-06 -4.461e-01 |-7.827e-09  2.668e+00 -3.957e-06            -3.674e-06 -4.461e-01 |-7.827e-09  2.668e+00 -3.957e-06            -3.674e-06 -4.461e-01 |
+|                                                                  |-2.829e-05 -3.957e-06  2.544e+00            -6.482e-06  9.138e-07 |-2.829e-05 -3.957e-06  2.544e+00            -6.482e-06  9.138e-07 |-2.829e-05 -3.957e-06  2.544e+00            -6.482e-06  9.138e-07 |
+|                                                                  |                                 -6.949e+00                       |                                 -6.949e+00                       |                                 -6.949e+00                       |
+|                                                                  | 4.281e-01 -3.674e-06 -6.482e-06             2.639e+00  7.147e-09 | 4.281e-01 -3.674e-06 -6.482e-06             2.639e+00  7.147e-09 | 4.281e-01 -3.674e-06 -6.482e-06             2.639e+00  7.147e-09 |
+|                                                                  |-3.799e-06 -4.461e-01  9.138e-07             7.147e-09  2.648e+00 |-3.799e-06 -4.461e-01  9.138e-07             7.147e-09  2.648e+00 |-3.799e-06 -4.461e-01  9.138e-07             7.147e-09  2.648e+00 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  | 2.669e+00 -7.827e-09 -2.829e-05             4.281e-01 -3.799e-06 | 2.669e+00 -7.827e-09 -2.829e-05             4.281e-01 -3.799e-06 | 2.669e+00 -7.827e-09 -2.829e-05             4.281e-01 -3.799e-06 |
+|                                                                  |-7.827e-09  2.668e+00 -3.957e-06            -3.674e-06 -4.461e-01 |-7.827e-09  2.668e+00 -3.957e-06            -3.674e-06 -4.461e-01 |-7.827e-09  2.668e+00 -3.957e-06            -3.674e-06 -4.461e-01 |
+|                                                                  |-2.829e-05 -3.957e-06  2.544e+00            -6.482e-06  9.138e-07 |-2.829e-05 -3.957e-06  2.544e+00            -6.482e-06  9.138e-07 |-2.829e-05 -3.957e-06  2.544e+00            -6.482e-06  9.138e-07 |
+|                                                                  |                                 -6.949e+00                       |                                 -6.949e+00                       |                                 -6.949e+00                       |
+|                                                                  | 4.281e-01 -3.674e-06 -6.482e-06             2.639e+00  7.147e-09 | 4.281e-01 -3.674e-06 -6.482e-06             2.639e+00  7.147e-09 | 4.281e-01 -3.674e-06 -6.482e-06             2.639e+00  7.147e-09 |
+|                                                                  |-3.799e-06 -4.461e-01  9.138e-07             7.147e-09  2.648e+00 |-3.799e-06 -4.461e-01  9.138e-07             7.147e-09  2.648e+00 |-3.799e-06 -4.461e-01  9.138e-07             7.147e-09  2.648e+00 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Polarisation Z:
+Real Part:
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|-1.098e+00 -2.382e-08 -1.960e-01  3.798e+00  9.913e-12 -6.919e-03 |                                                                  |                                                                  |                                                                  |
+|-2.382e-08 -7.531e-01 -1.450e-08  2.802e-07  3.306e-12  9.548e-09 |                                                                  |                                                                  |                                                                  |
+|-1.960e-01 -1.450e-08 -9.643e-01  2.012e-03 -1.891e-14  2.130e-01 |                                                                  |                                                                  |                                                                  |
+| 3.798e+00  2.802e-07  2.012e-03 -9.826e-01 -1.176e-12 -3.861e+00 |                                                                  |                                                                  |                                                                  |
+| 9.913e-12  3.306e-12 -1.891e-14 -1.176e-12 -9.172e-01 -1.003e-11 |                                                                  |                                                                  |                                                                  |
+|-6.919e-03  9.548e-09  2.130e-01 -3.861e+00 -1.003e-11 -8.112e-01 |                                                                  |                                                                  |                                                                  |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  |-9.292e-01 -1.822e-07 -1.789e-04             2.717e+00 -2.314e-05 |-9.292e-01 -1.822e-07 -1.789e-04             2.717e+00 -2.314e-05 |-9.292e-01 -1.822e-07 -1.789e-04             2.717e+00 -2.314e-05 |
+|                                                                  |-1.822e-07 -9.527e-01 -2.402e-05            -2.321e-05 -2.706e+00 |-1.822e-07 -9.527e-01 -2.402e-05            -2.321e-05 -2.706e+00 |-1.822e-07 -9.527e-01 -2.402e-05            -2.321e-05 -2.706e+00 |
+|                                                                  |-1.789e-04 -2.402e-05 -7.531e-01             3.915e-07 -1.839e-07 |-1.789e-04 -2.402e-05 -7.531e-01             3.915e-07 -1.839e-07 |-1.789e-04 -2.402e-05 -7.531e-01             3.915e-07 -1.839e-07 |
+|                                                                  |                                 -9.172e-01                       |                                 -9.172e-01                       |                                 -9.172e-01                       |
+|                                                                  | 2.717e+00 -2.321e-05  3.915e-07            -7.830e-01  1.088e-08 | 2.717e+00 -2.321e-05  3.915e-07            -7.830e-01  1.088e-08 | 2.717e+00 -2.321e-05  3.915e-07            -7.830e-01  1.088e-08 |
+|                                                                  |-2.314e-05 -2.706e+00 -1.839e-07             1.088e-08 -7.697e-01 |-2.314e-05 -2.706e+00 -1.839e-07             1.088e-08 -7.697e-01 |-2.314e-05 -2.706e+00 -1.839e-07             1.088e-08 -7.697e-01 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  |-9.292e-01 -1.822e-07 -1.789e-04             2.717e+00 -2.314e-05 |-9.292e-01 -1.822e-07 -1.789e-04             2.717e+00 -2.314e-05 |-9.292e-01 -1.822e-07 -1.789e-04             2.717e+00 -2.314e-05 |
+|                                                                  |-1.822e-07 -9.527e-01 -2.402e-05            -2.321e-05 -2.706e+00 |-1.822e-07 -9.527e-01 -2.402e-05            -2.321e-05 -2.706e+00 |-1.822e-07 -9.527e-01 -2.402e-05            -2.321e-05 -2.706e+00 |
+|                                                                  |-1.789e-04 -2.402e-05 -7.531e-01             3.915e-07 -1.839e-07 |-1.789e-04 -2.402e-05 -7.531e-01             3.915e-07 -1.839e-07 |-1.789e-04 -2.402e-05 -7.531e-01             3.915e-07 -1.839e-07 |
+|                                                                  |                                 -9.172e-01                       |                                 -9.172e-01                       |                                 -9.172e-01                       |
+|                                                                  | 2.717e+00 -2.321e-05  3.915e-07            -7.830e-01  1.088e-08 | 2.717e+00 -2.321e-05  3.915e-07            -7.830e-01  1.088e-08 | 2.717e+00 -2.321e-05  3.915e-07            -7.830e-01  1.088e-08 |
+|                                                                  |-2.314e-05 -2.706e+00 -1.839e-07             1.088e-08 -7.697e-01 |-2.314e-05 -2.706e+00 -1.839e-07             1.088e-08 -7.697e-01 |-2.314e-05 -2.706e+00 -1.839e-07             1.088e-08 -7.697e-01 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                  |-9.292e-01 -1.822e-07 -1.789e-04             2.717e+00 -2.314e-05 |-9.292e-01 -1.822e-07 -1.789e-04             2.717e+00 -2.314e-05 |-9.292e-01 -1.822e-07 -1.789e-04             2.717e+00 -2.314e-05 |
+|                                                                  |-1.822e-07 -9.527e-01 -2.402e-05            -2.321e-05 -2.706e+00 |-1.822e-07 -9.527e-01 -2.402e-05            -2.321e-05 -2.706e+00 |-1.822e-07 -9.527e-01 -2.402e-05            -2.321e-05 -2.706e+00 |
+|                                                                  |-1.789e-04 -2.402e-05 -7.531e-01             3.915e-07 -1.839e-07 |-1.789e-04 -2.402e-05 -7.531e-01             3.915e-07 -1.839e-07 |-1.789e-04 -2.402e-05 -7.531e-01             3.915e-07 -1.839e-07 |
+|                                                                  |                                 -9.172e-01                       |                                 -9.172e-01                       |                                 -9.172e-01                       |
+|                                                                  | 2.717e+00 -2.321e-05  3.915e-07            -7.830e-01  1.088e-08 | 2.717e+00 -2.321e-05  3.915e-07            -7.830e-01  1.088e-08 | 2.717e+00 -2.321e-05  3.915e-07            -7.830e-01  1.088e-08 |
+|                                                                  |-2.314e-05 -2.706e+00 -1.839e-07             1.088e-08 -7.697e-01 |-2.314e-05 -2.706e+00 -1.839e-07             1.088e-08 -7.697e-01 |-2.314e-05 -2.706e+00 -1.839e-07             1.088e-08 -7.697e-01 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+==> Runtime:	0 Days	0 Hours	3 Minutes	53.451392 Seconds
+
+
+===> Writing output to file QM.out in SHARC Format
+

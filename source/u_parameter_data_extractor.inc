@@ -31,6 +31,8 @@
   integer, parameter :: u_mdm_proj=77      !< dip_mom_proj.out
   integer, parameter :: u_eqm_proj=78      !< dip_mom_proj.out
   integer, parameter :: u_proj=56         !< projections.inp
+  integer, parameter :: u_dipole=57       !< dipole.out
+  integer, parameter :: u_dipole_mch=58   !< dipole_MCH.out
 
   integer, parameter :: u_classd=61        !< JCP 139, 2111101 (2013), Method 1 (diag)
   integer, parameter :: u_classm=62        !< JCP 139, 2111101 (2013), Method 1 (MCH)
@@ -39,4 +41,5 @@
   integer, parameter :: u_cmixm=65         !< JCP 139, 2111101 (2013), Method 3 (MCH)
   integer, parameter :: u_cmixdiab=66      !< JCP 139, 2111101 (2013), Method 3 (diabatic)
 
+  integer, parameter :: u_tshift=70          !< unit for start.time
   integer, parameter :: u_xyz=99        !< output.xyz

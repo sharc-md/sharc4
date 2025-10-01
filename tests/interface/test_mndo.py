@@ -2,7 +2,6 @@ import pytest
 import os
 import numpy as np
 from SHARC_MNDO import SHARC_MNDO
-from SHARC_MNDO_OLD import SHARC_MNDO_OLD
 from utils import expand_path
 
 PATH = expand_path("$SHARC/../tests/interface")
@@ -498,16 +497,13 @@ def test_template():
         (
             "inputs/mndo/templatetest1.dat",
             {
-                "disp": 0,
+                "hamiltonian": "om2",
                 "nciref": 3,
                 "kitscf": 5000,
                 "ici1": 2,
                 "ici2": 1,
                 "act_orbs": [4,6,7],
-                "movo": 1,
-                "kharge": 1,
                 "imomap": 3,
-                "iop": -6,
                 "rohf": 0,
                 "levexc": 2,
             },
@@ -515,16 +511,13 @@ def test_template():
         (
             "inputs/mndo/templatetest2.dat",
             {
-                "disp" : 1,
+                "hamiltonian" : "odm2",
                 "nciref": 6,
                 "kitscf": 9999,
                 "ici1": 3,
                 "ici2": 2,
                 "act_orbs": [4, 5, 6, 7, 8],
-                "movo": 1,
-                "kharge": 0,
                 "imomap": 0,
-                "iop": -22,
                 "rohf": 0,
                 "levexc": 2,
             },

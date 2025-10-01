@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -51,6 +51,7 @@ import random
 import numpy as np
 import scipy.integrate as spint
 import scipy.optimize as spopt
+from constants import IToMult
 
 try:
     import numpy
@@ -60,39 +61,13 @@ except ImportError:
 
 # =========================================================0
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 changelogstring = '''
 
 '''
 
-# ======================================================================= #
-# hash table for conversion of multiplicity to the keywords used in MOLCAS
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
-
-# =============================================================================================== #
 # =============================================================================================== #
 # =========================================== general routines ================================== #
 # =============================================================================================== #
@@ -979,7 +954,7 @@ Each column number (except for \'1\', which denotes the time) must be used at mo
     p0 = [1. / (100 + 20 * i) for i in range(INFOS['nrates'])]
 
     # initial guesses
-    y0 = [1. for i in range(INFOS['ninitial'])]
+    y0 = [1./INFOS['ninitial'] for i in range(INFOS['ninitial'])]
 
     print('''Please check the initial guesses for the parameters
 
@@ -1025,7 +1000,8 @@ end               Finish initial condition input
 
     # =========================== Optimize initial pops ==================================
     print('\n\n' + '{:-^40}'.format('Optimize initial populations') + '\n')
-    INFOS['opt_init'] = question('Do you want to optimize the initial populations (otherwise only the rates)?', bool, True)
+    recommend = (INFOS['ninitial']>1)
+    INFOS['opt_init'] = question('Do you want to optimize the initial populations (otherwise only the rates)?', bool, recommend)
 
     # =========================== Positive rates ==================================
 
@@ -1264,7 +1240,7 @@ def make_fit(INFOS):
 
     # bounds
     if INFOS['bounds']:
-        bounds = (1e-6, np.inf)
+        bounds = (1e-7, np.inf)
     else:
         bounds = (-np.inf, np.inf)
 
@@ -1323,7 +1299,14 @@ def make_fit(INFOS):
     # initialize fitting function
     F = globalfunction(INFOS['nspec'], INFOS['rates'], INFOS['initial'], INFOS['summation'], Tdata1, p0, y0)
 
-
+    print('\nExplanation of curve fitting iteration output:\n')
+    print('  Iteration     - Number of the current optimization step')
+    print('  Total nfev    - Total number of function evaluations so far')
+    print('  Cost          - Current value of the cost function (sum of squared residuals / 2)')
+    print('  Cost reduction- Decrease in cost from previous step (larger = better progress)')
+    print('  Step norm     - Size of the update step in parameter space (in L2 norm)')
+    print('  Optimality    - Measure of how close we are to a minimum (gradient norm)')
+    print('\nSmaller "Cost", smaller "Step norm", and smaller "Optimality" indicate convergence.\n')
 
     print('\n' + '{:-^40}'.format(' Iterations ') + '\n')
     # get optimal parameters
@@ -1363,6 +1346,44 @@ def make_fit(INFOS):
             print('initial pop   ( %-12s ): %12.4f' % (name, t))
         const_values.append(t)
     print
+
+    # correlation between variables
+    pcov = OPT[1]
+    perr = np.sqrt(np.diag(pcov))
+    corr = pcov / np.outer(perr, perr)
+    np.fill_diagonal(corr, 1.0)  # Ensure diagonal is exactly 1.0
+
+    # Print correlation matrix
+    print('\n' + '{:-^40}'.format(' Correlation matrix ') + '\n')
+    if INFOS['opt_init']:
+        header = ' ' * 16 + ''.join(f'{name:>12}' for name in const_names)
+    else:
+        header = ' ' * 16 + ''.join(f'{name:>12}' for name in const_names[:INFOS['nrates']])
+    print(header)
+    for i, row in enumerate(corr):
+        rowstr = f'{const_names[i]:>12}    ' + ''.join(f'{val:12.3f}' for val in row[:i+1])
+        print(rowstr)
+    
+    # Check for strong correlations
+    threshold = 0.9
+    warnings = []
+    for i in range(len(corr)):
+        for j in range(i+1, len(corr)):
+            if abs(corr[i][j]) > threshold:
+                warnings.append((const_names[i], const_names[j], corr[i][j]))
+
+    if warnings:
+        print('\nWarning: Strong correlations detected between fit parameters:')
+        for name1, name2, value in warnings:
+            print(f'  - {name1} <--> {name2}: correlation = {value:.3f}')
+        print('These may indicate overparameterization or collinearity.')
+        if not INFOS['do_bootstrap']:
+            print('Consider running bootstrapping to obtain reliable uncertainties for these parameters.')
+        else:
+            print('Closely check the uncertainties obtained by bootstrapping (below) for these parameters.')
+        print('If uncertainties are large, consider reparameterizing your model or fixing some of the variables.\n')
+    print
+
     if INFOS['do_bootstrap']:
         print('''These time constants include errors that assume that the population data
 is free of uncertainty. Bootstrapping analysis is following now.''')

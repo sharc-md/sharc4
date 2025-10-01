@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -66,7 +66,6 @@ module input
   use restart
   use string
   use ziggurat
-  use restrictive_potential
   implicit none
 #ifdef __PYSHARC__
   integer :: nchars
@@ -77,7 +76,7 @@ module input
   character*255 :: filename
   character*8000 :: geomfilename, line, rattlefilename
   character*8000, allocatable :: values(:)
-  integer :: narg, io, io_freq, nlines, selg, selt
+  integer :: narg, io, nlines, selg, selt
   integer :: i,j,k,n
   integer :: min_order, max_order
   integer :: imult,ims
@@ -90,8 +89,8 @@ module input
   integer :: idate,time
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
-  logical :: selectdirectly_bool
-  logical :: tmp 
+  logical :: selectdirectly_bool, file_exists
+
   
 #ifndef __PYSHARC__
   ! get the input filename from the command line argument
@@ -141,7 +140,7 @@ module input
 
     ! default is no restart
     ctrl%restart=.false.
-    ctrl%restart_rerun_last_qm_step=.false.
+    ! ctrl%restart_rerun_last_qm_step=.false.
     ! look for restart keyword
     line=get_value_from_key('restart',io)
     if (io==0) then
@@ -153,6 +152,22 @@ module input
       ctrl%restart=.false.
     endif
     ! if both keywords are present, norestart will take precendence
+
+  ! =====================================================
+
+  ! new in SHARC 4.0: do not proceed if restart.ctrl or restart.traj are present
+  if (.not.ctrl%restart) then
+    inquire(file="restart.ctrl", exist=file_exists)
+    if (file_exists) then
+      write(0,*) 'File restart.ctrl present but no restart requested. Remove the file or add the restart keyword.'
+      stop 
+    endif
+    inquire(file="restart.traj", exist=file_exists)
+    if (file_exists) then
+      write(0,*) 'File restart.traj present but no restart requested. Remove the file or add the restart keyword.'
+      stop 
+    endif
+  endif 
 
   ! =====================================================
 
@@ -276,14 +291,20 @@ module input
             write(u_log,*) '                       Simulation Time'
             write(u_log,*) '============================================================='
             write(u_log,*) 'Using Fixed stepsize Velocity-Verlet integrator'
-            write(u_log,'(a,1x,i6,1x,a,1x,f6.3,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep*au2fs,'fs.'
+            write(u_log,'(a,1x,i9,1x,a,1x,f12.4,1x,a)') 'Found nsteps=',ctrl%nsteps,'and stepsize=',ctrl%dtstep*au2fs,'fs.'
             if (printlevel>1) then
-              write(u_log,'(a,1x,f9.3,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps*au2fs,'fs.'
-              write(u_log,'(a,1x,f7.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
+              write(u_log,'(a,1x,f12.4,1x,a)') 'This makes a total simulation time of ',ctrl%dtstep*ctrl%nsteps*au2fs,'fs.'
+              write(u_log,'(a,1x,f12.4,1x,a)') 'The electronic wavefunction will be propagated using a ',&
               &ctrl%dtstep/ctrl%nsubsteps*au2fs, 'fs step.'
             endif
             write(u_log,*)
           endif
+        else
+          write(u_log,*) '============================================================='
+          write(u_log,*) '                       Simulation Time'
+          write(u_log,*) '============================================================='
+          write(u_log,*) 'Using Fixed stepsize Velocity-Verlet integrator'
+          write(u_log,*) 'Simulation time cannot be changed when an explicit laser pulse is read.'
         endif
       elseif (ctrl%integrator==0 .or. ctrl%integrator==1) then
         line=get_value_from_key('tmax',io)
@@ -304,22 +325,22 @@ module input
           write(u_log,*)
         endif
       endif
-      line=get_value_from_key('restart_rerun_last_qm_step',io)
-      if (io==0) then
-        ctrl%restart_rerun_last_qm_step=.true.
-        write(u_log,'(a)') 'Assuming that restart/ directory corresponds to upcoming time step)'
-        write(u_log,'(a)') '(e.g., after a crash or job kill).'
-      else
-        line=get_value_from_key('restart_goto_new_qm_step',io)
-        if (io==0) then
-          ctrl%restart_rerun_last_qm_step=.false.
-          write(u_log,'(a)') 'Assuming that restart/ directory corresponds to time step in restart files'
-          write(u_log,'(a)') '(e.g., after using STOP file, killafter mechanism, or reaching time step limit).'
-        else
-          write(0,*) 'Please add "restart_rerun_last_qm_step" or "restart_goto_new_qm_step" keyword!'
-          stop
-        endif
-      endif
+      ! line=get_value_from_key('restart_rerun_last_qm_step',io)
+      ! if (io==0) then
+      !   ctrl%restart_rerun_last_qm_step=.true.
+      !   write(u_log,'(a)') 'Assuming that restart/ directory corresponds to upcoming time step)'
+      !   write(u_log,'(a)') '(e.g., after a crash or job kill).'
+      ! else
+      !   line=get_value_from_key('restart_goto_new_qm_step',io)
+      !   if (io==0) then
+      !     ctrl%restart_rerun_last_qm_step=.false.
+      !     write(u_log,'(a)') 'Assuming that restart/ directory corresponds to time step in restart files'
+      !     write(u_log,'(a)') '(e.g., after using STOP file, killafter mechanism, or reaching time step limit).'
+      !   else
+      !     write(0,*) 'Please add "restart_rerun_last_qm_step" or "restart_goto_new_qm_step" keyword!'
+      !     stop 1
+      !   endif
+      ! endif
 
       ! convert tmax to atomic unit 
       ctrl%tmax=ctrl%tmax/au2fs
@@ -404,7 +425,7 @@ module input
         write(u_log, '(A)') 'Use data_extractor_NetCDF.x'
       case (2)
         write(u_log, '(A)') 'Saving electronic output data every step in NetCDF format (output.dat [header] + output.dat.nc) for one dummy atom'
-        write(u_log, '(A)') 'Saving coordinates in NetCDF format (sharc_traj_xyz.nc) for all atoms'
+        write(u_log, '(A)') 'Saving coordinates in NetCDF format (output_NUC.dat.nc) for all atoms'
         write(u_log, '(A)') 'Use data_extractor_NetCDF.x'
     endselect
     write(u_log, *) 
@@ -439,6 +460,26 @@ module input
       ctrl%nstates=1
     endif
 
+    ! look up charges keyword
+    line=get_value_from_key('charge',io)
+    if (io==0) then
+      ! value needs to be split into values (each one is a string)
+      call split(line,' ',values,n)
+      if (n.lt.ctrl%maxmult) then
+       write(u_log,*) 'Keyword CHARGE needs to specify a charge for all ',ctrl%maxmult, ' multiplicities!'
+       stop 1
+      endif
+      allocate(ctrl%charges_m(ctrl%maxmult))
+      ! read number of states per multiplicity
+      do i=1,ctrl%maxmult
+        read(values(i),*) ctrl%charges_m(i)
+      enddo
+      deallocate(values)
+    else
+       write(u_log,*) 'Keyword CHARGE not found.'
+       stop 1
+    endif
+
     if (printlevel>0) then
       write(u_log,*) '============================================================='
       write(u_log,*) '                 Number of States and Atoms'
@@ -459,6 +500,11 @@ module input
           write(u_log,*) 'Doing dynamics on a single singlet surface.'
         endif
       endif
+      write(u_log,*)
+      write(u_log,'(a)', advance='no') 'charges set to: '
+      do i=1,ctrl%maxmult
+         write(u_log, '(I4,X)', advance='no') ctrl%charges_m(i)
+      enddo
       write(u_log,*)
     endif
 
@@ -534,7 +580,7 @@ module input
     endif
 
     if (printlevel>1) then
-      write(u_log,'(3a,1x,i4)') 'Total number of atoms from "',trim(geomfilename),'":',ctrl%natom
+      write(u_log,'(3a,1x,i7)') 'Total number of atoms from "',trim(geomfilename),'":',ctrl%natom
       write(u_log,*)
     endif
     call flush(u_log)
@@ -566,7 +612,7 @@ module input
       write(u_log,*) '                          Allocation'
       write(u_log,*) '============================================================='
       if (printlevel>1) then
-        write(u_log,'(a,1x,i4,1x,a,1x,i4,1x,a)') 'Allocation with nstates=',ctrl%nstates,'and natom=',ctrl%natom,'successful.'
+        write(u_log,'(a,1x,i7,1x,a,1x,i7,1x,a)') 'Allocation with nstates=',ctrl%nstates,'and natom=',ctrl%natom,'successful.'
 !         n=sizeof(traj)
 !         write(u_log,'(a,1x,i10,1x,a)') 'Using',n,'bytes for trajectory data.'
       endif
@@ -831,6 +877,24 @@ module input
     else
       ctrl%coupling=2
     endif
+
+    ! retain restart data
+    line=get_value_from_key('retain_restart_files',io)
+    if (io==0) then
+      read(line,*) ctrl%retain_restart_files
+    else
+      if (ctrl%coupling==2) then
+        ctrl%retain_restart_files = 3
+      else
+        ctrl%retain_restart_files = 2
+      endif      
+    endif
+    if (ctrl%coupling==2) then
+      if (ctrl%retain_restart_files<1) then
+        ctrl%retain_restart_files=1
+      endif
+    endif
+
 
     ! turn program off if adaptive is used for overlap
     if (ctrl%integrator==0 .or. ctrl%integrator==1) then
@@ -1468,13 +1532,13 @@ module input
 
     ! flag for switching of writing of restart files
     ctrl%write_restart_files = .true.
-    line=get_value_from_key('write_restart_files',io)
-    if (io==0) then
-      ctrl%write_restart_files = .true.
-    endif
     line=get_value_from_key('nowrite_restart_files',io)
     if (io==0) then
       ctrl%write_restart_files = .false.
+    endif
+    line=get_value_from_key('write_restart_files',io)
+    if (io==0) then
+      ctrl%write_restart_files = .true.
     endif
     if (.not.ctrl%write_restart_files) then
         write(u_log,'(a)') 'Writing of restart files turned off! Restarting trajectory will not be possible!'
@@ -1483,6 +1547,12 @@ module input
 
 
 
+
+    ! if users simply want to compute the overlaps for later without using them
+    line=get_value_from_key('only_store_overlaps',io)
+    if (io==0) then
+      ctrl%calc_overlap = 1
+    endif
 
 
 
@@ -1511,7 +1581,6 @@ module input
     if (io==0) then
       ctrl%write_grad=0
     endif
-
 
     ctrl%write_overlap=1                  !< write overlap matrix:   \n        0=no overlap, 1=write overlap
     line=get_value_from_key('write_overlap',io)
@@ -1769,6 +1838,12 @@ module input
             write(u_log,'(a,1x,f8.3,1x,a)') 'Non-adiabatic coupling vectors are included for Delta E < ',ctrl%eselect_nac,'eV.'
             write(u_log,'(a)') 'Non-adiabatic coupling vectors are calculated in the second QM calculation.'
         endselect
+        select case (ctrl%nac_projection)
+          case (0)
+            write(u_log,'(a)') 'Not doing NAC projection.'
+          case (1)
+            write(u_log,'(a)') 'Doing NAC projection'
+        endselect
         if (ctrl%calc_second==1) then
           write(u_log,'(a)') 'Doing two QM calculations per step for selection.'
         endif
@@ -1873,11 +1948,11 @@ module input
       write(u_log,*)
       if (ctrl%output_format == 2) then
           write(u_log,*)
-            write(u_log,'(a,i6,a,i6)') 'First,   writing to sharc_traj_xyz.nc every ',ctrl%output_steps_stride_nuc(1),&
+            write(u_log,'(a,i6,a,i6)') 'First,   writing to output_NUC.dat.nc every ',ctrl%output_steps_stride_nuc(1),&
             &' steps if step is >= ',ctrl%output_steps_limits_nuc(1)
-            write(u_log,'(a,i6,a,i6)') 'Then,    writing to sharc_traj_xyz.nc  every ',ctrl%output_steps_stride_nuc(2),&
+            write(u_log,'(a,i6,a,i6)') 'Then,    writing to output_NUC.dat.nc  every ',ctrl%output_steps_stride_nuc(2),&
             &' steps if step is >= ',ctrl%output_steps_limits_nuc(2)
-            write(u_log,'(a,i6,a,i6)') 'Finally, writing to sharc_traj_xyz.nc every ',ctrl%output_steps_stride_nuc(3),&
+            write(u_log,'(a,i6,a,i6)') 'Finally, writing to output_NUC.dat.nc every ',ctrl%output_steps_stride_nuc(3),&
             &' steps if step is >= ',ctrl%output_steps_limits_nuc(3)
           write(u_log,*)
       endif
@@ -2122,7 +2197,7 @@ module input
       endif
     endif
 
-    if (printlevel>1) then
+    if ( (printlevel>1) .and. (ctrl%method==1)) then   ! should this only be printed if SCP?
       if (ctrl%decotime_method==0) then
         write(u_log,'(a)') 'Decoherence time is computed with CSDM method'
       elseif (ctrl%decotime_method==1) then
@@ -2364,7 +2439,7 @@ module input
         write(u_log,*) 'Geometry (Bohr):'
         write(u_log,'(A2,1X,3(A9,1X),3X,A3,1X,A12)') 'El','x','y','z','#','mass'
         do i=1,ctrl%natom
-          write(u_log,'(A2,1X,3(F9.6,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
+          write(u_log,'(A2,1X,3(F9.4,1X),3X,F4.0,1X,F12.6)') traj%element_a(i),&
           &(traj%geom_ad(i,j),j=1,3),traj%atomicnumber_a(i),traj%mass_a(i)
         enddo
       endif
@@ -2483,6 +2558,13 @@ module input
       enddo
       write(u_log,*)
     endif
+  ! =====================================================
+
+  ! carry out RATTLE on the input geometry and velocities
+  if (ctrl%do_constraints==1) then
+    call rattle_initial(traj, ctrl)
+  endif
+
 
   ! =====================================================
 
@@ -2622,7 +2704,7 @@ module input
 
           if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for dynamics (active/frozen atoms) from file "',trim(filename),'"'
           if (io/=0) then
-            write(0,*) 'Could not find atom mask for freezing atoms file! (Is filename in ""-marks?)'
+            write(0,*) 'Could not find atom mask for freezing atoms file! (filename must be in quotes)'
             stop 1
           endif
           if (filename=='QM/real_layers.xyz') then !read from real_layers file
@@ -2795,6 +2877,7 @@ module input
       endif
       do i=1,ctrl%nstates
         read(u_i_coeff,'(A)') line
+        if (line(1:1) == "#") read(u_i_coeff,'(A)') line! possible comment line starting with "#"
         call split(line,' ',values,n)
         if (n<2) then
           write(0,*) 'Problem reading the coefficients file!'
@@ -2890,7 +2973,7 @@ module input
     else
       ctrl%laser=0
     endif
-    
+
     if (printlevel>0) then
       write(u_log,*) '============================================================='
       write(u_log,*) '                       Laser Field'
@@ -2918,8 +3001,12 @@ module input
       endif
     endif
 
-
     ctrl%calc_dipole=1
+
+    if (ctrl%laser/=0) then
+      ctrl%calc_dipole=1
+    endif
+
     ctrl%dipolegrad=0
     ctrl%calc_dipolegrad=-1
 
@@ -2945,6 +3032,7 @@ module input
 
 
     if (ctrl%laser==2) then
+
       ! get filename
       line=get_value_from_key('laserfile',io)
       if (io==0) then
@@ -3308,19 +3396,21 @@ module input
       ctrl%thermostat=0
     endif
 
-     if (printlevel>0) then
-       write(u_log,*) '============================================================='
-       write(u_log,*) '                       Thermostat'
-       write(u_log,*) '============================================================='
-       if (printlevel>1) then
-         select case (ctrl%thermostat)
-           case (0)
-             write(u_log,'(a)') 'No thermostat will be applied.'
-           case (1)
-             write(u_log,'(a)') 'Langevin thermostat will be applied.'
-         endselect
-       endif
+   if (printlevel>0) then
+     write(u_log,*) '============================================================='
+     write(u_log,*) '                       Thermostat'
+     write(u_log,*) '============================================================='
+     if (printlevel>1) then
+       select case (ctrl%thermostat)
+         case (0)
+           write(u_log,'(a)') 'No thermostat will be applied.'
+         case (1)
+           write(u_log,'(a)') 'Langevin thermostat will be applied.'
+           write(u_log,'(a)') 'Temperature (in K) and friction coefficient (in m_e*fs^-1): '
+       endselect
      endif
+   endif
+
 
     ! set up values needed for thermostat
     if (ctrl%thermostat/=0) then
@@ -3594,184 +3684,8 @@ module input
       write(u_log,*)
     endif
 
-  ! =====================================================
 
-  ! check for restrictive potential
-  line=get_value_from_key('restrictive_potential',io)
-  if (io==0) then
-    select case (trim(line))
-      case ('none')
-        ctrl%restrictive_potential=0
-      case ('droplet')
-        ctrl%restrictive_potential=1
-      case ('tether')
-        ctrl%restrictive_potential=2
-      case ('droplet_tether')
-        ctrl%restrictive_potential=3
-    endselect
-  else
-    ctrl%restrictive_potential=0
-  endif
-
-   if (printlevel>0 .and. ctrl%restrictive_potential/=0) then
-      write(u_log,*) '============================================================='
-      write(u_log,*) '             Additional restrictive potential'
-      write(u_log,*) '============================================================='
-      if (printlevel>1) then
-        select case (ctrl%restrictive_potential)
-          case (0)
-          case (1)
-            write(u_log,'(a)') 'Restricted droplet potential will be applied:'
-            write(u_log,'(a)') 'Radius (Angstrom) and force constant (u/fs^2):'
-          case (2)
-            write(u_log,'(a)') 'Tethering of atoms will be applied:'
-            write(u_log,'(a)') 'Force constant (u/fs^2) and radius (Angstrom):'
-          case (3)
-            write(u_log,'(a)') 'Restricted droplet potential and tethering of atoms will be applied:'
-            write(u_log,'(a)') 'Droplet radius (Angstrom) and force constants (droplet potential and tethering, u/fs^2)&
-                   and tethering radius (Angstrom):'
-        endselect
-      endif
-    endif
-
-  ! set values for additional restrictive potentials
-  ! set values for restrictive droplet potential
-  if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
-    line=get_value_from_key('restricted_droplet_force',io)
-      if (io==0) then
-        read(line,*) ctrl%restricted_droplet_force ! provide in u/fs^2
-      else
-        write(0,*) 'No force constant for restrictive droplet potental given!'
-        stop 1
-      endif
-    ctrl%restricted_droplet_force = ctrl%restricted_droplet_force * au2fs**2/au2u
-    line=get_value_from_key('restricted_droplet_radius',io)
-       if (io==0) then
-        read(line,*) ctrl%restricted_droplet_radius
-      else
-        ctrl%restricted_droplet_radius=12 ! default radius of inner solvation shell in Angstrom
-      endif
-    if (printlevel>1) then
-      write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%restricted_droplet_radius, ctrl%restricted_droplet_force
-    endif
-    ctrl%restricted_droplet_radius= ctrl%restricted_droplet_radius/au2a ! in atomic units
-
-    allocate(ctrl%sel_restricted_droplet(ctrl%natom))
-    line=get_value_from_key('restricted_droplet_atoms',io)
-    ctrl%sel_restricted_droplet=.true.
-      if (io==0) then
-        call split(line,' ',values,n)
-        select case (trim(values(1)))
-          case ('all')
-            !ctrl%sel_restricted_droplet=.true.
-          case ('noH')
-            do i = 1,ctrl%natom
-              if (nint(traj%mass_a(i))==1) ctrl%sel_restricted_droplet=.false.
-            enddo
-          case ('list')
-            line=get_value_from_key('restricted_droplet_atoms_list',io)
-            if (n>=2) then
-              do i=2,n
-                read(values(i),*) k
-                ctrl%sel_restricted_droplet(k) = .false.
-              enddo
-            else
-              write(0,*) 'Specify which atoms should be restricted in droplet (atom numbers)!'
-              stop 1
-            endif
-          case ('file')
-            if (n==2) then
-              call get_quoted(line,geomfilename)
-              filename=trim(geomfilename)
-              if (filename(1:3)=='qm/') then !change qm/ folder to QM/
-                filename='QM'//filename(3:)
-              endif
-            else if (n==1) then
-              filename='droplet'
-            else
-              write(0,*) 'Specify only 1 filename to read restricted droplet atoms from!'
-              stop 1
-            endif
-            open(u_i_droplet,file=filename, status='old', action='read', iostat=io)
-         
-            if (printlevel>1) write(u_log,'(3A)') 'Reading atom mask for restricted droplet from file "',trim(filename),'"'
-            if (io/=0) then
-              write(0,*) 'Could not find file for restricted droplet atoms! (Is filename in ""-marks?)'
-              stop 1
-            endif
-            !read from file with T/F in each line (for each atom)
-            do i=1,ctrl%natom
-              read(u_i_droplet,*) ctrl%sel_restricted_droplet(i)
-            enddo
-            close(u_i_droplet)
-        endselect
-        deallocate(values)
-      endif
-    endif
-    ! set values for tethering atom
-    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
-       line=get_value_from_key('tethering_force',io)
-       if (io==0) then
-         read(line,*) ctrl%tethering_force ! provide in u/fs^2
-         if (printlevel>1) write(u_log,'(1x,ES11.4)') ctrl%tethering_force
-       else
-         write(0,*) 'No force constant for tethering of atom given!'
-         stop 1
-       endif
-       ctrl%tethering_force = ctrl%tethering_force * au2fs**2/au2u
-       line=get_value_from_key('tethering_radius',io)
-       if (io==0) then
-         read(line,*) ctrl%tethering_radius
-       else
-         ctrl%tethering_radius=0. ! default radius beyond which tethering potential activated is 0
-       endif
-       if (printlevel>1) then
-         write(u_log,'(1x,F7.2,4x,ES11.4)') ctrl%tethering_radius
-       endif
-       ctrl%tethering_radius= ctrl%tethering_radius/au2a ! in atomic units
-       line=get_value_from_key('tether_at',io)
-       if (io==0) then
-         call split(line,' ',values,n)
-         allocate(ctrl%tether_at(n))
-         do i=1,n
-           read(values(i),*) a
-           ctrl%tether_at(i) = a
-         enddo
-         deallocate(values)
-         if (printlevel>1) then
-           write(u_log,'(a)') 'Atoms to be tethered: '
-           write(u_log, *) ctrl%tether_at(:)
-         endif
-       else
-         write(0,*) 'No atom specified for tethering!'
-         stop 1
-       endif
-       allocate(traj%tethering_pos(3))
-       line=get_value_from_key('tethering_position',io)
-       if (io==0) then
-         call split(line,' ',values,n)
-         if (n==3) then
-           do i=1,n
-              read(values(i),*) a
-              traj%tethering_pos = a
-           enddo
-         else
-           write(0,*) 'Tethering position specified needs to have 3 coordinates!'
-           stop 1
-         endif
-         if (printlevel>1) then
-           write(u_log,'(a)') 'Tethering to position'
-           write(u_log,'(1x,ES11.4)') traj%tethering_pos
-         endif
-         traj%tethering_pos = traj%tethering_pos/au2a ! in atomic units
-         deallocate(values)
-       else
-         !use center of mass at time 0 of specified tether atoms as center of tethering potential
-         traj%tethering_pos(:) = calc_centerofmass(traj,ctrl)
-          write(u_log,'(a)') 'Tethering to center of mass at start'
-       endif
-    endif
-    call additional_allocate_traj(traj,ctrl)
+   call additional_allocate_traj(traj,ctrl)
   ! =====================================================
 
 !   ! check for floquet keyword
@@ -3831,6 +3745,7 @@ module input
 
   endsubroutine
 
+
 ! =================================================================== !
 
 !> calculates random velocities for each atom with given kinetic energy
@@ -3858,6 +3773,129 @@ module input
       traj%veloc_ad(iatom,2)=v*dsin(theta)*dsin(phi)
       traj%veloc_ad(iatom,3)=v*dcos(phi)
     enddo
+
+  endsubroutine
+
+
+! ===================================================
+
+
+  subroutine rattle_initial(traj,ctrl)
+    use definitions
+    implicit none
+    type(trajectory_type),intent(inout) :: traj
+    type(ctrl_type),intent(in) :: ctrl
+
+    ! variables for constraints
+    logical :: check_constraints(ctrl%n_constraints)
+    integer :: iconstr, iA, iB, iiter
+    real*8 :: initdistvec(ctrl%n_constraints,3)
+    real*8 :: relpos(3), relvel(3)
+    real*8 :: d2t, coeff
+
+    do iconstr = 1,ctrl%n_constraints
+      iA=ctrl%constraints_ca(iconstr,1)
+      iB=ctrl%constraints_ca(iconstr,2)
+      initdistvec(iconstr,:) = traj%geom_ad(iA,:)-traj%geom_ad(iB,:)
+    enddo
+
+  ! if (ctrl%do_constraints==1) then
+    if (printlevel>2) then
+      write(u_log,'(A)') 'RATTLE iterations for initial positions'
+      write(u_log,'(A3,X,A3,X,A5,X,A5,X,A12,X,A12,X,A2)') 'It','Con','AtomA','AtomB','Resid','coeff','OK' 
+    endif
+    do iiter=1,1000
+      ! initialize logical variable that controls whether constraints are enforced
+      check_constraints(:) = .TRUE.
+        ! loop over the constrained bonds
+        do iconstr = 1, ctrl%n_constraints
+          ! define the atomic id of the atoms that have fixed distance
+          iA=ctrl%constraints_ca(iconstr,1)
+          iB=ctrl%constraints_ca(iconstr,2)
+          !TODO: think about how to handle RATTLE + frozen atoms
+          !if ((ctrl%atommask_b(iA) .eqv. .false.) .or. (ctrl%atommask_b(iB) .eqv. .false.)) then
+          !  check_constraints(iconstr) = .TRUE.
+          !  if (printlevel>2) then
+          !    write(u_log,*) 'constraint over frozen: is skipped'
+          !  cycle
+          !endif
+          ! compute the relative position of the two constrained atoms, and the relative norm squared
+          relpos = traj%geom_ad(iA,:) - traj%geom_ad(iB,:)
+          D2t = DOT_PRODUCT(relpos, relpos)
+          ! when the difference with the fixed distance is significantly different from zero, do RATTLE
+          coeff=0.d0
+          if ( abs(D2t - ctrl%constraints_dist_c(iconstr) ) > ctrl%constraints_tol ) then
+            ! compute RATTLE coefficient
+            coeff = (D2t - ctrl%constraints_dist_c(iconstr)) / &
+            & (2.D0 * ctrl%dtstep * DOT_PRODUCT(initdistvec(iconstr,:), relpos) * &
+            & (1.D0 / traj%mass_a(iA) + 1.D0 / traj%mass_a(iB)))
+            ! correct positions
+            traj%geom_ad(iA,:) = traj%geom_ad(iA,:) - (coeff * ctrl%dtstep * initdistvec(iconstr,:) / traj%mass_a(iA) )
+            traj%geom_ad(iB,:) = traj%geom_ad(iB,:) + (coeff * ctrl%dtstep * initdistvec(iconstr,:) / traj%mass_a(iB) )
+            ! correct velocities
+            traj%veloc_ad(iA,:) = traj%veloc_ad(iA,:) - (coeff * initdistvec(iconstr,:) / traj%mass_a(iA) )
+            traj%veloc_ad(iB,:) = traj%veloc_ad(iB,:) + (coeff * initdistvec(iconstr,:) / traj%mass_a(iB) )
+            ! this constraint was not ok
+            check_constraints(iconstr) = .FALSE.
+          endif
+          ! print
+          if (printlevel>2) then
+            write(u_log,'(I3,X,I3,X,I5,X,I5,X,F12.7,X,F12.7,X,L1)') iiter,iconstr,iA,iB,&
+            &abs(D2t - ctrl%constraints_dist_c(iconstr)),coeff,check_constraints(iconstr)
+          endif
+        end do ! end of the loop over the constraints
+      ! break the loop when all constraints are satisfied
+      if ( all(check_constraints) ) exit
+    end do
+    if (.not. all(check_constraints) ) then
+      write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (xstep)!'
+      stop 1
+    endif
+  ! endif
+
+
+  ! if (ctrl%do_constraints==1) then
+    if (printlevel>2) then
+      write(u_log,'(A)') 'RATTLE iterations for initial velocities'
+      write(u_log,'(A3,X,A3,X,A5,X,A5,X,A12,X,A12,X,A2)') 'it','Con','AtomA','AtomB','Resid','coeff','OK'
+    endif
+    do iiter=1,1000
+      ! initialize logical variable that controls whether constraints are enforced
+      check_constraints(:) = .TRUE.
+        ! loop over the constrained bonds
+        do iconstr = 1, ctrl%n_constraints
+          ! define the atomic id of the atoms that have fixed distance
+          iA = ctrl%constraints_ca(iconstr,1)
+          iB = ctrl%constraints_ca(iconstr,2)
+          ! compute projection of the relative velocity with respect to the distance vector of the bond
+          relvel = traj%veloc_ad(iA,:) - traj%veloc_ad(iB,:)
+          relpos = traj%geom_ad(iA,:) - traj%geom_ad(iB,:)
+          d2t = DOT_PRODUCT(relpos, relvel)
+          ! when this projection is significantly different from zero, do RATTLE
+          coeff=0.d0
+          if ( abs(d2t) > ctrl%constraints_tol ) then
+            ! compute RATTLE coefficient
+            coeff = d2t / ((1.D0 / traj%mass_a(iA) + 1.D0 / traj%mass_a(iB)) * ctrl%constraints_dist_c(iconstr))
+            ! correct velocities
+            traj%veloc_ad(iA,:) = traj%veloc_ad(iA,:) - (coeff * relpos(:) / traj%mass_a(iA) )
+            traj%veloc_ad(iB,:) = traj%veloc_ad(iB,:) + (coeff * relpos(:) / traj%mass_a(iB) )
+            ! this constraint was not ok
+            check_constraints(iconstr) = .FALSE.
+          endif
+          ! print
+          if (printlevel>2) then
+            write(u_log,'(I3,X,I3,X,I5,X,I5,X,F12.7,X,F12.7,X,L1)') iiter,iconstr,iA,iB,&
+            &abs(D2t),coeff,check_constraints(iconstr)
+          endif
+        end do ! end of the loop over the constraints
+      ! break the loop when all constraints are satisfied
+      if ( all(check_constraints) ) exit
+    end do
+    if (.not. all(check_constraints) ) then
+      write(0,*) 'Could not satisfy RATTLE constraints in 1000 iterations (initial vstep)!'
+      stop 1
+    endif
+  ! endif
 
   endsubroutine
 
@@ -3916,7 +3954,9 @@ module input
         string=trim(string)//trim(key)
       enddo
     endif
+!     write(*,*) trim(string)
     temp=djb_hash(trim(string))
+!     write(*,*) n
     hash_input=temp
 
   endfunction

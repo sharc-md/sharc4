@@ -1,0 +1,57 @@
+ nsym=  1 
+cione,cidrtin,cigradient=1,ndrt=
+getvector : 1 1 1
+getvector2 : 3, 1 1 1,   1 ,3 
+getvector : 7
+getvector2 : 1, 7,   1 ,  1  
+getvector : 0
+getvector2 : 1, 0,   1 ,  1  
+getvector : 12
+getvector2 : 1, 12,   1 ,  1  
+getvector : 6
+getvector2 : 1, 6,   1 ,  1  
+getvector : 0
+getvector2 : 1, 0,   1 ,  1  
+getvector : 1
+getvector2 : 1, 1,   1 ,1 
+groups of 2 elements,  / frozen core orbitals ,  -1 
+groups of 2 elements,  / frozen virtual orbitals ,  -1 
+groups of 2 elements,  ,  13 
+groups of 2 elements,  ,  11 
+groups of 2 elements,  ,  11 
+groups of 2 elements,  /internal orbitals ,  -1 
+groups of 1 elements, /occminr,  5 
+groups of 1 elements, /occmaxr,  5 
+groups of 1 elements, /bminr,  5 
+groups of 1 elements, /bmaxr,  5 
+groups of 1 elements, /step masks r,  5 
+groups of 1 elements, /occmin,  18 
+groups of 1 elements, /occmax,  18 
+groups of 1 elements, /bmin,  18 
+groups of 1 elements, /bmax,  18 
+groups of 1 elements, /step masks,  18 
+groups of 1 elements, /step vector disp pairs,  17 
+nintern=19,nreforb=13
+groups of 1 elements, /reference occupations vector ,  18 
+groups of 2 elements,  / frozen core orbitals ,  13 
+groups of 2 elements,  / frozen virtual orbitals ,  -1 
+groups of 2 elements,  ,  11 
+groups of 2 elements,  ,  11 
+groups of 2 elements,  /internal orbitals ,  -1 
+groups of 1 elements, /occminr,  5 
+groups of 1 elements, /occmaxr,  5 
+groups of 1 elements, /bminr,  5 
+groups of 1 elements, /bmaxr,  5 
+groups of 1 elements, /step masks r,  5 
+groups of 1 elements, /occmin,  11 
+groups of 1 elements, /occmax,  11 
+groups of 1 elements, /bmin,  11 
+groups of 1 elements, /bmax,  11 
+groups of 1 elements, /step masks,  11 
+groups of 1 elements, /step vector disp pairs,  10 
+nintern=12,nreforb=6
+groups of 1 elements, /reference occupations vector ,  11 
+prodciudgin: input_data(*)=Y:N:N:0:4:0:Y::1e-4,1e-4,1e-4,1e-4,:1:4:9:1e-4,1e-4,1e-4,1e-4,:120:6:9:1e-4,1e-4,1e-4,1e-4,:X
+prodciudgin: ncnode=
+prodciudgin: ncnode (end)=
+cionem: ncnode =maxmem,ncpu,nvmax,bandwidth=X9

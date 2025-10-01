@@ -1,0 +1,13 @@
+
+scratchdir ./SCRATCHDIR
+savedir ./SAVEDIR
+debug false
+no_print        # unused
+memory 4000
+ncpu 1          # ununsed (?)
+delay 0.0
+always_orb_init false
+always_guess false
+
+
+

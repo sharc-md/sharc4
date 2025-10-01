@@ -10,7 +10,7 @@ cd $COPY_DIR
 
 . $SHARC/sharcvars.sh
 
-$SHARC/pysharc_lvc.py input
+$SHARC/driver.py -i lvc input
 err=$?
 
 cp $COPY_DIR/output.* $PRIMARYDIR

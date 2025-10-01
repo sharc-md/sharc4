@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -36,141 +36,145 @@
 !> - writing timestep-dependent information to restart.traj
 !> - reading restart.ctrl and restart.traj to initialize all arrays
 module restart
- contains
-
-!> creates a directory $CWD/restart/
-!> Via QM.in the interfaces are given the path to this directory
-!> where they have to save all files necessary for restart
-  subroutine mkdir_restart(ctrl)
-    use definitions
-    implicit none
-    type(ctrl_type) :: ctrl
-    character*1023 :: filename
-    logical :: exists
-
-    filename=trim(ctrl%cwd)//'/restart'
-    inquire(file=filename, exist=exists)
-    if (.not.exists) then
-      call system('mkdir '//filename)
-    endif
-
-  endsubroutine
-
-!> writes the static ctrl variable to restart.ctrl
-  subroutine write_restart_ctrl(u,ctrl)
-    use definitions
-    use matrix
-    implicit none
-    integer :: u
-    type(ctrl_type) :: ctrl
-
-    integer :: imult, istate, ilaser, iatom, iconstr, ipair, idir
-
-    ! the ctrl restart file is only written once at the beginning to avoid writing the laser field
-    ! each timestep
-    open(unit=u, file='restart.ctrl',status='replace',action='write')
-
-    ! write the ctrl compound, including all entries (see definition)
-    ! even the restart keyword is written for completeness
-    ! however, the read_restart routine must set ctrl%restart afterwards to 1
-
-    ! printlevel is not part of ctrl, but write it anyways
-    write(u,*) printlevel
-
-    ! write ctrl
-    write(u,'(A)') trim(ctrl%cwd)
-    write(u,*) ctrl%output_version
-    write(u,*) ctrl%compat_mode
-    write(u,*) ctrl%natom, '! natom'
-    write(u,*) ctrl%maxmult
-    write(u,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
-    write(u,*) ctrl%nstates
-    write(u,*) ctrl%nsteps
-    write(u,*) ctrl%nsubsteps
-    write(u,*) ctrl%tmax
-    write(u,*) ctrl%dtstep_min
-    write(u,*) ctrl%dtstep_max
-    write(u,*) ctrl%dtstep
-    write(u,*) ctrl%dtstep_old
-    write(u,*) ctrl%ezero
-    write(u,*) ctrl%convthre
-    write(u,*) ctrl%scalingfactor
-    write(u,*) ctrl%soc_scaling
-    write(u,*) ctrl%eselect_grad
-    write(u,*) ctrl%eselect_nac
-    write(u,*) ctrl%eselect_dmgrad
-    write(u,*) ctrl%dampeddyn
-    write(u,*) ctrl%decoherence_alpha
-    write(u,*) ctrl%force_hop_to_gs
-    write(u,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
-    write(u,*) (ctrl%output_steps_stride(istate),istate=1,3)
-    write(u,*) (ctrl%output_steps_limits(istate),istate=1,3)
-    if (ctrl%output_format == 2) then
+  contains
+ 
+ !> creates a directory $CWD/restart/
+ !> Via QM.in the interfaces are given the path to this directory
+ !> where they have to save all files necessary for restart
+   subroutine mkdir_restart(ctrl)
+     use definitions
+     implicit none
+     type(ctrl_type) :: ctrl
+     character*1023 :: filename
+     logical :: exists
+ 
+     filename=trim(ctrl%cwd)//'/restart'
+     inquire(file=filename, exist=exists)
+     if (.not.exists) then
+       call system('mkdir '//filename)
+     endif
+ 
+   endsubroutine
+ 
+ !> writes the static ctrl variable to restart.ctrl
+   subroutine write_restart_ctrl(u,ctrl)
+     use definitions
+     use matrix
+     implicit none
+     integer :: u
+     type(ctrl_type) :: ctrl
+ 
+     integer :: imult, istate, ilaser, iatom, iconstr, ipair
+ 
+     ! the ctrl restart file is only written once at the beginning to avoid writing the laser field
+     ! each timestep
+     open(unit=u, file='restart.ctrl',status='replace',action='write')
+ 
+     ! write the ctrl compound, including all entries (see definition)
+     ! even the restart keyword is written for completeness
+     ! however, the read_restart routine must set ctrl%restart afterwards to 1
+ 
+     ! printlevel is not part of ctrl, but write it anyways
+     write(u,*) printlevel
+ 
+     ! write ctrl
+     write(u,'(A)') trim(ctrl%cwd)
+     write(u,*) ctrl%output_version
+     write(u,*) ctrl%compat_mode
+     write(u,*) ctrl%natom, '! natom'
+     write(u,*) ctrl%maxmult
+     write(u,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
+     write(u,*) (ctrl%charges_m(imult),imult=1,ctrl%maxmult)
+     write(u,*) ctrl%nstates
+     write(u,*) ctrl%nsteps
+     write(u,*) ctrl%nsubsteps
+     write(u,*) ctrl%tmax
+     write(u,*) ctrl%dtstep_min
+     write(u,*) ctrl%dtstep_max
+     write(u,*) ctrl%dtstep
+     write(u,*) ctrl%dtstep_old
+     write(u,*) ctrl%ezero
+     write(u,*) ctrl%convthre
+     write(u,*) ctrl%scalingfactor
+     write(u,*) ctrl%soc_scaling
+     write(u,*) ctrl%eselect_grad
+     write(u,*) ctrl%eselect_nac
+     write(u,*) ctrl%eselect_dmgrad
+     write(u,*) ctrl%dampeddyn
+     write(u,*) ctrl%decoherence_alpha
+     write(u,*) ctrl%force_hop_to_gs
+     write(u,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
+     write(u,*) ctrl%output_format, '! output_format'
+     write(u,*) (ctrl%output_steps_stride(istate),istate=1,3)
+     write(u,*) (ctrl%output_steps_limits(istate),istate=1,3)
+     if (ctrl%output_format == 2) then
        write(u,*) (ctrl%output_steps_stride_nuc(istate),istate=1,3)
        write(u,*) (ctrl%output_steps_limits_nuc(istate),istate=1,3)
     endif
-    write(u,*) ctrl%restart
-    write(u,*) ctrl%restart_rerun_last_qm_step
-    write(u,*) ctrl%method
-    write(u,*) ctrl%integrator
-    write(u,*) ctrl%write_restart_files
-    write(u,*) ctrl%staterep
-    write(u,*) ctrl%initcoeff
-    write(u,*) ctrl%laser, '! laser'
-    write(u,*) ctrl%laser_e, '! laser_efield'
-    write(u,*) ctrl%laser_b, '! laser_bfield'
-    write(u,*) ctrl%laser_egrad, '! laser_efield_grad'
-    write(u,*) ctrl%coupling
-    write(u,*) ctrl%ktdc_method
-    write(u,*) ctrl%kmatrix_method
-    write(u,*) ctrl%eeom
-    write(u,*) ctrl%neom
-    write(u,*) ctrl%neom_rep
-    write(u,*) ctrl%surf
-    write(u,*) ctrl%decoherence
-    write(u,*) ctrl%ekincorrect
-    write(u,*) ctrl%reflect_frustrated
-    write(u,*) ctrl%time_uncertainty
-    write(u,*) ctrl%gradcorrect
-    write(u,*) ctrl%dipolegrad, '! dipolegrad'
-    write(u,*) ctrl%nac_projection
-    write(u,*) ctrl%zpe_correction
-    write(u,*) ctrl%lpzpe_scheme
-    write(u,*) ctrl%lpzpe_nah
-    write(u,*) ctrl%lpzpe_nbc
-    write(u,*) (ctrl%lpzpe_ah(ipair,1),ipair=1,ctrl%lpzpe_nah)
-    write(u,*) (ctrl%lpzpe_ah(ipair,2),ipair=1,ctrl%lpzpe_nah)
-    write(u,*) (ctrl%lpzpe_bc(ipair,1),ipair=1,ctrl%lpzpe_nbc)
-    write(u,*) (ctrl%lpzpe_bc(ipair,2),ipair=1,ctrl%lpzpe_nbc)
-    write(u,*) (ctrl%lpzpe_ke_zpe_ah(ipair),ipair=1,ctrl%lpzpe_nah)
-    write(u,*) (ctrl%lpzpe_ke_zpe_bc(ipair),ipair=1,ctrl%lpzpe_nbc)
-    write(u,*) ctrl%ke_threshold
-    write(u,*) ctrl%t_cycle
-    write(u,*) ctrl%t_check
-    write(u,*) ctrl%pointer_basis
-    write(u,*) ctrl%pointer_maxiter
-    write(u,*) ctrl%calc_soc
-    write(u,*) ctrl%calc_grad
-    write(u,*) ctrl%calc_overlap
-    write(u,*) ctrl%calc_nacdt
-    write(u,*) ctrl%calc_nacdr
-    write(u,*) ctrl%calc_effectivenac
-    write(u,*) ctrl%calc_dipolegrad, '!calc_dipolegrad'
-    write(u,*) ctrl%calc_second
-    write(u,*) ctrl%calc_phases
-    write(u,*) ctrl%killafter
-    write(u,*) ctrl%ionization
-    write(u,*) ctrl%theodore
-    write(u,*) ctrl%track_phase
-    write(u,*) ctrl%track_phase_at_zero
-    write(u,*) ctrl%hopping_procedure
-    write(u,*) ctrl%switching_procedure
-    write(u,*) ctrl%army_ants
-    write(u,*) ctrl%output_format, '! output_format'
+     write(u,*) ctrl%restart
+     !  write(u,*) ctrl%restart_rerun_last_qm_step
+     write(u,*) ctrl%retain_restart_files
+     write(u,*) ctrl%method
+     write(u,*) ctrl%integrator
+     write(u,*) ctrl%write_restart_files
+     write(u,*) ctrl%staterep
+     write(u,*) ctrl%initcoeff
+     write(u,*) ctrl%laser, '! laser'
+     write(u,*) ctrl%laser_e, '! laser_efield'
+     write(u,*) ctrl%laser_b, '! laser_bfield'
+     write(u,*) ctrl%laser_egrad, '! laser_efield_grad'
+     write(u,*) ctrl%coupling
+     write(u,*) ctrl%ktdc_method
+     write(u,*) ctrl%kmatrix_method
+     write(u,*) ctrl%eeom
+     write(u,*) ctrl%neom
+     write(u,*) ctrl%neom_rep
+     write(u,*) ctrl%surf
+     write(u,*) ctrl%decoherence
+     write(u,*) ctrl%ekincorrect
+     write(u,*) ctrl%reflect_frustrated
+     write(u,*) ctrl%time_uncertainty
+     write(u,*) ctrl%gradcorrect
+     write(u,*) ctrl%dipolegrad, '! dipolegrad'
 
-    ! thermostat
-    write(u,*) ctrl%thermostat
-    if (ctrl%thermostat/=0) then
+     write(u,*) ctrl%nac_projection
+     write(u,*) ctrl%zpe_correction
+     write(u,*) ctrl%lpzpe_scheme
+     write(u,*) ctrl%lpzpe_nah
+     write(u,*) ctrl%lpzpe_nbc
+     write(u,*) (ctrl%lpzpe_ah(ipair,1),ipair=1,ctrl%lpzpe_nah)
+     write(u,*) (ctrl%lpzpe_ah(ipair,2),ipair=1,ctrl%lpzpe_nah)
+     write(u,*) (ctrl%lpzpe_bc(ipair,1),ipair=1,ctrl%lpzpe_nbc)
+     write(u,*) (ctrl%lpzpe_bc(ipair,2),ipair=1,ctrl%lpzpe_nbc)
+     write(u,*) (ctrl%lpzpe_ke_zpe_ah(ipair),ipair=1,ctrl%lpzpe_nah)
+     write(u,*) (ctrl%lpzpe_ke_zpe_bc(ipair),ipair=1,ctrl%lpzpe_nbc)
+     write(u,*) ctrl%ke_threshold
+     write(u,*) ctrl%t_cycle
+     write(u,*) ctrl%t_check
+     write(u,*) ctrl%pointer_basis
+     write(u,*) ctrl%pointer_maxiter
+
+     write(u,*) ctrl%calc_soc
+     write(u,*) ctrl%calc_grad
+     write(u,*) ctrl%calc_overlap
+     write(u,*) ctrl%calc_nacdt
+     write(u,*) ctrl%calc_nacdr
+     write(u,*) ctrl%calc_effectivenac
+     write(u,*) ctrl%calc_dipolegrad, '!calc_dipolegrad'
+     write(u,*) ctrl%calc_second
+     write(u,*) ctrl%calc_phases
+     write(u,*) ctrl%killafter
+     write(u,*) ctrl%ionization
+     write(u,*) ctrl%theodore
+     write(u,*) ctrl%track_phase
+     write(u,*) ctrl%track_phase_at_zero
+     write(u,*) ctrl%hopping_procedure
+     write(u,*) ctrl%switching_procedure
+     write(u,*) ctrl%army_ants
+ 
+     ! thermostat
+     write(u,*) ctrl%thermostat
+     if (ctrl%thermostat/=0) then
       write(u,*) ctrl%ntempregions
       call vecwrite(ctrl%ntempregions, ctrl%temperature, u, 'temperature','ES24.16E3')
       call matwrite(ctrl%ntempregions, ctrl%thermostat_const, u, 'thermostat_const','ES24.16E3')
@@ -181,21 +185,21 @@ module restart
        endif
        write(u,*) ctrl%restart_thermostat_random
       write(u,*) ctrl%remove_trans_rot
-    endif
-
-    ! constraints
-    write(u,*) ctrl%do_constraints
-    write(u,*) ctrl%constraints_tol
-    write(u,*) ctrl%n_constraints
-    if (ctrl%do_constraints==1) then
-      do iconstr=1,ctrl%n_constraints
-        write(u,*) ctrl%constraints_ca(iconstr,1),ctrl%constraints_ca(iconstr,2)
-      enddo
-      do iconstr=1,ctrl%n_constraints
-        write(u,*) ctrl%constraints_dist_c(iconstr)
-      enddo
-    endif
-
+     endif
+ 
+     ! constraints
+     write(u,*) ctrl%do_constraints
+     write(u,*) ctrl%constraints_tol
+     write(u,*) ctrl%n_constraints
+     if (ctrl%do_constraints==1) then
+       do iconstr=1,ctrl%n_constraints
+         write(u,*) ctrl%constraints_ca(iconstr,1),ctrl%constraints_ca(iconstr,2)
+       enddo
+       do iconstr=1,ctrl%n_constraints
+         write(u,*) ctrl%constraints_dist_c(iconstr)
+       enddo
+     endif
+ 
     ! write the laser field
     if (ctrl%laser==2) then
       write(u,*) ctrl%laser_bandwidth
@@ -215,16 +219,16 @@ module restart
         call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','ES24.16E3')
       enddo
     endif
-    
-    write(u,*) ctrl%write_soc
-    write(u,*) ctrl%write_overlap
-    write(u,*) ctrl%write_grad
-    write(u,*) ctrl%write_nacdr
-    write(u,*) ctrl%write_property1d
-    write(u,*) ctrl%write_property2d
-    write(u,*) ctrl%n_property1d
-    write(u,*) ctrl%n_property2d
-    
+     
+     write(u,*) ctrl%write_soc
+     write(u,*) ctrl%write_overlap
+     write(u,*) ctrl%write_grad
+     write(u,*) ctrl%write_nacdr
+     write(u,*) ctrl%write_property1d
+     write(u,*) ctrl%write_property2d
+     write(u,*) ctrl%n_property1d
+     write(u,*) ctrl%n_property2d
+     
     ! write atom mask for decoherence, rescaling, ...
      do iatom=1,ctrl%natom
        write(u,*) ctrl%atommask_a(iatom)
@@ -274,7 +278,7 @@ module restart
  
      ! write everything
      write(u,*) traj%RNGseed
-     write(u,*) traj%RNGseed_thermostat
+     write(u,*) traj%RNGseed_thermostat, '! RNG seed for thermostat'
      write(u,*) traj%traj_hash
      write(u,*) traj%state_MCH
      write(u,*) traj%state_MCH_old
@@ -319,6 +323,9 @@ module restart
      write(u,*) traj%steps_in_gs
      write(u,*) (traj%ncids(i),i=1,10)
      write(u,*) traj%nc_index
+     if (ctrl%output_format == 2) then
+       write(u,*) traj%nc_nuc_index
+    endif
  
      ! write the arrays
      write(u,*) (traj%atomicnumber_a(iatom),iatom=1,ctrl%natom)
@@ -640,60 +647,60 @@ module restart
     if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
       call vecwrite(3, traj%tethering_pos,  u, 'Tethering position','ES24.16E3')
     endif
-
-    close(u)
-
-  endsubroutine
-
-! =========================================================== !
-
-!> this routine reads all restart information from restart.ctrl and restart.traj
-!> and initializes the ctrl and traj compounds
-!> it also does:
-!> - allocation of all arrays
-!> - setting ctrl%restart to .true.
-!> - fast-forwards the random number generator so that the 
-!>     restarted trajectory uses the same random number sequence as if it was not restarted
-!> - sets steps_in_gs correctly
-!> - sets the wallclock timing 
-  subroutine read_restart(u_ctrl,u_traj,ctrl,traj)
-    use definitions
-    use matrix
-    use misc
-    use decoherence_afssh
+ 
+     close(u)
+ 
+   endsubroutine
+ 
+ ! =========================================================== !
+ 
+ !> this routine reads all restart information from restart.ctrl and restart.traj
+ !> and initializes the ctrl and traj compounds
+ !> it also does:
+ !> - allocation of all arrays
+ !> - setting ctrl%restart to .true.
+ !> - fast-forwards the random number generator so that the 
+ !>     restarted trajectory uses the same random number sequence as if it was not restarted
+ !> - sets steps_in_gs correctly
+ !> - sets the wallclock timing 
+   subroutine read_restart(u_ctrl,u_traj,ctrl,traj)
+     use definitions
+     use matrix
+     use misc
+     use decoherence_afssh
     use ziggurat
-    implicit none
-    integer :: u_ctrl,u_traj
-    type(trajectory_type) :: traj
-    type(ctrl_type) :: ctrl
-
-    ! allocation of trajectory is in read_restart_ctrl
-    call read_restart_ctrl(u_ctrl,u_traj,ctrl,traj)
-    call read_restart_traj(u_ctrl,u_traj,ctrl,traj)
-    call read_restart_miscllaneous(u_ctrl,u_traj,ctrl,traj)
-
-  endsubroutine
-
-! =========================================================== !
-
-!> this routine reads all restart information from restart.ctrl
-!> and initializes the ctrl and traj compounds
-!> it also does:
-!> - allocation of all arrays including traj 
-!> - setting ctrl%restart to .true.
-  subroutine read_restart_ctrl(u_ctrl,u_traj,ctrl,traj)
-    use definitions
-    use matrix
+     implicit none
+     integer :: u_ctrl,u_traj
+     type(trajectory_type) :: traj
+     type(ctrl_type) :: ctrl
+ 
+     ! allocation of trajectory is in read_restart_ctrl
+     call read_restart_ctrl(u_ctrl,u_traj,ctrl,traj)
+     call read_restart_traj(u_ctrl,u_traj,ctrl,traj)
+     call read_restart_miscllaneous(u_ctrl,u_traj,ctrl,traj)
+ 
+   endsubroutine
+ 
+ ! =========================================================== !
+ 
+ !> this routine reads all restart information from restart.ctrl
+ !> and initializes the ctrl and traj compounds
+ !> it also does:
+ !> - allocation of all arrays including traj 
+ !> - setting ctrl%restart to .true.
+   subroutine read_restart_ctrl(u_ctrl,u_traj,ctrl,traj)
+     use definitions
+     use matrix
     use string
-    use misc
-    use decoherence_afssh
-    implicit none
-    integer :: iconstr, idir
-    integer :: u_ctrl,u_traj
-    type(trajectory_type) :: traj
-    type(ctrl_type) :: ctrl
-
-    integer :: imult, iatom, i,j,k, istate, ilaser, ipair
+     use misc
+     use decoherence_afssh
+     implicit none
+     integer :: iconstr
+     integer :: u_ctrl,u_traj
+     type(trajectory_type) :: traj
+     type(ctrl_type) :: ctrl
+ 
+     integer :: imult, iatom, i,j,k, istate, ilaser, ipair
     character(8000) :: line
     character*8000, allocatable :: values(:)
  
@@ -729,6 +736,8 @@ module restart
      read(u_ctrl,*) ctrl%maxmult
      allocate( ctrl%nstates_m(ctrl%maxmult) )
      read(u_ctrl,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
+     allocate( ctrl%charges_m(ctrl%maxmult) )
+     read(u_ctrl,*) (ctrl%charges_m(imult),imult=1,ctrl%maxmult)
      read(u_ctrl,*) ctrl%nstates
      read(u_ctrl,*) ctrl%nsteps
      read(u_ctrl,*) ctrl%nsubsteps
@@ -749,13 +758,19 @@ module restart
      read(u_ctrl,*) ctrl%force_hop_to_gs
      allocate( ctrl%actstates_s(ctrl%nstates) )
      read(u_ctrl,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
+     read(u_ctrl,*) ctrl%output_format
      read(u_ctrl,*) (ctrl%output_steps_stride(istate),istate=1,3)
      read(u_ctrl,*) (ctrl%output_steps_limits(istate),istate=1,3)
+     if (ctrl%output_format == 2) then
+       read(u_ctrl,*) (ctrl%output_steps_stride_nuc(istate),istate=1,3)
+       read(u_ctrl,*) (ctrl%output_steps_limits_nuc(istate),istate=1,3)
+     endif
      read(u_ctrl,*) ctrl%restart
-     read(u_ctrl,*) ctrl%restart_rerun_last_qm_step
+     !  read(u_ctrl,*) ctrl%restart_rerun_last_qm_step
+     read(u_ctrl,*) ctrl%retain_restart_files
      read(u_ctrl,*) ctrl%method
      read(u_ctrl,*) ctrl%integrator
-    read(u_ctrl,*) ctrl%write_restart_files
+     read(u_ctrl,*) ctrl%write_restart_files
      read(u_ctrl,*) ctrl%staterep
      read(u_ctrl,*) ctrl%initcoeff
      read(u_ctrl,*) ctrl%laser_e
@@ -774,6 +789,7 @@ module restart
      read(u_ctrl,*) ctrl%time_uncertainty
      read(u_ctrl,*) ctrl%gradcorrect
      read(u_ctrl,*) ctrl%dipolegrad
+
      read(u_ctrl,*) ctrl%nac_projection
      read(u_ctrl,*) ctrl%zpe_correction
      read(u_ctrl,*) ctrl%lpzpe_scheme
@@ -794,6 +810,7 @@ module restart
      read(u_ctrl,*) ctrl%t_check
      read(u_ctrl,*) ctrl%pointer_basis
      read(u_ctrl,*) ctrl%pointer_maxiter
+
      read(u_ctrl,*) ctrl%calc_soc
      read(u_ctrl,*) ctrl%calc_grad
      read(u_ctrl,*) ctrl%calc_overlap
@@ -811,8 +828,7 @@ module restart
      read(u_ctrl,*) ctrl%hopping_procedure
      read(u_ctrl,*) ctrl%switching_procedure
      read(u_ctrl,*) ctrl%army_ants
-     read(u_ctrl,*) ctrl%output_format
- 
+     
      ! thermostat
      read(u_ctrl,*) ctrl%thermostat
      if (ctrl%thermostat/=0) then
@@ -876,10 +892,11 @@ module restart
          enddo
        endif
        allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
+      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u_ctrl, line)
        do ilaser=1,ctrl%nlasers
          call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, line)
        enddo
-    endif
+     endif
  
      read(u_ctrl,*) ctrl%write_soc
      read(u_ctrl,*) ctrl%write_overlap
@@ -920,9 +937,17 @@ module restart
       deallocate(values)
     endif
  
-     close(u_ctrl)
+      close(u_ctrl)
+
+      ! -------------------------
  
-     ! -------------------------
+      if (ctrl%output_format < 0) then
+        write(0, *) "Restart with NetCDF output files is currently not supported."
+        stop 1
+      endif
+      ! TODO: Check how this can be implemented 
+
+      ! -------------------------
  
      ctrl%restart=.true.
  
@@ -1368,4 +1393,3 @@ module restart
    endsubroutine
  
  endmodule restart
- 

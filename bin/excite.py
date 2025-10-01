@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -49,7 +49,7 @@ PI = math.pi
 
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, 3.0, float(version)]
-versiondate = datetime.date(2024, 3, 17)
+versiondate = datetime.date(2025, 4, 1)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -455,19 +455,19 @@ def get_infos(INFOS):
             print(
                 """\nThis script can calculate the excited-state energies and oscillator strengths in two representations.
 These representations are:
-- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option is usually sufficient for systems with small SOC (below 300 cm^-1).
-- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
+- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option should be used if the ground state is spin-pure.
+- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. 
 """
             )
         else:
             print(
                 """\nThis script needs to set the electronic state representation.
 There are two representations:
-- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option is usually sufficient for systems with small SOC (below 300 cm^-1).
-- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. This is usually not necessary for systems with small SOC.
+- MCH representation: Only the diagonal elements of the Hamiltonian are taken into account. The states are the spin-free states as calculated in the quantum chemistry code. This option should be used if the ground state is spin-mixed.
+- diagonal representation: The Hamiltonian including spin-orbit coupling is diagonalized. The states are spin-corrected, fully adiabatic. Note that for this the excited-state calculations have to include spin-orbit couplings. 
 """
             )
-        INFOS["diag"] = question("Do you want to use the diagonal representation (yes=diag, no=MCH)?", bool)
+        INFOS["diag"] = question("Do you want to use the diagonal representation (True=diag, False=MCH)?", bool, default = False)
         if INFOS["diag"] and INFOS["read_QMout"]:
             qmfilename = INFOS["iconddir"] + "/ICOND_00000/QM.in"
             if os.path.isfile(qmfilename):
@@ -536,7 +536,7 @@ There are two representations:
                     DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
                     MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
                     EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
-                    if 'ion' in qmout:  # TODO: use Dysnorm instead of fosc
+                    if INFOS["ion"]:
                         P = qmout.ion
                         P = np.einsum("kij,in,jm->knm", P, Ucon, U)
                 INFOS["eref"] = H[0][0].real
@@ -758,15 +758,14 @@ def get_QMout(INFOS, initlist):
         MDM = qmout.mdm
         EQM = qmout.eqm
         if INFOS["diag"]:
+            P = qmout.ion
             eig, U = np.linalg.eigh(H)
             Ucon = np.conjugate(U)
             H = np.diag(eig)
             DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
             MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
             EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
-            if 'ion' in qmout:
-                P = qmout.ion
-                P = np.einsum("kij,in,jm->knm", P, Ucon, U)
+	    P = np.einsum("kij,in,jm->knm", P, Ucon, U)
         if INFOS["diabatize"]:
             Smat = qmout.overlap
             thres = 0.5
@@ -788,7 +787,7 @@ def get_QMout(INFOS, initlist):
         estates = []
         for istate in range(len(H)):
             if INFOS["ion"]:
-                dip = [math.sqrt(abs(P[initstate][istate])), 0, 0]  # ionization probabilities
+                dip = [math.sqrt(abs(P[initstate][istate])), 0, 0]
             else:
                 dip = [DM[i][initstate][istate] for i in range(3)]
             estate = STATE(len(estates) + 1, H[istate][istate], H[initstate][initstate], dip)

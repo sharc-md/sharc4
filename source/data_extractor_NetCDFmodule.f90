@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -41,7 +41,8 @@ module data_extractor_NetCDFmodule
 
   type Twrite_options
     logical :: write_energy
-    logical :: write_dip
+    logical :: write_dip          !< transition dipole moments
+    logical :: write_dipoles      !< static dipole moments
     logical :: write_mag_dip
     logical :: write_el_quad
     logical :: write_spin
@@ -67,6 +68,7 @@ module data_extractor_NetCDFmodule
     integer :: have_NAC                     !< whether nonadiabatic couplings are in the dat file (0=no, 1=yes)
     integer :: have_property1d                !< whether property vectors are in the dat file (0=no, 1=yes)
     integer :: have_property2d                !< whether property matrices are in the dat file (0=no, 1=yes)
+    integer :: method
     integer :: have_mag_dip               !< whether property matrices are in the dat file (0=no, 1=yes)
     integer :: have_el_quad               !< whether property matrices are in the dat file (0=no, 1=yes)
   end type
@@ -74,6 +76,7 @@ module data_extractor_NetCDFmodule
   type Tshdata
     integer              :: state_diag, state_MCH, time_step
     real*8               :: Ekin, Epot, randnum, Etot
+    real*8              :: time_shift
     integer, allocatable :: nstates_m(:)    !< number of states per multiplicity
     complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_ssd(:,:,:),MDM_ssd(:,:,:),EQM_ssdd(:,:,:,:)
     complex*16, allocatable :: Prop2d_xss(:,:,:)
@@ -91,6 +94,7 @@ module data_extractor_NetCDFmodule
     complex*16, allocatable :: laser_bfield_tp(:,:)        !< laser field for all timesteps
     complex*16, allocatable :: laser_egrad_tpd(:,:,:)        !< laser field for all timesteps
     complex*16, allocatable :: coeff_diab_s(:)      !< diabatic coefficient vector
+    complex*16, allocatable :: den_ss(:,:)
     real*8,allocatable :: expec_s(:)                !< spin expectation value per state
     real*8,allocatable :: expec_dm(:)               !< oscillator strength per state
     real*8,allocatable :: expec_dm_mch(:)           !< oscillator strength per state in MCH basis
@@ -103,6 +107,8 @@ module data_extractor_NetCDFmodule
     real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
     real*8,allocatable :: expec_mdm_act(:)           !< oscillator strength per state with active state as source state
     real*8,allocatable :: expec_eqm_act(:)           !< oscillator strength per state with active state as source state
+    real*8,allocatable :: dipole_mch(:)               !< static dipole moment per state in MCH basis
+    real*8,allocatable :: dipole_diag(:)               !< static dipole moment per state in diagonal basis    
     real*8,allocatable :: spin0_s(:)                !< spin value per MCH state (initialized in the beginning)
     real*8,allocatable :: grad_mch_sad(:,:,:)       !< gradient per MCH state per atom per xyz
     real*8,allocatable :: NAC_ssad(:,:,:,:)         !< nonadiabatic coupling per element (MCH state, MCH state) per atom per xyz
@@ -110,7 +116,8 @@ module data_extractor_NetCDFmodule
 
   type Tgeneral_infos
     integer :: maxmult                      !< maximum multiplicity
-    integer :: natom                        !< number of atoms
+    integer :: natom
+    integer :: method                       !< the method used (0=tsh,1=scp) ###
     integer :: n_property1d                !< 
     integer :: n_property2d                !< 
     integer :: laser                        !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
@@ -161,6 +168,8 @@ contains
     write(u,*) '       -s  : small = write all output files except ionization data, diagonal dipole/projection'
     write(u,*) '       -xs : extrasmall = energy (-e), coeffdiag (-cd), coeffmch (-cm), prob (-p), expec (-x), dip (-d), skip (-sk)'
     write(u,*) '       -e  : write energy file              (output_data/energy.out)'
+    write(u,*) '       -dm : write static dipole moments    (output_data/dipoles_MCH.out'
+    write(u,*) '                                             output_data/dipoles_diag.out),'
     write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
     write(u,*) '       -dmd  : write magnetic dipole file              (output_data/fosc_md2.out)'
     write(u,*) '       -deq  : write electric quadrupole file              (output_data/fosc_eq2.out)'
@@ -244,6 +253,7 @@ contains
   ! defaults for writing options
   write_options%write_energy    = .false.
   write_options%write_dip       = .false.
+  write_options%write_dipoles   = .false.
   write_options%write_spin      = .false.
   write_options%write_coeffdiag = .false.
   write_options%write_coeffmch  = .false.
@@ -294,6 +304,8 @@ contains
       write_options%write_mag_dip = .true.
     elseif (trim(args(i)) == "-deq") then
       write_options%write_el_quad = .true.
+    elseif (trim(args(i)) == "-dm") then
+      write_options%write_dipoles = .true.
     elseif (trim(args(i)) == "-sp") then
       write_options%write_spin = .true.
     elseif (trim(args(i)) == "-cd") then
@@ -363,6 +375,7 @@ contains
     elseif (trim(args(i)) == "-xl") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_dipoles = .true.
       write_options%write_mag_dip = .true.
       write_options%write_el_quad = .true.
       write_options%write_spin = .true.
@@ -383,6 +396,7 @@ contains
     elseif (trim(args(i)) == "-l") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_dipoles = .true.
       write_options%write_mag_dip = .true.
       write_options%write_el_quad = .true.
       write_options%write_spin = .true.
@@ -401,6 +415,7 @@ contains
     elseif (trim(args(i)) == "-s") then
       write_options%write_energy = .true.
       write_options%write_dip = .true.
+      write_options%write_dipoles = .true.
       write_options%write_mag_dip = .true.
       write_options%write_el_quad = .true.
       write_options%write_spin = .true.
@@ -438,6 +453,7 @@ contains
   if (.not.anyoptions) then
     ! defaults for writing options
     write_options%write_energy    = .true.
+    write_options%write_dipoles = .true.
     write_options%write_dip       = .true.
     write_options%write_mag_dip = .true.
     write_options%write_el_quad = .true.
@@ -502,7 +518,7 @@ contains
   prop_info%have_overlap=0
   prop_info%have_property1d=0
   prop_info%have_property2d=0
-
+  prop_info%method=0
 
   if (is_integer) then
     write(*,*) 'Found SHARC v1.0 format'
@@ -530,12 +546,14 @@ contains
     allocate( shdata%MDM_ssd(nstates,nstates,3) )
     allocate( shdata%EQM_ssdd(nstates,nstates,3,3) )
     allocate( shdata%coeff_diag_s(nstates), shdata%coeff_MCH_s(nstates), shdata%coeff_diab_s(nstates) )
+    allocate( shdata%den_ss(nstates,nstates) )
     allocate( shdata%hopprob_s(nstates) )
     allocate( shdata%A_ss(nstates,nstates) )
     allocate( shdata%expec_s(nstates),shdata%expec_dm(nstates),shdata%expec_dm_mch(nstates),shdata%expec_dm_act(nstates) )
     allocate( shdata%expec_mdm(nstates),shdata%expec_mdm_mch(nstates),shdata%expec_mdm_act(nstates) )
     allocate( shdata%expec_eqm(nstates),shdata%expec_eqm_mch(nstates),shdata%expec_eqm_act(nstates) )
     allocate( shdata%expec_ion_diag(nstates),shdata%expec_ion_mch(nstates) )
+    allocate( shdata%dipole_mch(nstates), shdata%dipole_diag(nstates) )
     allocate( shdata%spin0_s(nstates) )
     allocate( shdata%geom_ad(general_infos%natom,3), shdata%veloc_ad(general_infos%natom,3) )
     allocate( shdata%ian(general_infos%natom) )
@@ -561,6 +579,14 @@ contains
     ! else we have the format of SHARC 2.0, which is list-based
     ! =====================================================
     call read_input_list_from_file(u_dat)
+
+    ! look up method keyword
+    line=get_value_from_key('method',io) 
+    if (io==0) then
+      read(line,*) prop_info%method
+    else
+      stop 'Error! Method (keyword: method) is required!'
+    endif
 
     ! look up nstates keyword
     line=get_value_from_key('nstates_m',io)
@@ -619,12 +645,14 @@ contains
     allocate( shdata%MDM_ssd(nstates,nstates,3) )
     allocate( shdata%EQM_ssdd(nstates,nstates,3,3) )
     allocate( shdata%coeff_diag_s(nstates), shdata%coeff_MCH_s(nstates), shdata%coeff_diab_s(nstates) )
+    allocate( shdata%den_ss(nstates,nstates) )
     allocate( shdata%hopprob_s(nstates) )
     allocate( shdata%A_ss(nstates,nstates) )
     allocate( shdata%expec_s(nstates),shdata%expec_dm(nstates),shdata%expec_dm_mch(nstates),shdata%expec_dm_act(nstates) )
     allocate( shdata%expec_mdm(nstates),shdata%expec_mdm_mch(nstates),shdata%expec_mdm_act(nstates) )
     allocate( shdata%expec_eqm(nstates),shdata%expec_eqm_mch(nstates),shdata%expec_eqm_act(nstates) )
     allocate( shdata%expec_ion_diag(nstates),shdata%expec_ion_mch(nstates) )
+    allocate( shdata%dipole_mch(nstates), shdata%dipole_diag(nstates) )
     allocate( shdata%spin0_s(nstates) )
     allocate( shdata%geom_ad(general_infos%natom,3), shdata%veloc_ad(general_infos%natom,3) )
     allocate( shdata%ian(general_infos%natom) )
@@ -843,6 +871,15 @@ contains
     write(u_dm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
     write(u_dm,'(A1,1X,3(A20,1X))') '#','Time |','f_osc (state) |','=== f_osc ===>'
     write(u_dm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif
+
+  if (write_options%write_dipoles) then
+    write(u_dipole_mch,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_dipole_mch,'(A1,1X,3(A20,1X))') '#','Time |','|DM| (state) |','=== |DM| ===>'
+    write(u_dipole_mch,'(A1,1X,3(A20,1X))') '#','[fs] |','[Debye] |','[Debye] |'
+    write(u_dipole,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_dipole,'(A1,1X,3(A20,1X))') '#','Time |','|DM| (state) |','=== |DM| ===>'
+    write(u_dipole,'(A1,1X,3(A20,1X))') '#','[fs] |','[Debye] |','[Debye] |'
   endif
 
   if (write_options%write_mag_dip) then
@@ -1095,6 +1132,8 @@ contains
       if (write_options%write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')     ! -id
       if (write_options%write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')       ! -im
 
+      if (write_options%write_dipoles)   open(unit=u_dipole_mch, file='output_data/dipoles_MCH.out', status='replace', action='write')           ! -dm
+      if (write_options%write_dipoles)   open(unit=u_dipole, file='output_data/dipoles_diag.out', status='replace', action='write')           ! -dm
 
       if (write_options%write_coeffdiag) open(unit=u_coefd, file='output_data/coeff_diag.out', status='replace', action='write')      ! -cd           
       if (write_options%write_coeffmch)  open(unit=u_coefm, file='output_data/coeff_MCH.out', status='replace', action='write')       ! -cm           
@@ -1163,6 +1202,17 @@ contains
       write(6,*) 'WARNING: Reference overlap not available! Data in coeff_diab.out will be incompatible with other trajectories.'
     endif
   endif
+
+  shdata%time_shift = 0.
+  inquire(file='start.time', exist=exists)
+  if (exists) then
+    open(unit=u_tshift, file='start.time', status='old', action='read')
+    read(u_tshift,'(F10.3)') shdata%time_shift
+    close(u_tshift)
+    write(*,*) 'Spotted time shift'
+    write(*,*) shdata%time_shift
+  endif
+
   end subroutine initialize_data
 
 ! -----------------------------------------------------------------------------
@@ -1269,9 +1319,11 @@ contains
 
     time_step=shdata%time_step
 
+
     if (write_options%write_geometry) then
       write(u_xyz,'(I12)') general_infos%natom
-      write(u_xyz,'(A5, 1X, F14.5, 1X, I4, 1X, i4)') 't= ',time_step*general_infos%dtstep, shdata%state_diag, shdata%state_MCH
+      write(u_xyz,'(A5, 1X, F14.5, 1X, I4, 1X, i4)') 't= ',shdata%time_step*general_infos%dtstep, &
+      &shdata%state_diag, shdata%state_MCH
       do iatom=1,general_infos%natom
         write(u_xyz,'(A2,3(1X,F16.9))') shdata%element_a(iatom), (shdata%geom_ad(iatom,idir)*au2a,idir=1,3)
       enddo
@@ -1283,7 +1335,7 @@ contains
     if (write_options%write_energy) then
       ! write to energy.out
       write(u_ener,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
       (real(shdata%H_diag_ss(istate,istate)*au2eV),istate=1,nstates)
     endif
 
@@ -1291,63 +1343,73 @@ contains
     if (write_options%write_dip) then
       ! write to fosc.out
       write(u_dm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%expec_dm(shdata%state_diag),&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%expec_dm(shdata%state_diag),&
       (shdata%expec_dm(istate),istate=1,nstates)
     endif
     if (write_options%write_mag_dip) then
       ! write to fosc_md2.out
       write(u_mdm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%expec_mdm(shdata%state_diag),&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%expec_mdm(shdata%state_diag),&
       (shdata%expec_mdm(istate),istate=1,nstates)
     endif
     if (write_options%write_el_quad) then
       ! write to fosc_eq2.out
       write(u_eqm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%expec_eqm(shdata%state_diag),&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%expec_eqm(shdata%state_diag),&
       (shdata%expec_eqm(istate),istate=1,nstates)
     endif
     if (write_options%write_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
-      & time_step*general_infos%dtstep,(abs(real(shdata%H_diag_ss(istate,istate)&
+      & shdata%time_step*general_infos%dtstep+shdata%time_shift,(abs(real(shdata%H_diag_ss(istate,istate)&
       & -shdata%H_diag_ss(shdata%state_diag,shdata%state_diag)))*au2eV,istate=1,nstates),&
       & (shdata%expec_dm_act(istate),istate=1,nstates)
 !       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
 !       &time_step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
+
+    if (write_options%write_dipoles) then
+      write(u_dipole_mch,'(2X,1000(ES20.12E3,1X))') &
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%dipole_diag(shdata%state_diag),&
+      (shdata%dipole_mch(istate),istate=1,nstates)
+      write(u_dipole,'(2X,1000(ES20.12E3,1X))') &
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%dipole_diag(shdata%state_diag),&
+      (shdata%dipole_diag(istate),istate=1,nstates)
+    endif 
+
     if (write_options%write_mag_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act_mdm,'(2X,1000(ES20.12E3,1X))') &
-      & time_step*general_infos%dtstep,(abs(real(shdata%H_diag_ss(istate,istate)&
+      & shdata%time_step*general_infos%dtstep+shdata%time_shift,(abs(real(shdata%H_diag_ss(istate,istate)&
       & -shdata%H_diag_ss(shdata%state_diag,shdata%state_diag)))*au2eV,istate=1,nstates),&
       & (shdata%expec_dm_act(istate),istate=1,nstates)
 !       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
-!       &time_step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!       &shdata%time_step*general_infos%dtstep+shdata%time_shift,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
     if (write_options%write_el_quadact)  then
       ! write to fosc_act.out
       write(u_fosc_act_eqm,'(2X,1000(ES20.12E3,1X))') &
-      & time_step*general_infos%dtstep,(abs(real(shdata%H_diag_ss(istate,istate)&
+      & shdata%time_step*general_infos%dtstep+shdata%time_shift,(abs(real(shdata%H_diag_ss(istate,istate)&
       & -shdata%H_diag_ss(shdata%state_diag,shdata%state_diag)))*au2eV,istate=1,nstates),&
       & (shdata%expec_eqm_act(istate),istate=1,nstates)
 !       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
-!       &time_step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!       &shdata%time_step*general_infos%dtstep+shdata%time_shift,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
 
     if (write_options%write_iondiag) then
       ! write to ion_diag.out
       write(u_ion_diag,'(2X,ES20.12E3,1X,I20,1X,1000(ES20.12E3,1X))') &
-      & time_step*general_infos%dtstep,shdata%state_diag,(real(shdata%H_diag_ss(istate,istate)&
+      & shdata%time_step*general_infos%dtstep+shdata%time_shift,shdata%state_diag,(real(shdata%H_diag_ss(istate,istate)&
       & -shdata%H_diag_ss(shdata%state_diag,shdata%state_diag))*au2eV,istate=1,nstates),&
       & (shdata%expec_ion_diag(istate),istate=1,nstates)
     endif
     if (write_options%write_ionmch) then
       ! write to ion_mch.out
       write(u_ion_mch,'(2X,ES20.12E3,1X,I20,1X,1000(ES20.12E3,1X))') &
-      & time_step*general_infos%dtstep,shdata%state_diag,(real(shdata%H_mch_ss(istate,istate) &
+      & shdata%time_step*general_infos%dtstep+shdata%time_shift,shdata%state_diag,(real(shdata%H_mch_ss(istate,istate) &
       & -shdata%H_mch_ss(shdata%state_mch,shdata%state_mch))*au2eV,istate=1,nstates),&
       & (shdata%expec_ion_mch(istate),istate=1,nstates)
     endif
@@ -1356,7 +1418,7 @@ contains
     if (write_options%write_spin) then
       ! write to spin.out
       write(u_spin,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%expec_s(shdata%state_diag),&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%expec_s(shdata%state_diag),&
       (shdata%expec_s(istate),istate=1,nstates)
     endif
 
@@ -1369,15 +1431,15 @@ contains
       enddo
       ! write to coeff_diag.out
       write(u_coefd,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, sumc,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, sumc,&
       (shdata%coeff_diag_s(istate),istate=1,nstates)
       ! write to coeff_class_diag.out
       write(u_classd,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (delta(istate,shdata%state_diag),istate=1,nstates)
       ! write to coeff_mixed_diag.out
       write(u_cmixd,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (delta(istate,shdata%state_diag),istate=1,nstates)
     endif
 
@@ -1390,11 +1452,11 @@ contains
       enddo
       ! write to coeff_MCH.out
       write(u_coefm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, sumc,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, sumc,&
       (shdata%coeff_MCH_s(istate),istate=1,nstates)
       ! write to coeff_class_MCH.out
       write(u_classm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (real(abs(shdata%U_ss(istate,shdata%state_diag))**2),istate=1,nstates)
       ! write to coeff_mixed_MCH.out
       expec_pop=0.d0
@@ -1413,7 +1475,7 @@ contains
         enddo
       enddo
       write(u_cmixm,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (expec_pop(istate),istate=1,nstates)
     endif
 
@@ -1426,12 +1488,12 @@ contains
       enddo
       ! write to coeff_diab.out
       write(u_coefdiab,'(2X,1000(ES20.12E3,X))') &
-      &time_step*general_infos%dtstep, sumc,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, sumc,&
       (shdata%coeff_diab_s(istate),istate=1,nstates)
       ! write to coeff_class_diab.out
       call matmultiply(nstates,shdata%ref_ovl_ss,shdata%U_ss,A_ss,'nn')
       write(u_classdiab,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (real(abs(A_ss(istate,shdata%state_diag))**2),istate=1,nstates)
       ! write to coeff_mixed_diab.out
       expec_pop=0.d0
@@ -1450,7 +1512,7 @@ contains
         enddo
       enddo
       write(u_cmixdiab,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, 1.d0,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, 1.d0,&
       (expec_pop(istate),istate=1,nstates)
     endif
 
@@ -1462,7 +1524,7 @@ contains
       enddo
       ! write to prob.out
       write(u_prob,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%randnum,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%randnum,&
       (shdata%hopprob_s(istate),istate=1,nstates)
     endif
 
@@ -1472,7 +1534,7 @@ contains
       ! this infos are also in energy.out, spin.out and fosc.out
       ! but in order to plot them together they are also written in one file
       write(u_expec,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
       &(real(shdata%H_diag_ss(istate,istate)*au2eV),istate=1,nstates),&
       &(shdata%expec_s(istate),istate=1,nstates),&
       &(shdata%expec_dm(istate),istate=1,nstates)
@@ -1481,7 +1543,7 @@ contains
 
     if (write_options%write_expecmch) then
       write(u_expec_mch,'(2X,1000(ES20.12E3,1X))') &
-      &time_step*general_infos%dtstep, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
+      &shdata%time_step*general_infos%dtstep+shdata%time_shift, shdata%Ekin*au2eV, shdata%Epot*au2eV, (shdata%Epot+shdata%Ekin)*au2eV,&
       &(real(shdata%H_MCH_ss(istate,istate)*au2eV),istate=1,nstates),&
       &(shdata%spin0_s(istate),istate=1,nstates),&
       &(shdata%expec_dm_mch(istate),istate=1,nstates)
@@ -1492,14 +1554,15 @@ contains
 
 ! -----------------------------------------------------------------------------
 
-    subroutine process_data(nstates, step, general_infos, write_options, shdata)
+    subroutine process_data(nstates, step, general_infos, write_options, shdata, prop_info)
         use matrix, only: transform, matvecmultiply, matmultiply
-        use definitions, only: alpha
+        use definitions, only: alpha, au2debye
         implicit none
   integer, intent(in) :: nstates, step
   type(Tgeneral_infos), intent(in) :: general_infos
   type(Twrite_options), intent(in) :: write_options
   type(Tshdata), intent(inout)     :: shdata
+  type(Tprop_info), intent(in) :: prop_info
   integer :: i, idir, jdir, istate, jstate, time_step
   complex*16 :: sum 
 
@@ -1548,10 +1611,25 @@ contains
     enddo                                         
     write(*,*) "SUM", sum
 
+!     compute density matrix
+      do istate=1,nstates
+        do jstate=1,nstates
+          shdata%den_ss(istate,jstate)=shdata%coeff_diag_s(istate)*conjg(shdata%coeff_diag_s(jstate))
+        enddo
+      enddo
     ! calculate MCH coefficients and potential energy
     call matvecmultiply(nstates,shdata%U_ss,shdata%coeff_diag_s,shdata%coeff_MCH_s,'n')
+    if (prop_info%method == 0) then !TSH
     shdata%Epot=real(shdata%H_diag_ss(shdata%state_diag,shdata%state_diag))
-    
+    elseif (prop_info%method == 1) then !SCP
+    shdata%Epot=0.d0
+    do istate=1,nstates
+      shdata%Epot=shdata%Epot+&
+      &real(shdata%den_ss(istate,istate)*shdata%H_diag_ss(istate,istate))
+    enddo
+    endif
+
+
     if (write_options%write_coeffdiab) then
       ! calculate diabatic coefficients
       if (time_step>0) then
@@ -1560,7 +1638,7 @@ contains
       endif
       call matvecmultiply(nstates,shdata%ref_ovl_ss,shdata%coeff_MCH_s,shdata%coeff_diab_s,'n')
     endif
-    
+
     ! calculate oscillator strengths
     if (write_options%write_dip .or. write_options%write_dipact .or.&
        &write_options%write_expec .or. write_options%write_expecmch) then
@@ -1632,7 +1710,25 @@ contains
         shdata%expec_eqm_act(i)=shdata%expec_eqm_act(i)*real(shdata%H_diag_ss(i,i)-shdata%H_diag_ss(shdata%state_diag,shdata%state_diag))
       enddo
     endif
-    
+
+    ! compute static dipole moments for all states
+    if (write_options%write_dipoles) then
+      shdata%dipole_mch = 0.d0
+      shdata%dipole_diag = 0.d0
+      do idir=1,3
+        shdata%A_ss=shdata%DM_ssd(:,:,idir)
+        do i=1,nstates
+          shdata%dipole_mch(i)=shdata%dipole_mch(i)+real(shdata%A_ss(i,i)*shdata%A_ss(i,i))
+        enddo
+        call transform(nstates,shdata%A_ss,shdata%U_ss,'utau')
+        do i=1,nstates
+          shdata%dipole_diag(i)=shdata%dipole_diag(i)+real(shdata%A_ss(i,i)*shdata%A_ss(i,i))
+        enddo
+      enddo
+      shdata%dipole_mch=dsqrt(shdata%dipole_mch)*au2debye
+      shdata%dipole_diag=dsqrt(shdata%dipole_diag)*au2debye
+    endif
+
     ! calculate ionization
     if (write_options%write_iondiag .or. write_options%write_ionmch) then
       shdata%expec_ion_diag=0.d0

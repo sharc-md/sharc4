@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -30,13 +30,18 @@ import os
 import numpy as np
 from typing import Any, Union
 from optparse import OptionParser
-from constants import IAn2AName, ATOMCHARGE, FROZENS
+from importlib import import_module
+import inspect
 
 # INTERNAL
-import sharc.sharc as sharc
+try:
+    import sharc.sharc as sharc
+except:
+    print("ERROR: sharc.sharc import failed. Do you have the correct Python environment loaded?")
+    raise
 
 # import sharc
-from factory import factory
+# from factory import factory
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
 from error import Error
@@ -213,7 +218,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         i.write_step_file()
     log.debug(f"\tset_props")
     qmout.set_props(i.getQMout(), icall)
-    i.clean_savedir(i.QMin.save["savedir"], i.QMin.requests["retain"], i.QMin.save["step"])
+    i.clean_savedir()
 
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
@@ -231,12 +236,14 @@ def main():
     parser = OptionParser()
 
     parser.add_option("-i", "--interface", dest="name", help="Name of the Interface you want to use.")
+    parser.add_option("-P", "--nonpersistent", dest="persistent", action="store_false", default=True, help="to turn off interface persistency")
     parser.add_option(
         "-v", "--verbose", dest="verbose", action="store_true", default=False, help="sets verbosity, i.e. print and debug option"
     )
     parser.add_option("-s", "--silent", dest="silent", action="store_true", default=False, help="only error and critical output")
     parser.add_option("-d", "--debug", dest="debug", action="store_true", default=False, help="debug flag for printing")
     parser.add_option("-p", "--print", dest="print", action="store_true", default=False, help="flag for printing")
+    parser.add_option("-f", "--fast_queue", dest="fast", action="store_true", default=False, help="Enable fast queue for hybrids with fast children.")
 
     (options, args) = parser.parse_args()
 
@@ -254,9 +261,32 @@ def main():
         exit(0)
     inp_file = args[0]
     # param = args[0:-1]
-    interface = factory(options.name)
 
-    derived_int: SHARC_INTERFACE = interface(persistent=True, loglevel=loglevel)
+
+    # load interface without factory
+    # interface = factory(options.name)
+    interface_name = options.name.upper()
+    interface_name = interface_name if interface_name.split("_")[0] == "SHARC" else f"SHARC_{interface_name}"
+    try:
+        module = import_module(interface_name)
+    except (ModuleNotFoundError, ImportError, TypeError):
+        log.error(f"{interface_name} could not be imported!")
+        raise
+    try:
+        interface = getattr(module, interface_name)
+        if not issubclass(interface, SHARC_INTERFACE):
+            log.error(f"Class {interface_name} is not derived from SHARC_INTERFACE")
+            raise ImportError()
+        if inspect.isabstract(interface):
+            log.error(f"{interface_name} is an abstract base class!")
+            raise ImportError()
+    except AttributeError as exc:
+        log.error(f"Class {interface_name} not found in {module}")
+        raise AttributeError from exc
+
+
+    with InDir("QM"):
+        derived_int: SHARC_INTERFACE = interface(persistent=options.persistent, loglevel=loglevel, fast_queue=options.fast)
     derived_int.QMin.molecule["unit"] = "bohr"
     derived_int.QMin.molecule["factor"] = 1.0
     if options.print:
@@ -267,19 +297,12 @@ def main():
     basic_info.update(derived_int.parseStates(basic_info["states"]))
     QMout = QMOUT(derived_int.__class__.__name__, basic_info["NAtoms"], basic_info["nmstates"])
 
-    basic_info["step"] = basic_info["istep"]
+    derived_int.setup_mol(basic_info)
 
-    derived_int.QMin.molecule.update({k.lower(): v for k, v in basic_info.items()})
-    derived_int.QMin.molecule["natom"] = basic_info["NAtoms"]
-    derived_int.QMin.molecule["elements"] = [IAn2AName[x] for x in basic_info["IAn"]]
-    derived_int.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], derived_int.QMin.molecule["elements"]))
-    derived_int.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], derived_int.QMin.molecule["elements"]))
-    derived_int.QMin.maps["statemap"] = basic_info["statemap"]
-
-    derived_int._setup_mol = True
     with InDir("QM"):
         derived_int.read_resources()
         derived_int.read_template()
+        # derived_int.QMin.save['savedir'] = basic_info['savedir']
         # derived_int.update_step(basic_info["step"])
         derived_int.setup_interface()
     if IRestart == 0:
@@ -287,7 +310,7 @@ def main():
         do_qm_calc(derived_int, QMout)
         initial_qm_post()
         initial_step(IRestart)
-        derived_int.update_step()
+        # derived_int.update_step()
     lvc_time = 0.0
     all_time = 0.0
     for istep in range(basic_info["istep"] + 1, basic_info["NSteps"] + 1):
@@ -318,7 +341,7 @@ def main():
         all_time += all_s2 - all_s1
         if iexit == 1:
             break
-        derived_int.update_step()
+        # derived_int.update_step()
 
     derived_int.create_restart_files()
     finalize_sharc()

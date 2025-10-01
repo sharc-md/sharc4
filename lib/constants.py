@@ -1,38 +1,71 @@
 # /usr/bin/env python3
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
+
 import scipy.constants as const
 
 # conversion factors
-au2u = const.physical_constants["atomic unit of mass"][0]*const.Avogadro*1E-3
-au2rcm = 1./(const.physical_constants["inverse meter-hartree relationship"][0]*1E2)
-au2debye = const.c/1E-21*const.physical_constants["elementary charge"][0]*const.physical_constants["Bohr radius"][0]
-au2a = const.physical_constants["Bohr radius"][0]*1E10
-cm2au = const.physical_constants["inverse meter-hartree relationship"][0]*1E2
-au2fs = const.physical_constants["atomic unit of time"][0]*1E15
-ram2au = 1. / const.physical_constants["electron mass in u"][0]
-J2eV = const.physical_constants["joule-electron volt relationship"][0]
-D2au = 1./const.c*1E-21/const.physical_constants["elementary charge"][0]/const.physical_constants["Bohr radius"][0]  # https://en.wikipedia.org/wiki/Debye
-au2V_m = const.physical_constants["atomic unit of electric field"][0]
-au2J = const.physical_constants["hartree-joule relationship"][0]
-au2eV = const.physical_constants["Hartree energy in eV"][0]
-rcm_to_Eh = 1./(const.physical_constants["hartree-inverse meter relationship"][0]*1E-2)
-D2Cm = 1./const.c*1E-21
-au2I = 1/2.*const.epsilon_0*const.c*const.physical_constants["atomic unit of electric field"][0]**2*1E-4
-au2GV_m = au2V_m*1E-9
-# Additional constants
-kcal_to_Eh = const.calorie*1E3/const.Avogadro/const.physical_constants["Hartree energy"][0]  # kcal/mol -> Hartree
-alpha = const.alpha 
-speed_of_light_au = 1./alpha
-kJpermol_to_Eh = kj2Eh = const.Avogadro*const.physical_constants["Hartree energy"][0]*1E-3  # kJ/mol -> Hartree
-lande_g_factor = const.physical_constants["electron g factor"][0]
-ANG_TO_BOHR = 1. / (const.physical_constants["Bohr radius"][0]*1E10)
-CM_TO_HARTREE = 1. / (const.physical_constants["hartree-inverse meter relationship"][0]*1E-2)
-HARTREE_TO_EV = const.physical_constants["Hartree energy in eV"][0]
-EV_TO_EH = 1. / const.physical_constants["Hartree energy in eV"][0]
-U_TO_AMU = ram2au 
-BOHR_TO_ANG = const.physical_constants["Bohr radius"][0]*1E10
-# TODO: go higher (see old ORCA interface)
-# TODO: use some list comprehension to get the reversed half of the dictionary
-IToMult = {
+au2u               = const.physical_constants["atomic unit of mass"][0]*const.Avogadro*1E3 
+au2rcm             = 1./(const.physical_constants["inverse meter-hartree relationship"][0]*1E2)
+au2debye           = const.c/1E-21*const.physical_constants["elementary charge"][0]*const.physical_constants["Bohr radius"][0]
+au2a               = const.physical_constants["Bohr radius"][0]*1E10  # 0.529
+cm2au              = const.physical_constants["inverse meter-hartree relationship"][0]*1E2
+au2fs              = const.physical_constants["atomic unit of time"][0]*1E15
+ram2au             = 1. / const.physical_constants["electron mass in u"][0]
+J2eV               = const.physical_constants["joule-electron volt relationship"][0]
+D2au               = 1./const.c*1E-21/const.physical_constants["elementary charge"][0]/const.physical_constants["Bohr radius"][0]  # https://en.wikipedia.org/wiki/Debye=
+au2V_m             = const.physical_constants["atomic unit of electric field"][0]
+au2J               = const.physical_constants["hartree-joule relationship"][0]
+au2eV              = const.physical_constants["Hartree energy in eV"][0]
+rcm_to_Eh          = 1./(const.physical_constants["hartree-inverse meter relationship"][0]*1E-2)
+D2Cm               = 1./const.c*1E-21
+au2I               = 1/2.*const.epsilon_0*const.c*const.physical_constants["atomic unit of electric field"][0]**2*1E-4
+au2GV_m            = au2V_m*1E-9
+kcal_to_Eh         = const.calorie*1E3/const.Avogadro/const.physical_constants["Hartree energy"][0]  # kcal/mol -> Hartree
+speed_of_light_au  = 1./const.alpha
+kJpermol_per_Eh    = const.Avogadro*const.physical_constants["Hartree energy"][0]*1E-3
+kJpermol_to_Eh     = 1./kJpermol_per_Eh
+kj2Eh              = kJpermol_to_Eh
+lande_g_factor     = const.physical_constants["electron g factor"][0]
+alpha              = 1./speed_of_light_au
+n_avogadro         = const.Avogadro
+au2newton          = const.physical_constants["Hartree energy"][0]/const.physical_constants["Bohr radius"][0]  # 8.239E-8
+Boltzmann_Eh_K     = const.physical_constants["Boltzmann constant in eV/K"][0]/const.physical_constants["Hartree energy in eV"][0]
+ANG_TO_BOHR        = 1. / (const.physical_constants["Bohr radius"][0]*1E10)
+CM_TO_HARTREE      = 1. / (const.physical_constants["hartree-inverse meter relationship"][0]*1E-2)
+HARTREE_TO_EV      = const.physical_constants["Hartree energy in eV"][0]
+EV_TO_EH           = 1. / const.physical_constants["Hartree energy in eV"][0]
+U_TO_AMU           = ram2au
+BOHR_TO_ANG        = const.physical_constants["Bohr radius"][0]*1E10
+AMBERVEL_TO_AU     = (const.calorie*1E3/const.Avogadro/const.physical_constants["atomic mass constant"][0])**(0.5)/ \
+                     (const.physical_constants["Bohr radius"][0]/const.physical_constants["atomic unit of time"][0])  # https://ambermd.org/Questions/units.html
+
+
+
+# Generate IToMult
+base_names = {
     1: 'Singlet',
     2: 'Doublet',
     3: 'Triplet',
@@ -40,21 +73,23 @@ IToMult = {
     5: 'Quintet',
     6: 'Sextet',
     7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
+    8: 'Octet'
 }
+highest_index = 21
+IToMult = {}
+for i in range(1, highest_index + 1):
+    # Use the special names if they exist, otherwise use the "N-et" format
+    mult_name = base_names.get(i, f"{i}-et")
+    IToMult[i] = mult_name
+    IToMult[mult_name] = i
+
 
 # hash table for conversion of polarisations to the keywords
 # TODO: use some list comprehension to get the reversed half of the dictionary
 IToPol = {0: 'X', 1: 'Y', 2: 'Z', 'X': 0, 'Y': 1, 'Z': 2}
 
+
+# Atomic numbers
 NUMBERS = {
     'H': 1,
     'He': 2,
@@ -176,6 +211,8 @@ NUMBERS = {
     'Og': 118
 }
 ATOMCHARGE = NUMBERS
+IAn2AName = {v: k for k, v in NUMBERS.items()}
+
 # Number of frozen core orbitals
 FROZENS = {
     'H': 0,
@@ -297,127 +334,8 @@ FROZENS = {
     'Ts': 50,
     'Og': 50
 }
-# This could be automatically obtained as inversion of NUMBERS
-IAn2AName = {
-    1: "H",
-    2: "He",
-    3: "Li",
-    4: "Be",
-    5: "B",
-    6: "C",
-    7: "N",
-    8: "O",
-    9: "F",
-    10: "Ne",
-    11: "Na",
-    12: "Mg",
-    13: "Al",
-    14: "Si",
-    15: "P",
-    16: "S",
-    17: "Cl",
-    18: "Ar",
-    19: "K",
-    20: "Ca",
-    21: "Sc",
-    22: "Ti",
-    23: "V",
-    24: "Cr",
-    25: "Mn",
-    26: "Fe",
-    27: "Co",
-    28: "Ni",
-    29: "Cu",
-    30: "Zn",
-    31: "Ga",
-    32: "Ge",
-    33: "As",
-    34: "Se",
-    35: "Br",
-    36: "Kr",
-    37: "Rb",
-    38: "Sr",
-    39: "Y",
-    40: "Zr",
-    41: "Nb",
-    42: "Mo",
-    43: "Tc",
-    44: "Ru",
-    45: "Rh",
-    46: "Pd",
-    47: "Ag",
-    48: "Cd",
-    49: "In",
-    50: "Sn",
-    51: "Sb",
-    52: "Te",
-    53: "I",
-    54: "Xe",
-    55: "Cs",
-    56: "Ba",
-    57: "La",
-    58: "Ce",
-    59: "Pr",
-    60: "Nd",
-    61: "Pm",
-    62: "Sm",
-    63: "Eu",
-    64: "Gd",
-    65: "Tb",
-    66: "Dy",
-    67: "Ho",
-    68: "Er",
-    69: "Tm",
-    70: "Yb",
-    71: "Lu",
-    72: "Hf",
-    73: "Ta",
-    74: "W",
-    75: "Re",
-    76: "Os",
-    77: "Ir",
-    78: "Pt",
-    79: "Au",
-    80: "Hg",
-    81: "Tl",
-    82: "Pb",
-    83: "Bi",
-    84: "Po",
-    85: "At",
-    86: "Rn",
-    87: "Fr",
-    88: "Ra",
-    89: "Ac",
-    90: "Th",
-    91: "Pa",
-    92: "U",
-    93: "Np",
-    94: "Pu",
-    95: "Am",
-    96: "Cm",
-    97: "Bk",
-    98: "Cf",
-    99: "Es",
-    100: "Fm",
-    101: "Md",
-    102: "No",
-    103: "Lr",
-    104: "Rf",
-    105: "Db",
-    106: "Sg",
-    107: "Bh",
-    108: "Hs",
-    109: "Mt",
-    110: "Ds",
-    111: "Rg",
-    112: "Cn",
-    113: "Nh",
-    114: "Fl",
-    115: "Mc",
-    116: "Lv",
-    117: "Ts",
-    118: "Og"
-}
+
+
 # Atomic Weights of the most common isotopes
 # From https://chemistry.sciences.ncsu.edu/msf/pdf/IsotopicMass_NaturalAbundance.pdf
 MASSES = {

@@ -21,10 +21,7 @@ Comment
 
     ## ===============================================
     ## Control keywords:
-init
-#samestep
-#restart
-
+step 0
 #cleanup        # delete complete scratchdir and savedir, only keep QM.out
 #backup         # backup content of savedir for this time step
 
@@ -32,6 +29,7 @@ init
     # Settings:
 unit angstrom
 states 2 1 1 
+charge 0 1 0
 #savedir ./SAVE         # overrides the savedir in the resources file
 
     ## ===============================================

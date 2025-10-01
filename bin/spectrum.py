@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2024 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -34,40 +34,26 @@ import datetime
 from optparse import OptionParser
 import colorsys
 import re
-
+from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
+import scipy.constants as const
 
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-ANG_TO_BOHR = 1. / 0.529177211  # 1.889725989      # conversion from Angstrom to bohr
+
 PI = math.pi
+E_CHARGE = const.physical_constants["elementary charge"][0]
+HBAR = const.physical_constants["reduced Planck constant"][0]
+E_MASS = const.physical_constants["electron mass"][0]
+C_LIGHT = const.physical_constants["speed of light in vacuum"][0]
+EPS_ZERO = const.physical_constants["vacuum electric permittivity"][0]
+HARTREE_TO_JOULE = const.physical_constants["Hartree energy"][0]
+AVOGADRO = const.physical_constants["Avogadro constant"][0]
 
 version = '4.0'
 versionneeded = [0.2, 1.0, 2.0, 2.1, 3.0, float(version)]
-versiondate = datetime.date(2024, 4, 24)
+versiondate = datetime.date(2025, 4, 1)
 
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
 
 # =========================================================0
 
@@ -92,6 +78,15 @@ class lorentz:
         return A / ((x - x0)**2 / self.c + 1)
 
 
+class rectangle:
+    def __init__(self, fwhm):
+        self.f = fwhm
+        self.norm = fwhm
+
+    def ev(self, A, x0, x):
+        return A if abs(x-x0)<=self.f/2 else 0.
+
+
 class lognormal:
     def __init__(self, fwhm):
         self.f = fwhm
@@ -107,6 +102,7 @@ class lognormal:
         return A * x0 / x * math.exp(-c / (4. * math.log(2.)) - math.log(2.) * (math.log(x) - math.log(x0))**2 / c)
 
 
+
 class spectrum:
     def __init__(self, npts, emin, emax, fwhm, lineshape):
         self.npts = npts
@@ -120,11 +116,24 @@ class spectrum:
         self.spec = [0. for i in range(self.npts + 1)]
         self.fnorm = self.f.norm
 
-    def add(self, A, x0):
+    def add(self, A, x0, abs_cross=False, molar=False):
         if A == 0.:
             return
-        for i in range(self.npts + 1):
-            self.spec[i] += self.f.ev(A, x0, self.en[i])
+        if abs_cross:
+            factor = PI * E_CHARGE**2 * HBAR * 1e20 / ( 2. * E_MASS * C_LIGHT * EPS_ZERO * self.fnorm * HARTREE_TO_JOULE)
+            if molar:
+                factor *= AVOGADRO * 1e-16 / math.log(10.) / 1e3
+            # factor 1e20 is to get cross sections in A^2 rather than m^2, factor HARTREE_TO_JOULE is because e^2*hbar/(m_e*c*eps) has units of Jm^2 
+            for i in range(self.npts + 1):
+                try:
+                    self.spec[i] += self.f.ev(   A*x0/self.en[i],   x0,   self.en[i]  ) * factor
+                except ZeroDivisionError:
+                    pass
+        else:
+            for i in range(self.npts + 1):
+                self.spec[i] += self.f.ev(   A,                 x0,   self.en[i])
+
+
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -404,12 +413,11 @@ def get_initconds(INFOS):
         # get list of excited states
         initcond = INITCOND()
         initcond.init_from_file(initf, INFOS['eref'], icond)
-        if len(initcond.statelist) == 0:
-            continue
-        for i, state in enumerate(initcond.statelist):
-            if i + 1 > len(statelist):
-                statelist.append([])
-            statelist[i].append(state)
+        if len(initcond.statelist) > 0:
+            for i, state in enumerate(initcond.statelist):
+                if i + 1 > len(statelist):
+                    statelist.append([])
+                statelist[i].append(state)
         idone += 1
         if done < idone * width // imax:
             done = idone * width // imax
@@ -435,7 +443,11 @@ def get_initconds(INFOS):
 
 
 def make_spectra(statelist, INFOS):
-    speclist = [spectrum(INFOS['npts'], INFOS['erange'][0], INFOS['erange'][1], INFOS['fwhm'], INFOS['lineshape']) for i in range(INFOS['nstate'])]
+    speclist = [spectrum(INFOS['npts'], 
+                         INFOS['erange'][0], 
+                         INFOS['erange'][1], 
+                         INFOS['fwhm'], 
+                         INFOS['lineshape']) for i in range(INFOS['nstate'])]
 
     width = 50
     idone = 0
@@ -451,10 +463,14 @@ def make_spectra(statelist, INFOS):
                 sys.stdout.flush()
 
             if not INFOS['selected'] or cond.Excited:
-                if INFOS['dos_switch']:
+                if INFOS['abscross']:
+                    speclist[istate].add(cond.Fosc/len(states), cond.Eexc, abs_cross=True, molar=INFOS['molar'])
+                elif INFOS['dos_switch']:
                     speclist[istate].add(1., cond.Eexc)
                 else:
                     speclist[istate].add(cond.Fosc, cond.Eexc)
+                
+        
     sys.stdout.write('\n')
 
     return speclist
@@ -519,7 +535,7 @@ def make_spectra_bootstrap(statelist, INFOS):
         mean_spec.spec[ipt] = mean_geom(data)
         stdev = stdev_geom(data, mean_spec.spec[ipt])
         stdev_specp.spec[ipt] = mean_spec.spec[ipt] * (stdev**power - 1.)
-        stdev_specm.spec[ipt] = mean_spec.spec[ipt] * (1. // stdev**power - 1.)
+        stdev_specm.spec[ipt] = mean_spec.spec[ipt] * (stdev**(-power) - 1.)
 
     allspec = [mean_spec, stdev_specp, stdev_specm] + allspec
 
@@ -782,15 +798,26 @@ def make_gnuplot(outputfile, INFOS):
 
     if INFOS['dos_switch']:
         title = 'Density-of-states spectrum'
+        ylabel = 'Absorption spectrum (normalized)'
     else:
-        title = 'Absorption spectrum'
+        if INFOS['abscross']:
+            if INFOS['molar']:
+                title = 'Absorption spectrum (molar absorption coefficient)'
+                ylabel = 'Molar absorption coefficient (cm^-1 M^-1)'
+            else:
+                title = 'Absorption spectrum (absolute cross section)'
+                ylabel = 'Absorption cross section (Angstrom^2/molecule)'
+            INFOS["maxsum"] = 1.0
+        else:
+            title = 'Absorption spectrum (arbitrary units)'
+            ylabel = 'Absorption spectrum (normalized)'
 
     gnustring = '''set title "%s (%s%s)\\n%i Initial conditions, %s representation"
 
 set xrange [%f:%f]
-set yrange [%f:%f]
+set yrange [%f:%s]
 set xlabel 'Energy (eV)'
-set ylabel 'Absorption spectrum (normalized)'
+set ylabel '%s'
 
 set style fill transparent solid 0.25 border
 set term pngcairo size 640,480
@@ -799,12 +826,13 @@ set out '%s.png'
 ''' % (title,
        ['Gaussian', 'Lorentzian', 'Lines', 'Log-normal'][INFOS['lineshape'] - 1],
        [', FWHM=%f eV' % (INFOS['fwhm'] * HARTREE_TO_EV), ''][INFOS['lineshape'] == 3],
-       INFOS['ninit'],
+       INFOS['irange'][1] - INFOS['irange'][0]+1,
        ['MCH', 'diagonal'][INFOS['diag']],
        INFOS['erange'][0] * HARTREE_TO_EV,
        INFOS['erange'][1] * HARTREE_TO_EV,
        0.,
-       1.,
+       '1.' if "normalized" in ylabel else "*",
+       ylabel,
        INFOS['outputfile']
        )
 
@@ -886,6 +914,8 @@ date %s
     parser.add_option('-B', dest='B', type=int, nargs=1, default=0, help="Number of bootstrap cycles")
     parser.add_option('-p', dest='p', type=int, nargs=1, default=3, help="Number of standard deviations for bootstrap output (default=3)")
     parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
+    parser.add_option('-c', dest='c', action='store_true', default=False, help="Calculate absorption cross section (A^2/molecule).")
+    parser.add_option('-m', dest='m', action='store_true', default=False, help="Convert absorption cross sections to molar absorption coefficient (M^-1cm^-1).")
 
     (options, args) = parser.parse_args()
 
@@ -927,9 +957,26 @@ date %s
     INFOS['bootstrapfile'] = options.b
     INFOS['bootstraps'] = options.B
     INFOS['power'] = options.p
+    INFOS['abscross'] = options.c
+    INFOS['molar'] = options.m
+    if INFOS['molar'] and not INFOS['abscross']:
+        print("Error: -m has to be used together with -c!")
+        quit(1)
+    if INFOS['dos_switch'] and INFOS['abscross']:
+        print("Error: cannot do DOS and absolute cross sections at the same time!")
+        quit(1)
+    if INFOS['lineshape'] == 3 and INFOS['abscross']:
+        print("Error: cannot do line spectrum and absolute cross sections at the same time!")
+        quit(1)
+
 
     if options.o == '':
-        if INFOS['dos_switch']:
+        if INFOS['abscross']:
+            if INFOS['molar']:
+                outputfile = 'spectrum_molar_abs_coeff.out'
+            else:
+                outputfile = 'spectrum_cross_section.out'
+        elif INFOS['dos_switch']:
             outputfile = 'density_of_states.out'
         else:
             outputfile = ['spectrum.out', 'spectrum_line.out'][options.l]

@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -31,7 +31,7 @@ import math
 import sys
 import os
 from optparse import OptionParser
-
+from constants import HARTREE_TO_EV, IToMult 
 try:
     import numpy
     NONUMPY = False
@@ -42,31 +42,7 @@ except ImportError:
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-ANG_TO_BOHR = 1. / 0.529177211  # 1.889725989      # conversion from Angstrom to bohr
-PI = math.pi
 
-# hash table for conversion of multiplicity to the keywords used in COLUMBUS
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
 
 # ======================================================================= #
 
@@ -174,6 +150,8 @@ def read_QMin(path, request):
             if iline <= natom + 2:
                 continue
             s = line.split(None, 1)
+            if len(s)<1:
+                continue
             if r in s[0]:
                 QMin[s[0]] = s[1]
     if 'natom' in request:
@@ -333,7 +311,7 @@ excitation energies and oscillator strengths.
     parser.add_option('-S', dest='S', type=int, nargs=1, default=1, help="Initial state (Lowest=1)")
     parser.add_option('-t', dest='t', type=int, nargs=1, default=0, help="0 (default): for QM.out containing h,dm; 1: for QM.out containing only h")
     parser.add_option('-L', dest='L', action='store_true', help="Format in a single line")
-    parser.add_option('-I', dest='I', action='store_true', help="Use Dyson norms instead of oscillator strengths")
+    parser.add_option('-I', dest='I', action='store_true', default=False, help="Use Dyson norms instead of oscillator strengths")
 
     #parser.add_option('-n', dest='n', type=int, nargs=1, default=3, help="Number of geometries to be generated (integer, default=3)")
     #parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")

@@ -1,0 +1,9 @@
+---
+thresholds: {"dm": 0.01, "h": 1.2, "nacdr": 7, "soc": 1e-5, "grad": .4}
+interfaces:
+    - {"label": "model1", "interface": "SPAINN", "args": [], "kwargs": {}}
+    - {"label": "model2", "interface": "SPAINN", "args": [], "kwargs": {}}
+exit_on_fail: true
+write_geoms: false
+geom_file: "test"
+error_function: "mae_max"

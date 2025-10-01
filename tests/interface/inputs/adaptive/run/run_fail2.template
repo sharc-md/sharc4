@@ -1,0 +1,6 @@
+---
+thresholds: {"h": -1}
+interfaces:
+    - {"label": "test1", "interface": "QMOUT", "args": [], "kwargs": {}}
+    - {"label": "test2", "interface": "QMOUT", "args": [], "kwargs": {}}
+write_geoms: false

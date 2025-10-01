@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2023 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -23,6 +23,10 @@
 #
 # ******************************************
 
+from SHARC_OLD import SHARC_OLD
+class SHARC_BAGEL(SHARC_OLD):
+    pass
+
 import traceback
 from socket import gethostname
 import time
@@ -36,6 +40,7 @@ import sys
 import subprocess as sp
 import shutil
 import os
+from constants import au2a, ATOMCHARGE, FROZENS, IToMult, IToPol
 global DEBUG
 global PRINT
 DEBUG = False
@@ -59,8 +64,8 @@ PRINT = True
 
 # =========================================================0
 
-version = '1.1'
-versiondate = datetime.date(2021, 10, 25)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 changelogstring = '''
 25.10.2021: 
 - removed PyQuante dependency in get_smat_from_Molden
@@ -75,91 +80,6 @@ starttime = datetime.datetime.now()
 DEBUG = False
 PRINT = True
 
-# hash table for conversion of multiplicity to the keywords used in MOLCAS
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# hash table for conversion of polarisations to the keywords used in MOLCAS
-IToPol = {
-    0: 'X',
-    1: 'Y',
-    2: 'Z',
-    'X': 0,
-    'Y': 1,
-    'Z': 2
-}
-
-# Number of frozen core orbitals
-FROZENS = {'H': 0, 'He': 0,
-           'Li': 1, 'Be': 1, 'B': 1, 'C': 1, 'N': 1, 'O': 1, 'F': 1, 'Ne': 1,
-           'Na': 1, 'Mg': 1, 'Al': 5, 'Si': 5, 'P': 5, 'S': 5, 'Cl': 5, 'Ar': 5,
-           'K': 5, 'Ca': 5,
-           'Sc': 5, 'Ti': 5, 'V': 5, 'Cr': 5, 'Mn': 5, 'Fe': 5, 'Co': 5, 'Ni': 5, 'Cu': 5, 'Zn': 5,
-           'Ga': 9, 'Ge': 9, 'As': 9, 'Se': 9, 'Br': 9, 'Kr': 9,
-           'Rb': 9, 'Sr': 9,
-           'Y': 14, 'Zr': 14, 'Nb': 14, 'Mo': 14, 'Tc': 14, 'Ru': 14, 'Rh': 14, 'Pd': 14, 'Ag': 14, 'Cd': 14,
-           'In': 18, 'Sn': 18, 'Sb': 18, 'Te': 18, 'I': 18, 'Xe': 18,
-           'Cs': 18, 'Ba': 18,
-           'La': 23,
-           'Ce': 23, 'Pr': 23, 'Nd': 23, 'Pm': 23, 'Sm': 23, 'Eu': 23, 'Gd': 23, 'Tb': 23, 'Dy': 23, 'Ho': 23, 'Er': 23, 'Tm': 23, 'Yb': 23, 'Lu': 23,
-           'Hf': 23, 'Ta': 23, 'W': 23, 'Re': 23, 'Os': 23, 'Ir': 23, 'Pt': 23, 'Au': 23, 'Hg': 23,
-           'Tl': 23, 'Pb': 23, 'Bi': 23, 'Po': 23, 'At': 23, 'Rn': 23,
-           'Fr': 30, 'Ra': 30,
-           'Ac': 30,
-           'Th': 30, 'Pa': 30, 'U': 30, 'Np': 30, 'Pu': 30, 'Am': 30, 'Cm': 30, 'Bk': 30, 'Cf': 30, 'Es': 30, 'Fm': 30, 'Md': 30, 'No': 30, 'Lr': 30,
-           'Rf': 30, 'Db': 30, 'Sg': 30, 'Bh': 30, 'Hs': 30, 'Mt': 30, 'Ds': 30, 'Rg': 30, 'Cn': 30,
-           'Nh': 39, 'Fl': 39, 'Mc': 39, 'Lv': 39, 'Ts': 39, 'Og': 39
-           }
-
-
-ATOMCHARGE = {'H': 1, 'He': 2,
-              'Li': 3, 'Be': 4, 'B': 5, 'C': 6, 'N': 7, 'O': 8, 'F': 9, 'Ne': 10,
-              'Na': 11, 'Mg': 12, 'Al': 13, 'Si': 14, 'P': 15, 'S': 16, 'Cl': 17, 'Ar': 18,
-              'K': 19, 'Ca': 20,
-              'Sc': 21, 'Ti': 22, 'V': 23, 'Cr': 24, 'Mn': 25, 'Fe': 26, 'Co': 27, 'Ni': 28, 'Cu': 29, 'Zn': 30,
-              'Ga': 31, 'Ge': 32, 'As': 33, 'Se': 34, 'Br': 35, 'Kr': 36,
-              'Rb': 37, 'Sr': 38,
-              'Y': 39, 'Zr': 40, 'Nb': 41, 'Mo': 42, 'Tc': 43, 'Ru': 44, 'Rh': 45, 'Pd': 46, 'Ag': 47, 'Cd': 48,
-              'In': 49, 'Sn': 50, 'Sb': 51, 'Te': 52, 'I': 53, 'Xe': 54,
-              'Cs': 55, 'Ba': 56,
-              'La': 57,
-              'Ce': 58, 'Pr': 59, 'Nd': 60, 'Pm': 61, 'Sm': 62, 'Eu': 63, 'Gd': 64, 'Tb': 65, 'Dy': 66, 'Ho': 67, 'Er': 68, 'Tm': 69, 'Yb': 70, 'Lu': 71,
-              'Hf': 72, 'Ta': 73, 'W': 74, 'Re': 75, 'Os': 76, 'Ir': 77, 'Pt': 78, 'Au': 79, 'Hg': 80,
-              'Tl': 81, 'Pb': 82, 'Bi': 83, 'Po': 84, 'At': 85, 'Rn': 86,
-              'Fr': 87, 'Ra': 88,
-              'Ac': 89,
-              'Th': 90, 'Pa': 91, 'U': 92, 'Np': 93, 'Pu': 94, 'Am': 95, 'Cm': 96, 'Bk': 97, 'Cf': 98, 'Es': 99, 'Fm': 100, 'Md': 101, 'No': 102, 'Lr': 103,
-              'Rf': 104, 'Db': 105, 'Sg': 106, 'Bh': 107, 'Hs': 108, 'Mt': 109, 'Ds': 110, 'Rg': 111, 'Cn': 112,
-              'Nh': 113, 'Fl': 114, 'Mc': 115, 'Lv': 116, 'Ts': 117, 'Og': 118
-              }
-
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
-D2au = 0.393430307
-
-
-
-
-
-
-# =============================================================================================== #
 # =============================================================================================== #
 # =========================================== general routines ================================== #
 # =============================================================================================== #
@@ -606,7 +526,7 @@ def printtheodore(matrix, QMin):
         string += '%6s ' % i
     for i in range(len(QMin['template']['theodore_fragment'])):
         for j in range(len(QMin['template']['theodore_fragment'])):
-            string += '  Om%1i%1i ' % (i + 1, j + 1)
+            string += '  Om_%1i_%1i ' % (i + 1, j + 1)
     string += '\n' + '-------' * (1 + QMin['template']['theodore_n']) + '\n'
     istate = 0
     for imult, i, ms in itnmstates(QMin['states']):
@@ -1093,7 +1013,7 @@ def writeQMoutTHEODORE(QMin, QMout):
     string += '! Property Vectors (%ix%i, real)\n' % (nprop, nmstates)
     if 'theodore' in QMin:
         for i in range(QMin['template']['theodore_n']):
-            string += '! TheoDORE descriptor %i (%s)\n' % (i + 1, descriptors[i])
+            string += '%i ! TheoDORE descriptor %i (%s)\n' % (nmstates, i + 1, descriptors[i])
             for j in range(nmstates):
                 string += '%s\n' % (eformat(QMout['theodore'][j][i].real, 12, 3))
     # if QMin['template']['qmmm']:
@@ -1109,10 +1029,12 @@ def writeQMoutTHEODORE(QMin, QMout):
 
 
 def writeQmoutPhases(QMin, QMout):
-
-    string = '! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+    string = "! 7 Wave function phases (%ix1, complex)\n%i\n" % (QMin['nmstates'], QMin['nmstates'])
     for i in range(QMin['nmstates']):
-        string += '%s %s\n' % (eformat(QMout['phases'][i].real, 9, 3), eformat(QMout['phases'][i].imag, 9, 3))
+        string += "%s %s\n" % (
+            eformat(QMout['phases'][i].real, 9, 3),
+            eformat(QMout['phases'][i].imag, 9, 3),
+        )
     return string
 
 # ======================================================================= #
@@ -1226,6 +1148,7 @@ def get_sh2BAGEL_environ(sh2BAGEL, key, environ=True, crucial=True):
                 sys.exit(18)
             else:
                 return None
+    LINE = LINE.replace("$$", str(os.getpid()))
     LINE = os.path.expandvars(LINE)
     LINE = os.path.expanduser(LINE)
     if containsstring(';', LINE):
@@ -1550,12 +1473,12 @@ def readQMin(QMinfilename):
         except ValueError:
             print('Number of CPUs does not evaluate to numerical value!')
             sys.exit(40)
-    if os.environ.get('NSLOTS') is not None:
-        QMin['ncpu'] = int(os.environ.get('NSLOTS'))
-        print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
-    elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
-        QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
-        print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # if os.environ.get('NSLOTS') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('NSLOTS'))
+    #     print('Detected $NSLOTS variable. Will use ncpu=%i' % (QMin['ncpu']))
+    # elif os.environ.get('SLURM_NTASKS_PER_NODE') is not None:
+    #     QMin['ncpu'] = int(os.environ.get('SLURM_NTASKS_PER_NODE'))
+    #     print('Detected $SLURM_NTASKS_PER_NODE variable. Will use ncpu=%i' % (QMin['ncpu']))
     QMin['ncpu'] = max(1, QMin['ncpu'])
 
     QMin['mpi'] = False
@@ -3401,13 +3324,13 @@ def getQMout(QMin):
                         continue
                     if i == j:
                         QMout['h'][i][j] = energies[(m1, s1)]
-                    elif 'soc' in QMin and QMin['jobs'][job]['restr']:
-                        if m1 == m2 == 1:
-                            continue
-                        # TODO: invstatemap and submatrix are not defined
-                        x = invstatemap[(m1, s1, ms1)]
-                        y = invstatemap[(m2, s2, ms2)]
-                        QMout['h'][i][j] = submatrix[x - 1][y - 1]
+                    # elif 'soc' in QMin and QMin['jobs'][job]['restr']:
+                    #     if m1 == m2 == 1:
+                    #         continue
+                    #     # TODO: invstatemap and submatrix are not defined
+                    #     x = invstatemap[(m1, s1, ms1)]
+                    #     y = invstatemap[(m2, s2, ms2)]
+                    #     QMout['h'][i][j] = submatrix[x - 1][y - 1]
 
     # Dipole Moments
     if 'dm' in QMin:

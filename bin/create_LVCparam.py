@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -62,7 +62,7 @@ def _byteify(data, ignore_dicts=False):
 
 version = "4.0"
 versionneeded = [0.2, 1.0, 2.0, 2.1, float(version)]
-versiondate = datetime.date(2024, 4, 1)
+versiondate = datetime.date(2025, 4, 1)
 
 
 # ======================================================================= #
@@ -291,6 +291,9 @@ def partition_matrix(matrix, multiplicity, states):
 
 
 # ======================================================================= #
+
+def phase_correction_do_nothing(matrix):
+    return matrix.real.copy()
 
 
 def phase_correction(matrix):
@@ -538,6 +541,7 @@ def write_LVC_template(INFOS, template_name):
             # get hamiltonian & overlap matrix from QM.out
             path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'p'}"], "QM.out")
             # requests = ["h", "overlap"]
+            print("reading displaced QMout at:", path)
             QMout_pos = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
             # check diagonal of S & print warning
@@ -554,6 +558,7 @@ def write_LVC_template(INFOS, template_name):
 
                 # get hamiltonian & overlap matrix from QM.out
                 path = os.path.join(INFOS["paths"][f"{normal_mode:>03s}_{'n'}"], "QM.out")
+                print("reading displaced QMout at:", path)
                 QMout_neg = QMout(path, INFOS["states"], len(INFOS["atoms"]), 0)
 
                 # check diagonal of S & print warning if wanted
@@ -1132,7 +1137,8 @@ def write_LVC_template(INFOS, template_name):
         mat_string = ""
         n_entries = 0
         for (s_i, s_j), fit in QMout_eq["multipolar_fit"].items():
-            if INFOS["no_transition_multipoles"] and s_i != s_j:
+            if "no_transition_multipoles" in INFOS and INFOS["no_transition_multipoles"] and s_i != s_j:
+                # TODO: This option is not written into the json by setup_LVCparam.py
                 continue
             if s_i > s_j:
                 continue
@@ -1177,7 +1183,7 @@ def main():
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
     template_name = "LVC.template"
-    print(len(sys.argv))
+    #print(len(sys.argv))
     if len(sys.argv) == 3:
         template_name = sys.argv[2]
     if is_other_dir:

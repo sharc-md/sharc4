@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -35,10 +35,11 @@ import os
 import sys
 import datetime
 import numpy as np
+import re
 
 # internal
 from SHARC_FAST import SHARC_FAST
-from utils import readfile, question, expand_path
+from utils import readfile, writefile, question, expand_path, phase_correction
 from io import TextIOWrapper
 from constants import U_TO_AMU
 from kabsch import kabsch_w as kabsch, kabsch_w_with_deriv
@@ -46,7 +47,7 @@ from numba import njit
 
 authors = "Sebastian Mai and Severin Polonius"
 version = "4.0"
-versiondate = datetime.datetime(2023, 8, 25)
+versiondate = datetime.datetime(2025, 4, 1)
 
 changelogstring = """
 """
@@ -54,7 +55,6 @@ np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"}, t
 
 
 class SHARC_LVC(SHARC_FAST):
-    _read_resources = True
     _do_kabsch = False
     _diagonalize = True
     _gammas = False
@@ -98,7 +98,7 @@ class SHARC_LVC(SHARC_FAST):
 
     @staticmethod
     def description():
-        return "Linear Vibronic Coupling model calculations"
+        return "     FAST interface for linear/quadratic vibronic coupling models (LVC, QVC, LVC/MM)"
 
     def read_template(self, template_filename="LVC.template"):
         f = open(os.path.abspath(template_filename), "r")
@@ -130,8 +130,6 @@ class SHARC_LVC(SHARC_FAST):
         self._soc = np.zeros((nmstates, nmstates), dtype=complex)
         self._U = np.zeros((nmstates, nmstates), dtype=float)
         self._Q = np.zeros(r3N, float)
-
-        self.available_requests = set()
         xyz = {"X": 0, "Y": 1, "Z": 2}
         soc_real = True
         dipole_real = True
@@ -139,9 +137,24 @@ class SHARC_LVC(SHARC_FAST):
         el_quadrupole_real = True
         line = f.readline()
         if line.startswith("charge"):
-            self.QMin.molecule["charge"] = [int(x) for x in line.split()[1:]]
-            self.QMout.charges = self.QMin.molecule["charge"]
+            charges = [int(x) for x in line.split()[1:]]
+            c1 = np.array(charges)
+            c2 = np.array(self.QMin.molecule["charge"])
+            st = np.array(self.QMin.molecule["states"])
+            # zero-pad shorter one
+            max_len = max(len(c1), len(c2), len(st))
+            c1 = np.pad(c1, (0, max_len - len(c1)), mode='constant', constant_values=0)
+            c2 = np.pad(c2, (0, max_len - len(c2)), mode='constant', constant_values=0)
+            st = np.pad(st, (0, max_len - len(st)), mode='constant', constant_values=0)
+            # remove charge for irrelevant multiplicities
+            mask = np.array(st) != 0
+            c1 = c1[mask]
+            c2 = c2[mask]
+            if not np.array_equal(c1,c2):
+                self.log.error('Charges from request and in template are not consistent!')
+                raise RuntimeError()
             line = f.readline()
+        self.QMout.charges = self.QMin.molecule["charge"]
         # NOTE: possibly assign whole array with index accessor (numpy)
         if line == "epsilon\n":
             z = int(f.readline()[:-1])
@@ -153,7 +166,6 @@ class SHARC_LVC(SHARC_FAST):
             for im, s, v in map(a, range(z)):
                 self._h[im][s, s] += v
             line = f.readline()
-            self.available_requests.add("epsilon")
 
         if line == "eta\n":
             z = int(f.readline()[:-1])
@@ -163,7 +175,6 @@ class SHARC_LVC(SHARC_FAST):
             ):
                 self._h[im][si, sj] += v
             line = f.readline()
-            self.available_requests.add("eta")
 
         if line == "kappa\n":
             z = int(f.readline()[:-1])
@@ -175,7 +186,6 @@ class SHARC_LVC(SHARC_FAST):
             for im, s, i, v in map(b, range(z)):
                 self._H_i[im][i, s, s] = v
             line = f.readline()
-            self.available_requests.add("kappa")
 
         if line == "lambda\n":
             z = int(f.readline()[:-1])
@@ -188,7 +198,6 @@ class SHARC_LVC(SHARC_FAST):
                 self._H_i[im][i, si, sj] = v
                 self._H_i[im][i, sj, si] = v
             line = f.readline()
-            self.available_requests.add("lambda")
 
         if line == "lambda_soc\n":
             z = int(f.readline()[:-1])
@@ -204,7 +213,10 @@ class SHARC_LVC(SHARC_FAST):
                     lambda_soc_real = False
 
                 self._lambda_soc[si, sj, i] += v
+                if isinstance(v, complex):
+                    v *= -1.
                 self._lambda_soc[sj, si, i] += v
+                # TODO: Are these correctly transposed/conjugated to have a Hermitian matrix?
             line = f.readline()
 
         if line == "gamma\n":
@@ -221,10 +233,12 @@ class SHARC_LVC(SHARC_FAST):
                 self._G[im][sj, si, n, m] = v
                 self._G[im][si, sj, n, m] = v
             line = f.readline()
-            self.available_requests.add("gamma")
 
         while line:
-            factor = 1j if line[-2] == "I" else 1
+            if not line.split():
+                line = f.readline()
+                continue
+            factor = 1j if line.split()[-1] == "I" else 1
             if "SOC" in line:
                 if factor != 1:
                     soc_real = False
@@ -235,10 +249,7 @@ class SHARC_LVC(SHARC_FAST):
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-                self.available_requests.add("soc")
-
             elif "DM" in line and "MDM" not in line:
-                self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
                 j = xyz[line[2]]
                 if factor != 1:
                     dipole_real = False
@@ -248,8 +259,6 @@ class SHARC_LVC(SHARC_FAST):
                     self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-                self.available_requests.add("dm")
-
             elif "MDEQM" in line:
                 self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
                 j = xyz[line[3]]
@@ -261,7 +270,6 @@ class SHARC_LVC(SHARC_FAST):
                     self._mag_dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-                self.available_requests.add("mdeqm")
 
                 self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
                 k = xyz[line[3]]  # Readout of derivative direction EQMXY -> X
@@ -274,14 +282,12 @@ class SHARC_LVC(SHARC_FAST):
                     self._el_quadrupole[k, j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-                self.available_requests.add("eqm")
 
             elif "Multipolar Density Fit" in line:
                 line = f.readline()
                 n_fits = int(line)
                 self.log.debug(f"multipolar_fit {n_fits}")
                 self._fits = {im: np.zeros((n, n, natom, 10), dtype=float) for im, n in enumerate(states) if n != 0}
-                self.available_requests.add("Multipolar Density Fit")
 
                 def d(_):
                     v = f.readline().split()
@@ -298,15 +304,19 @@ class SHARC_LVC(SHARC_FAST):
                 line = f.readline()
         f.close()
         # setting type as necessary (converting type through view and reshape is a lot faster that simple astype
-        # assignemnt) 
-        if "soc" in self.available_requests and soc_real:
+        # assignemnt)
+        if soc_real:
             self._soc = np.reshape(self._soc.view(float), self._soc.shape + (2,))[:, :, 0]
-        if "dm" in self.available_requests and dipole_real:
+        if "_lambda_soc" in self.__dict__ and lambda_soc_real:
+            self._lambda_soc = self._lambda_soc.real.copy()
+        if dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
-        if "mdeqm" in self.available_requests and mag_dipole_real and el_quadrupole_real:
+        if "mdeqm" mag_dipole_real and el_quadrupole_real:
             self._mag_dipole = np.reshape(self._mag_dipole.view(float), self._mag_dipole.shape + (2,))[:, :, :, 0]
             self._el_quadrupole = np.reshape(self._el_quadrupole.view(float), self._el_quadrupole.shape + (2,))[:, :, :, :, 0]
-        # if self.QMin.save["init"]:
+	if self.QMin.molecule["point_charges"] and not hasattr(self, '_fits'):
+            raise RuntimeError("Point charges present but could not find 'Multipolar Density Fit' in template file.")
+	# if self.QMin.save["init"]:
         # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
         self._read_template = True
         return
@@ -336,7 +346,7 @@ class SHARC_LVC(SHARC_FAST):
 
     def read_resources(self, resources_filename="LVC.resources"):
         if not os.path.isfile(resources_filename):
-            self.log.warning("LVC.resources not found; continuuing without further settings.")
+            self.log.warning("LVC.resources not found; continuing without further settings.")
             self._read_resources = True
             return
 
@@ -346,15 +356,14 @@ class SHARC_LVC(SHARC_FAST):
             self._diagonalize = self.QMin.resources["diagonalize"]
 
     def setup_interface(self):
-        if self.QMin.requests["overlap"]:
-            if self.QMin.save["step"] == 0:
-                self.QMout.overlap = np.identity(self.parsed_states["nmstates"], dtype=float)
-            else:
-                self.log.debug(f'restarting: getting overlap from file {self.QMin.save["step"]-1}.npy')
-                self.QMout.overlap = (
-                    np.load(os.path.join(self.QMin.save["savedir"], f'U_{self.QMin.save["step"]-1}')).reshape(self._U.shape).T
-                    @ self._U
-                )
+        super().setup_interface()
+        if self.persistent:
+            for file in os.listdir(self.QMin.save["savedir"]):
+                if re.match(r"^U\.npy\.\d+$", file):
+                    step = int(file.split('.')[-1])
+                    ufile = os.path.join(self.QMin.save["savedir"], file)
+                    self.savedict[step] = {'U': np.load(ufile).reshape( (self.QMin.molecule['nmstates'], self.QMin.molecule['nmstates']) )}
+                
 
     def getQMout(self):
         return self.QMout
@@ -461,19 +470,7 @@ class SHARC_LVC(SHARC_FAST):
             "kxm,ijaxy,yn->kijamn", dTrot, quad, Trot, casting="no", optimize=["einsum_path", (1, 2), (0, 1)]
         ) + np.einsum("xm,ijaxy,kyn->kijamn", Trot, quad, dTrot, casting="no", optimize=["einsum_path", (0, 1), (0, 1)])
         return np.concatenate((dip, quad[..., [0, 1, 2], [0, 1, 2]], 2 * quad[..., [0, 0, 1], [1, 2, 2]]), axis=-1)
-   
-    def _request_logic(self):
-        super()._request_logic()
-        failed_req = [req for req in self.QMin.requests if req and req not in self.available_requests]
-        if not failed_req:
-            self.log.error("Requested unavailable requests: %s", failed_req)
-            raise RuntimeError()
-        # check if Multipolar Density fit and Point charges both have the same state (true/false)
-        if "Multipolar Density Fit" not in self.available_requests and self.QMin.molecule["point_charges"]:
-            self.log.error("Inconsistent request of Multipolar Density and Point charges! -> check your input file for Multipolar Density Fit line / Point charges")
-            raise RuntimeError()
 
-    # @profile
     def run(self):
         do_pc = self.QMin.molecule["point_charges"]
         do_derivs = self.QMin.requests["grad"] or self.QMin.requests["nacdr"]
@@ -753,28 +750,33 @@ class SHARC_LVC(SHARC_FAST):
                 start += n * (im + 1)
                 start_req += n_req * (im + 1)
 
-        if self.QMin.requests["overlap"]:
+        if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             if self.QMin.save["step"] == 0:
                 pass
             elif self.persistent:
-                overlap = self._Uold.T @ self._U
+                Uold = self.savedict[self.QMin.save['step']-1]["U"]
             else:
-                overlap = (
-                    np.load(os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']-1}.npy")).reshape(self._U.shape).T
-                    @ self._U
-                )
+                Uold = np.load(os.path.join(self.QMin.save["savedir"], f"U.npy.{self.QMin.save['step']-1}")).reshape(self._U.shape)
+            overlap = Uold.T @ self._U
+            if self.QMin.requests["phases"]:
+                _, phases = phase_correction(overlap)
 
         # OVERLAP
-        if self.persistent:
-            self._Uold = np.copy(self._U)
-        else:
-            np.save(
-                os.path.join(self.QMin.save["savedir"], f"U.{self.QMin.save['step']}"), self._U
-            )  # writes a binary file (can be read with numpy.load())
-        if self.QMin.resources["keep_U"]:
-            if "all_U" not in self.__dict__:
-                self.all_U = []
-            self.all_U.append(self._U)
+        if not self.QMin.save["samestep"]:
+            # store U matrix
+            if self.persistent:
+                self.savedict[self.QMin.save['step']] = {'U': np.copy(self._U)}
+                # self.savedict["last_step"] = self.QMin.save['step']
+            else:
+                with open(os.path.join(self.QMin.save["savedir"], f"U.npy.{self.QMin.save['step']}"), 'wb') as f:
+                    np.save(f, self._U)  # writes a binary file (can be read with numpy.load())
+            
+            # keep all U matrices 
+            # TODO: could be removed because is done by retain mechanism
+            if self.QMin.resources["keep_U"]:
+                if "all_U" not in self.__dict__:
+                    self.all_U = []
+                self.all_U.append(self._U)
 
         # ========================== Prepare results ========================================
         if self.QMin.requests["soc"]:
@@ -793,12 +795,11 @@ class SHARC_LVC(SHARC_FAST):
                 Hd = Hd.astype(complex)
             Hd += adia_soc
 
-        if self.QMin.requests['dm']:
-            dipole = (
-                np.einsum("in,kij,jm->knm", self._U, self._dipole, self._U, casting="no", optimize=True)
-                if self._diagonalize
-                else self._dipole
-            )
+        dipole = (
+            np.einsum("in,kij,jm->knm", self._U, self._dipole, self._U, casting="no", optimize=True)
+            if self._diagonalize
+            else self._dipole
+        )
 
         if self.QMin.requests['mdeqm']:
             mag_dipole = (
@@ -813,8 +814,7 @@ class SHARC_LVC(SHARC_FAST):
             )
 
         if do_kabsch:
-            if self.QMin.requests['dm']:
-                dipole = np.einsum("inm,ij->jnm", dipole, self._Trot)
+            dipole = np.einsum("inm,ij->jnm", dipole, self._Trot)
             if self.QMin.requests['mdeqm']:
                 mag_dipole = np.einsum("inm,ij->jnm", mag_dipole, self._Trot)
                 el_quadrupole = np.einsum("inm,ij->jnm", el_quadrupole, self._Trot)
@@ -839,13 +839,14 @@ class SHARC_LVC(SHARC_FAST):
         self.QMout.npc = self.QMin.molecule["npc"]
         self.QMout.point_charges = do_pc
         self.QMout.h = Hd
-        if "dm" in self.available_requests:
-            self.QMout.dm = dipole
-        if "mdeqm" in self.available_requests:
-            self.QMout.mdm = mag_dipole
+        self.QMout.dm = dipole
+        if self.QMout.requests["mdeqm"]:
+	    self.QMout.mdm = mag_dipole
             self.QMout.eqm = el_quadrupole
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = overlap
+        if self.QMin.requests["phases"]:
+            self.QMout.phases = phases
         if self.QMin.requests["grad"]:
             self.QMout.grad = grad
         if self.QMin.requests["nacdr"]:
@@ -860,13 +861,18 @@ class SHARC_LVC(SHARC_FAST):
         return
 
     def create_restart_files(self):
-        np.save(
-            os.path.join(self.QMin.save["savedir"], f'U.{self.QMin.save["step"]}.out'), self._U
-        )  # writes a binary file (can be read with numpy.load())
+        super().create_restart_files()
+        if self.persistent:
+            for istep in self.savedict:
+                if not isinstance(istep,int):
+                    continue
+                with open( os.path.join(self.QMin.save["savedir"], f'U.npy.{istep}'), 'wb') as f:
+                    np.save(f, self.savedict[istep]["U"])  # writes a binary file (can be read with numpy.load())
 
-        if self.QMin.resources["keep_U"]:
-            all_U = np.array(self.all_U)
-            np.save(os.path.join(self.QMin.save["savedir"], f"U_0-{self.QMin.save['step']}.npy"), all_U)
+            if self.QMin.resources["keep_U"]:
+                all_U = np.array(self.all_U)
+                np.save(os.path.join(self.QMin.save["savedir"], f"U_0-{self.QMin.save['step']}.npy"), all_U)
+        # else: nothing is done because run() has already saved the U matrix
 
     def get_features(self, KEYSTROKES: TextIOWrapper = None) -> set:
         return {
@@ -879,6 +885,7 @@ class SHARC_LVC(SHARC_FAST):
             "overlap",
             "multipolar_fit",
             "point_charges",
+            "phases",
         }
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper = None) -> dict:
@@ -888,7 +895,11 @@ class SHARC_LVC(SHARC_FAST):
         self.log.info("=" * 80)
         self.log.info("\n")
 
-        self.template_file = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        if os.path.isfile('LVC.template'):
+            default = 'LVC.template'
+        else:
+            default = None
+        self.template_file = question("Specify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True, default=default)
         while not os.path.isfile(self.template_file):
             self.template_file = question(
                 f"'{self.template_file}' not found!\nSpecify path to LVC.template", str, KEYSTROKES=KEYSTROKES, autocomplete=True
@@ -929,12 +940,20 @@ class SHARC_LVC(SHARC_FAST):
 
         if question("Do you have an LVC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
             self.resources_file = question("Specify path to LVC.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        else:
+            self.wants_kabsch = question("Do you want to use the Kabsch algorithm?", bool, KEYSTROKES=KEYSTROKES, default=True)
 
         return INFOS
 
     def dyson_orbitals_with_other(self, other):
-        pass
+        raise NotImplementedError()
 
+    def prepare(self, INFOS: dict, dir_path: str):
+        super().prepare(INFOS, dir_path)
+        if not "resources_file" in self.__dict__ or not self.resources_file:
+            if "wants_kabsch" in self.__dict__ and self.wants_kabsch:
+                string = 'do_kabsch true\n'
+                writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
 if __name__ == "__main__":
     from logger import loglevel

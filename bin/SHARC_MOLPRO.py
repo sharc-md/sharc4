@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2023 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -22,6 +22,10 @@
 #    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ******************************************
+
+from SHARC_OLD import SHARC_OLD
+class SHARC_MOLPRO(SHARC_OLD):
+    pass
 
 # ======================================================================= #
 # Modules:
@@ -51,12 +55,12 @@ import itertools
 from multiprocessing import Pool
 import time
 import traceback
-
-
+from constants import au2a, rcm_to_Eh
+from constants import FROZENS, IToMult, IToPol
 # =========================================================0
 
-version = '3.0'
-versiondate = datetime.date(2023, 4, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 
 changelogstring = '''
@@ -142,55 +146,6 @@ starttime = datetime.datetime.now()
 # global variables for printing (PRINT gives formatted output, DEBUG gives raw output)
 DEBUG = False
 PRINT = True
-
-# hash table for conversion of multiplicity to the keywords used in MOLPRO
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
-
-# hash table for conversion of polarisations to the keywords used in MOLPRO
-IToPol = {
-    0: 'X',
-    1: 'Y',
-    2: 'Z',
-    'X': 0,
-    'Y': 1,
-    'Z': 2
-}
-
-# conversion factors
-au2a = 0.529177211
-rcm_to_Eh = 4.556335e-6
-
-# Number of frozen core orbitals
-FROZENS = {'H': 0, 'He': 0,
-           'Li': 1, 'Be': 1, 'B': 1, 'C': 1, 'N': 1, 'O': 1, 'F': 1, 'Ne': 1,
-           'Na': 1, 'Mg': 1, 'Al': 5, 'Si': 5, 'P': 5, 'S': 5, 'Cl': 5, 'Ar': 5,
-           'K': 5, 'Ca': 5,
-           'Sc': 5, 'Ti': 5, 'V': 5, 'Cr': 5, 'Mn': 5, 'Fe': 5, 'Co': 5, 'Ni': 5, 'Cu': 5, 'Zn': 5,
-           'Ga': 9, 'Ge': 9, 'As': 9, 'Se': 9, 'Br': 9, 'Kr': 9,
-           'Rb': 9, 'Sr': 9,
-           'Y': 14, 'Zr': 14, 'Nb': 14, 'Mo': 14, 'Tc': 14, 'Ru': 14, 'Rh': 14, 'Pd': 14, 'Ag': 14, 'Cd': 14,
-           'In': 18, 'Sn': 18, 'Sb': 18, 'Te': 18, 'I': 18, 'Xe': 18,
-           'Cs': 18, 'Ba': 18,
-           'La': 23, 'Hf': 23, 'Ta': 23, 'W': 23, 'Re': 23, 'Os': 23, 'Ir': 23, 'Pt': 23, 'Au': 23, 'Hg': 23,
-           'Tl': 23, 'Pb': 23, 'Bi': 23, 'Po': 23, 'At': 23, 'Rn': 23
-           }
 
 # =============================================================================================== #
 # =============================================================================================== #
@@ -988,7 +943,6 @@ def getsocme(out, istate, jstate, QMin):
     iline += 5
     # iline+=2
 
-    rcm_to_Eh = 4.556335e-6
     # get a single matrix element
     block = (j) // 10
     yoffset = (i) * 3 + block * (3 * nmstates + 3)
@@ -1643,10 +1597,12 @@ def writeQMoutprop(QMin, QMout):
 
 
 def writeQmoutPhases(QMin, QMout):
-
-    string = '! 7 Phases\n%i ! for all nmstates\n' % (QMin['nmstates'])
+    string = "! 7 Wave function phases (%ix1, complex)\n%i\n" % (QMin['nmstates'], QMin['nmstates'])
     for i in range(QMin['nmstates']):
-        string += '%s %s\n' % (eformat(QMout['phases'][i].real, 9, 3), eformat(QMout['phases'][i].imag, 9, 3))
+        string += "%s %s\n" % (
+            eformat(QMout['phases'][i].real, 9, 3),
+            eformat(QMout['phases'][i].imag, 9, 3),
+        )
     return string
 
 # =============================================================================================== #
@@ -2044,6 +2000,7 @@ def readQMin(QMinfilename):
     line = get_sh2pro_environ(sh2pro, 'scratchdir', False, False)
     if not line:
         line = os.path.join(QMin['pwd'], 'SCRATCHDIR/')
+    line = line.replace("$$", str(os.getpid()))
     line = os.path.expandvars(line)
     line = os.path.expanduser(line)
     line = os.path.abspath(line)
@@ -2843,7 +2800,7 @@ def writeMOLPROinput(tasks, QMin):
             energy = 1e-8
             gradient = 1e-7
             step = 1e-3
-            string += '{casscf,maxit=%i,energy=%.10f,gradient=%.10f,step=%.10f\n' % (maxit, energy, gradient, step)
+            string += '{multi,maxit=%i,energy=%.10f,gradient=%.10f,step=%.10f\n' % (maxit, energy, gradient, step)
             string += 'frozen,0\nclosed,%i\nocc,%i\n' % (QMin['template']['closed'][task[1] - 1], QMin['template']['occ'][task[1] - 1])
             if task[1] in QMin['initorbs']:
                 string += 'start,2140.3\n'
@@ -2890,7 +2847,7 @@ def writeMOLPROinput(tasks, QMin):
             energy = 1e-8
             gradient = 1e-7
             step = 1e-3
-            string += '{casscf,maxit=%i,energy=%.10f,gradient=%.10f,step=%.10f\n' % (maxit, energy, gradient, step)
+            string += '{multi,maxit=%i,energy=%.10f,gradient=%.10f,step=%.10f\n' % (maxit, energy, gradient, step)
             string += 'frozen,0\nclosed,%i\nocc,%i\n' % (QMin['template']['closed'][task[1] - 1], QMin['template']['occ'][task[1] - 1])
             if task[1] in QMin['initorbs']:
                 string += 'start,2140.2\n'

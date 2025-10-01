@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -41,8 +41,8 @@ from utils import Error, expand_path, question
 AUTHORS = "Sebastian Mai"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
-NAME = "QMOUT"
-DESCRIPTION = "Constant E/SOC/DM, unity overlap, zero gradients/couplings."
+NAME = "SHARC constant data interface"
+DESCRIPTION = "     FAST interface for frozen-nuclei dynamics (constant E/SOC/DM, unit overlaps, zero grad/NAC)"
 
 CHANGELOGSTRING = """
 """
@@ -56,6 +56,7 @@ all_features = set(
         "grad",
         "nacdr",
         "overlap",
+        "multipolar_fit",
         "phases",
         # "ion",
         # "theodore",
@@ -63,8 +64,6 @@ all_features = set(
         "socdr",
     ]
 )
-
-# logging.root.setLevel(logging.DEBUG)
 
 
 class SHARC_QMOUT(SHARC_FAST):
@@ -105,36 +104,42 @@ class SHARC_QMOUT(SHARC_FAST):
         return all_features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'QMOUT interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+
         "prepare INFOS obj"
         path = question(
-            "Please provide parent path to ICOND folders containing QM.out files",
+            "Please provide path to QM.out file or to folder containing ICOND folders",
             str,
-            default=None,
+            default="QM.out",
             KEYSTROKES=KEYSTROKES,
             autocomplete=True,
         )
         linking = question("Sym-link the file? (no = copy)?", bool, default=False, KEYSTROKES=KEYSTROKES)
-        self.setup_info = {}
-        self.setup_info["path"] = expand_path(path)
-        self.setup_info["link"] = linking
+        self.setupINFOS["path"] = expand_path(path)
+        self.setupINFOS["link"] = linking
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         "setup the folders"
-        qmout_path = os.path.join(self.setup_info["path"], f"ICOND_{dir_path[-9:-4]}/QM.out")  # Copy QM.out from respective ICOND folder
-        try:
-            os.path.isfile(qmout_path)
-        except FileNotFoundError:
-            print(f"The file {qmout_path} does not exist.")
-            raise FileNotFoundError
-        except IOError as e:
-            print(f"An I/O error occurred: {e}")
-            raise IOError
-
-        if self.setup_info["link"]:
-            os.symlink(qmout_path, os.path.join(dir_path, "QMout.template"))
+        if os.path.isdir(self.setupINFOS["path"]):
+            num = int(dir_path.rstrip('/')[-8:-3])
+            qmoutfile = os.path.join(self.setupINFOS["path"], 'ICOND_%05i' % num, 'QM.out')
+            if os.path.isfile(qmoutfile):
+                if self.setupINFOS["link"]:
+                    os.symlink(qmoutfile, os.path.join(dir_path, "QMout.template"))
+                else:
+                    shutil.copy(qmoutfile, os.path.join(dir_path, "QMout.template"))
+            else:
+                self.log.error('Can not find QM.out file for %s' % dir_path)
         else:
-            shutil.copy(qmout_path, os.path.join(dir_path, "QMout.template"))
+            if self.setupINFOS["link"]:
+                os.symlink(self.setupINFOS["path"], os.path.join(dir_path, "QMout.template"))
+            else:
+                shutil.copy(self.setupINFOS["path"], os.path.join(dir_path, "QMout.template"))
 
     @staticmethod
     def name() -> str:
@@ -186,7 +191,11 @@ class SHARC_QMOUT(SHARC_FAST):
         # if self.QMin.requests["ion"]:
         # self.QMout["prop2d"] = self.QMout2["prop2d"]
 
+        # if self.QMin.requests["theodore"]:
+        # self.QMout["prop1d"] = self.QMout2["prop1d"]
 
+        if self.QMin.requests["multipolar_fit"]:
+            self.QMout["multipolar_fit"] = self.QMout2["multipolar_fit"]
 
         return self.QMout
 
@@ -197,7 +206,6 @@ class SHARC_QMOUT(SHARC_FAST):
         # read the file
         self.QMout2 = QMout(filepath="QMout.template")
         self.QMout["notes"]["QMout"] = "Notes were not transferred."
-        self.QMout["charges"] = [ 0 for i in range(len(self.QMin.molecule["states"])) ]
         # check the file
         if any(
             [
@@ -208,7 +216,6 @@ class SHARC_QMOUT(SHARC_FAST):
         ):
             self.log.error("QMin.molecule and QM.out file are inconsistent")
             raise ValueError()
-
 
     def read_resources(self, resources_file: str | None = None, kw_whitelist: list[str] | None = None) -> None:
         """

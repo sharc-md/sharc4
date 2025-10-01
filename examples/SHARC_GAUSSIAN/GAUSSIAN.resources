@@ -22,7 +22,8 @@ scratchdir $TMPDIR
     ## Note that the savedir from QM.in takes precedence over the one here.
 savedir ./SAVEDIR
 
-
+    ## how many time steps are retained in savedir
+retain 3
 
 
     ## ======== RESSOURCES ============
@@ -32,6 +33,9 @@ savedir ./SAVEDIR
     ## then the interface will distribute the jobs over the cores in a sensible way.
     ## Note that with ADF>=2017.208, no separate gradient jobs are needed, so each multiplicity spawns at most one ADF run.
 ncpu 4
+
+    ## minimum number of cores per job (only has an effect if more than one ground state is computed or for several gradient jobs)
+min_cpu 1
 
     ## Fraction of parallelizable work in the ADF calculations.
     ## With a value close to one, the interface will tend to run multiple jobs one after each other with the maximum number of cores.
@@ -67,7 +71,7 @@ numfrozcore 6
 
     ## Number of doubly occupied orbitals for Dyson calculations.
     ## These orbitals are counted from the first nonfrozen orbital.
-numocc 0
+wfnumocc 0
 
     ## Do not store determinant and MO coefficient files in savedir.
     ## Must not be used for dynamics runs.
@@ -98,6 +102,48 @@ theodore_fragment 4 5 6 7 8 9 10
 
 
 
+    ## ======== RESP ============
+
+    ## towards which target numbers the RESP restraint acts.
+    ## can be "zero", "mulliken", "lowdin"
+resp_target zero
+
+    ## number of RESP layers
+resp_layers 4
+
+    ## factor for the first layer
+    ## further layers are computed as first+0.4/sqrt(nlayers)*i, for i=0...n-1
+    ## 1.4 and 4 layers is the default in Gaussian
+resp_first_layer 1.4
+
+    ## fit point density in points per Angstrom^2
+resp_density 10
+
+    ## Whether to fit only monopoles, monopoles+dipoles, or up to quadrupoles
+resp_fit_order 2
+
+    ## The spherical quadrature for generating the fitting points
+    ## options are "lebedev", "random", "golden_spiral", "gamess", "marcus_deserno"
+    ## Lebedev has the highest symmetry among those, so if you want to have multipole charges that obey molecular symmetry, Lebedev is recommended
+resp_grid lebedev
+
+    ## prefactors for the RESP restraints
+    ## give one number for each multipole order
+resp_betas 0.0005 0.0015 0.0030
+
+    ## Whether to use original Merz-Kollman radii for HCNOSP
+resp_mk_radii false
+
+    ## List of radii of each atom
+    ## takes precedence over all other options
+resp_vdw_radii [1.8, 1.5, 1.2, 1.5, 1.2, 1.2, 1.5, 1.2, 1.2, 1.2]
+
+    ## Dictionary of radii per element
+resp_vdw_radii_symbol {"S": 2.0, "C": 1.7}
+
+
+
+
     ## ======== OTHERS ============
 
     ## Always use the provided initial orbitals, even if starting orbitals are present in the savedir.
@@ -105,12 +151,6 @@ theodore_fragment 4 5 6 7 8 9 10
 
     ## Always use an orbital guess, even if starting orbitals are present in the savedir.
 #always_guess
-
-    ## Increase verbosity of the interface and do not delete scratchdir after all jobs are finished.
-debug
-
-    ## Decrease the verbosity of the interface.
-#no_print
 
 
 

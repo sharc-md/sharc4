@@ -1,4 +1,29 @@
 #!/usr/bin/env python3
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
+
 import datetime
 import os
 import re
@@ -16,10 +41,10 @@ from utils import convert_list, expand_path, is_exec, link, mkdir, question, wri
 __all__ = ["SHARC_NWCHEM"]
 
 AUTHORS = "Sascha Mausenberger, Sebastian Mai"
-VERSION = "1.0"
+VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2024, 3, 25)
 NAME = "NWCHEM"
-DESCRIPTION = "SHARC 4.0 interface for NWChem"
+DESCRIPTION = "AB INITIO interface for NWChem (TDDFT)"
 
 CHANGELOGSTRING = """
 """
@@ -50,7 +75,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         # Add template keys
         self.QMin.template.update(
             {
-                "tda": False,  # Tamm-Dancoff
+                "tda": True,  # Tamm-Dancoff
                 "maxiter": None,  # Max SCF iterations
                 "basis": "def2-svp",  # Basis set
                 "functional": "b3lyp",  # DFT functional
@@ -141,10 +166,11 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         self.log.info("\n")
 
         self.log.info("\nSpecify path to NWChem binary.")
-        INFOS["nwchem"] = question("Path to NWChem:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["nwchem"] = question("Path to NWChem:", str, KEYSTROKES=KEYSTROKES)
 
         self.log.info("\n\nSpecify a scratch directory. The scratch directory will be used to run the calculations.")
-        INFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        self.setupINFOS["scratchdir"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+        # self.setupINFOS["scratchdir"] += '/$$/'
 
         if os.path.isfile("NWCHEM.template"):
             self.log.info("Found NWCHEM.template in current directory")
@@ -167,18 +193,18 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
                 self._resource_file = question("Resource path:", str, KEYSTROKES=KEYSTROKES)
         else:
             self.log.info("Specify the number of CPUs to be used.")
-            INFOS["ncpu"] = question("Number of CPUs (at least 2):", int, default=[2], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS["ncpu"] = question("Number of CPUs (at least 2):", int, default=[2], KEYSTROKES=KEYSTROKES)[0]
 
             self.log.info("Specify the amount of RAM to be used.")
-            INFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
+            self.setupINFOS["memory"] = question("Memory (MB):", int, default=[1000], KEYSTROKES=KEYSTROKES)[0]
 
             if "overlap" in INFOS["needed_requests"]:
-                INFOS["wfoverlap"] = question(
+                self.setupINFOS["wfoverlap"] = question(
                     "Path to wavefunction overlap executable:", str, default="$SHARC/wfoverlap.x", KEYSTROKES=KEYSTROKES
                 )
                 self.log.info("State threshold for choosing determinants to include in the overlaps")
                 self.log.info("For hybrids without TDA one should consider that the eigenvector X may have a norm larger than 1")
-                INFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
+                self.setupINFOS["wfthres"] = question("Threshold:", float, default=[0.998], KEYSTROKES=KEYSTROKES)[0]
 
         return INFOS
 
@@ -186,15 +212,20 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "NWCHEM.resources"), "w", encoding="utf-8") as file:
-                for key in ("nwchem", "scratchdir", "ncpu", "memory", "wfoverlap", "wfthres"):
-                    if key in INFOS:
-                        file.write(f"{key} {INFOS[key]}\n")
+                for key in ("nwchem", 
+                            # "scratchdir", 
+                            "ncpu", 
+                            "memory", 
+                            "wfoverlap", 
+                            "wfthres"):
+                    if key in self.setupINFOS:
+                        file.write(f"{key} {self.setupINFOS[key]}\n")
+                if "scratchdir" in self.setupINFOS:
+                    file.write(f"scratchdir {os.path.join(self.setupINFOS['scratchdir'], dir_path)}\n")
         else:
             create_file(expand_path(self._resource_file), os.path.join(dir_path, "NWCHEM.resources"))
         create_file(expand_path(self._template_file), os.path.join(dir_path, "NWCHEM.template"))
 
-    def create_restart_files(self) -> None:
-        pass
 
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
@@ -360,7 +391,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         if self.QMin.template["nooverlap"]:
             return
 
-        basis_path = os.path.join(self.QMin.template["library_path"], self.QMin.template["basis"])
+        basis_path = os.path.join(self.QMin.template["library_path"], self.QMin.template["basis"].replace("(", "").replace(")", ""))
         if not os.path.isfile(basis_path):
             self.log.error(f"Basis {self.QMin.template['basis']} not in library path!")
             raise ValueError()
@@ -702,7 +733,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
             mol = gto.Mole()
             mol.basis = self._basis
             mol.unit = "Bohr"
-            mol.charge = 0 if not self.QMin.template["charge"] else self.QMin.template["charge"][0]
+            mol.charge = 0 if not self.QMin.molecule["charge"] else self.QMin.molecule["charge"][0]
             mol.atom = [[e, c] for e, c in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"].tolist())]
             mol.cart = not self.QMin.template["spherical"]
             mol.build()
@@ -810,7 +841,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         job = qmin.control["jobid"]
         # Total memory, charge and geometry
         input_str = f"memory total {self.QMin.resources['memory']} mb\n"
-        input_str += f"charge {self.QMin.template['charge'][job-1]}\n"
+        input_str += f"charge {self.QMin.molecule['charge'][job-1]}\n"
         input_str += "geometry units bohr noautosym nocenter\n load format xyz input.xyz\nend\n\n"
 
         # Basis set

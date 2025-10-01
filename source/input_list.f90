@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -91,6 +91,8 @@ private alloc_list, resize_list
     character*8000 :: line, line_precomment, line_postcomment
     integer :: io
 
+    ! stat = 0
+    io = 0
     do
       ! read a line
       read(nunit,'(A)', iostat=io) line

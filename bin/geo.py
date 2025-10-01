@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -26,16 +26,19 @@
 import os
 import sys
 import math
+import numpy as np
 import copy
 import re
 import datetime
 from optparse import OptionParser
 
-# =========================================================0
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+from constants import MASSES
 
-allowedreq = ['a', 'd', 'r', 'p', 'q', 'x', 'y', 'z', '5', '6', 'c', 'i', 'j', 'k', 'l']
+# =========================================================0
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
+
+allowedreq = ['a', 'd', 'r', 's', 'p', 'q', 'x', 'y', 'z', '5', '6', 'c', 'i', 'j', 'k', 'l']
 
 # This array contains all Boeyens classification symbols for 5-membered rings.
 # (phi): symbol
@@ -123,6 +126,7 @@ p = 4     # default number of decimals
 f = 20    # default field width
 Bohrs = False
 Radians = False
+Fill_Nan = False
 ang2bohr = 1.88972612
 deg2rad = math.pi / 180.0
 
@@ -249,6 +253,16 @@ def ang(a, b, c):
     for i in range(3):
         r1[i] = a[i] - b[i]
         r2[i] = c[i] - b[i]
+    return rangle3d(r1, r2)
+
+
+def skewang(a, b, c, d):
+    '''Angle of a-b and c-d.'''
+    r1 = [0, 0, 0]
+    r2 = [0, 0, 0]
+    for i in range(3):
+        r1[i] = a[i] - b[i]
+        r2[i] = d[i] - c[i]
     return rangle3d(r1, r2)
 
 
@@ -489,6 +503,7 @@ def checkreq(s, natom):
         sys.stderr.write('''Valid requests are:\n
     r\tbond distance (2 atoms)\n
     a\tbond angle (3 atoms)\n
+    s\tskew angle (4 atoms)\n
     d\tdihedral angle (4 atoms)\n
     p\tpyramidalization angle (4 atoms)\n
     q\tpyramidalization angle, alternative definition (4 atoms)\n
@@ -514,6 +529,10 @@ def checkreq(s, natom):
     elif s[0] == 'a':
         if not len(s) == 4:
             sys.stderr.write('Angle needs three atoms as arguments!\n')
+            return False
+    elif s[0] == 's':
+        if not len(s) == 5:
+            sys.stderr.write('Skew angle needs four atoms as arguments!\n')
             return False
     elif s[0] == 'd' or s[0] == 'p' or s[0] == 'q':
         if not len(s) == 5:
@@ -544,9 +563,14 @@ def checkreq(s, natom):
             sys.stderr.write('Angle between two 6-rings needs twelve atoms as arguments!\n')
             return False
     for i in range(len(s) - 1):
-        s[i + 1] = int(s[i + 1])
+        if s[i + 1].lower() == 'com':
+            s[i + 1] = 'com'
+        else:
+            s[i + 1] = int(s[i + 1])
     atoms = True
     for i in range(len(s) - 1):
+        if s[i + 1] == 'com':
+            continue
         if s[i + 1] > natom or s[i + 1] <= 0:
             atoms = False
     if not atoms:
@@ -554,7 +578,11 @@ def checkreq(s, natom):
         return False
     atoms = True
     for i in range(len(s) - 1):
+        if s[i + 1] == 'com':
+            continue
         for j in range(len(s) - i - 2):
+            if s[i + j + 2] == 'com':
+                continue
             if s[i + 1] == s[i + j + 2]:
                 atoms = False
     if not atoms:
@@ -592,13 +620,16 @@ def tableheader(req):
     s += '\n'
     s += '#' + ' ' * (f - 5) + 'time|'
     for r in req:
+        for i in range(len(r)-1):
+            if r[1+i] == 'com':
+                r[i+1]= 0
         if r[0] == 'x' or r[0] == 'y' or r[0] == 'z':
             s += ' ' * (f - 4) + r[0] + '%3i|' % (r[1])
         elif r[0] == 'r':
             s += ' ' * (f - 7) + r[0] + '%3i%3i|' % (r[1], r[2])
         elif r[0] == 'a':
             s += ' ' * (f - 10) + r[0] + '%3i%3i%3i|' % (r[1], r[2], r[3])
-        elif r[0] == 'd' or r[0] == 'p' or r[0] == 'q':
+        elif r[0] == 'd' or r[0] == 'p' or r[0] == 'q' or r[0] == 's':
             s += ' ' * (f - 13) + r[0] + '%3i%3i%3i%3i|' % (r[1], r[2], r[3], r[4])
         elif r[0] == '5':
             s += ' ' * (f - 16) + 'q' + '%3i%3i%3i%3i%3i|' % (r[1], r[2], r[3], r[4], r[5])
@@ -636,8 +667,26 @@ def calculate(g, req, comm):
     formatstring = '%%%i.%if ' % (f, p)
     stringstring = '%%%is ' % (f)
     commentstring = '%%%is ' % (f + comment_bonus)
+    nanstring = '%%%is ' % (f)
+    # compute and append COM
+    if not "NaN" in req:
+        natom = len(g)
+        COM = [0., 0., 0.]
+        for i in range(3):
+            mass = 0.
+            for atom in g:
+                COM[i] += atom[i]*MASSES[atom[3].title()]
+                mass += MASSES[atom[3].title()]
+            COM[i] /= mass
+        g.append(COM+['com'])
+    # print(g)
+    # process requests
     for r in req:
+        # for i in range(len(r)-1):
+        #     if r[1+i] == 'com':
+        #         r[i+1] = 0 
         if r[0] == 'x':
+            print(r)
             s += formatstring % (ang_or_bohr(g[r[1] - 1][0]))
         elif r[0] == 'y':
             s += formatstring % (ang_or_bohr(g[r[1] - 1][1]))
@@ -647,6 +696,8 @@ def calculate(g, req, comm):
             s += formatstring % (dist(g[r[1] - 1], g[r[2] - 1]))
         elif r[0] == 'a':
             s += formatstring % (ang(g[r[1] - 1], g[r[2] - 1], g[r[3] - 1]))
+        elif r[0] == 's':
+            s += formatstring % (skewang(g[r[1] - 1], g[r[2] - 1], g[r[3] - 1], g[r[4] - 1]))
         elif r[0] == 'p':
             s += formatstring % (pyr(g[r[1] - 1], g[r[2] - 1], g[r[3] - 1], g[r[4] - 1]))
         elif r[0] == 'q':
@@ -684,6 +735,8 @@ def calculate(g, req, comm):
             if comm[0:f + comment_bonus].strip() == '':
                 comm = ' ' * (f - 14 + comment_bonus) + '<EMPTY_STRING>'
             s += commentstring % (comm[0:f + comment_bonus].strip())
+        elif r == 'NaN':
+            s += nanstring % ('NaN')
     return s
 # ================================================================= #
 
@@ -733,6 +786,7 @@ is the bond length between atoms 1 and 2.
 The one-letter keys are:
     r\tbond distance (2 atoms)
     a\tbond angle (3 atoms)
+    s\tskew angle (4 atoms)
     d\tdihedral angle (4 atoms)
     p\tpyramidalization angle (4 atoms)
     q\tpyramidalization angle, alternative definition (4 atoms)
@@ -764,8 +818,10 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
     parser.add_option('-g', dest='g', type="string", nargs=1, default="output.xyz", help="geometry file in xyz format (default=output.xyz)")
     parser.add_option('-t', dest='t', type=float, nargs=1, default=1.0, help="timestep between successive geometries is fs (default=1.0 fs)")
     parser.add_option('-T', dest='T', type=int, nargs=1, default=0, help="start counting the timesteps at T (default=0)")
+    parser.add_option('--ignore_start_time', dest='TSF', action="store_true", help="ignore start.time file")
+    parser.add_option('-n', dest='n', action="store_true", help="pad with NaNs between 0fs and first time step (if using -T or start.time file)")
     (options, args) = parser.parse_args()
-    global p, f, Bohrs, Radians
+    global p, f, Bohrs, Radians, Fill_Nan
     if options.f >= 20:
         f = options.f
     else:
@@ -776,8 +832,13 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
         p = f - 3
     Bohrs = options.b
     Radians = options.r
+    Fill_Nan = options.n
     dt = options.t
-    Tshift = options.T
+    if os.path.exists("start.time") and options.T==0 and not options.TSF:
+        Tshift = int(np.genfromtxt("start.time")[0]/options.t)
+        sys.stderr.write("Spotted time shift = %f!\n" % Tshift)
+    else:
+        Tshift = options.T
 
     geofilename = options.g
     try:
@@ -817,36 +878,53 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
 
     line = 0
     t = 0
-    while line < len(geo):
-        try:
-            n = int(geo[line].split()[0])
-        except IndexError:
-            sys.stderr.write('ERROR: did not find number of atoms! Line= %i, step= %i' % (line, t))
-            sys.exit(1)
-        if not n == natom:
-            sys.stderr.write('ERROR: Number of atoms inconsistent! Line= %i, step= %i' % (line, t))
-            sys.exit(1)
-        line += 1
-        comm = geo[line]
+    # Set variables for outputting NaNs as preprend
+    if Fill_Nan and Tshift != 0.0:
+        len_geo = len(geo)+int(Tshift)
+        Tshift_index = Tshift
+    else:
+        len_geo = len(geo)
+        Tshift_index = int(0)
+    while line < len_geo:
+        if line >= Tshift_index: 
+            try:
+                    n = int(geo[line-Tshift_index].split()[0])
+            except IndexError:
+                sys.stderr.write('ERROR: did not find number of atoms! Line= %i, step= %i\n' % (line-Tshift_index, t))
+                sys.exit(1)
+            if not n == natom:
+                sys.stderr.write('ERROR: Number of atoms inconsistent! Line= %i, step= %i\n' % (line-Tshift_index, t))
+                sys.exit(1)
+            line += 1
+            comm = geo[line-Tshift_index]  # Comment line
         line += 1
         g = []
-        try:
-            for i in range(natom):
-                geoline = geo[line].split()
-                a = []
-                for j in range(3):
-                    a.append(float(geoline[j + 1]))
-                g.append(a)
-                line += 1
-        except ValueError:
-            sys.stderr.write('ERROR: Error while reading geometry! Line= %i\n' % (line))
-            sys.exit(1)
+        if line > Tshift_index:
+            try:
+                for i in range(natom):
+                    geoline = geo[line-Tshift_index].split()
+                    a = []
+                    for j in range(3):
+                        a.append(float(geoline[j + 1]))
+                    a.append(geoline[0])
+                    g.append(a)
+                    line += 1
+            except ValueError:
+                sys.stderr.write('ERROR: Error while reading geometry! Line= %i\n' % (line))
+                sys.exit(1)
 
         formatstring = '%%%i.%if ' % (f, p)
-        s = calculate(g, req, comm)
-        print(formatstring % ((t + Tshift) * dt) + s)
+        if line > Tshift_index and Tshift!=0 and not Fill_Nan:
+            s = calculate(g, req, comm)
+            print(formatstring % ((t+Tshift) * dt) + s)
+        elif line > Tshift_index:
+            s = calculate(g, req, comm)
+            print(formatstring % ((t) * dt) + s)
+        else: 
+            s = calculate(g, ["NaN"]*len(req), "")
+            print(formatstring % ((t) * dt) + s)
         t += 1
-        sys.stderr.write('\rNumber of geometries: % 6i' % (t))
+        sys.stderr.write('\rNumber of geometries: % 6i   ' % (t))
 
     sys.stderr.write('\nFINISHED!\n\n')
     sys.exit(0)

@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -31,16 +31,18 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from datetime import date
 from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
 from typing import Any
+import uuid
 
 import numpy as np
 
 # internal
-from constants import ATOMCHARGE, BOHR_TO_ANG
+from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS, IAn2AName
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
@@ -93,6 +95,8 @@ class SHARC_INTERFACE(ABC):
         logname: str | None = None,
         logfile: str | None = None,
         loglevel: int = loglevel,
+        *args,
+        **kwargs,
     ):
         # all the output from the calculation will be stored here
         self.QMout = QMout()
@@ -102,8 +106,9 @@ class SHARC_INTERFACE(ABC):
         self.density_recipes = {}
         self._setsave = False
         self.states = []
+        self.setupINFOS = {}
 
-        logname = logname if isinstance(logname, str) else self.name()
+        logname = logname if isinstance(logname, str) else str(uuid.uuid4())
         self.log = logging.getLogger(logname)
         self.log.propagate = False
         self.log.handlers = []
@@ -121,11 +126,8 @@ class SHARC_INTERFACE(ABC):
         self.log.trace = self.trace
 
         # Define template keys
-        self.QMin.template.update({"charge": None, "paddingstates": None})
-        self.QMin.template.types.update({"charge": list, "paddingstates": list})
-
-        # Define if interface can be run inside a sub process
-        self._threadsafe = False
+        self.QMin.template.update({"paddingstates": None})
+        self.QMin.template.types.update({"paddingstates": list})
 
     def sharcprint(self, msg, *args, **kwargs):
         """
@@ -197,6 +199,8 @@ class SHARC_INTERFACE(ABC):
         """
         return "This is the changelog string"
 
+    # ----- setup routines -----
+
     @abstractmethod
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
         """return availble features
@@ -243,11 +247,15 @@ class SHARC_INTERFACE(ABC):
         """
         return
 
+    # ----- print routines -----
+
     def print_qmin(self) -> None:
         """
         Print contents of QMin object
         """
         self.log.info(f"{self.QMin}")
+
+    # ----- main routine -----
 
     def main(self) -> None:
         """
@@ -271,9 +279,9 @@ class SHARC_INTERFACE(ABC):
         # set up the system (i.e. molecule, states, unit...)
         self.setup_mol(QMinfilename)
         # read in the resources available for this computation (program path, cores, memory)
-        self.read_resources(f"{self.name()}.resources")
+        self.read_resources()
         # read in the specific template file for the interface with all keywords
-        self.read_template(f"{self.name()}.template")
+        self.read_template()
         # setup internal state for the computation
         self.setup_interface()
 
@@ -289,10 +297,9 @@ class SHARC_INTERFACE(ABC):
         # get output as requested
         self.getQMout()
 
-        # Remove old data
-        self.clean_savedir(self.QMin.save["savedir"], self.QMin.requests["retain"], self.QMin.save["step"])
-
-        # writes a STEP file in the SAVEDIR (marks this step as succesfull)
+        # Remove old data from savedir, write new data, mark as successful
+        self.clean_savedir()
+        self.create_restart_files()
         self.write_step_file()
 
         # printing and output generation
@@ -300,8 +307,10 @@ class SHARC_INTERFACE(ABC):
         self.QMout["runtime"] = self.clock.measuretime(log=self.log.info)
         self.writeQMout(filename=QMinfilename)
 
+    # ----- initialization routine -----
+
     @abstractmethod
-    def read_template(self, template_file: str, kw_whitelist: list[str] | None = None) -> None:
+    def read_template(self, template_file: str = "INTERFACE.template", kw_whitelist: list[str] | None = None) -> None:
         """
         Reads a template file and assigns parameters to
         self.QMin.template. No sanity checks at all, has to be done
@@ -317,58 +326,36 @@ class SHARC_INTERFACE(ABC):
 
         self.QMin.template.update(self._parse_raw(template_file, self.QMin.template.types, kw_whitelist))
 
-        self._read_template = True
-
         # Check if charge in template and autoexpand if needed
-        if self.QMin.template["charge"]:
-            self.QMin.template["charge"] = convert_list(self.QMin.template["charge"])
+        if "charge" in self.QMin.template:
+            self.log.warning("The 'charge' keyword must be specified in QM.in (or input)! Charge from template is ignored!")
 
-            if len(self.QMin.template["charge"]) == 1:
-                charge = int(self.QMin.template["charge"][0])
-                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
-                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
-                    charge -= 1
-                self.QMin.template["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
-                self.log.info(
-                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.template["charge"]}).'
-                )
-                self.log.info('You can set the charge in the template manually for each multiplicity ("charge 0 +1 0 ...")')
-            elif len(self.QMin.template["charge"]) >= len(self.QMin.molecule["states"]):
-                self.QMin.template["charge"] = [
-                    int(self.QMin.template["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
-                ]
-
-                for imult, cha in enumerate(self.QMin.template["charge"]):
-                    if not (self.QMin.molecule["Atomcharge"] + cha + imult) % 2 == 0:
-                        self.log.warning(
-                            "Charges from template not compatible with multiplicities!  (this is probably OK if you use QM/MM)"
-                        )
-                        break
-            else:
-                raise ValueError('Length of "charge" does not match length of "states"!')
-        else:
-            self.QMin.template["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
         if self.QMin.template["paddingstates"]:
             self.QMin.template["paddingstates"] = convert_list(self.QMin.template["paddingstates"])
-        self.QMout.charges = self.QMin.template["charge"]
 
-        for s, nstates in enumerate(self.QMin.molecule["states"]):
-            c = self.QMin.template["charge"][s]
-            for m in range(-s, s + 1, 2):
-                for n in range(nstates):
-                    self.states.append(
-                        electronic_state(Z=c, S=s, M=m, N=n + 1, C={})
-                    )  # This is the moment in which states get their pointers
+        self._read_template = True
 
-    @staticmethod
-    def clean_savedir(path: str, retain: int, step: int) -> None:
+    # ----- save routine -----
+
+    def clean_savedir(self) -> None:
         """
         Remove older files than step-retain
-
-        path:       Path to savedir
-        retain:     Number of timesteps to keep (-1 = all)
-        step:       Current step
         """
+        path = self.QMin.save["savedir"]
+        retain = self.QMin.requests["retain"]
+        step = self.QMin.save["step"]
+        if retain < 0:
+            return
+        if not os.path.isdir(path):
+            raise FileNotFoundError(f"{path} is not a directory!")
+        for file in os.listdir(path):
+            ext = os.path.splitext(file)[1].replace(".", "")
+            if not re.match(r"^\d+$", ext):  # Skip if extension is not a number
+                continue
+            if int(ext) < step - retain:
+                os.remove(os.path.join(path, file))
+
+    # ----- runtime routine -----
 
     @abstractmethod
     def run(self) -> None:
@@ -388,11 +375,15 @@ class SHARC_INTERFACE(ABC):
         Return QMout object
         """
 
+    # ----- save routine -----
+
     @abstractmethod
     def create_restart_files(self) -> None:
         """
         Create restart files
         """
+
+    # ----- runtime routine -----
 
     def set_coords(self, xyz: str | list | np.ndarray, pc: bool = False) -> None:
         """
@@ -415,9 +406,11 @@ class SHARC_INTERFACE(ABC):
         else:
             raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
 
-    def setup_mol(self, qmin_file: str) -> None:
+    # ----- initialization routine -----
+
+    def setup_mol(self, qmin_file: str | dict | QMin) -> None:
         """
-        Sets up the molecular system from a `QM.in` file.
+        Sets up the molecular system from a `QM.in` file or from a dictionary with entries (elements, states, charge)
         parses the elements, states, and savedir and prepare the QMin object accordingly.
 
         qmin_file:  Path to QM.in file.
@@ -429,81 +422,126 @@ class SHARC_INTERFACE(ABC):
                 f"setup_mol() was already called! Continue setup with {qmin_file}",
             )
 
-        qmin_lines = readfile(qmin_file)
-        self.QMin.molecule["comment"] = qmin_lines[1]
+        # --- three different cases ---
 
-        try:
-            natom = int(qmin_lines[0])
-        except ValueError as err:
-            raise ValueError("first line must contain the number of atoms!") from err
-
-        self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
-        self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
-        # self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
-        self.QMin.molecule["frozcore"] = 0
-        self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
-
-        # replaces all comments with white space. filters all empty lines
-        filtered = filter(
-            lambda x: not re.match(r"^\s*$", x),
-            map(
-                lambda x: re.sub(r"#.*$", "", x),
-                qmin_lines[self.QMin.molecule["natom"] + 2 :],
-            ),
-        )
-
-        # naively parse all key argument pairs from QM.in
-        for line in filtered:
-            llist = line.split(None, 1)
-            key = llist[0].lower()
-            if key == "states":
-                # also does update nmstates, nstates, statemap
-                states_dict = self.parseStates(llist[1])
-                if len(states_dict["states"]) < 1:
-                    self.log.error("Number of states must be > 0!")
-                    raise ValueError()
-                self.QMin.maps["statemap"] = states_dict["statemap"]
-                self.QMin.molecule["nstates"] = states_dict["nstates"]
-                self.QMin.molecule["nmstates"] = states_dict["nmstates"]
-                self.QMin.molecule["states"] = states_dict["states"]
-
-            elif key == "unit":
-                unit = llist[1].strip().lower()
-                if unit in ["bohr", "angstrom"]:
-                    self.QMin.molecule["unit"] = unit
-                    self.QMin.molecule["factor"] = 1.0 if unit == "bohr" else 1.0 / BOHR_TO_ANG
-                else:
-                    raise ValueError("unknown unit specified")
-            elif key == "savedir":
-                self._setsave = True
-                self.QMin.save["savedir"] = llist[1].strip()
-                self.log.debug(f"SAVEDIR set to {self.QMin.save['savedir']}")
-            elif key == "point_charges":
-                self.QMin.molecule["point_charges"] = True
-                pcfile = expand_path(llist[1].strip())
-                self.log.debug(f"Reading point charges from {pcfile}")
-
-                # Read pcfile and assign charges and coordinates
-                pccharge = []
-                pccoords = []
-                for pcharges in map(lambda x: x.split(), readfile(pcfile)):
-                    pccoords.append(
-                        [
-                            float(pcharges[0]) * self.QMin.molecule["factor"],
-                            float(pcharges[1]) * self.QMin.molecule["factor"],
-                            float(pcharges[2]) * self.QMin.molecule["factor"],
-                        ]
-                    )
-                    pccharge.append(float(pcharges[3]))
-
-                self.QMin.coords["pccoords"] = pccoords
-                self.QMin.coords["pccharge"] = pccharge
-                self.QMin.molecule["npc"] = len(pccharge)
-
-        if self.QMin.molecule["factor"] is None:
-            self.log.warning("No Unit specified assuming Angstrom!")
+        if isinstance(qmin_file, str):
+            self.QMin.molecule["unit"] = "angstrom"  # default
             self.QMin.molecule["factor"] = 1.0 / BOHR_TO_ANG
-            self.QMin.molecule["unit"] = "angstrom"
+            qmin_lines = readfile(qmin_file)
+            self.QMin.molecule["comment"] = qmin_lines[1]
+
+            try:
+                natom = int(qmin_lines[0])
+            except ValueError as err:
+                raise ValueError("first line must contain the number of atoms!") from err
+
+            self.QMin.molecule["elements"] = list(map(lambda x: parse_xyz(x)[0], (qmin_lines[2 : natom + 2])))
+            self.QMin.molecule["natom"] = len(self.QMin.molecule["elements"])
+
+            # replaces all comments with white space. filters all empty lines
+            filtered = filter(
+                lambda x: not re.match(r"^\s*$", x),
+                map(
+                    lambda x: re.sub(r"#.*$", "", x),
+                    qmin_lines[self.QMin.molecule["natom"] + 2 :],
+                ),
+            )
+
+            # naively parse all key argument pairs from QM.in
+            for line in filtered:
+                llist = line.split(None, 1)
+                key = llist[0].lower()
+                if key == "states":
+                    # also does update nmstates, nstates, statemap
+                    states_dict = self.parseStates(llist[1])
+                    if len(states_dict["states"]) < 1:
+                        self.log.error("Number of states must be > 0!")
+                        raise ValueError()
+                    self.QMin.maps["statemap"] = states_dict["statemap"]
+                    self.QMin.molecule["nstates"] = states_dict["nstates"]
+                    self.QMin.molecule["nmstates"] = states_dict["nmstates"]
+                    self.QMin.molecule["states"] = states_dict["states"]
+                if key == "charge":
+                    self.QMin.molecule["charge"] = convert_list(llist[1].split())
+
+                elif key == "unit":
+                    self.QMin.molecule["unit"] = llist[1].strip().lower()
+                    if self.QMin.molecule["unit"] not in ["bohr", "angstrom"]:
+                        raise ValueError("unknown unit specified")
+                    # set factor
+                    self.QMin.molecule["factor"] = 1.0 if self.QMin.molecule["unit"] == "bohr" else 1.0 / BOHR_TO_ANG
+
+                elif key == "savedir":
+                    self._setsave = True
+                    self.QMin.save["savedir"] = llist[1].strip()
+                    self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
+                elif key == "point_charges":
+                    self.QMin.molecule["point_charges"] = True
+                    pcfile = expand_path(llist[1].strip())
+                    self.log.debug(f"Reading point charges from {pcfile}")
+
+                    # Read pcfile and assign charges and coordinates
+                    pccharge = []
+                    pccoords = []
+                    for pcharges in map(lambda x: x.split(), readfile(pcfile)):
+                        pccoords.append(
+                            [
+                                float(pcharges[0]) * self.QMin.molecule["factor"],
+                                float(pcharges[1]) * self.QMin.molecule["factor"],
+                                float(pcharges[2]) * self.QMin.molecule["factor"],
+                            ]
+                        )
+                        pccharge.append(float(pcharges[3]))
+
+                    self.QMin.coords["pccoords"] = np.array(pccoords)
+                    self.QMin.coords["pccharge"] = pccharge
+                    self.QMin.molecule["npc"] = len(pccharge)
+                elif key == "retain":
+                    self.QMin.requests["retain"] = int(llist[1])
+
+        elif isinstance(qmin_file, dict):
+            # fixed settings
+            self.QMin.molecule["unit"] = "bohr"
+            self.QMin.molecule["factor"] = 1.0
+            # parse states and make statemap within qmin_file dict
+            qmin_file.update(self.parseStates(qmin_file["states"]))
+            # copy statemap
+            self.QMin.maps["statemap"] = qmin_file["statemap"]
+            # take care of charge
+            if isinstance(qmin_file["charge"], str):
+                qmin_file["charge"] = qmin_file["charge"].split()
+            qmin_file["charge"] = convert_list(qmin_file["charge"])
+            # savedir
+            if "savedir" in qmin_file:
+                self._setsave = True
+                self.QMin.save["savedir"] = qmin_file["savedir"]
+                del qmin_file["savedir"]
+                self.log.info(f"SAVEDIR set to {self.QMin.save['savedir']}")
+            # update everything in molecule
+            self.QMin.molecule.update({k.lower(): v for k, v in qmin_file.items()})
+            # update stuff that has different names
+            self.QMin.molecule["natom"] = qmin_file["NAtoms"]
+            self.QMin.molecule["elements"] = [IAn2AName[x] for x in qmin_file["IAn"]]
+            if "point_charges" in qmin_file:
+                self.QMin.molecule["point_charges"] = qmin_file["point_charges"]
+            self.log.debug(f"retain {int(qmin_file['retain'].split()[1])}")
+            self.QMin.requests["retain"] = int(qmin_file["retain"].split()[1])
+
+        elif isinstance(qmin_file, QMin):
+            self.QMin.molecule = deepcopy(qmin_file.molecule)
+            self.QMin.maps["statemap"] = deepcopy(qmin_file.maps["statemap"])
+            self.QMin.maps["chargemap"] = deepcopy(qmin_file.maps["chargemap"])
+            self.QMin.requests["retain"] = qmin_file.requests["retain"]
+
+        else:
+            self.log.error(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
+            raise TypeError(f"qmin_file has to be str, dict, or QMin, but is {type(qmin_file)}")
+
+        # --- end of cases ---
+
+        self.QMin.molecule["Atomcharge"] = sum(map(lambda x: ATOMCHARGE[x], self.QMin.molecule["elements"]))
+        self.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], self.QMin.molecule["elements"]))
+        #  self.QMin.molecule["frozcore"] = 0
 
         if not isinstance(self.QMin.save["savedir"], str):
             self.QMin.save["savedir"] = "./SAVEDIR/"
@@ -511,9 +549,48 @@ class SHARC_INTERFACE(ABC):
 
         self.QMin.save["savedir"] = expand_path(self.QMin.save["savedir"])
 
-        if not isinstance(self.QMin.molecule["unit"], str):
-            self.log.warning('No "unit" specified in QMin! Assuming Bohr')
-            self.QMin.molecule["unit"] = "bohr"
+        if not self.QMin.molecule["charge"]:
+            self.QMin.molecule["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
+            self.log.warning(f"charge not specified setting default, {self.QMin.molecule['charge']}")
+        else:
+            # sanity check
+            if len(self.QMin.molecule["charge"]) == 1:
+                charge = int(self.QMin.molecule["charge"][0])
+                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
+                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
+                    charge -= 1
+                self.QMin.molecule["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
+                self.log.info(
+                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.molecule["charge"]}).'
+                )
+                self.log.info(
+                    'You can set the charge in the QMin or input files manually for each multiplicity ("charge 0 +1 0 ...")'
+                )
+            elif len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
+                self.QMin.molecule["charge"] = [
+                    int(self.QMin.molecule["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
+                ]
+
+                for mult, c in enumerate(self.QMin.molecule["charge"]):
+                    if self.QMin.molecule["states"][mult] > 0 and mult % 2 != (self.QMin.molecule["Atomcharge"] - c) % 2:
+                        self.log.error(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
+                        raise ValueError(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
+            else:
+                raise ValueError('Length of "charge" does not match length of "states"!')
+
+        self.QMout.charges = self.QMin.molecule["charge"][:]
+
+        for s, nstates in enumerate(self.QMin.molecule["states"]):
+            c = self.QMin.molecule["charge"][s]
+            for m in range(-s, s + 1, 2):
+                for n in range(nstates):
+                    self.states.append(
+                        electronic_state(Z=c, S=s, M=m, N=n + 1, C={})
+                    )  # This is the moment in which states get their pointers
+
+        # Setup chargemap
+        self.log.debug("Building chargemap")
+        self.QMin.maps["chargemap"] = {idx: int(chrg) for (idx, chrg) in enumerate(self.QMin.molecule["charge"], 1)}
 
         if all((val is None for val in self.QMin.molecule.values())):
             raise ValueError(
@@ -522,6 +599,7 @@ class SHARC_INTERFACE(ABC):
                 comment
                 geometry
                 keyword "states"
+                keyword "charges"
                 at least one task"""
             )
 
@@ -534,10 +612,13 @@ class SHARC_INTERFACE(ABC):
         Setup states, statemap and everything related
         """
         res = {}
-        try:
-            res["states"] = list(map(int, states.split()))
-        except (ValueError, IndexError) as err:
-            raise ValueError('Keyword "states" has to be followed by integers!', 37) from err
+        if isinstance(states, str):
+            try:
+                res["states"] = list(map(int, states.split()))
+            except (ValueError, IndexError) as err:
+                raise ValueError('Keyword "states" has to be followed by integers!', 37) from err
+        elif isinstance(states, list):
+            res["states"] = states
         reduc = 0
         for i in reversed(res["states"]):
             if i == 0:
@@ -561,7 +642,7 @@ class SHARC_INTERFACE(ABC):
         }
 
     @abstractmethod
-    def read_resources(self, resources_file: str, kw_whitelist: list[str] | None = None) -> None:
+    def read_resources(self, resources_file: str = "INTERFACE.resources", kw_whitelist: list[str] | None = None) -> None:
         """
         Reads a resource file and assigns parameters to
         self.QMin.resources. Parameters are only checked by type (if available),
@@ -586,7 +667,7 @@ class SHARC_INTERFACE(ABC):
         priority_order = ["SLURM_NTASKS_PER_NODE", " NSLOTS"]
         for prio in priority_order:
             if prio in os.environ:
-                self.QMin.resources["ncpu"] = max(1, int(os.environ[prio]))
+                # self.QMin.resources["ncpu"] = max(1, int(os.environ[prio]))
                 self.log.info(
                     f'Found env variable ncpu={os.environ[prio]}, resources["ncpu"] set to {self.QMin.resources["ncpu"]}',
                 )
@@ -642,13 +723,13 @@ class SHARC_INTERFACE(ABC):
         i = 0
         while i < n_lines:
             lst = lines[i].lower().split()
-            if len(lst) > 1 and (lst[1] == 'start' or lst[1] == 'select'):
+            if len(lst) > 1 and (lst[1] == "start" or lst[1] == "select"):
                 key = lst[0]
                 block = []
                 i += 1
                 end_found = False
                 while i < n_lines:
-                    if lines[i].strip().lower() == 'end':
+                    if lines[i].strip().lower() == "end":
                         end_found = True
                         break
                     block.append(lines[i].strip())
@@ -755,6 +836,8 @@ class SHARC_INTERFACE(ABC):
 
         return out_dict
 
+    # ----- runtime routine -----
+
     def read_requests(self, requests_file: str | dict = "QM.in") -> None:
         """
         Reads QM.in file and parses requests
@@ -781,6 +864,7 @@ class SHARC_INTERFACE(ABC):
         lines = readfile(requests_file)[self.QMin.molecule["natom"] + 2 :]
         lines = self._preprocess_lines(lines)
 
+        self.log.debug(lines)
         for line in lines:
             match line.lower().split(maxsplit=1):
                 case [key] if key in (*self.QMin.requests.keys(), "step"):
@@ -794,7 +878,9 @@ class SHARC_INTERFACE(ABC):
                     if val[0] == "[":
                         raw_value = ast.literal_eval(val)
                         # check if matrix
-                        if isinstance(raw_value[0], str):
+                        if not raw_value:
+                            raw_value = []
+                        elif isinstance(raw_value[0], str):
                             raw_value = [entry if len(entry) > 1 else entry[0] for entry in map(lambda x: x.split(), raw_value)]
                     else:
                         raw_value = val.split() if len(val.split()) > 1 else val
@@ -803,8 +889,10 @@ class SHARC_INTERFACE(ABC):
                 case ["backup"]:
                     self.log.warning("'backup' request is deprecated, use 'retain <number of steps>' instead!")
                 case ["init" | "newstep" | "samestep" | "restart"]:
-                    self.log.warning(f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored!")
-                case ["unit" | "states", _]:
+                    self.log.warning(
+                        f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored! Calculation control via STEP file and 'step' keyword."
+                    )
+                case ["unit" | "states" | "charge" | "savedir", _]:
                     pass
                 case _:
                     self.log.warning(f"request '{line}' not specified! Will not be applied!")
@@ -820,14 +908,19 @@ class SHARC_INTERFACE(ABC):
         self.QMin.save["init"] = False
         self.QMin.save["samestep"] = False
         self.QMin.save["newstep"] = False
-        self.QMin.save["restart"] = False
+        # self.QMin.save["restart"] = False
 
         # TODO: implement previous_step from driver
         self.QMin.save.update({"newstep": False, "init": False, "samestep": False})
-        last_step = None
+        if self.persistent and "savedict" in self.__dict__ and "last_step" in self.savedict:
+            last_step = self.savedict["last_step"]
+        else:
+            last_step = None
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         self.log.debug(f"{stepfile =}")
-        if os.path.isfile(stepfile):
+        if (
+            os.path.isfile(stepfile) and last_step == None
+        ):  # if persistent, we should ignore a STEP file if it exists, because we don't write one every step
             self.log.debug(f"Found stepfile {stepfile}")
             last_step = int(readfile(stepfile)[0])
         self.log.debug(f"{last_step =}, {self.QMin.save['step']=}")
@@ -861,52 +954,57 @@ class SHARC_INTERFACE(ABC):
             raise RuntimeError()
 
     def _set_driver_requests(self, requests: dict) -> None:
+        requests_copy = deepcopy(requests)
         # delete all old requests
+        retain = self.QMin.requests["retain"]
         self.QMin.requests = QMin().requests
+        self.QMin.requests["retain"] = retain
         self.log.debug(f"getting requests {requests}")
         # logic for raw tasks object from pysharc interface
-        if "tasks" in requests and isinstance(requests["tasks"], str):
+        if "tasks" in requests_copy and isinstance(requests_copy["tasks"], str):
             # task is 'step n <keywords+space'
-            task_list = requests['tasks'].split()
-            if task_list[0] != 'step' or not task_list[1].isdigit():
-                self.log.error(f"task string does not contain steps! {requests['tasks']}")
-                raise ValueError(f"task string does not contain steps! {requests['tasks']}")
-            self.QMin.save['step'] = int(task_list[1])
+            task_list = requests_copy["tasks"].split()
+            if task_list[0] != "step" or not task_list[1].isdigit():
+                self.log.error(f"task string does not contain steps! {requests_copy['tasks']}")
+                raise ValueError(f"task string does not contain steps! {requests_copy['tasks']}")
+            self.QMin.save["step"] = int(task_list[1])
             self.log.debug(f"Setting step: {self.QMin.save['step']}")
             kw_requests = task_list[2:]
             for k in kw_requests:
                 if k.lower() in ["init", "samestep", "newstep", "restart"]:
                     self.log.warning(f"{k.lower()} is deprecated and will be ignored!")
                     continue
-                requests[k.lower()] = True
-            del requests["tasks"]
-        if "soc" in requests:
-            requests["h"] = True
+                requests_copy[k.lower()] = True
+            del requests_copy["tasks"]
+        if "soc" in requests_copy and requests_copy["soc"]:
+            requests_copy["h"] = True
         for task in ["nacdr", "overlap", "grad", "ion"]:
-            if task in requests and isinstance(requests[task], str):
-                if requests[task] == "":  # removes task from dict if {'task': ''}
-                    del requests[task]
-                elif task == requests[task].lower() or requests[task] == "all":
+            if task in requests_copy and isinstance(requests_copy[task], str):
+                if requests_copy[task] == "":  # removes task from dict if {'task': ''}
+                    del requests_copy[task]
+                elif task == requests_copy[task].lower() or requests_copy[task] == "all":
                     if task == "nacdr":
-                        requests[task] = [
+                        requests_copy[task] = [
                             (i + 1, j + 1)
                             for i in range(self.QMin.molecule["nmstates"])
                             for j in range(self.QMin.molecule["nmstates"])
                         ]
                     else:
-                        requests[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
+                        requests_copy[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
                 else:
                     if task == "nacdr":
-                        requests[task] = [(int(i[0]), int(i[1])) for i in batched(requests[task].split())]
+                        requests_copy[task] = [(int(i[0]), int(i[1])) for i in batched(requests_copy[task].split())]
                     else:
-                        requests[task] = [int(i) for i in requests[task].split()]
-
+                        requests_copy[task] = [int(i) for i in requests_copy[task].split()]
+        if "step" in requests_copy:
+            self.QMin.save["step"] = requests_copy["step"]
+            del requests_copy["step"]
         if self.QMin.save["step"] == 0:
             for req in ["overlap", "phases"]:
-                if req in requests:
-                    requests[req] = False
-        self.log.debug(f"setting requests {requests}")
-        self.QMin.requests.update(requests)
+                if req in requests_copy:
+                    requests_copy[req] = False
+        self.log.debug(f"setting requests {requests_copy}")
+        self.QMin.requests.update(requests_copy)
         self.log.debug(f"Finished setting requests:\n{self.QMin.requests}")
         self._step_logic()
         self._request_logic()
@@ -918,13 +1016,9 @@ class SHARC_INTERFACE(ABC):
         req = request[0]
         if req in self.QMin.requests.keys():
             match request:
-                case ["grad", None]:
-                    self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-                case ["grad", "all"]:
-                    self.QMin.requests[req] = [i + 1 for i in range(self.QMin.molecule["nmstates"])]
-                case ["nacdr" | "multipolar_fit" | "density_matrices", None]:
-                    self.QMin.requests[req] = ["all"]
-                case ["nacdr" | "multipolar_fit" | "density_matrices", "all"]:
+                case ["grad", None | "all"]:
+                    self.QMin.requests[req] = list(range(1, self.QMin.molecule["nmstates"] + 1))
+                case ["nacdr" | "multipolar_fit" | "density_matrices", None | "all"]:
                     self.QMin.requests[req] = ["all"]
                 case ["grad", value]:
                     self.QMin.requests[req] = sorted(list(map(int, request[1]))) if isinstance(request[1], list) else [int(value)]
@@ -946,7 +1040,7 @@ class SHARC_INTERFACE(ABC):
                 case ["soc", None]:
                     if len(self.QMin.molecule["states"]) < 2:
                         self.log.warning("SOCs requested but only singlets given! Disabled SOCs but added H request")
-                        self.QMin.requests["h"] = True    # if SOCs were requested, H is implicitly also requested
+                        self.QMin.requests["h"] = True  # if SOCs were requested, H is implicitly also requested
                         return
                     self.QMin.requests["soc"] = True
                     self.QMin.requests["h"] = True
@@ -985,6 +1079,8 @@ class SHARC_INTERFACE(ABC):
                 self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
                 raise ValueError()
 
+    # ----- save routine -----
+
     def write_step_file(self) -> None:
         """
         Write current step into stepfile (only if cleanup not requested)
@@ -994,15 +1090,17 @@ class SHARC_INTERFACE(ABC):
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         writefile(stepfile, str(self.QMin.save["step"]))
 
-    def update_step(self, step: int = None) -> None:
-        """
-        sets the step variable im QMin object or increments the current step by +1
-        should be called after a successful step
-        """
-        if step is None:
-            self.QMin.save["step"] += 1
-        else:
-            self.QMin.save["step"] = step
+    # def update_step(self, step: int = None) -> None:
+    #     """
+    #     sets the step variable im QMin object or increments the current step by +1
+    #     should be called after a successful step
+    #     """
+    #     if step is None:
+    #         self.QMin.save["step"] += 1
+    #     else:
+    #         self.QMin.save["step"] = step
+
+    # ----- print routine -----
 
     def writeQMout(self, filename: str = "QM.out") -> None:
         """

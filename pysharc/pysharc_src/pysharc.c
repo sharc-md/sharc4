@@ -2,7 +2,7 @@
 //
 //    SHARC Program Suite
 //
-//    Copyright (c) 2023 University of Vienna
+//    Copyright (c) 2025 University of Vienna
 //
 //    This file is part of SHARC.
 //
@@ -186,11 +186,11 @@ static char get_basic_info_docstring[] =
 
 static PyObject * get_basic_info(PyObject * self)
 {
-    int N_func_str = 3;
+    int N_func_str = 5;
     char * info_names_str [] =
-    { "states", "dt", "savedir"  } ;
+    { "states", "charge", "dt", "savedir", "retain" } ;
     void (*get_info_str []) (char *) =
-    { get_states_, get_dt_, get_savedir_  };
+    { get_states_, get_charges_, get_dt_, get_savedir_, get_retain_ };
 
     int N_func_int = 3;
     char * info_names_int [] =

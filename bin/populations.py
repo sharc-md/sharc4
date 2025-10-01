@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -29,6 +29,7 @@
 
 import copy
 import math
+import numpy as np
 import sys
 import re
 import os
@@ -39,9 +40,11 @@ import datetime
 import random
 from optparse import OptionParser
 import readline
+from constants import au2fs
 import time
 import colorsys
 import pprint
+from constants import IToMult
 
 try:
     import numpy
@@ -52,35 +55,9 @@ except ImportError:
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-BOHR_TO_ANG = 0.529177211
-AU_TO_FS = 0.024188843
-PI = math.pi
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
-
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 
 # ======================================================================= #
@@ -663,6 +640,7 @@ def do_calc(INFOS):
     # prepare the list of output.lis files
     files = []
     ntraj = 0
+    initstate = []
     print('Checking the directories...')
     for idir in sorted(INFOS['paths']):
         ls = os.listdir(idir)
@@ -672,7 +650,12 @@ def do_calc(INFOS):
             path = idir + '/' + itraj
             s = path + ' ' * (width - len(path))
             if INFOS['mode'] in [1, 2, 3, 4, 5]:
-                pathfile = path + '/output.lis'
+                if os.path.exists(path+'/output_start_time.lis'):
+                    pathfile = path + '/output_start_time.lis'
+                    print("Detected time shift")
+                    initstate.append(int(np.genfromtxt(path+"/start.time")[1])-1)
+                else:
+                    pathfile = path + '/output.lis'
             elif INFOS['mode'] in [6]:
                 pathfile = path + '/output_data/fosc.out'
             elif INFOS['mode'] in [7]:
@@ -713,10 +696,11 @@ def do_calc(INFOS):
     if ntraj == 0:
         print('No valid trajectories found, exiting...')
         sys.exit(0)
+    t0_list = [0.0 for _ in range(ntraj)]
 
     # get timestep
     if INFOS['mode'] in [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
-        for ifile in files:
+        for fileindex, ifile in enumerate(files):
             lisf = open(ifile)
             file_valid = True
             while True:
@@ -732,9 +716,10 @@ def do_calc(INFOS):
                 continue
             f = line.split()
             if INFOS['mode'] in [1, 2, 3, 4, 5]:
-                t0 = float(f[1])
+                t0_list[fileindex] = float(f[1])
+                print("Trajectory %s with start time %.3f fs" % (ifile, t0_list[fileindex]))
             elif INFOS['mode'] in [6, 7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
-                t0 = float(f[0])
+                t0_list[fileindex] = float(f[0])
             N = 0
             while True:
                 line = lisf.readline()
@@ -750,23 +735,23 @@ def do_calc(INFOS):
                 continue
             f = l2.split()
             if INFOS['mode'] in [1, 2, 3, 4, 5]:
-                dt = (float(f[1]) - t0) / N
+                dt = (float(f[1]) - t0_list[fileindex]) / N
             elif INFOS['mode'] in [6, 7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
-                dt = (float(f[0]) - t0) / N
+                dt = (float(f[0]) - t0_list[fileindex]) / N
             if dt == 0.:
                 print('ERROR: Timestep is zero.')
                 quit(1)
             lisf.close()
-            break
+            #break
     elif INFOS['mode'] in [10, 11]:
         for ifile in files:
             lisf = open(ifile)
             for line in lisf:
                 if 'dtstep' in line:
                     try:
-                        dt = float(line.split()[0]) * AU_TO_FS
+                        dt = float(line.split()[0]) * au2fs 
                     except ValueError:
-                        dt = float(line.split()[-1]) * AU_TO_FS
+                        dt = float(line.split()[-1]) * au2fs 
                     break
             else:
                 lisf.close()
@@ -807,31 +792,35 @@ def do_calc(INFOS):
     traj_per_step = [0. for i in range(nsteps)]
     shortest = 9999999.
     longest = 0.
+    shift_step = [None]*len(files)
     for fileindex, ifile in enumerate(files):
+        shift_step[fileindex] = int(np.ceil(t0_list[fileindex]/dt))  # shift to right index after start time
         if INFOS['mode'] in [10, 11]:
             output_current = output_dat(ifile)
             istep = -1
             for istep, U, state_diag in output_current:
-                # print(istep,state_diag)
-                vec2 = [U[i][state_diag - 1] for i in range(len(U))]
-                vec = [0. for i in range(nstates)]
-                if INFOS['mode'] in [10]:
-                    for i in range(nstates):
-                        vec[i] = vec2[i].real**2 + vec2[i].imag**2
-                elif INFOS['mode'] in [11]:
-                    for i in range(INFOS['nmstates']):
-                        state = INFOS['statemap'][i + 1][3] - 1
-                        vec[state] += vec2[i].real**2 + vec2[i].imag**2
-                for istate in range(nstates):
-                    pop_full[fileindex][istep][istate] += vec[istate]
+                if istep+shift_step[fileindex] < nsteps:
+                    # print(istep,state_diag)
+                    vec2 = [U[i][state_diag - 1] for i in range(len(U))]
+                    vec = [0. for i in range(nstates)]
+                    if INFOS['mode'] in [10]:
+                        for i in range(nstates):
+                            vec[i] = vec2[i].real**2 + vec2[i].imag**2
+                    elif INFOS['mode'] in [11]:
+                        for i in range(INFOS['nmstates']):
+                            state = INFOS['statemap'][i + 1][3] - 1
+                            vec[state] += vec2[i].real**2 + vec2[i].imag**2
+                        for istate in range(nstates):
+                            pop_full[fileindex][istep+shift_step[fileindex]][istate] += vec[istate]
             for itt in range(istep + 1):
-                traj_per_step[itt] += 1
+                if t0_list[fileindex] <= dt*itt:
+                    traj_per_step[itt] += 1
             if dt * istep < shortest:
                 shortest = dt * istep
             if dt * istep > longest:
                 longest = dt * istep
             if istep == -1:
-                print('%s' % (ifile) + ' ' * (width - len(ifile)) + ' %i\tZero Timesteps found!' % (t))
+                print('%s' % (ifile) + ' ' * (width - len(ifile)) + '%i\tZero Timesteps found!' % (t))
                 ntraj -= 1
                 continue
             else:
@@ -840,7 +829,7 @@ def do_calc(INFOS):
                 istep += 1
                 if INFOS['mode'] in [10, 11]:
                     for i in range(nstates):
-                        pop_full[fileindex][istep][i] += vec[i]
+                        pop_full[fileindex][istep+shift_step[fileindex]][i] += vec[i]
         else:
             lisf = open(ifile)
             t = -1
@@ -849,7 +838,7 @@ def do_calc(INFOS):
                     continue
                 f = line.split()
                 t += 1
-                if t >= nsteps:
+                if t+shift_step[fileindex] >= nsteps:
                     break
 
                 if INFOS['mode'] in [1, 2, 3, 4, 5, 6]:
@@ -862,12 +851,12 @@ def do_calc(INFOS):
                         # state in nm scheme to state in n scheme
                         state = INFOS['statemap'][state][3] - 1
                     elif INFOS['mode'] == 4:
-                        state = INFOS['histo'].put(float(f[9]))
+                        state = INFOS['histo'].put(float(f[11]))
                     elif INFOS['mode'] == 5:
-                        state = INFOS['histo'].put(float(f[8]))
+                        state = INFOS['histo'].put(float(f[10]))
                     elif INFOS['mode'] == 6:
                         state = INFOS['histo'].put(float(f[1]))
-                    pop_full[fileindex][t][state] += 1
+                    pop_full[fileindex][t+shift_step[fileindex]][state] += 1
                 elif INFOS['mode'] in [7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
                     vec = [0. for i in range(nstates)]
                     if INFOS['mode'] in [7, 8, 20]:
@@ -887,11 +876,12 @@ def do_calc(INFOS):
                             # state=MultStateToIstate(imult,istate,INFOS['states'])-1
                             vec[state] += float(f[2 + 2 * i])**2 + float(f[3 + 2 * i])**2
                     for i in range(nstates):
-                        pop_full[fileindex][t][i] += vec[i]
+                        pop_full[fileindex][t+shift_step[fileindex]][i] += vec[i]
             lisf.close()
-            for itt in range(t + 1):
-                if itt < len(traj_per_step):
-                    traj_per_step[itt] += 1
+            for itt in range(t+shift_step[fileindex] + 1):
+                if itt < len(traj_per_step):  # itt (index) must be smaller than user requested time array
+                    if itt > shift_step[fileindex]:  # only if the start time is lower than dt*itt, there is population
+                        traj_per_step[itt] += 1
             if dt * t < shortest:
                 shortest = dt * t
             if dt * t > longest:
@@ -902,26 +892,26 @@ def do_calc(INFOS):
                 continue
             else:
                 print('%s' % (ifile) + ' ' * (width - len(ifile)) + '%i' % (t))
-            while t + 1 < nsteps:
+            while t + 1 + shift_step[fileindex] < nsteps:
                 t += 1
                 if INFOS['mode'] in [1, 2, 3, 4, 5, 6]:
-                    pop_full[fileindex][t][state] += 1
+                    pop_full[fileindex][t+shift_step[fileindex]][state] += 1
                 elif INFOS['mode'] in [7, 8, 9, 12, 13, 14, 15, 20, 21, 22]:
                     for i in range(nstates):
-                        pop_full[fileindex][t][i] += vec[i]
+                        pop_full[fileindex][t+shift_step[fileindex]][i] += vec[i]
     print('Shortest trajectory: %f' % (shortest))
     print('Longest trajectory: %f' % (longest))
     print('Number of trajectories: %i' % (ntraj))
     INFOS['shortest'] = shortest
     INFOS['longest'] = longest
-
-    # make pop array
     pop = [[0. for j in range(nstates)] for i in range(nsteps)]        # first index is time, second is state
-    for fileindex, ifile in enumerate(files):
-        for i in range(nsteps):
+    for i in range(nsteps):
+        for fileindex, ifile in enumerate(files):
+            if i < shift_step[fileindex]:
+                pop[i][initstate[fileindex]] += 1
             for j in range(nstates):
                 pop[i][j] += pop_full[fileindex][i][j]
-
+        # print(f"SUM @ {i*dt} fs: {np.sum(pop[i][:])}")
     # write populations
     s = '#Mode: %i\n' % INFOS['mode']
     s += '#%15i ' % (1)

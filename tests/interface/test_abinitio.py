@@ -19,6 +19,7 @@ def setup_interface(qmin: str, template: str, maps: dict):
     test.QMin.resources["wfoverlap"] = ""
     test.read_requests(qmin)
     test.setup_interface()
+    print(test.QMin.molecule["charge"])
 
     for k, v in maps.items():
         assert test.QMin.maps[k] == v, ValueError(f"{test.QMin.maps[k]} {k}")
@@ -36,7 +37,7 @@ def test_setupinterface1():
             },
         ),
         (
-            "inputs/QM1.in",
+            "inputs/QM1c.in",
             "inputs/abinitio_template2",
             {
                 "gradmap": {(1, 2), (2, 1), (3, 4), (3, 1), (1, 1), (3, 3), (3, 2), (1, 3), (3, 5)},
@@ -171,7 +172,7 @@ def test_setupinterface1():
 
 def test_setupinterface2():
     tests = [
-        ("inputs/QM3.in", "inputs/abinitio_template1", {}),
+        ("inputs/QM3f.in", "inputs/abinitio_template1", {}),
         ("inputs/QM2.in", "inputs/abinitio_template1", {"gradmap": None, "chargemap": {}, "nacmap": set()}),
     ]
 
@@ -193,13 +194,17 @@ def test_clean_savedir():
 
     for files, retain, step, res in tests:
         # Create temp files
-        os.mkdir(tmp_dir)
-        for file in files:
-            with open(os.path.join(tmp_dir, file), "a"):
-                os.utime(os.path.join(tmp_dir, file))
-
-        SHARC_ABINITIO.clean_savedir(tmp_dir, retain, step)
         try:
+            os.mkdir(tmp_dir)
+            for file in files:
+                with open(os.path.join(tmp_dir, file), "a"):
+                    os.utime(os.path.join(tmp_dir, file))
+
+            test_interface = SHARC_ABINITIO()
+            test_interface.QMin.save["savedir"] = tmp_dir
+            test_interface.QMin.save["step"] = step
+            test_interface.QMin.requests["retain"] = retain
+            test_interface.clean_savedir()
             assert os.listdir(tmp_dir) == res
         finally:
             shutil.rmtree(tmp_dir)

@@ -96,7 +96,7 @@ def test_movecs():
         test_interface.setup_mol(os.path.join(PATH, qmin))
         test_interface.set_coords(os.path.join(PATH, qmin))
         test_interface.QMin.template["spherical"] = spherical
-        test_interface.QMin.template["charge"] = [charge]
+        test_interface.QMin.molecule["charge"] = [charge]
         test_interface._basis = basis
         _, coeff = test_interface._mo_from_movec(os.path.join(PATH, mo))
         for i in np.diagonal(np.linalg.inv(coeff[: coeff.shape[1], :].T).T @ np.linalg.inv(coeff[: coeff.shape[1], :].T)):

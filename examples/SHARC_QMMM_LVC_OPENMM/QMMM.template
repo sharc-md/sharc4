@@ -1,0 +1,8 @@
+qmmm_table QMMM.table
+qm-program LVC
+mm-program openmm
+embedding subtractive
+mms-dir ./MMS
+mml-dir ./MML
+qm-dir ./LVC
+mm_dipole False

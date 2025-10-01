@@ -1,3 +1,28 @@
+
+
+# ******************************************
+#
+#    SHARC Program Suite
+#
+#    Copyright (c) 2025 University of Vienna
+#
+#    This file is part of SHARC.
+#
+#    SHARC is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SHARC is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    inside the SHARC manual.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ******************************************
+
 import math
 from itertools import chain
 
@@ -44,9 +69,9 @@ class QMout:
     nacdr: ndarray[float, 4]
     nacdr_pc: ndarray[float, 4]
     overlap: ndarray[float, 2]
-    phases: ndarray[float]
-    prop0d: list[tuple[str, float]]
-    prop1d: list[tuple[str, ndarray[float]]]
+    phases: ndarray[float,1]
+    prop0d: list[tuple[str, float,1]]
+    prop1d: list[tuple[str, ndarray[float,1]]]
     prop2d: list[tuple[str, ndarray[float, 2]]]
     socdr: ndarray[float, 4]
     socdr_pc: ndarray[float, 4]
@@ -54,6 +79,7 @@ class QMout:
     dmdr_pc: ndarray[float, 5]
     multipolar_fit: dict
     density_matrices: dict
+    multipolar_fit_settings: str
     mol: pyscf.gto.Mole
     #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
@@ -105,6 +131,20 @@ class QMout:
                         line = f.readline()
                     shape = []
                     block_length = 0
+                elif flag in {21}:
+                    data = [line]
+                    line = f.readline()
+                    data.append(line)
+                    nprop = int(line.split()[0])
+                    for i in range(nprop+2):
+                        data.append(f.readline())
+                    for i in range(nprop):
+                        line = f.readline()
+                        data.append(line)
+                        nblock = int(line.split()[0])
+                        for j in range(nblock):
+                            data.append(f.readline())
+                    iline = 0
                 elif flag in {20, 23}:
                     data = [line]
                     line = f.readline()
@@ -126,7 +166,8 @@ class QMout:
                         block_length = reduce(lambda agg, x: agg*x, shape[:-1])
                         #log.debug("TESTFLAG", line, block_length, shape)
                         if len(shape) > 2:
-                            block_length += shape[0] - 1
+                            # block_length += shape[0] - 1
+                            block_length += reduce(lambda agg, x: agg*x, shape[:-2]) - 1
                     # skip unwanted flags
                     if flags != "all" and flag not in flags:
                         # print(f"skipping flag {flag} with {block_length} lines")
@@ -326,7 +367,7 @@ class QMout:
         # currently only skipping                   
         toskip = 4 + 3*num                          
         return {'Notes': 'not read'}, iline + toskip
-        # TODO: actually read in the notes as dict. Readig should stop at the first empty line
+        # TODO: actually read in the notes as dict. Reading should stop at the first empty line
 
     @staticmethod
     def get_property(data, iline, type, shape):
@@ -334,11 +375,16 @@ class QMout:
         keys = []
         for irow in range(num):
             keys.append(data[iline + 3 + irow].strip())
-        iline += 4 + num
+        iline += 3 + num
+        if len(shape) == 0:
+            iline += 1
         res = []
         for irow in range(num):
-            res.append(QMout.get_quantity(data, iline, type, shape)[0])
+            result, iline = QMout.get_quantity(data, iline, type, shape)
+            res.append(result)
             iline += 2
+            if len(shape) == 0:
+                iline -= 1
         result = [(keys[i], res[i]) for i in range(num)]
         return result, iline - 1
 
@@ -538,8 +584,7 @@ class QMout:
         if requests["multipolar_fit"]:
             string += self.writeQMoutmultipolarfit()
         if requests["density_matrices"]:
-            pass
-            # string += self.writeQMoutDensityMatrices()
+            string += self.writeQMoutDensityMatrices()
         if requests["dyson_orbitals"]:
             string += self.writeQMoutDysonOrbitals()
         if "mol" in requests and requests["mol"]:
@@ -1111,9 +1156,9 @@ class QMout:
 
         string += "! Property Vectors (%ix%i, real)\n" % (len(prop1d), nmstates)
         for ie, element in enumerate(prop1d):
-            string += "! %i %s\n" % (ie, element[0])
+            string += "%i ! %i %s\n" % (nmstates, ie, element[0])
             for i in range(nmstates):
-                string += "%s\n" % (eformat(element[1][i], 12, 3),)
+                string += "%s 0.\n" % (eformat(element[1][i], 12, 3),)
         string += "\n"
         return string
 
@@ -1169,7 +1214,7 @@ class QMout:
         1 string: multiline string with the SOC matrix"""
 
         notes = self.notes
-        string = "! %i Notes\n" % (24)
+        string = "! %i Notes\n" % (999)
         string += "%i    ! number of notes\n" % (len(notes))
 
         string += "! Notes Labels (%i strings)\n" % (len(notes))
@@ -1186,7 +1231,7 @@ class QMout:
     # ======================================================================= #
 
     def writeQmoutPhases(self):
-        string = "! 7 Phases\n%i ! for all nmstates\n" % (self.nmstates)
+        string = "! 7 Wave function phases (%ix1, complex)\n%i\n" % (self.nmstates, self.nmstates)
         for i in range(self.nmstates):
             string += "%s %s\n" % (
                 eformat(self.phases[i].real, 9, 3),
@@ -1249,23 +1294,18 @@ class QMout:
         Returns:
         1 string: multiline string with the Gradient vectors"""
 
-        states = self.states
-        nmstates = self.nmstates
         natom = self.natom
-        setting_str = ""
-        if "multipolar_fit" in self.notes:
-            setting_str = self.notes["multipolar_fit"]
         sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
+        fit_order = self.multipolar_fit[sorted_states[0]].shape[1]
         string = (
-            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x10) {setting_str}\n"
+            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x{fit_order}) {self.multipolar_fit_settings}\n"
         )
-
         for (s1, s2) in sorted_states:
             val = self.multipolar_fit[(s1, s2)]
             istate, imult, ims = s1.N, s1.S, s1.M
             jstate, jmult, jms = s2.N, s2.S, s2.M
 
-            string += f"{natom} 10 ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
+            string += f"{natom} {fit_order} ! m1 {imult} s1 {istate} ms1 {ims: 3.1f}   m2 {jmult} s2 {jstate} ms2 {jms: 3.1f}\n"
             string += (
                 "\n".join(
                     map(
@@ -1435,7 +1475,7 @@ class QMout:
         # Multipolar fit
         if QMin.requests["multipolar_fit"]:
             string += "=> Multipolar fit:\n\n"
-            for (s1, s2), val in self["multipolar_fit"].items():
+            for (s1, s2), val in sorted(self["multipolar_fit"].items()):
                 istate, imult, ims = s1.N, s1.S, s1.M
                 jstate, jmult, jms = s2.N, s2.S, s2.M
                 if imult == jmult and ims == jms:

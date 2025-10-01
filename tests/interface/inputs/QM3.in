@@ -25,6 +25,7 @@ init
     # Settings:
 unit angstrom
 states 0 0 0 0 9 9
+charge 0 +1 0 +1 0 +1 
 #savedir ./SAVE         # overrides the savedir in the resources file
 
     ## ===============================================

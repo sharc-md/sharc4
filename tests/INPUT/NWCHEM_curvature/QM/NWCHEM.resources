@@ -1,0 +1,4 @@
+nwchem $NWCHEM/bin/nwchem
+scratchdir $SCRADIR/WORK/
+ncpu 2
+memory 1000

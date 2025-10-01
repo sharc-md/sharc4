@@ -28,6 +28,7 @@ init
     # Settings:
 unit angstrom
 states 4 0 0
+charge +1 0 +1
 #savedir ./SAVE         # overrides the savedir in the resources file
 
 #point_charges /inputs/mndo/pcfile

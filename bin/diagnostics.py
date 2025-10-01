@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -25,6 +25,7 @@
 
 from copy import deepcopy
 import math
+import numpy as np
 import sys
 import re
 import os
@@ -38,6 +39,7 @@ import readline
 import time
 import colorsys
 import pprint
+from constants import IToMult
 
 try:
     import numpy
@@ -48,35 +50,9 @@ except ImportError:
 # =========================================================0
 # some constants
 DEBUG = False
-CM_TO_HARTREE = 1. / 219474.6  # 4.556335252e-6 # conversion factor from cm-1 to Hartree
-HARTREE_TO_EV = 27.211396132    # conversion factor from Hartree to eV
-U_TO_AMU = 1. / 5.4857990943e-4            # conversion from g/mol to amu
-BOHR_TO_ANG = 0.529177211
-AU_TO_FS = 0.024188843
-PI = math.pi
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
-
-
-IToMult = {
-    1: 'Singlet',
-    2: 'Doublet',
-    3: 'Triplet',
-    4: 'Quartet',
-    5: 'Quintet',
-    6: 'Sextet',
-    7: 'Septet',
-    8: 'Octet',
-    'Singlet': 1,
-    'Doublet': 2,
-    'Triplet': 3,
-    'Quartet': 4,
-    'Quintet': 5,
-    'Sextet': 6,
-    'Septet': 7,
-    'Octet': 8
-}
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 
 # ======================================================================= #
@@ -598,20 +574,25 @@ def check_files(path, trajectories, INFOS):
 def check_runtime(path, trajectories, INFOS):
     # get maximum run time
     f = os.path.join(path, 'output.log')
+    # print(f)
     f = readfile(f)
     if not check_printlevel(f):
         pass
     trajectories[path]['tana'] = 0
+    # print(trajectories[path]['tana'])
     for line in reversed(f):
         trajectories[path]['laststep'] = 0
         trajectories[path]['maxsteps'] = 1
         if 'entering timestep' in line.lower():
             trajectories[path]['laststep'] = int(line.split()[3])
             break
+    # print(trajectories[path]['laststep'])
     for line in reversed(f):
         if 'found nsteps=' in line.lower():
             trajectories[path]['maxsteps'] = int(line.split()[2])
             trajectories[path]['dtstep'] = float(line.split()[5])
+    # print(trajectories[path]['maxsteps'])
+    # print(trajectories[path]['dtstep'])
     s = '    Progress:         ['
     progress = float(trajectories[path]['laststep']) / trajectories[path]['maxsteps']
     s += '=' * int(25 * progress) + ' ' * (25 - int(25 * progress)) + ']     %.1f of %.1f fs' % (trajectories[path]['laststep'] * trajectories[path]['dtstep'], trajectories[path]['maxsteps'] * trajectories[path]['dtstep'])
@@ -650,10 +631,13 @@ def check_termination(path, trajectories, INFOS, f):
         #f = reversed(f)
         timesteps = []
         count = 0
+        print("IM HERE1")
         countmax = min(10, trajectories[path]['laststep'])
         for line in range(len(f)):
-            if 'ntering timestep' in f[line].lower():
+            if 'entering timestep' in f[line].lower():
+                #print("LINE", f[line])
                 check_old = f[line + 2].split()
+                #print("OLD", check_old)
                 if check_old[0] == "Start":
                     timesteps.append(f[line + 2].strip()[12:])
                 else:
@@ -667,7 +651,7 @@ def check_termination(path, trajectories, INFOS, f):
             tend = datetime.datetime.strptime(timesteps[entry + 2], '%a %b %d %H:%M:%S %Y')
             total += tend - tstart
         for line in range(len(f)):
-            if 'ntering timestep' in f[-line].lower():
+            if 'entering timestep' in f[-line].lower():
                 check_old = f[-line + 2].split()
                 if check_old[0] == "Start":
                     tstart = datetime.datetime.strptime(f[-line + 2].strip()[12:], '%a %b %d %H:%M:%S %Y')
@@ -722,25 +706,41 @@ def check_consistency(path, trajectories, data, filename):
     problem = ''
     deltatime = float(trajectories[path]['dtstep'])
     if filename == 'output.lis':
-        deltatime = 1
-    for line in data:
-        if '#' not in line:
-            x = line.split()
-            if float(x[0]) == 0.:
-                prevtime = 0
-                tana = 0
-            elif abs(float(x[0]) - deltatime - prevtime) <= 1e-9:
-                prevtime = float(x[0])
-                tana = prevtime
-                pass
-            else:
-                problem = 'Missing steps in %s' % (filename)  # (int(prevtime/deltatime))
-                if filename == 'output.lis':
-                    tana = float(prevtime * float(trajectories[path]['dtstep']))
+        for line in data:
+            if '#' not in line:
+                x = line.split()
+                if float(x[1]) ==  0.:  # trajectories[path]['start_time']:
+                    prevtime = float(x[1])
+                    tana = float(x[1])
+                elif abs(float(x[1]) - deltatime - prevtime) <= 1e-9:
+                    prevtime = float(x[1])
+                    tana = prevtime
+                    pass
                 else:
-                    tana = float(prevtime)
-                break
-
+                    problem = 'Missing steps in %s' % (filename)  # (int(prevtime/deltatime))
+                    if filename == 'output.lis':
+                        tana = float(prevtime * float(trajectories[path]['dtstep']))
+                    else:
+                        tana = float(prevtime)
+                    break
+    elif filename in ["energy.out", "coeff_diag.out"]:
+        for line in data:
+            if '#' not in line:
+                x = line.split()
+                if float(x[0]) ==  trajectories[path]['start_time']:
+                    prevtime = float(x[0])
+                    tana = float(x[0])
+                elif abs(float(x[0]) - deltatime - prevtime) <= 1e-9:
+                    prevtime = float(x[0])
+                    tana = prevtime
+                    pass
+                else:
+                    problem = 'Missing steps in %s' % (filename)  # (int(prevtime/deltatime))
+                    if filename == 'output.lis':
+                        tana = float(prevtime * float(trajectories[path]['dtstep']))
+                    else:
+                        tana = float(prevtime)
+                    break
     return problem, tana
 
 # ======================================================================================================================
@@ -766,7 +766,7 @@ def check_energies(path, trajectories, INFOS, hops):
             x = line.split()
             t = float(x[0])
             e = [float(i) for i in x[1:]]
-            if t == 0.:
+            if t == trajectories[path]['start_time']:
                 eold = e
                 etotmin = e[2]
                 etotmax = e[2]
@@ -779,10 +779,10 @@ def check_energies(path, trajectories, INFOS, hops):
                 hop = True
             ok = True
             tana = t
-            if etotmin > e[2]:
-                etotmin = e[2]
-            if etotmax < e[2]:
-                etotmax = e[2]
+            if etotmin > float(e[2]):
+                etotmin = float(e[2])
+            if etotmax < float(e[2]):
+                etotmax = float(e[2])
             if abs(etotmax - etotmin) > INFOS['settings']['etot_window']:
                 ok = False
                 problem = 'Large fluctuation in Etot'
@@ -845,7 +845,7 @@ def check_populations(path, trajectories, INFOS):
             x = line.split()
             t = float(x[0])
             pop = float(x[1])
-            if t == 0.:
+            if t == trajectories[path]["start_time"]:
                 popmin = pop
                 popmax = pop
             elif t > tana_length:
@@ -896,8 +896,9 @@ def check_intruders(path, trajectories, INFOS, lis, tana, problem_length):
         if not check_printlevel(f):
             notpossible = True
         prevstep = 0
+        prev_line = ""
         for line in f:
-            if 'ntering timestep' in line:
+            if 'Entering timestep' in line:
                 tstep = int(line.split()[3])
                 if tstep == 0:
                     prevstep = 0
@@ -910,9 +911,9 @@ def check_intruders(path, trajectories, INFOS, lis, tana, problem_length):
                     ok = False
                     problem = problem_length
                     break
-            if 'RESTART requested.' in line:
+            if 'RESTART requested.' in line and 'NO RESTART requested.' not in line:
                 prevstep -= 1
-            if 'State: ' in line:
+            if 'State: ' in line and "INTRUDER STATE PROBLEM" in prev_line:
                 intruder = int(line.split()[1])
                 if not notpossible:
                     state = lis[tstep][2]
@@ -926,6 +927,7 @@ def check_intruders(path, trajectories, INFOS, lis, tana, problem_length):
                     tana = 0.
                 if not ok:
                     break
+            prev_line = line
         else:
             tana = trajectories[path]['laststep'] * trajectories[path]['dtstep']
         trajectories[path]['tana'] = min(tana, trajectories[path]['tana'])
@@ -964,6 +966,10 @@ def do_calc(INFOS):
             trajectories[path] = {}
             print('{:~^80}\n'.format(' ' + path + ' '))
             trajectories[path]['error'] = False
+            if "start.time" in os.listdir(path):
+                trajectories[path]['start_time'] = float(np.genfromtxt(path+"/start.time")[0])
+            else:
+                trajectories[path]['start_time'] = False
             trajectories[path]['filelength'] = ''
 
             try:
@@ -1034,7 +1040,6 @@ def do_calc(INFOS):
                 else:
                     opt = mapping[INFOS['settings']['extractor_mode'].lower()]
                     if os.path.isfile('output.dat.nc'):
-                        opt += ' -xyz '
                         io = sp.call('. $SHARC/sharcvars.sh;' + sharcpath + '/data_extractor_NetCDF.x %s output.dat > /dev/null 2> /dev/null' % opt, shell=True)
                     else:
                         io = sp.call(sharcpath + '/data_extractor.x %s output.dat > /dev/null 2> /dev/null' % opt, shell=True)
@@ -1051,6 +1056,7 @@ def do_calc(INFOS):
             f = readfile(f)
             hops = []
             step = 0
+            problem = ''
             for line in f:
                 if '#' in line:
                     if 'Surface Hop' in line:

@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -23,15 +23,19 @@
 #
 # ******************************************
 
+
 import asyncio
 import inspect
-from collections.abc import Callable
+import os
+import sys
+import traceback
 from importlib import import_module
-from multiprocessing import Process, Semaphore, Manager, Pool, get_context, current_process
-from threading import Thread
-from qmout import QMout
+from multiprocessing import Manager, Process
+from time import sleep
+
 from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
+from utils import InDir
 
 
 class SHARC_HYBRID(SHARC_INTERFACE):
@@ -39,56 +43,147 @@ class SHARC_HYBRID(SHARC_INTERFACE):
     Abstract base class for SHARC hybrid interfaces
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, fast_queue: bool = False, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+        # Select queue type
+        self.run_children = SHARC_HYBRID.run_fast if fast_queue else SHARC_HYBRID.run_queue
+        self.log.debug(f"Fast queue: {fast_queue}")
 
         # Dict of child interfaces
         self._kindergarden = {}
 
     @staticmethod
-    def run_children(logger, children_dict, ncpu):
-        global children
+    def run_fast(logger, children_dict: dict[str, SHARC_INTERFACE], *args, **kwargs) -> None:
+        """
+        Run all children in an async queue (prefered option for FAST children!)
 
-        children = children_dict
+        logger:         Logger object
+        children_dict:  Dictionary of children that will be executed
+        """
+
+        async def _run_async(label, child):
+            logger.info(f"Run child {label} in async queue.")
+            with InDir(child.QMin.resources["pwd"]):
+                child.run()
+                child.getQMout()
+
+        async def _gather():
+            tasks = [_run_async(k, v) for k, v in children_dict.items()]
+            await asyncio.gather(*tasks)
+
+        asyncio.run(_gather())
+
+    @staticmethod
+    def run_queue(
+        logger,
+        children_dict: dict[str, SHARC_INTERFACE],
+        ncpu: int,
+        delay: float = 0.1,
+        exit_on_failure: bool = True,
+        indent: str = "",
+    ) -> None:
+        """
+        Run all children in a parallel queue
+
+        logger:             Logger object
+        children_dict:      Dictionary of children that will be executed
+        ncpu:               Maximal amount of CPUs used at once
+        delay:              Delay time to check if a child can be added to queue, setting it to 0.0 will result
+                            in high CPU ussage of the main Python process, but might be desired for very fast children
+        exit_on_failure:    Kill all currently running jobs if one job in queue raises exception
+        indent:             String to be prepended to all info prints coming from run_children
+        """
         manager = Manager()
-        n_used_cpu = manager.Value('i',0)
-        QMins = manager.dict()
-        QMouts = manager.dict()
+        n_used_cpu = manager.Value("i", 0)
+        qmins = manager.dict()
+        qmouts = manager.dict()
 
-        def run_a_child(label,children,n_used_cpu,QMins,QMouts):
-            children[label]._step_logic()
-            children[label].QMout.mol = None
-            children[label].run()
-            children[label].getQMout()
-            if children[label].QMout.mol is not None: children[label].QMout.mol = Mole.pack(children[label].QMout.mol) 
-            children[label].clean_savedir( children[label].QMin.save['savedir'], children[label].QMin.requests['retain'], children[label].QMin.save['step'])
-            children[label].write_step_file()
-            QMins[label] = children[label].QMin
-            QMouts[label] = children[label].QMout
-            n_used_cpu.value -= children[label].QMin.resources['ncpu']
-            return
+        def run_a_child(label, n_used_cpu, QMins, QMouts):
+            logger.info(
+                indent
+                + f"Running child {label} on {os.uname()[1]} with pid {os.getpid()} on "
+                + str(children_dict[label].QMin.resources["ncpu"])
+                + " cores"
+            )
+            try:
+                children_dict[label]._step_logic()
+                children_dict[label]._request_logic()
+                children_dict[label].QMout.mol = None
+                with InDir(children_dict[label].QMin.resources["pwd"]):
+                    children_dict[label].run()
+                    children_dict[label].getQMout()
+                if children_dict[label].QMout.mol is not None:
+                    children_dict[label].QMout.mol = Mole.pack(children_dict[label].QMout.mol)
+                children_dict[label].clean_savedir()
+                children_dict[label].write_step_file()
+                QMins[label] = children_dict[label].QMin
+                QMouts[label] = children_dict[label].QMout
+            except BaseException as exc:  # pylint: disable=broad-exception-caught
+                logger.error(f"Some exception occured while running child {label}")
+                logger.error(f"Exception type: {type(exc)}")
+                logger.error(f"Exception args: {exc.args}")
+                logger.error(f"Exception message: {str(exc)}")
+                logger.error(indent + traceback.format_exc())
+                sys.exit(1)  # Indicate failure of child process
+            finally:
+                n_used_cpu.value -= children_dict[label].QMin.resources["ncpu"]
 
+        # check if a child needs more CPUs than we have available
+        for label, child in children_dict.items():
+            if child.QMin.resources["ncpu"] > ncpu:
+                ncpu_needed = child.QMin.resources["ncpu"]
+                logger.error(f"Child {label} is set up to run with {ncpu_needed} cores, but only {ncpu} cores available")
+                raise RuntimeError
+
+        # Add jobs to queue until finished
         processes = []
-        for label in children.keys():
+        logger.debug("Entering main loop ...")
+        for label, child in children_dict.items():
+            logger.debug(f"Waiting to start child {label}")
             while True:
-                #  print(ncpu - n_used_cpu.value, n_used_cpu.value)
-                if ncpu - n_used_cpu.value >= children[label].QMin.resources['ncpu']:
-                    logger.info(' Running child '+str(label))
-                    processes.append( Process( target=run_a_child, args=(label,children,n_used_cpu, QMins, QMouts) ) )
-                    n_used_cpu.value += children[label].QMin.resources['ncpu'] 
+                if exit_on_failure:
+                    SHARC_HYBRID._exit_on_failure(logger, processes)
+                if ncpu - n_used_cpu.value >= child.QMin.resources["ncpu"]:
+                    processes.append(Process(target=run_a_child, args=(label, n_used_cpu, qmins, qmouts)))
+                    n_used_cpu.value += child.QMin.resources["ncpu"]
                     processes[-1].start()
                     break
+                sleep(delay)
+
+        # Kill all processes if one fails
+        while exit_on_failure:
+            exit_on_failure = SHARC_HYBRID._exit_on_failure(logger, processes)
+            sleep(0.1)
+
         for process in processes:
             process.join()
 
+        # Build mol objects if requested
         for label, child in children_dict.items():
-            children_dict[label].QMin = QMins[label]
-            children_dict[label].QMout = QMouts[label]
-            if children_dict[label].QMout.mol is not None: 
-                children_dict[label].QMout.mol = Mole.unpack(children_dict[label].QMout.mol)
-                children_dict[label].QMout.mol.build()
-        return
-            
+            child.QMin = qmins[label]
+            child.QMout = qmouts[label]
+            if child.QMout.mol is not None:
+                child.QMout.mol = Mole.unpack(child.QMout.mol)
+                child.QMout.mol.build()
+
+    @staticmethod
+    def _exit_on_failure(logger, processes) -> bool:
+        """
+        Loop over process and check if a process
+        returned exitcode 1. Kill all processes if true
+        """
+        exit_on_failure = False
+        for process in processes:
+            if process.exitcode == 1:
+                for p in processes:
+                    p.kill()
+                logger.error("A child process did not finish successfuly")
+                raise RuntimeError
+            if process.is_alive():
+                exit_on_failure = True
+        return exit_on_failure
+
     def instantiate_children(self, child_dict: dict[str, tuple[str, list, dict] | str]) -> None:
         """
         Populate kindergarden with instantiated child interfaces
@@ -96,7 +191,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         child_dict:     dictionary containing name of child and name of the interface or
                         a tuple with name of the interface and *args **kwargs
         """
-        self.log.debug("Instantiace childs")
+        self.log.debug("Instantiate childs")
 
         for name, interface in child_dict.items():
             if name in self._kindergarden:
@@ -121,6 +216,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         interface_name: Name of SHARC interface
         """
 
+        interface_name = interface_name.upper()
         interface_name = interface_name if interface_name.split("_")[0] == "SHARC" else f"SHARC_{interface_name}"
         try:
             module = import_module(interface_name)
@@ -141,3 +237,18 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             raise AttributeError from exc
 
         return interface
+
+    def clean_savedir(self) -> None:
+        """
+        Clean save directory of all children in kindergarden
+        """
+        super().clean_savedir()
+        for label, child in self._kindergarden.items():
+            self.log.debug(f"Clean savedir from child {label}")
+            child.clean_savedir()
+
+    def write_step_file(self):
+        super().write_step_file()
+        for label, child in self._kindergarden.items():
+            self.log.debug(f"Write step file for child {label}")
+            child.write_step_file()

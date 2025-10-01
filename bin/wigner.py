@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -43,8 +43,8 @@ from constants import CM_TO_HARTREE, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, NUMBE
 # some constants
 DEBUG = True
 
-version = '2.1'
-versiondate = datetime.date(2019, 9, 1)
+version = '4.0'
+versiondate = datetime.date(2025, 4, 1)
 
 # thresholds
 LOW_FREQ = 10.0    # threshold in cm^-1 for ignoring rotational and translational low frequencies
@@ -831,12 +831,16 @@ def determine_normal_modes_format(modes, molecule, nmodes, flag):
                 trace += result[i][i]
                 result[i][i] -= 1
             diagonalcheck[0].append(trace)
+            
             # print all matrices
-            # for row in result:
-            #    string = ''
-            # for entry in row:
-            #  string += "%4.1f" % (float(entry))
-            # print(string)
+            if DEBUG:
+                for row in result:
+                    string = ''
+                    for entry in row:
+                        string += "%4.1f" % (float(entry))
+                    print(string)
+                print()
+
             if any([abs(i) > thresh for j in result for i in j]):
                 diagonalcheck[1].append(0)
             else:
@@ -1015,7 +1019,7 @@ Equilibrium
 # ======================================================================================================================
 
 
-def create_initial_conditions_list(amount, molecule, modes):
+def create_initial_conditions_list(amount, molecule, modes, dummy=False, dummy_el="H"):
     """This function creates 'amount' initial conditions from the
 data given in 'molecule' and 'modes'. Output is returned
 as a list containing all initial condition objects."""
@@ -1036,9 +1040,18 @@ as a list containing all initial condition objects."""
         elif nvib > len(modes):
             print("WARNING: too many quantum numbers given to -v! The last ones will be ignored.")
 
+    # prepare dummy ic
+    if dummy:
+        atom = ATOM(symb=dummy_el, num=0, m=1.*U_TO_AMU)
+        ic0 = INITCOND([atom], 0., 0.)
+        
+
     for i in range(1, amount + 1):    # for each requested initial condition
         # sample the initial condition
-        ic = sample_initial_condition(molecule, modes)
+        if dummy:
+            ic = copy.deepcopy(ic0)
+        else:
+            ic = sample_initial_condition(molecule, modes)
         ic_list.append(ic)
         idone += 1
         done = idone * width // (amount)
@@ -1203,7 +1216,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
         dest='f',
         type=int,
         nargs=1,
-        default='0',
+        default=0,
         help="""Define the type of read normal modes. 
         0 for automatic assignement, 
         1 for gaussian-type normal modes (Gaussian, Turbomole, Q-Chem, AMS, Orca), 
@@ -1223,15 +1236,24 @@ as described in [2] (non-fixed energy, independent mode sampling).
     parser.add_option(
         '--use_zero_veloc', dest='UZV', action='store_true', help="For all samples, set velocities to zero"
     )
+    parser.add_option(
+        '--dummy_molecule', dest='DUM', action='store_true', help="Ignore molden file and generate initconds with one atom at origin"
+    )
+    parser.add_option(
+        '--single_atom', dest='atom', type=str, nargs=1, default="", help="Ignore molden file and generate initconds with one atom of specified element at origin"
+    )
 
     (options, args) = parser.parse_args()
 
     random.seed(options.r)
     amount = options.n
-    if len(args) == 0:
+    if len(args) == 0 and not (options.DUM or options.atom):
         print(usage)
         quit(1)
-    filename = args[0]
+    if options.DUM or options.atom != "":
+        filename = None
+    else:
+        filename = args[0]
     outfile = options.o
     nondefmass = options.m
     scaling = options.s
@@ -1285,7 +1307,18 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
     global whichatoms
     whichatoms = []
 
-    molecule, modes = import_from_molden(filename, scaling, flag, options.lvc)
+    if options.DUM:
+        molecule, modes = [ATOM(symb='H', num=1, m=1.*U_TO_AMU)], [{'freq': 0.}]
+        dummy_el="H"
+        dummy = True
+    elif options.atom != "":
+        molecule, modes = [ATOM(symb=options.atom, num=1, m=1.*U_TO_AMU)], [{'freq': 0.}]
+        dummy_el=options.atom
+        dummy = True
+    else:
+        molecule, modes = import_from_molden(filename, scaling, flag, options.lvc)
+        dummy = False
+        dummy_el ="H"
 
     string = '\nGeometry:\n'
     for atom in molecule:
@@ -1305,7 +1338,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
         lvc_input(molecule, modes)
     else:
         # print('Generating %i initial conditions' % amount)
-        ic_list = create_initial_conditions_list(amount, molecule, modes)
+        ic_list = create_initial_conditions_list(amount, molecule, modes, dummy=dummy, dummy_el=dummy_el)
         # print('Writing output to initconds')
         outfile = open(outfile, 'w')
         outstring = create_initial_conditions_string(molecule, modes, ic_list)

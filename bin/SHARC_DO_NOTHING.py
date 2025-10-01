@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -40,10 +40,10 @@ from utils import Error, makecmatrix, question
 __all__ = ["SHARC_DO_NOTHING"]
 
 AUTHORS = "Sebastian Mai"
-VERSION = "3.0"
-VERSIONDATE = datetime.datetime(2023, 8, 29)
+VERSION = "4.0"
+VERSIONDATE = datetime.datetime(2025, 4, 1)
 NAME = "SHARC Do Nothing Interface"
-DESCRIPTION = "Zero energies/gradients/couplings/etc and unity overlap matrices/phases."
+DESCRIPTION = "     FAST interface for testing (zero E/grad/NAC/DM, unity overlaps/phases)"
 
 CHANGELOGSTRING = """
 """
@@ -105,6 +105,12 @@ class SHARC_DO_NOTHING(SHARC_FAST):
         self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
     ) -> dict:
         "prepare INFOS obj"
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'Do-nothing interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+
         self.setup_info = question(
             "Please provide your favorite dish!",
             str,

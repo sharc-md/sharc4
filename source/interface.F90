@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -296,6 +296,35 @@ endsubroutine
 
 ! ------------------------------------------------------
 
+subroutine get_Charges(string)
+    use memory_module, only: traj, ctrl
+    implicit none
+    integer :: i
+    __C_OUT_STRING_S_ :: string
+
+
+    string = ""
+    do i=1,ctrl%maxmult
+      write(string,'(A, I3)') trim(string) // ' ', ctrl%charges_m(i)
+    enddo
+    write(string,'(A)') trim(string) // CHAR(0)
+    
+   
+    return 
+endsubroutine
+
+subroutine get_retain(string)
+    use memory_module, only: traj, ctrl
+    implicit none
+    __C_OUT_STRING_S_ :: string
+
+    string = ""
+    write(string, '(a,1x,I7,a)') 'retain',ctrl%retain_restart_files, CHAR(0)
+endsubroutine
+
+
+! ------------------------------------------------------
+
 subroutine get_dt(string)
     use memory_module, only: traj, ctrl
     implicit none
@@ -359,7 +388,8 @@ subroutine get_tasks(string, ICALL)
 
     ! write step into tasks
     string = 'step'
-    write(string,'(A,1X,I)') trim(string), traj%step
+    write(string,'(A,1X,I0)') trim(string), traj%step
+    ! TODO: add retain
 
 
     if (ICALL .eq. 1) then
@@ -483,12 +513,12 @@ subroutine get_nacdr(string, ICALL)
           case (0)
             write(string,'(A)')  'NACDR'
           case (1)
-                        do i=1,ctrl%nstates
+            do i=1,ctrl%nstates
               do j=1,ctrl%nstates
                 if (traj%selt_ss(j,i)) write(string,'(A,I3,1X,I3)') trim(string) , i,j
               enddo
             enddo
-                      case (2)
+          case (2)
             write(*,*)
         endselect
     else if (ICALL .eq. 2) then
@@ -928,7 +958,7 @@ subroutine set_nacs(NStates, NAtoms, nacs)
     __INT__ :: i,j,k,l
 
     if ( ctrl%nstates .ne. NStates) then
-        write(*,*) "Overlap is of wrong dimension!"
+        write(*,*) "NACDR is of wrong dimension!"
         call Exit(1)
     end if
 
@@ -1409,8 +1439,18 @@ subroutine Verlet_xstep(i_step)
     implicit none
     __INT__, intent(in) :: i_step
 
+    ! traj%step=traj%step+1
+    ! ctrl%nsteps=traj%step
+    ! if ( (traj%microtime+ctrl%dtstep) .le. ctrl%tmax) then
+    !   traj%microtime=traj%microtime+ctrl%dtstep
+    ! else
+    !   ctrl%dtstep=ctrl%tmax-traj%microtime
+    !   traj%microtime=ctrl%tmax
+    ! endif
+
     traj%step=i_step
-    call write_logtimestep(u_log, i_step, traj%microtime)
+    traj%microtime=i_step*ctrl%dtstep
+    call write_logtimestep(u_log, i_step, traj%microtime) 
     ! Velocity Verlet x
     call VelocityVerlet_xstep(traj, ctrl)
     return
@@ -1566,7 +1606,9 @@ subroutine Verlet_finalize(IExit, iskip)
 
     ! write_restart_traj must be the last command
     if (ctrl%output_format==0) then
-      call write_restart_traj(u_rest,ctrl,traj)
+      if (ctrl%write_restart_files) then
+        call write_restart_traj(u_rest,ctrl,traj)
+      endif
       call write_geom(u_geo,traj,ctrl)
     endif
 

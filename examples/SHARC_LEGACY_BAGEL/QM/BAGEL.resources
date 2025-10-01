@@ -1,0 +1,8 @@
+bagel /usr/remote/bagel/
+scratchdir $TMPDIR/ICOND_00000//
+memory 1000
+ncpu 1
+dipolelevel 0
+debug true
+wfoverlap $SHARC/wfoverlap.x
+numfrozcore 0

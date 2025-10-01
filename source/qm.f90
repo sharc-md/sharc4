@@ -2,7 +2,7 @@
 !
 !    SHARC Program Suite
 !
-!    Copyright (c) 2023 University of Vienna
+!    Copyright (c) 2025 University of Vienna
 !
 !    This file is part of SHARC.
 !
@@ -323,8 +323,13 @@ module qm
 
     ! get non-adiabatic couplings
     if ( (ctrl%calc_nacdr==0).or.(ctrl%calc_nacdr==1) ) then
-      call get_nonadiabatic_ddr(ctrl%nstates, ctrl%natom, traj%NACdr_ssad)
-      if (printlevel>3) write(u_log,'(A31,A2)') 'Non-adiabatic couplings (DDR): ','OK'
+      if (any(traj%selt_ss)) then
+        call get_nonadiabatic_ddr(ctrl%nstates, ctrl%natom, traj%NACdr_ssad)
+        if (printlevel>3) write(u_log,'(A31,A2)') 'Non-adiabatic couplings (DDR): ','OK'
+      else
+        traj%NACdr_ssad = 0.d0
+        if (printlevel>3) write(u_log,'(A31,A2)') 'Non-adiabatic couplings (DDR): ','none requested'
+      endif 
     endif
 
     ! get dipole moment derivatives
@@ -606,9 +611,15 @@ module qm
       write(u_qm_qmin,'(I3)', advance='no') ctrl%nstates_m(i)
     enddo
     write(u_qm_qmin,*) 
+    write(u_qm_qmin,'(A)', advance='no') 'charge '
+    do i=1,ctrl%maxmult
+      write(u_qm_qmin,'(I3)', advance='no') ctrl%charges_m(i)
+    enddo
+    write(u_qm_qmin,*) 
     write(u_qm_qmin,'(a,1x,F12.6)') 'dt',ctrl%dtstep
     write(u_qm_qmin,'(a,1x,I7)') 'step',traj%step
     write(u_qm_qmin,'(a,1x,a)') 'savedir',trim(cwd)//'/restart'
+    write(u_qm_qmin,'(a,1x,I7)') 'retain',ctrl%retain_restart_files
 
   endsubroutine
 
@@ -624,13 +635,13 @@ module qm
     type(ctrl_type) :: ctrl
     integer :: i,j
 
-    if ((traj%step==0).and..not.(ctrl%track_phase_at_zero==1)) then
-      write(u_qm_qmin,'(A)') 'init'
-    endif
-    if (ctrl%restart_rerun_last_qm_step) then
-      write(u_qm_qmin,'(A)') 'restart'
-      ctrl%restart_rerun_last_qm_step=.false.
-    endif
+    ! if ((traj%step==0).and..not.(ctrl%track_phase_at_zero==1)) then
+    !   write(u_qm_qmin,'(A)') 'init'
+    ! endif
+    ! if (ctrl%restart_rerun_last_qm_step) then
+    !   write(u_qm_qmin,'(A)') 'restart'
+    !   ctrl%restart_rerun_last_qm_step=.false.
+    ! endif
     if (ctrl%calc_soc==1) then
       write(u_qm_qmin,'(A)') 'SOC'
     else
@@ -642,6 +653,7 @@ module qm
       write(u_qm_qmin,'(A)') 'DM'
       write(u_qm_qmin,'(A)') 'MDEQM'
     endif
+
     select case (ctrl%calc_grad)
       case (0)
         write(u_qm_qmin,'(A)') 'GRAD all'
@@ -670,13 +682,15 @@ module qm
       case (0)
         write(u_qm_qmin,'(A)') 'NACDR'
       case (1)
-        write(u_qm_qmin,'(A)') 'NACDR SELECT'
-        do i=1,ctrl%nstates
-          do j=1,ctrl%nstates
-            if (traj%selt_ss(i,j)) write(u_qm_qmin,'(I3,1X,I3)') i,j
+        if (any(traj%selt_ss)) then
+          write(u_qm_qmin,'(A)') 'NACDR SELECT'
+          do i=1,ctrl%nstates
+            do j=1,ctrl%nstates
+              if (traj%selt_ss(i,j)) write(u_qm_qmin,'(I3,1X,I3)') i,j
+            enddo
           enddo
-        enddo
-        write(u_qm_qmin,'(A)') 'END'
+          write(u_qm_qmin,'(A)') 'END'
+        endif
       case (2)
         write(u_qm_qmin,*)
     endselect
@@ -722,7 +736,7 @@ module qm
     type(ctrl_type) :: ctrl
     integer :: i,j
 
-    write(u_qm_qmin,'(A)') 'samestep'
+    ! write(u_qm_qmin,'(A)') 'samestep'
 
     if (ctrl%calc_grad==2) then
       write(u_qm_qmin,'(A)',advance='no') 'GRAD'
@@ -733,13 +747,15 @@ module qm
     endif
 
     if (ctrl%calc_nacdr==2) then
-      write(u_qm_qmin,'(A)') 'NACDR SELECT'
-      do i=1,ctrl%nstates
-        do j=1,ctrl%nstates
-          if (traj%selt_ss(i,j)) write(u_qm_qmin,'(I3,1X,I3)') i,j
+      if (any(traj%selt_ss)) then
+        write(u_qm_qmin,'(A)') 'NACDR SELECT'
+        do i=1,ctrl%nstates
+          do j=1,ctrl%nstates
+            if (traj%selt_ss(i,j)) write(u_qm_qmin,'(I3,1X,I3)') i,j
+          enddo
         enddo
-      enddo
-      write(u_qm_qmin,'(A)') 'END'
+        write(u_qm_qmin,'(A)') 'END'
+      endif 
     endif
 
     if (ctrl%calc_dipolegrad==2) then
@@ -764,7 +780,7 @@ module qm
     type(ctrl_type) :: ctrl
     integer :: i
 
-    write(u_qm_qmin,'(A)') 'samestep'
+    ! write(u_qm_qmin,'(A)') 'samestep'
 
 !     if (ctrl%calc_grad==2) then
       write(u_qm_qmin,'(A)',advance='no') 'GRAD'
@@ -955,7 +971,7 @@ module qm
 !> The interface has to take care to only calculate non-zero NACs 
 !> (e.g., not between singlets and triplets)
 !> 
-!> TODO: The threshold eselect_dmgrad should be dependent on the naser energy
+!> TODO: The threshold eselect_dmgrad should be dependent on the laser energy
   subroutine select_dipolegrad(traj,ctrl)
     use definitions
     implicit none
@@ -1549,6 +1565,8 @@ module qm
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
     complex*16 :: sum
     integer :: idir, jdir
+    logical :: all_unit_norm
+
     ! if phases were not found in the QM output, try to obtain it
     if (traj%phases_found.eqv..false.) then
 
@@ -1641,6 +1659,16 @@ module qm
       endif ! if (ctrl%calc_overlap==1) then
     endif
 
+    ! check if phases have all norm 1
+    ! all_unit_norm = .true.
+    do istate=1,ctrl%nstates
+      if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+    enddo
+    ! if (.not.all_unit_norm) then
+    !   write(u_log,*) 'Not all phases have unit norm. Abort.'
+    !   stop 1
+    ! endif
+
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
     ! Bra
     do istate=1,ctrl%nstates
@@ -1667,7 +1695,7 @@ module qm
         traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*traj%phases_old_s(istate)
       endif
     enddo
-    ! Ket
+    ! Ket: TODO: need to complex conjugate all phases in the ket (or the bra?)
     do istate=1,ctrl%nstates
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)
@@ -1690,6 +1718,7 @@ module qm
         traj%overlaps_ss(:,istate)=traj%overlaps_ss(:,istate)*traj%phases_s(istate)
       !endif
     enddo
+
     ! electronic structure phase patching finished
     if (traj%step>0) then
       ! U matrix phase patching follows
@@ -1742,15 +1771,6 @@ module qm
               call matmultiply(ctrl%nstates,traj%overlaps_ss,traj%U_old_ss,Utemp,'tn')
               Htemp=traj%H_MCH_old_ss
               call transform(ctrl%nstates,Htemp,traj%overlaps_ss,'utau')
-              !sum = (0.0,0.)
-              !do idir=1,ctrl%nstates
-              !    do jdir=1,ctrl%nstates
-              !        if (idir /= jdir) then
-              !            sum = sum + Htemp(idir, jdir)
-              !        endif
-              !    enddo
-              !enddo 
-              !write(u_log,*) "SUM_Overlap", sum
               if (printlevel>4) call matwrite(ctrl%nstates,Utemp,u_log,'Old U transformed','F12.9')
               if (printlevel>4) call matwrite(ctrl%nstates,Htemp,u_log,'Old H transformed','F12.9')
               if (printlevel>4) call matwrite(ctrl%nstates,traj%H_MCH_ss,u_log,'New H','F12.9')
@@ -1786,16 +1806,6 @@ module qm
       endif
     endif
 
-    !call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'HAdjust_phases(TEST)','F12.9')
-    !sum = (0.0,0.)
-    !do idir=1,ctrl%nstates
-    !    do jdir=1,ctrl%nstates
-    !        if (idir /= jdir) then
-    !            sum = sum + traj%H_diag_ss(idir, jdir)
-    !        endif
-    !    enddo
-    !enddo 
-    !write(u_log,*) "ADJUSTSUM", sum
   endsubroutine
 
 ! ===========================================================
@@ -2265,6 +2275,7 @@ module qm
         endif
         traj%overlaps_ss(istate,istate)=sqrt(1.d0-overlap_sum)
       enddo
+      call lowdin(ctrl%nstates, traj%overlaps_ss)
 
       if (printlevel>3) then
         call matwrite(ctrl%nstates,traj%overlaps_ss,u_log,'Approximated overlap matrix from TDC (MCH basis)','F12.9')
@@ -2370,6 +2381,8 @@ module qm
     integer :: stat,i,j,istate,jstate,kstate,iatom,idir,jdir,ipol
     integer :: imult
 
+    ! TODO: these allocations can still lead to crashes, should be checked again what can be removed
+
     ! 0. compute rotation matrix variables.
     complex*16 :: U_temp(ctrl%nstates,ctrl%nstates), H_temp(ctrl%nstates,ctrl%nstates)
     ! 1. tdh variables
@@ -2459,7 +2472,8 @@ module qm
       U_temp=traj%U_ss
     endif
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
-    !call matwrite(ctrl%nstates,H_temp,u_log,'NAC_processing_H_temp','F12.9')
+
+
     ! ===============================
     ! 1. Compute time derivative Hamiltonian matrix (Kmatrix, TDH matrix)
     ! ===============================
@@ -2986,14 +3000,14 @@ module qm
 
 
     ! ===============================
-    ! 6. Compute Hopping and Frustratede hop direction 
+    ! 6. Compute Hopping and Frustrated hop direction 
     ! ===============================
 
     if (ctrl%method==0) then ! TSH method
 
       if (printlevel>3) then
         write(u_log,*) '============================================================='
-        write(u_log,*) '    [6].Caculating Hopping and Frustrated Hop  Direction '
+        write(u_log,*) '    [6].Calculating Hopping and Frustrated Hop Direction '
         write(u_log,*) '============================================================='
       endif
 
