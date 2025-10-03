@@ -1258,7 +1258,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         """
         if not (
             dipoles := re.findall(
-                r"Transition Strength\n.*?diplen\s+(-?\d+\.\d+).*\n.*?diplen\s+(-?\d+\.\d+).*\n.*?diplen\s+(-?\d+\.\d+)",
+                r"Transition Strength\n(?:.*\n)*?\s*xdiplen\s+(-?\d+\.\d+).*\n(?:.*\n)*?\s*ydiplen\s+(-?\d+\.\d+).*\n(?:.*\n)*?\s*zdiplen\s+(-?\d+\.\d+)",
                 ricc2_out,
             )
         ):
