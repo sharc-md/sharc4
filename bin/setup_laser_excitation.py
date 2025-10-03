@@ -33,6 +33,7 @@ import shutil
 import datetime
 import random
 import json
+import sympy
 from optparse import OptionParser
 from socket import gethostname
 import cProfile
@@ -848,6 +849,9 @@ from the initcond files as provided by wigner.py.
             break
     INFOS["natom"] = int(initf.readline().split()[1])
     log.info("Number of atoms is %i" % (INFOS["natom"]))
+    # TODO: it might make sense to initialize the wave function in the diagonal basis
+    # but run in the MCH basis (the latter is required because we otherwise cannot match the basis with the subsequent simulation)
+    # initializing the wave function in the diagonal basis would suppress oscillations from SOC!
     INFOS["repr"] = initf.readline().split()[1]
     if INFOS["repr"].lower() == "diag":
         INFOS["diag"] = False
@@ -1082,19 +1086,30 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             break
     INFOS["rand_laser_pol"] = question("Do you want to have an isotropic laser polarization distribution:", bool, True)
     INFOS["tmax"], INFOS["nsteps"], INFOS["dtstep"] = get_laser_time(INFOS["laserfile"])
+
+    # users should be able to choose a number of substeps that is a true divisor of INFOS["nsteps"]
+    divisors = sympy.divisors(INFOS["nsteps"])
+    target = 0.5
+    best_divisor = min(divisors, key=lambda d: abs(d * INFOS["dtstep"] - target))
+    while True:
+        divisor = question("How many substeps do you want to use?",int, default = [best_divisor])[0]
+        if divisor in divisors:
+            break
+        else:
+            log.info("The number of substeps must be a true divisor of the number of time steps in the laser file: %s" % divisors)
+    INFOS["nsteps"] = INFOS["nsteps"] // divisor
+    INFOS["nsubstep"] = divisor
+    INFOS["dtstep"] = INFOS["dtstep"] * divisor
+
     log.info("Total simulation time: %f"  % INFOS["tmax"])
-    log.info("\nSimulation will have %i time steps." % (INFOS["nsteps"]-1))
-    log.info("\nSimulation will have %.2f fs time steps." % (INFOS["dtstep"]))
+    log.info("Simulation will have %i time steps." % (INFOS["nsteps"]))
+    log.info("Simulation will have %i substeps per time step." % (INFOS["nsubstep"]))
+    log.info("Simulation will have %.2f fs time steps." % (INFOS["dtstep"]))
 
 
     # Integrator
     INFOS['integrator'] = int(2)    
     log.info("Integrator: %s " % Integrator[INFOS['integrator']]["name"])
-    # number of substeps
-    INFOS["nsubstep"] = int(1) 
-    log.info("NSubstep: %s " % INFOS["nsubstep"])
-    # whether to kill relaxed trajectories
-    INFOS["kill"] = "False"
     log.info("")
 
 

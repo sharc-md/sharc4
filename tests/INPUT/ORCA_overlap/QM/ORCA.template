@@ -1,4 +1,4 @@
-basis 6-31G*
+basis def2-SVP
 functional pbe
 dispersion D3
 

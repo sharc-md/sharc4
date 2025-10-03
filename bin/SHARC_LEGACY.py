@@ -1363,10 +1363,12 @@ class SHARC_LEGACY(SHARC_INTERFACE):
 
 
     def get_infos(self, INFOS, KEYSTROKES: TextIOWrapper | None = None) -> dict:
-        self.log.info('  '+"=" * 76)
-        self.log.info(f"||{'LEGACY interface setup':^76}||")
-        self.log.info('  '+"=" * 76)
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'LEGACY interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
         self.log.info("\n")
+
 
         # get needed stuff
         INFOS['needed'] = set()

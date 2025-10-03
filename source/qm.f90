@@ -1239,7 +1239,6 @@ module qm
   subroutine Mix_gradients(traj,ctrl)
     use definitions
     use matrix
-    use restrictive_potential
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
@@ -1460,12 +1459,6 @@ module qm
       endif
 
     endif ! The big if for ctrl%method
-
-   ! apply additional restrictive potentials
-   ! TODO: this should better be done via a hybrid interface
-   if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) call restrict_droplet(traj,ctrl)
-   if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) call tether_atom(traj,ctrl)
-
 
   endsubroutine
 

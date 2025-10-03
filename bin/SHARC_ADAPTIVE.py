@@ -373,7 +373,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'ADAPTIVE interface setup':^76}||\n{'||':<78}||")
+        self.log.info(f"||{'ADAPTIVE interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
 

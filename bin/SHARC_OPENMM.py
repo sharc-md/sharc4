@@ -112,7 +112,7 @@ class SHARC_OPENMM(SHARC_FAST):
     def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'OpenMM interface setup':^76}||\n{'||':<78}||")
+        self.log.info(f"||{'OpenMM interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
         while True:
