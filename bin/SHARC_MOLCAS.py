@@ -1254,12 +1254,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 input_str += f"basis set\n{charge}.{basis[idx-1]}\n"
                 input_str += f"{charge}{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f}"
                 input_str += " /Angstrom\nend of basis\n\n"
-        if qmin.molecule["point_charges"]:
-            for idx, (charge, coord) in enumerate(zip(qmin.coords["pccharge"], qmin.coords["pccoords"]), 1):
-                input_str += (
-                    f"basis set\nX...0s.0s.\nX{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f} /Angstrom\n"
-                )
-                input_str += f"Charge = {charge}\nend of basis\n\n"
+#        if qmin.molecule["point_charges"]:
+#            for idx, (charge, coord) in enumerate(zip(qmin.coords["pccharge"], qmin.coords["pccoords"]), 1):
+#                input_str += (
+#                    f"basis set\nX...0s.0s.\nX{idx} {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f} /Angstrom\n"
+#                )
+#                input_str += f"Charge = {charge}\nend of basis\n\n"
         input_str += "\n"
 
         if qmin.requests["soc"]:
@@ -1281,6 +1281,11 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         geom_str = f"{len(atoms)}\n\n"
         for idx, (at, crd) in enumerate(zip(atoms, coords)):
             geom_str += f"{at}{idx+1}  {crd[0]*au2a:6f} {crd[1]*au2a:6f} {crd[2]*au2a:6f}\n"
+        if self.QMin.molecule["point_charges"]:
+            for charge, coord in zip(self.QMin.coords["pccharge"], self.QMin.coords["pccoords"]):
+                geom_str += (
+                    f"Q {coord[0]*au2a: >10.15f} {coord[1]*au2a: >10.15f} {coord[2]*au2a: >10.15f} {charge: >10.15f}\n"
+                )
         return geom_str
 
     def _create_aoovl(self) -> None:
