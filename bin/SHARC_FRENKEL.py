@@ -188,10 +188,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         for name, frag in self.QMin.template["fragments"].items():
             self.log.debug(f"Setup fragment {name}")
 
-            assert (
-                "multipolar_fit" in self._kindergarden[name].get_features()
-            ), f"{frag['interface']} does not support multipolar_fit request!"
-
             self._kindergarden[name].setup_mol(
                 {
                     "states": frag["states"],
