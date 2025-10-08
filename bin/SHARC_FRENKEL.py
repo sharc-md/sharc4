@@ -320,6 +320,39 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 child.QMout.multipolar_fit[state] = child.QMout.multipolar_fit[state][:natoms, :]
             child.QMin.coords["coords"] = child.QMin.coords["coords"][:natoms, :]
 
+    def _wfa(self, wavefunction: np.ndarray) -> list[list[str, np.ndarray]]:
+        """
+        Calculate excitonic wave function descriptors
+        D_A = SUM_i c_Ai²
+        PR = SUM_A D_A / SUM_A D_A²
+        """
+        np.square(wavefunction, out=wavefunction)
+
+        descriptors = []
+        site_index = 0
+        da_sum = np.zeros(self._total_site_states)
+        da_sq_sum = np.zeros(self._total_site_states)
+
+        for fragment, child in self._kindergarden.items():
+            num_states = child.QMin.molecule["states"][0]
+            da_array = np.zeros(self._total_site_states)
+
+            # Sum over the states of this fragment (excluding index 0)
+            da_array[1:] = np.sum(wavefunction[1:, 1 + site_index : site_index + num_states], axis=1)
+
+            da_sum += da_array
+            da_sq_sum += da_array**2
+            site_index += num_states - 1
+
+            descriptors.append([f"D_{fragment}", da_array])
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            pr_array = da_sum / da_sq_sum
+            pr_array[~np.isfinite(pr_array)] = 0  # Replace NaN or inf with 0
+            descriptors.append(["PR", pr_array])
+
+        return descriptors
+
     def _get_exciton_energies(self) -> tuple[np.ndarray, np.ndarray]:
         """
         Construct and diagonalize exciton Hamiltonian
@@ -496,6 +529,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 self.QMout.phases = np.einsum("ii->i", overlap).copy()
                 self.QMout.phases[self.QMout.phases > 0] = 1
                 self.QMout.phases[self.QMout.phases < 0] = -1
+
+        if self.QMin.requests["theodore"]:
+            self.QMout.prop1d.extend(self._wfa(coeffs.copy()))
+
         return self.QMout
 
     def create_restart_files(self):
