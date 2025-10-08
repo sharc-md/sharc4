@@ -23,23 +23,19 @@
 #
 # ******************************************
 
+import ast
 import math
-from itertools import chain
+import re
+from functools import reduce
+from itertools import chain, islice
 
 import numpy as np
+import pyscf
 from constants import IToMult, IToPol
+from logger import log
 from numpy import ndarray
 from printing import formatcomplexmatrix, formatgrad
-from utils import eformat, itnmstates, writefile
-from logger import log
-import pyscf
-from utils import electronic_state
-from functools import reduce
-from itertools import islice
-import ast
-import re
-import ast
-import json
+from utils import eformat, electronic_state, itnmstates, writefile
 
 
 class QMout:
@@ -56,7 +52,7 @@ class QMout:
     npc: int
     point_charges: bool
     # data
-    runtime: int
+    runtime: float
     notes: dict[str, str]
     states: list[int]
     charges: list[int]
@@ -108,8 +104,8 @@ class QMout:
             log.debug(f"Reading file {filepath}")
             try:
                 f = open(filepath, "r", encoding="utf-8")
-            except IOError:
-                raise IOError("'Could not find %s!' % (filepath)")
+            except IOError as exc:
+                raise IOError(f"Could not find {filepath}!") from exc
             log.debug(f"Done raw reading {filepath}")
             # get basic information
             basic_info = {"states": list, "charges": list, "natom": int, "npc": int, "nmstates": int}
@@ -295,7 +291,10 @@ class QMout:
                     result[irow] = complex(float(line[0]), float(line[1]))
                 elif type == float:
                     result[irow] = float(line[0])
+            iline += shape[0] - 3
         elif len(shape) == 2:
+            if "complex" in data[iline]:
+                type = complex
             iline += 2
             for irow in range(shape[0]):
                 line = data[iline + irow].split()
@@ -1091,7 +1090,7 @@ class QMout:
         for ie, element in enumerate(prop1d):
             string += "%i ! %i %s\n" % (nmstates, ie, element[0])
             for i in range(nmstates):
-                string += "%s 0.\n" % (eformat(element[1][i], 12, 3),)
+                string += "%s\n" % (eformat(element[1][i], 12, 3),)
         string += "\n"
         return string
 
