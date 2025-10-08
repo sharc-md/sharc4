@@ -29,7 +29,7 @@ import numpy as np
 import yaml
 from constants import NUMBERS
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, expand_path
+from utils import InDir, expand_path, question
 
 __all__ = ["SHARC_FRENKEL"]
 
@@ -41,8 +41,6 @@ DESCRIPTION = "   HYBRID interface for Frenkel exciton model"
 
 CHANGELOGSTRING = """
 """
-
-all_features = set(["h", "grad", "point_charges", "dm", "overlap", "phases"])
 
 
 class SHARC_FRENKEL(SHARC_HYBRID):
@@ -73,6 +71,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             "states": list,  # List of states
             "charges": list,  # List of charges
         }
+
+        self.template_file = None
 
         # Interface for electrostatic embedding
         self._embedding_interface = None
@@ -105,6 +105,17 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         return SHARC_FRENKEL._authors
 
     def get_features(self, KEYSTROKES=None):
+        if not self._read_template:
+            self.template_file = question(
+                "Please specify the path to your FRENKEL.template file", str, KEYSTROKES=KEYSTROKES, default="FRENKEL.template"
+            )
+            self.read_template(self.template_file)
+
+        all_features = set(["h", "grad", "point_charges", "dm", "overlap", "phases"])
+        for child in self._kindergarden.values():
+            all_features &= child.get_features(KEYSTROKES=KEYSTROKES)
+        self.log.debug(f"Features: {all_features}")
+        all_features.add("theodore")
         return all_features
 
     def read_template(self, template_file="FRENKEL.template", kw_whitelist=None):
