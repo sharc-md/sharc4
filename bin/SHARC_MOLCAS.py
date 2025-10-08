@@ -110,7 +110,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Add resource keys
         self.QMin.resources.update(
-            {"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False, "driver": None, "wfoverlap": ""}
+            {"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False, "driver": None} #, "wfoverlap": ""}
         )
 
         self.QMin.resources.types.update({"molcas": str, "mpi_parallel": bool, "delay": float, "dry_run": bool, "driver": str})
@@ -703,15 +703,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Set env variable for master path
         os.environ["master_path"] = os.path.join(qmin.resources["scratchdir"], "master")
-        # Copy JobIphs if not master job
-        if not qmin.control["master"]:
-            self._copy_run_files(workdir)
 
         # Make subdirs
         if qmin.resources["mpi_parallel"]:
             for i in range(qmin.resources["ncpu"]):
                 self.log.debug(f"Create subdir tmp_{i+1}")
                 mkdir(os.path.join(workdir, f"tmp_{i+1}"))
+
+        # Copy JobIphs if not master job
+        if not qmin.control["master"]:
+            self._copy_run_files(workdir)
 
         # Execute MOLCAS
         starttime = datetime.datetime.now()
@@ -819,6 +820,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 )
         except FileNotFoundError:
             self.log.error("Copy file(s) failed! This is most likely due to an error in master job!")
+        
+        for folder in os.listdir(workdir):
+            if folder.startswith("tmp_"):
+                for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master", folder)):
+                    if any(i in file for i in re_runfiles):
+                        shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master", folder, file), os.path.join(workdir, folder, file))
+                shutil.copy(
+                    os.path.join(self.QMin.resources["scratchdir"], "master/MOLCAS.OneInt"), os.path.join(workdir, folder, "ONEINT")
+                )
 
     def get_readable_densities(self) -> dict[str, str]:
         densities = {}
@@ -1188,10 +1198,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += f"RAS3={qmin.template['ras3']}\n"
         input_str += f"CIROOT={task[2]} {task[2]} 1\n"
         if qmin.template["method"] not in ("ms-caspt2", "xms-caspt2"):
+            # TODO: check if needed
             input_str += "ORBLISTING=NOTHING\nPRWF=1.0e-12\n"
+            # input_str += "ORBLISTING=NOTHING\n"
+        else:
+            input_str += "ORBLISTING=NOTHING\n"
         if qmin.template["method"] == "cms-pdft":
             input_str += "CMSInter\n"
         # TODO: The next piece of code makes the calculation quite a bit more expensive
+        # and if it is used, it should also be used for NACs, not only for gradients
         if qmin.maps["gradmap"] and len(qmin.maps["gradmap"]) > 0:
             input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
         else:
@@ -1209,7 +1224,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 input_str += f"RFROOT = {qmin.template['pcmstate'][1]}\n"
             else:
                 input_str += "NONEQUILIBRIUM\n"
-        input_str += "PRSD\n"
+        if qmin.requests["ion"]:
+            input_str += "PRSD\n"
         input_str += "\n"
         return input_str
 
@@ -1890,7 +1906,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += f"NROFJOBIPHS\n2 {n_s1} {n_s2}\n"
             input_str += f"{' '.join([str(j) for j in range(1, n_s1 + 1)])}\n{' '.join([str(j) for j in range(1, n_s2 + 1)])}\n"
             input_str += "MEIN\n"
-            input_str += "CIPR\nTHRS=0.000005d0\n"
+            # input_str += "CIPR\nTHRS=0.000005d0\n"
             input_str += "DYSON\n"
             input_str += f"DYSEXPORT\n{n_s1 + n_s2} {n_s1 + n_s2}\n\n"
             input_str += f"*{nstates1}, {nstates2}\n"

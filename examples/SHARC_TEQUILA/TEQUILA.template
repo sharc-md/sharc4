@@ -1,0 +1,40 @@
+
+
+
+  ## Atomic basis set
+basis 6-31g
+
+  ## Indices of active molecular orbitals (indices start at 1)
+  ## required option
+active_orbitals 6 7 8
+
+  ## fermion-to-qubit mapping 
+transformation jordan-wigner   # other options: bravyi-kitaev, bravyi-kitaev-tree
+
+  ## quantum circuit ansatz
+ansatz UpCCGSD    #other options: UpCCD, UpCCSD
+
+  ## classical optimizer for the energies
+method_opt BFGS   # other options: L-BFGS-B, CG, TNC, NELDER-MEAD, COBYLA, POWELL, SLSQP
+
+
+
+  ## penalty parameter used in the Variational Quantum Deflation
+  ## larger values lead to better orthogonality 
+vqd_par 1.0
+
+  ## Use Hellman-Feynman gradients
+  ## currently, no other option available
+  ## use SHARC_NUMDIFF.py for numerical gradients
+hellman_feynman_grad True
+
+  ## Cartesian displacement in Bohr for computing numerically dH/dR
+shift_par 0.001
+
+  ## Threshold for monitoring changes in gradients from time step to time step
+  ## unit is eV/Angstrom
+rms_par 99999.
+
+
+
+

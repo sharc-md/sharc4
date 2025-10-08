@@ -63,6 +63,7 @@ all_features = set(
         "dm",
         "overlap",
         "phases",
+        "nacdr",
     ]
 )
 
@@ -111,16 +112,16 @@ class SHARC_TEQUILA(SHARC_FAST):
                 "active_orbitals": None,
                 "method_opt"     : "BFGS",
                 # "ext_input"      : None,
-                "norm_gr_check"  : 1000,
-                "spin_op"        : None,
+                # "norm_gr_check"  : 1000,
+                # "spin_op"        : None,
                 "vqd_par"        : 1.000000,
                 "hellman_feynman_grad"       : True,
                 "shift_par"      : 0.001,
                 "ansatz"         : "UpCCGSD",
-                "sort_states"    : False,
+                # "sort_states"    : False,
                 "rms_par"        : 99999,
                 # "read_ext_ang"   : True,
-                "edges"          : None,
+                # "edges"          : None,
             }
         )
         self.QMin.template.types.update(
@@ -130,16 +131,16 @@ class SHARC_TEQUILA(SHARC_FAST):
                 "active_orbitals": list,
                 "method_opt"     : str,
                 # "ext_input"      : str,
-                "norm_gr_check"  : float,
-                "spin_op"        : list,
+                # "norm_gr_check"  : float,
+                # "spin_op"        : list,
                 "vqd_par"        : float,
                 "hellman_feynman_grad"       : bool,
                 "shift_par"      : float,
                 "ansatz"         : str,
-                "sort_states"    : bool,
+                # "sort_states"    : bool,
                 "rms_par"        : float,
                 # "read_ext_ang"   : bool,
-                "edges"          : list,
+                # "edges"          : list,
             }
         )
 
@@ -346,7 +347,7 @@ class SHARC_TEQUILA(SHARC_FAST):
             optimizer = qmin["template"]["method_opt"]
             ansatz = qmin["template"]["ansatz"]
             vqd_par = qmin["template"]["vqd_par"]
-            edges = qmin["template"]["edges"]
+            # edges = qmin["template"]["edges"]
             input_active_orbitals = qmin["template"]["active_orbitals"]
             savedir = qmin.save["savedir"]
 
@@ -363,7 +364,7 @@ class SHARC_TEQUILA(SHARC_FAST):
             for atom, (x, y, z) in zip(elements, coords):
                 # Tequila uses Angstrom for geometry
                 string += f"\n{atom:2s} {x*au2a:15.8f} {y*au2a:15.8f} {z*au2a:15.8f}"
-            mol = tq.chemistry.Molecule(geometry=string, basis_set=basis, transformation=qubit_space_trans, active_orbitals=act_orb)
+            mol = tq.chemistry.Molecule(geometry=string, basis_set=basis, transformation=qubit_space_trans, active_orbitals=act_orb, backend="pyscf")
 
             # prepare Hamiltonian and Pauli matrices
             with redirect_stdout(self.stdout_logger), redirect_stderr(self.stdout_logger):
@@ -382,14 +383,14 @@ class SHARC_TEQUILA(SHARC_FAST):
             for istate in range(nstate):
 
                 # handling the ansatz - quantum circuit U
-                if ansatz == "SPA":
-                    if edges == None:
-                        self.log.error("The edges must be provided in the template file.")
-                        raise ValueError("The edges must be provided in the template file.")
-                    else:
-                        U = mol.make_ansatz(name=ansatz, edges=edges, label=istate)
-                else: 
-                    U = mol.make_ansatz(name=ansatz, label=istate)
+                # if ansatz == "SPA":
+                #     if edges == None:
+                #         self.log.error("The edges must be provided in the template file.")
+                #         raise ValueError("The edges must be provided in the template file.")
+                #     else:
+                #         U = mol.make_ansatz(name=ansatz, edges=edges, label=istate)
+                # else: 
+                U = mol.make_ansatz(name=ansatz, label=istate)
                 if istate == 1:  # add an extra gate to enforce orthogonality to state i=0
                     U += mol.UR(1, 2, angle=(tq.Variable("a")+0.5)*np.pi)
 
@@ -573,7 +574,7 @@ class SHARC_TEQUILA(SHARC_FAST):
 # ======================================================================= #
 # ======================================================================= #
 
-    def compute_grad(self, mol, variables, Us, gradients_indices):
+    def compute_grad(self, mol, variables, Us, gradients_indices, nac_indices, energies):
         with InDir(self.QMin.control["workdir"]):
             # fetch infos
             nstat = self.QMin.molecule["nmstates"]
@@ -589,6 +590,7 @@ class SHARC_TEQUILA(SHARC_FAST):
 
             # prepare gradient array
             tot_grad = np.zeros((nstat,natom,3))
+            tot_nac = np.zeros((nstat,nstat,natom,3))
 
             # big "if using Hellman-Feynman forces"
             if grad_hf:
@@ -629,10 +631,20 @@ class SHARC_TEQUILA(SHARC_FAST):
                         dH_dR = (H_mol_plus2 - H_mol_minus2)/(2.*shift_par/au2a)
                         dH_dR = openfermion.transforms.get_fermion_operator(dH_dR)
                         dH_dR_q = mol.transformation(dH_dR)
+
+                        # compute gradients
                         for k in gradients_indices:
                             dHF_dR = tq.ExpectationValue(H=dH_dR_q, U=Us[k])
                             dHF_dR = tq.simulate(dHF_dR, variables)
                             tot_grad[k,iatom,idir] = dHF_dR
+
+                        # compute NACs
+                        for (k,l) in nac_indices:
+                            dHF_dR, _ = tq.BraKet(H=dH_dR_q, bra=Us[k], ket=Us[l])
+                            dHF_dR = tq.simulate(dHF_dR, variables)
+                            # TODO: divide by dE!
+                            tot_nac[k,l,iatom,idir] = -dHF_dR.real/(energies[k]-energies[l])
+                            tot_nac[l,k,iatom,idir] = -dHF_dR.real/(energies[l]-energies[k])
             else:
                 raise NotImplementedError("No numerical gradients, use SHARC_NUMDIFF.py")
             # else:
@@ -665,7 +677,7 @@ class SHARC_TEQUILA(SHARC_FAST):
             #             en_plus.clear()
             #             en_minus.clear()
 
-            return tot_grad
+            return tot_grad, tot_nac
         
 # ======================================================================= #
 
@@ -859,22 +871,37 @@ class SHARC_TEQUILA(SHARC_FAST):
 
         ###### calculate the gradients ###### 
         
-        if QMin.requests["grad"]:
+        if QMin.requests["grad"] or QMin.requests["nacdr"]:
 
             # get which gradients to compute
             gradmap = self.QMin.maps["gradmap"]
             gradients_indices = []
-            for mult, state in gradmap:
-                if mult != 1:
-                    self.log.error("Can only do singlets!")
-                    raise ValueError("Can only do singlets!")
-                gradients_indices.append(state-1)
+            if gradmap:
+                for mult, state in gradmap:
+                    if mult != 1:
+                        self.log.error("Can only do singlets!")
+                        raise ValueError("Can only do singlets!")
+                    gradients_indices.append(state-1)
+
+            # which NACs to compute
+            nacmap = self.QMin.maps["nacmap"]
+            nac_indices = []
+            if nacmap:
+                for m1, s1, m2, s2 in nacmap:
+                    if m1 != 1 or m2 != 1:
+                        self.log.error("Can only do singlets!")
+                        raise ValueError("Can only do singlets in NAC!")
+                    if s1 < s2:
+                        nac_indices.append( (s1-1,s2-1) )
+                    else:
+                        nac_indices.append( (s2-1,s1-1) )
 
             # compute the gradient
-            self.reset_timer("Calculating the gradients")
-            tot_grad = self.compute_grad(mol, variables, Us, gradients_indices)
+            self.reset_timer("Calculating the gradients and NACs")
+            tot_grad, tot_nac = self.compute_grad(mol, variables, Us, gradients_indices, nac_indices, energies)
             QMout["grad"] = tot_grad
-            self.log_elapsed("Calculating the gradients DONE")
+            QMout["nacdr"] = tot_nac
+            self.log_elapsed("Calculating the gradients and NACs DONE")
     
             # store the gradient for later checking
             filename = os.path.join(savedir, f"gradients_all.npy.{step}")
@@ -1038,6 +1065,22 @@ class SHARC_TEQUILA(SHARC_FAST):
         if self.QMin.requests["grad"]:
             self.log.debug("Building gradmap")
             self.QMin.maps["gradmap"] = set({tuple(self.QMin.maps["statemap"][i][0:2]) for i in self.QMin.requests["grad"]})
+        if self.QMin.requests["nacdr"]:
+            if self.QMin.requests["nacdr"] == ["all"]:
+                mat = [
+                    (i + 1, j + 1) for i in range(self.QMin.molecule["nmstates"]) for j in range(self.QMin.molecule["nmstates"])
+                ]
+                # self.QMin.requests["nacdr"] = mat
+            else:
+                mat = self.QMin.requests["nacdr"]
+            self.log.debug("Building nacmap")
+            self.QMin.maps["nacmap"] = set()
+            for i in mat:
+                m1, s1, ms1 = self.QMin.maps["statemap"][int(i[0])]
+                m2, s2, ms2 = self.QMin.maps["statemap"][int(i[1])]
+                if m1 != m2 or i[0] == i[1] or ms1 != ms2 or s1 > s2:
+                    continue
+                self.QMin.maps["nacmap"].add(tuple([m1, s1, m2, s2]))
 
 # ======================================================================= #
 # ======================================================================= #
