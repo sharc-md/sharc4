@@ -298,6 +298,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.info(f"Scratchdir: {self.QMin.resources['scratchdir']}")
         self.log.info(f"Savedir: {self.QMin.save['savedir']}")
         
+        self.log.debug("Setting OMP_NUM_THREADS to 1. No OpenMP allowed in VASP here.")
+        os.environ["OMP_NUM_THREADS"]="1"
+
         if (any(num > 0 for num in self.QMin.molecule["states"][1:]) or self.QMin.molecule["states"][0] == 0):
             self.log.error("Current VASP implementation only deals with singlets!")
             raise ValueError()
@@ -547,7 +550,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         # VASP running commands
         starttime = datetime.datetime.now()
-        
+
         exec_str = f"mpirun -np {ncpu} {os.path.join(qmin.resources['vaspdir'],'vasp_std')} > {os.path.join(workdir, 'VASP.out')}"
         exit_code = self.run_program(
             workdir, exec_str, os.path.join(workdir, "VASP.out"), os.path.join(workdir, "VASP.err"))

@@ -110,8 +110,12 @@ def parse_cml_args(cml):
     '''
     command line parser.
     '''
-    arg = argparse.ArgumentParser(add_help=True)
-    
+    description='''
+    This script generates a molden file which has to be used by wigner.py to generate the initial conditions (initconds file).
+    The user has to provide the path to the OUTCAR file containg a converged VASP frequency calculation as well as location of the POSCAR file.
+    '''
+
+    arg = argparse.ArgumentParser(description=description,add_help=True,formatter_class=argparse.RawDescriptionHelpFormatter)
     arg.add_argument('-o', dest='outcar', action='store', type=str,
                      default='OUTCAR',
                      help='Location of VASP OUTCAR file containing frequency calculation.')
