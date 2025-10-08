@@ -1,0 +1,3 @@
+scratchdir $TMPDIR/
+memory 1000
+wfoverlap $SHARC/wfoverlap.x
