@@ -1250,6 +1250,9 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         log.info("\nDo you want to scale the hopping probability of upwards hops according to Boltzmann scaling?") 
         log.info("(usually to be used with CPA interface and no kinetic energy correction, EKinCorrect=1)")
         boltzmann_hop=question("Activate Boltzmann scaling?",bool, False)
+        if boltzmann_hop and INFOS["ekincorrect"] != 1:
+            log.info("You have selected boltzmann scaling with a kinetic energy correction scheme, which doesn't make sense. EkinCorrect=1 is enforced")
+            INFOS["ekincorrect"]=1
         INFOS["boltzmann_hop"]=boltzmann_hop
         if boltzmann_hop:
             boltzmann_temperature=question("Please input temperature value in K:",float, [300.0])[0]
