@@ -375,7 +375,6 @@ class QMout:
     def get_notes(data, iline):                     
         notes = {}
         iline += 2
-        print(data[iline])
         # First line contains the number of notes
         num_notes = int(data[iline].split('!')[0].strip())
         iline += 1
