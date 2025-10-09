@@ -27,7 +27,7 @@ def test_read_qmout():
 
 def test_parsing():
     tests = [
-        #(os.path.join(PATH, "421_h_soc_dm_grad_ion"), os.path.join(PATH, "421_h_soc_dm_grad_ion_ref")), # plus notes (turbomole)
+        (os.path.join(PATH, "421_h_soc_dm_grad_ion"), os.path.join(PATH, "421_h_soc_dm_grad_ion_ref")), # plus notes (turbomole)
         (os.path.join(PATH, "421_h_soc_dm_grad_ion2"), os.path.join(PATH, "421_h_soc_dm_grad_ion_ref")), # no notes
         (os.path.join(PATH, "421_h_theodore"), os.path.join(PATH, "421_h_theodore_ref")), # no notes
         (os.path.join(PATH, "410_h_multipolar"), os.path.join(PATH, "410_h_multipolar_ref")), # plus densities
@@ -56,6 +56,6 @@ def test_parsing():
                     if isinstance(v2, np.ndarray):
                         assert np.allclose(v2, reference[k][k2])
                     else:
-                        assert v2 == reference[k][k2]
+                        assert v2 == str(reference[k][k2])
             elif v:
                 assert v == reference[k], k
