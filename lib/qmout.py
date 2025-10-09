@@ -126,6 +126,11 @@ class QMout:
                         line = f.readline()
                     shape = []
                     block_length = 0
+                elif flag == 999:
+                    data = [line]
+                    while line != "\n":
+                        data.append(line)
+                        line = f.readline()
                 elif flag in {21}:
                     data = [line]
                     line = f.readline()
@@ -368,11 +373,47 @@ class QMout:
 
     @staticmethod                                   
     def get_notes(data, iline):                     
-        num = int(data[iline+1].split()[0])         
-        # currently only skipping                   
-        toskip = 4 + 3*num                          
-        return {'Notes': 'not read'}, iline + toskip
-        # TODO: actually read in the notes as dict. Reading should stop at the first empty line
+        notes = {}
+        iline += 2
+        print(data[iline])
+        # First line contains the number of notes
+        num_notes = int(data[iline].split('!')[0].strip())
+        iline += 1
+
+        # Skip the next line with labels header
+        iline += 1
+
+        # Read the next 'num_notes' lines to get the labels
+        labels = []
+        for _ in range(num_notes):
+            labels.append(data[iline].strip())
+            iline += 1
+
+        # Skip the line with notes header
+        iline += 1
+
+        # For each label, get the associated value
+        for i in range(num_notes):
+            if iline >= len(data):
+                break
+            # Skip "! index n ..." line
+            if not data[iline].strip().startswith('! index'):
+                break
+            iline += 1
+
+            # Read the actual value
+            if iline >= len(data):
+                break
+            value_line = data[iline].strip()
+            iline += 1
+
+            # Store in dictionary
+            notes[labels[i]] = value_line
+
+            # Stop if the next line is empty
+            if iline < len(data) and data[iline].strip() == "":
+                break
+        return notes, iline
 
     @staticmethod
     def get_property(data, iline, type, shape):
