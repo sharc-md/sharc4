@@ -214,6 +214,7 @@ class SHARC_SPAINN(SHARC_FAST):
         if self.QMin.requests["dm"] and "dipoles" in self.QMin.template["properties"]:
             self.QMout["dm"] = np.asarray(prediction["dm"])
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
 

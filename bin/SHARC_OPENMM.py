@@ -157,6 +157,7 @@ class SHARC_OPENMM(SHARC_FAST):
         self.QMout.natom = self.QMin.molecule["natom"]
         self.QMout.npc = self.QMin.molecule["npc"]
         self.QMout.point_charges = self.QMin.molecule["npc"] > 0
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def read_template(self, template_filename="OPENMM.template"):

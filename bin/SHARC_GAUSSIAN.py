@@ -1986,6 +1986,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     shutil.copy(outfile, os.path.join(copydir, "Dyson_%i_%i_%i_%i.out" % ion))
 
         del self.QMin.molecule['mol']
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     # ======================================================================= #
