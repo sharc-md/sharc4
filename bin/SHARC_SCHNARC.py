@@ -245,6 +245,7 @@ class SHARC_SCHNARC(SHARC_FAST):
         self.QMout.natom = self.QMin.molecule["natom"]
         self.QMout.npc = self.QMin.molecule["npc"]
         self.QMout.point_charges = False
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def create_restart_files(self):

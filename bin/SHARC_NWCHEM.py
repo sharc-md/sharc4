@@ -526,6 +526,7 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
             self.QMout["phases"][self.QMout["phases"] > 0] = 1
             self.QMout["phases"][self.QMout["phases"] < 0] = -1
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def _get_dipoles(self, nw_out: str, states: int) -> np.ndarray:
@@ -820,8 +821,6 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
         )
 
     def run(self) -> None:
-        starttime = datetime.datetime.now()
-
         self._build_schedule()
 
         if not self.QMin.resources["dry_run"]:
@@ -831,8 +830,6 @@ class SHARC_NWCHEM(SHARC_ABINITIO):
             self._run_wfoverlap()
 
         self.log.debug("All jobs finished successful")
-
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _write_input(self, qmin: QMin) -> str:
         """

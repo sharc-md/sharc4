@@ -35,7 +35,6 @@ from io import TextIOWrapper
 from itertools import product
 from math import ceil
 from typing import Any
-import sys
 
 import h5py
 import numpy as np
@@ -608,8 +607,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         return (s1[0] - s2[0]) * 1000 + (s1[1] - s2[1]) * 100 + (s1[2] - s2[2])
 
     def run(self) -> None:
-        starttime = datetime.datetime.now()
-
         # Generate schedule and run jobs
         self.log.debug("Generate schedule")
         self.QMin.scheduling["schedule"] = self._generate_schedule()
@@ -629,8 +626,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         os.path.join(self.QMin.save["savedir"], f"{file}.{self.QMin.save['step']}"),
                     )
             self.log.debug("All jobs finished successful")
-
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _generate_schedule(self) -> list[dict[str, QMin]]:
         """
@@ -1538,6 +1533,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 if self.QMin.requests["multipolar_fit"]:
                     self.QMout["multipolar_fit"] = self._resp_fit_on_densities()
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def read_and_append_densities(self):

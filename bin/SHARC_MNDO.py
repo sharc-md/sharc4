@@ -749,6 +749,7 @@ mocoef
                 for i in range(self.QMin.molecule["nmstates"]):
                     self.QMout["phases"][i] = -1 if self.QMout["overlap"][i][i] < 0 else 1
         
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
 
@@ -1156,8 +1157,6 @@ mocoef
         run_wfoverlap (braucht input files)
         save directory handling
         """
-
-        starttime = datetime.datetime.now()
         self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "mndo_calc")
 
         schedule = [{"mndo_calc" : self.QMin}] #Generate fake schedule
@@ -1172,8 +1171,6 @@ mocoef
             self._run_wfoverlap()
 
         self.log.debug("All jobs finished successfully")
-
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
 
 
     def _run_wfoverlap(self) -> None:
