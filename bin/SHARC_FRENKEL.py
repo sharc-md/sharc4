@@ -308,17 +308,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 child.QMin.molecule["point_charges"] = True
                 # TODO: add external pc
         self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
-
-        # Delete capping atoms from properties and coords
-        for name, child in self._kindergarden.items():
-            natoms = len(self.QMin.template["fragments"][name]["atoms"])
-
-            if self.QMin.requests["grad"]:
-                child.QMout.grad = child.QMout.grad[:, :natoms, :]
-
-            for state in child.QMout.multipolar_fit:
-                child.QMout.multipolar_fit[state] = child.QMout.multipolar_fit[state][:natoms, :]
-            child.QMin.coords["coords"] = child.QMin.coords["coords"][:natoms, :]
+        self.QMout["runtime"] = self.clock.measuretime(False)
 
     def _wfa(self, wavefunction: np.ndarray) -> list[list[str, np.ndarray]]:
         """
