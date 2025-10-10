@@ -36,10 +36,19 @@ from optparse import OptionParser
 from constants import au2fs, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, MASSES, NUMBERS
 import os
 import numpy as np
-from py4vasp import Calculation
 import random
-import mdtraj as md
-from sklearn.cluster import AgglomerativeClustering
+try:
+    from py4vasp import Calculation
+except ImportError:
+    raise ImportError("This scripts needs py4vasp, please install it.")
+try:
+    import mdtraj as md
+except ImportError:
+    raise ImportError("This scripts needs mdtraj, please install it.")
+try:
+    from sklearn.cluster import AgglomerativeClustering
+except ImportError:
+    raise ImportError("This scripts needs scikit-learn, please install it.")
 
 # =========================================================
 # some constants
