@@ -260,7 +260,6 @@ class QMout:
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
                     case 999: # notes
                         self.notes, iline = QMout.get_notes(data, iline)  
-                        break  # as we do not know how many lines the notes are, we are not reading the QM.out file after the notes
                     case _:
                         iline += 1
                         log.warning(f"Warning!: property with flag {flag} not yet implemented in QMout class")
@@ -278,6 +277,8 @@ class QMout:
     @staticmethod
     def get_quantity(data, iline, type, shape):
         log.debug(f"Parsing: {data[iline]}")
+        if "complex" in data[iline]:
+            type = complex
         if len(shape) == 0:
             iline += 1
             line = data[iline].split()
@@ -298,8 +299,6 @@ class QMout:
                     result[irow] = float(line[0])
             iline += shape[0] - 3
         elif len(shape) == 2:
-            if "complex" in data[iline]:
-                type = complex
             iline += 2
             for irow in range(shape[0]):
                 line = data[iline + irow].split()
