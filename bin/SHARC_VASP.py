@@ -733,6 +733,8 @@ class SHARC_VASP(SHARC_ABINITIO):
                 ks_es_all.update({ i+'->'+j : ks_u[j]-ks_o[i]})
         ks_es_all=dict(sorted(ks_es_all.items(), key=lambda x: x[1])) #sorting excitation energies
         ks_es= dict(itertools.islice(ks_es_all.items(), nmstates-1)) # Getting first nmstates-1 excitation energies
+        if self.QMin.save['step']==0:
+            self._write_transitions(ks_es) #Writing out states selected and their composition
         #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
         energies=list()
         pattern=rf'  energy  without entropy=.*energy\(sigma->0\)\s+=\s+(.*?)\n'
@@ -867,6 +869,19 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         return phases
     
+    def _write_transitions(self,ks_es: dict):
+        ''' 
+        Function for writing out to a text file the orbitals involved in the selected transitions.
+        The filename is TRANSITIONS and is written only for timestep 0
+        '''
+
+        input_path = os.path.join(self.QMin.save["savedir"], "TRANSITIONS.0")
+        input_str = f"{'Excited state n.':<20}{'orbitals(H=VBM;L=CBM)':<30}{'Energy(eV)':<20}\n"
+        for n,(i,j) in enumerate(ks_es.items()):
+            input_str += f"{n+1:<20}{i:<30s}{j:<10.5f}\n"
+        writefile(input_path, input_str)
+        
+        return 
 
 
 #-------------------| Functions for generating inputstrings for writing VASP input files |---------------------------- 
@@ -985,7 +1000,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         fromfile = os.path.join(workdir, "OUTCAR")
         tofile = os.path.join(savedir, f"OUTCAR.{step}")
         shutil.copy(fromfile, tofile)
-        
+
         return
     
     def _copy_files(self, workdir: str, savedir : str) -> None:
