@@ -717,7 +717,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         for i in occ:
             if i != 2.0 and i != 0.0:
                 self.log.error("Orbital occupancy from VASP calculation differ from 2 or 0. Open-shell or partial occupancies are not supported")
-                raise ValueError() 
+                raise ValueError("Orbital occupancy from VASP calculation differ from 2 or 0. Open-shell or partial occupancies are not supported") 
         #Reading and sorting KS orbital energies (Fermi energy set to 0!)
         n_o=int(np.sum(occ)/2) # N. of occupied MO, assuming closed shell
         n_u=len(ks_en)-n_o
@@ -876,7 +876,8 @@ class SHARC_VASP(SHARC_ABINITIO):
         '''
 
         input_path = os.path.join(self.QMin.save["savedir"], "TRANSITIONS.0")
-        input_str = f"{'Excited state n.':<20}{'orbitals(H=VBM;L=CBM)':<30}{'Energy(eV)':<20}\n"
+        input_str = f"Bangap: {ks_es['H->L']:<10.5f} eV\n"
+        input_str += f"{'Excited state n.':<20}{'orbitals(H=VBM;L=CBM)':<30}{'Energy(eV)':<20}\n"
         for n,(i,j) in enumerate(ks_es.items()):
             input_str += f"{n+1:<20}{i:<30s}{j:<10.5f}\n"
         writefile(input_path, input_str)
