@@ -897,6 +897,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         inputstring += f"NCORE = {self.QMin.resources['ncore']}\n" #n. of cores working on a single orbital.
         inputstring += f"ISMEAR = {self.QMin.template['ismear']}\n"
         inputstring += f"SIGMA = {self.QMin.template['sigma']}\n"
+        inputstring += f"EFERMI = MIDGAP\n"
         inputstring += f"ISPIN = {self.QMin.template['ispin']}\n" #Only singlets currently available
         inputstring += f"GGA = {self.QMin.template['gga']}\n"
         inputstring += f"TIME = {self.QMin.template['time_vasp']}\n"
