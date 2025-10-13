@@ -733,8 +733,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                 ks_es_all.update({ i+'->'+j : ks_u[j]-ks_o[i]})
         ks_es_all=dict(sorted(ks_es_all.items(), key=lambda x: x[1])) #sorting excitation energies
         ks_es= dict(itertools.islice(ks_es_all.items(), nmstates-1)) # Getting first nmstates-1 excitation energies
-        if self.QMin.save['step']==0:
-            self._write_transitions(ks_es) #Writing out states selected and their composition
+        self._write_transitions(ks_es) #Writing out states selected and their composition
         #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
         energies=list()
         pattern=rf'  energy  without entropy=.*energy\(sigma->0\)\s+=\s+(.*?)\n'
@@ -875,8 +874,13 @@ class SHARC_VASP(SHARC_ABINITIO):
         The filename is TRANSITIONS and is written only for timestep 0
         '''
 
-        input_path = os.path.join(self.QMin.save["savedir"], "TRANSITIONS.0")
-        input_str = f"Bangap: {ks_es['H->L']:<10.5f} eV\n"
+        step=self.QMin.save['step']
+        if step==0:
+            input_path = os.path.join(self.QMin.save["savedir"], "TRANSITIONS_t0")
+        else:
+            input_path = os.path.join(self.QMin.save["savedir"], f"TRANSITIONS.{step}")
+        input_str = f"VASP states and info for step n.{step}\n"
+        input_str += f"Bangap: {ks_es['H->L']:<10.5f} eV\n"
         input_str += f"{'Excited state n.':<20}{'orbitals(H=VBM;L=CBM)':<30}{'Energy(eV)':<20}\n"
         for n,(i,j) in enumerate(ks_es.items()):
             input_str += f"{n+1:<20}{i:<30s}{j:<10.5f}\n"
