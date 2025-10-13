@@ -33,4 +33,5 @@
   integer, parameter :: u_cmixm=65         !< JCP 139, 2111101 (2013), Method 3 (MCH)
   integer, parameter :: u_cmixdiab=66      !< JCP 139, 2111101 (2013), Method 3 (diabatic)
 
+  integer, parameter :: u_tshift=70          !< unit for start.time
   integer, parameter :: u_xyz=99        !< output.xyz

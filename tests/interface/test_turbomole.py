@@ -161,7 +161,6 @@ def test_gradients():
         test_interface = SHARC_TURBOMOLE()
         with open(expand_path(os.path.join(PATH, out)), "r", encoding="utf-8") as f:
             grads = test_interface._get_gradients(f.read())
-            print(grads)
             assert np.allclose(grads, ref, atol=5e-6)
 
 
@@ -170,6 +169,8 @@ def test_dm():
     tests = [
         (2, "inputs/turbomole/dm/1", "inputs/turbomole/dm/1/304_2.npz"),
         (1, "inputs/turbomole/dm/2", "inputs/turbomole/dm/2/304_1.npz"),
+        (2, "inputs/turbomole/dm/7.9_2", "inputs/turbomole/dm/7.9_2/403_2.npz"), # 7.9 tests
+        (1, "inputs/turbomole/dm/7.9_1", "inputs/turbomole/dm/7.9_1/403_1.npz"),
     ]
 
     for lvl, path, ref in tests:

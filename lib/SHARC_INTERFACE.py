@@ -492,7 +492,7 @@ class SHARC_INTERFACE(ABC):
                         )
                         pccharge.append(float(pcharges[3]))
 
-                    self.QMin.coords["pccoords"] = pccoords
+                    self.QMin.coords["pccoords"] = np.array(pccoords)
                     self.QMin.coords["pccharge"] = pccharge
                     self.QMin.molecule["npc"] = len(pccharge)
                 elif key == "retain":
@@ -528,6 +528,7 @@ class SHARC_INTERFACE(ABC):
 
         elif isinstance(qmin_file, QMin):
             self.QMin.molecule = deepcopy(qmin_file.molecule)
+            self.QMin.coords = deepcopy(qmin_file.coords)
             self.QMin.maps["statemap"] = deepcopy(qmin_file.maps["statemap"])
             self.QMin.maps["chargemap"] = deepcopy(qmin_file.maps["chargemap"])
             self.QMin.requests["retain"] = qmin_file.requests["retain"]

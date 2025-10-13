@@ -282,7 +282,7 @@ subroutine write_list_line(u, traj, ctrl)
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: u, imult,ims,istate,jstate,i,iatom,idir
-  real*8 :: expec_dm, expec_s, grad_length, temp_dm, den
+  real*8 :: expec_dm, expec_s, grad_length, temp_dm, den, gap
   real*8 :: p(ctrl%natom,3), r(ctrl%natom,3), summass, com(3), jmag, j(3)
 
   ! calculate properties
@@ -361,22 +361,26 @@ subroutine write_list_line(u, traj, ctrl)
   jmag = dsqrt(jmag)
 
   if ( (ctrl%time_uncertainty==1 .and. traj%in_time_uncertainty==0) .or. ctrl%time_uncertainty==0 ) then 
+  gap = (traj%H_diag_ss(traj%state_diag,traj%state_diag)-traj%H_diag_ss(traj%state_diag_old,traj%state_diag_old))*au2eV
   select case (traj%kind_of_jump)
     case (0)
       continue
     case (1)
-      write(u,'(A,1X,A,1X,I6,1X,A,1X,I6,1X,A,1X,F12.9)') &
-      &'#','Surface Hop/Pointer State Switch: new state=',traj%state_diag,'old state=',traj%state_diag_old,'randnum=',traj%randnum
+      write(u,'(A,1X,A,1X,I6,1X,A,1X,I6,1X,A,1X,F12.9,1X,A,1X,F9.6,1X,A2)') &
+      &'#','Surface Hop/Pointer State Switch: new state=',traj%state_diag,&
+      &'old state=',traj%state_diag_old,'randnum=',traj%randnum,'gap=',gap,'eV'
     case (2)
       write(u,'(A)') '# Jump frustrated.'
     case (3)
-      write(u,'(A,1X,A,1X,I6,1X,A,1X,I6,1X,A,1X,F12.9)') &
-      &'#','Surface Hop: new state=',traj%state_diag,'old state=',traj%state_diag_old,'randnum=',traj%randnum
+      write(u,'(A,1X,A,1X,I6,1X,A,1X,I6,1X,A,1X,F12.9,1X,A,1X,F9.6,1X,A2)') &
+      &'#','Surface Hop: new state=',traj%state_diag,&
+      &'old state=',traj%state_diag_old,'randnum=',traj%randnum,'gap=',gap,'eV'
       write(u,'(A)') '# Transition resonant to laser.'
     case (4)
       write(u,'(A)') '# Forced jump to ground state.'
-      write(u,'(A,1X,A,1X,I6,1X,A,1X,I6,1X,A,1X,F12.9)') &
-      &'#','Surface Hop: new state=',traj%state_diag,'old state=',traj%state_diag_old,'randnum=',traj%randnum
+      write(u,'(A,1X,A,1X,I6,1X,A,1X,I6,1X,A,1X,F12.9,1X,A,1X,F9.6,1X,A2)') &
+      &'#','Surface Hop: new state=',traj%state_diag,&
+      &'old state=',traj%state_diag_old,'randnum=',traj%randnum,'gap=',gap,'eV'
   endselect
   endif
 

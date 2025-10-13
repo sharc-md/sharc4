@@ -148,6 +148,7 @@ class SHARC_ASE_DB(SHARC_HYBRID):
     def getQMout(self):
         self.QMout = self._kindergarden["reference"].getQMout()
         if self.QMin.save["step"] % self.QMin.template["output_steps"] != 0:
+            self.QMout["runtime"] = self.clock.measuretime(False)
             return self.QMout
 
         with connect(self.QMin.template["ase_file"]) as db:
@@ -180,6 +181,7 @@ class SHARC_ASE_DB(SHARC_HYBRID):
                 data = {k: self.QMout[k] for k in self.QMin.template["props_to_save"]}
 
             db.write(ase.Atoms(symbols=self.QMin.molecule["elements"], positions=self.QMin.coords["coords"]), data=data)
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def read_requests(self, requests_file="QM.in"):

@@ -110,7 +110,7 @@ class SHARC_SCHNARC(SHARC_FAST):
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'SCHNARC interface setup':^76}||\n{'||':<78}||")
+        self.log.info(f"||{'SCHNARC interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
         if os.path.isfile("SCHNARC.template"):
@@ -245,6 +245,7 @@ class SHARC_SCHNARC(SHARC_FAST):
         self.QMout.natom = self.QMin.molecule["natom"]
         self.QMout.npc = self.QMin.molecule["npc"]
         self.QMout.point_charges = False
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def create_restart_files(self):

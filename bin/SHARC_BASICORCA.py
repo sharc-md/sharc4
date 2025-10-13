@@ -204,8 +204,6 @@ class SHARC_BASICORCA(SHARC_ABINITIO):
 
         self.log.debug("All jobs finished successful")
 
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
-
     def create_restart_files(self) -> None:
             pass
 
@@ -337,6 +335,7 @@ class SHARC_BASICORCA(SHARC_ABINITIO):
 
             self.QMout["grad"][ex_state] = gradients
         
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
     
 
