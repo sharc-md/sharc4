@@ -1000,7 +1000,7 @@ class SHARC_TEQUILA(SHARC_FAST):
        self.QMout.natom = self.QMin.molecule["natom"]
        self.QMout.npc = self.QMin.molecule["npc"]
        self.QMout.point_charges = self.QMin.molecule["npc"] > 0
-        self.QMout["runtime"] = self.clock.measuretime(False)
+       self.QMout["runtime"] = self.clock.measuretime(False)
        return self.QMout
 
 # ======================================================================= #
