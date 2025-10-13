@@ -539,7 +539,6 @@ def main():
     parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
     parser.add_option('-x', dest='X', action='store_true', help="Generate a xyz file with the sampled geometries in addition to the initconds file")
     parser.add_option('--keep_trans_rot', dest='KTR', action='store_true', help="Keep translational and rotational components")
-    parser.add_option('--use_zero_veloc', dest='UZV', action='store_true', help="For all samples, set velocities to zero")
 
     # arg processing
     (options, args) = parser.parse_args()
@@ -563,7 +562,6 @@ def main():
     INFOS['outfile'] = options.o
     INFOS['masslist'] = {}
     INFOS['KTR'] = options.KTR
-    INFOS['UZV'] = options.UZV
     INFOS['NFRAMES']=options.frames
     INFOS['NINIT']=options.init
     INFOS['cluster']=options.cluster
