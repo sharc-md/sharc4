@@ -308,7 +308,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 child.QMin.molecule["point_charges"] = True
                 # TODO: add external pc
         self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
-        self.QMout["runtime"] = self.clock.measuretime(False)
 
     def _wfa(self, wavefunction: np.ndarray) -> list[list[str, np.ndarray]]:
         """
@@ -357,6 +356,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
             # Create 0->n transition monopole matrices (states x natoms)
             monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
+            self.log.debug(
+                f"Frag {list(self._kindergarden.keys())[idx]} sum of transition charges {np.round(np.sum(monopoles_a, axis=1), 5)}"
+            )
 
             cnt_i += states_a
             cnt_j = 1
@@ -377,6 +379,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 r_ab = 1 / np.linalg.norm(diff, axis=-1)
 
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
+                self.log.debug(
+                    f"Frag {list(self._kindergarden.keys())[idx]} sum of transition charges {np.round(np.sum(monopoles_b, axis=1), 5)}"
+                )
 
                 hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
                     "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab
@@ -523,6 +528,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         if self.QMin.requests["theodore"]:
             self.QMout.prop1d.extend(self._wfa(coeffs.copy()))
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def create_restart_files(self):
