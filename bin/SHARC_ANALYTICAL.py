@@ -241,10 +241,25 @@ class SHARC_ANALYTICAL(SHARC_FAST):
                     ufile = os.path.join(self.QMin.save["savedir"], file)
                     self.savedict[step] = {'U': np.load(ufile).reshape( (self.QMin.molecule['nmstates'], self.QMin.molecule['nmstates']) )}
 
+        # # TODO: compare this script with /user/brigitta/sharc_dev/bin
+        # # add functions
+        # self._var.update({
+        #     "exp": sympy.functions.elementary.exponential.exp,
+        #     "sin": sympy.sin,
+        #     "cos": sympy.cos,
+        #     "log": sympy.log,
+        #     "sqrt": sympy.sqrt,
+        # })
+
         #do more preprocessing of expressions and set derivatives where necessary
         #set matrices/function _fH, _fdH, fD, fdD, _fsocR, _fsocI
         nmstates = self.parsed_states["nmstates"]
         self._gvar_symb = np.vectorize(sympy.symbols)(self._gvar[self._gvar != '0'])
+        # self.log.info(self._gvar[self._gvar != '0'])
+        # self.log.info(self._gvar_symb)
+        # self.log.info(self._var)
+        # for key in self._var:
+        #     self.log.info(type(self._var[key]))
         #process H matrix
         Hmat = sympy.zeros(nmstates,nmstates)
         self._fdH = {}
@@ -252,6 +267,7 @@ class SHARC_ANALYTICAL(SHARC_FAST):
             for j in range(i+1):
                 #replace (non-geometry) variables in H
                 Hmat[i,j] = sympy.parse_expr(self._Hstring[i][j],self._var)
+        # self.log.info(Hmat)
         if isinstance(Hmat, sympy.Matrix) and len(Hmat.free_symbols)>0:
             #create function for H
             self._fH = sympy.lambdify([self._gvar_symb], Hmat, "numpy")
@@ -325,6 +341,7 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         coords: np.ndarray = self.QMin.coords["coords"].copy()
         #coords_needed = [coords.ravel()[i] for i in range(r3N) if self._gvar_list[i] != '0']
         coords_needed = coords[self._gvar != '0']
+        # self.log.info(coords_needed)
 
         if self.QMin.requests["grad"]: grad = np.zeros((nmstates, natom, 3), dtype=float)
         if self.QMin.requests["nacdr"]: 
@@ -335,13 +352,19 @@ class SHARC_ANALYTICAL(SHARC_FAST):
         if self.QMin.requests["soc"]:
             if self._soc_real:
                 soc = np.zeros((nmstates, nmstates), dtype=float)
-            else: soc = np.zeros((nmstates, nmstates), dtype=complex)
+            else: 
+                soc = np.zeros((nmstates, nmstates), dtype=complex)
 
         self._do_derivs = self.QMin.requests["grad"] or self.QMin.requests["nacdr"]
 
 
         #with sympy: only evaluation at geometry values remains
+        # self.log.info(self._fH.__code__.co_varnames)
+        # self.log.info(self._fH.__code__.co_argcount) 
+        # self._H = self._fH(*coords_needed)
         self._H = self._fH(coords_needed)
+        # self._H = np.array(self._fH(*coords_needed), dtype=float).astype(float)
+        # self.log.info(self._H)
 
         if self._diagonalize:
             Hd, self._U = np.linalg.eigh(self._H, UPLO="L")
