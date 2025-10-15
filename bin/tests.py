@@ -61,7 +61,8 @@ def package_check():
         "torch": "SHARC_ANALYTICAL.py and SHARC_SCHNARC.py will not work.",
         "threadpoolctl": "SHARC_ECI.py and ab initio interfaces will not work.",
         "opt_einsum": "SHARC_ECI.py will not work.",
-        "parmed": "setup_from_prmtop.py will not work."
+        "parmed": "setup_from_prmtop.py will not work.",
+        "tequila": "SHARC_TEQUILA.py will not work."
     }
 
     fails = 0
@@ -111,7 +112,8 @@ INTERFACES = {'MOLPRO': 'MOLPRO',
               'NWCHEM': 'NWCHEM',
               'MNDO': 'MNDO',
               'MOPACPI': 'MOPACPI',
-              'PYSCF': 'PYSCF'
+              'PYSCF': 'PYSCF',
+              "TEQUILA": "TEQUILA"
               }
 
 # ======================================================================================================================
@@ -332,7 +334,7 @@ def get_infos():
     string += '  ' + '=' * 80 + '\n'
     sys.stdout.write(string + '\n')
     for interface in INTERFACES:
-        if interface in INFOS['interfaces'] and interface not in ['ANALYTICAL', 'scripts', 'LVC', 'PYSCF']:
+        if interface in INFOS['interfaces'] and interface not in ['ANALYTICAL', 'scripts', 'LVC', 'PYSCF', 'TEQUILA']:
             INFOS[interface] = env_or_question(interface, setenv=True)
     for i in INFOS['otherenvs']:
         INFOS[i] = env_or_question(i, setenv=True)
@@ -475,7 +477,8 @@ def compare_trajectories(INFOS, index):
         11: [1e-6, True],    # geometry
         12: [1e-6, True],    # velocity
         13: [1e+8, False],   # 2d property matrices
-        14: [1e+8, False]   # 1d property vectors
+        14: [1e+8, False],   # 1d property vectors
+        15: [1e+8, False]    # gradients
     }
 
     count = 0
@@ -623,7 +626,7 @@ def main():
     for item in INFOS:
         sys.stdout.write(str(item) + ' ' * (15 - len(item)) + str(INFOS[item]) + '\n')
     sys.stdout.write('\n')
-    setup = question('Do you want to setup the specified calculations?', bool, True)
+    setup = question('Do you want to run the specified test calculations?', bool, True)
     sys.stdout.write('\n')
     if setup:
         INFOS = run_tests(INFOS)
