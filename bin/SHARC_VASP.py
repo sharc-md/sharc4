@@ -733,7 +733,8 @@ class SHARC_VASP(SHARC_ABINITIO):
                 ks_es_all.update({ i+'->'+j : ks_u[j]-ks_o[i]})
         ks_es_all=dict(sorted(ks_es_all.items(), key=lambda x: x[1])) #sorting excitation energies
         ks_es= dict(itertools.islice(ks_es_all.items(), nmstates-1)) # Getting first nmstates-1 excitation energies
-        self._write_transitions(ks_es) #Writing out states selected and their composition
+        if nmstates > 1: 
+            self._write_transitions(ks_es) #Writing out states selected and their composition
         #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
         energies=list()
         pattern=rf'  energy  without entropy=.*energy\(sigma->0\)\s+=\s+(.*?)\n'
