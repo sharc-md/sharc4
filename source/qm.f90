@@ -1571,15 +1571,24 @@ module qm
       endif ! if (ctrl%calc_overlap==1) then
     endif
 
-    ! check if phases have all norm 1
-    ! all_unit_norm = .true.
-    if (printlevel>4) then 
+    if (traj%phases_found.eqv..true. .and. printlevel>4) then 
       write(u_log,*) 'Phases found in QMout. Applying phase correction.'
     endif
-
+    
+    !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 
+    ! See also if-block above  where ctrl%calc_overlap==1 and ...traj%phases_s=traj%phases_old_s ...
+    if (traj%phases_found.eqv..true. .and. ctrl%calc_overlap==1) then
+        do istate=1,ctrl%nstates
+            traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
+        enddo
+    endif
+    
+    ! check if phases have all norm 1
+    ! all_unit_norm = .true.
     do istate=1,ctrl%nstates
       if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) traj%phases_s(istate) = dcmplx(1.d0,0.d0)
     enddo
+
     ! if (.not.all_unit_norm) then
     !   write(u_log,*) 'Not all phases have unit norm. Abort.'
     !   stop 1
