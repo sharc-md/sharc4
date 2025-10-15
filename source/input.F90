@@ -2269,7 +2269,9 @@ module input
       if (io==0) then
         read(line,*) ctrl%boltzmann_temperature
       else
-        write(u_log,'(a)') 'No boltzmann_temperature was specified for CPA probability scaling. Default value of 300 K is assigned.'
+        if (printlevel>1) then
+          write(u_log,'(a)') 'No boltzmann_temperature was specified for CPA probability scaling. Default value of 300 K is assigned.'
+        endif
       endif
     endif
 

@@ -37,9 +37,6 @@ from globals import DEBUG, PRINT
 from logger import log as logging
 from typing import Optional, Any, Iterable
 import sympy
-from scipy import linalg as LA
-from scipy import optimize
-import glob
 
 
 class InDir:
@@ -217,6 +214,7 @@ def completer(text, state):
     """
     Function to make the autocomplete feature of question() working also for python >= 3.12
     """
+    import glob
     matches = glob.glob(text + '*')
     return matches[state] if state < len(matches) else None 
 
@@ -665,7 +663,7 @@ def get_pyscf_order_from_orca(atom_symbols, basis_dict):
 
 def get_cart2sph_matrix(angular_m: int, n_ao: int, atom_symbols: list[str], basis_dict) -> np.ndarray:
     from pyscf import gto
-    from scipy.LA import block_diag
+    from scipy.linalg import block_diag
 
     assert angular_m in [2, 3]
     # c_tensor defaults to identity matrix
@@ -1006,6 +1004,8 @@ def phase_correction_cmplx(overlap,flag="simple"):
 
     Return: phases for corrections 
     """
+    from scipy import linalg as LA
+    from scipy import optimize
     
     if flag=="simple": #This does not require the matrix to be exactly unitary
         phases=[]

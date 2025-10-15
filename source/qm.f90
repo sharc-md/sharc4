@@ -1490,7 +1490,7 @@ module qm
         endif 
         traj%phases_s=traj%phases_old_s
         do istate=1,ctrl%nstates
-          traj%phases_s(istate)=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+          traj%phases_s(istate)=traj%phases_s(istate)*CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
           ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 -> more robust for plan wave basis sets 
           ! where overlap matrix is not real
         enddo
@@ -1587,7 +1587,7 @@ module qm
 
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
     ! Bra
-    ! CONJG because phases could be complex if plan wave basis sets are used (Marco ROmanelli 30/06/2025)
+    ! CONJG because phases could be complex if plan wave basis sets are used (Marco Romanelli 30/06/2025)
     do istate=1,ctrl%nstates
       traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*CONJG(traj%phases_s(istate))
       traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
@@ -1604,7 +1604,7 @@ module qm
         traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*CONJG(traj%phases_old_s(istate))
       endif
     enddo
-    ! Ket: TODO: need to complex conjugate all phases in the ket (or the bra?)
+    ! Ket
     do istate=1,ctrl%nstates
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)
