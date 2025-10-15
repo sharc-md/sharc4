@@ -327,6 +327,7 @@ class SHARC_ANALYTICAL(SHARC_FAST):
 
 
     def getQMout(self):
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def run(self):

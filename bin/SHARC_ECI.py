@@ -1027,6 +1027,7 @@ class SHARC_ECI(SHARC_HYBRID):
                         else:
                             self.QMout['mol'] = merge_moles( self.QMout['mol'], child.QMout['mol'] )
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout 
 
     def clean_savedir(self):

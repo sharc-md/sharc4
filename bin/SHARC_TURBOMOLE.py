@@ -1250,6 +1250,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                             idx = n_state + grad[1] - 1 + (i * self.QMin.molecule["states"][grad[0] - 1])
                             self.QMout["dm"][:, idx, idx] = self._get_static_dipole(grad_content, gs)
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def _get_ex_ex_dipole(self, ricc2_out: str) -> np.ndarray:
@@ -1363,8 +1364,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         )
 
     def run(self) -> None:
-        starttime = datetime.datetime.now()
-
         # Generate schedule
         self.log.debug("Generate schedule")
         self._generate_schedule()
@@ -1403,8 +1402,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Run theodore
         if self.QMin.requests["theodore"]:
             self._run_theodore()
-
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _generate_schedule(self) -> None:
         """

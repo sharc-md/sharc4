@@ -192,6 +192,7 @@ class SHARC_QMOUT(SHARC_FAST):
         if self.QMin.requests["multipolar_fit"]:
             self.QMout["multipolar_fit"] = self.QMout2["multipolar_fit"]
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def run(self) -> None:

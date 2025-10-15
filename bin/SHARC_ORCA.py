@@ -885,6 +885,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                             factor = (-ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
                         ion_mat[i, j] = dyson_mat[s1 - 1, s2 - 1] * factor
             self.QMout["prop2d"].append(("ion", ion_mat))
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def _get_pc_grad(self, grad_path: str) -> np.ndarray:
@@ -1219,8 +1220,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         save directory handling
         """
 
-        starttime = datetime.datetime.now()
-
         # Generate schedule and run jobs
         self.log.debug("Generating schedule")
         self._gen_schedule()
@@ -1237,8 +1236,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         self._run_wfoverlap()
 
         self.log.debug("All jobs finished successful")
-
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _create_aoovl(self) -> None:
         """
