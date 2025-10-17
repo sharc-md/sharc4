@@ -80,6 +80,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         # Keep track of total site states to preallocate Hamiltonian
         self._total_site_states = 1  # GS prod
 
+        self._n_fragments = None
+
     @staticmethod
     def description():
         return SHARC_FRENKEL._description
@@ -194,6 +196,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             name: (frag["interface"], frag["args"], frag["kwargs"]) for name, frag in self.QMin.template["fragments"].items()
         }
         self.instantiate_children(kindergarden)
+        self._n_fragments = len(self._kindergarden)
 
         # Setup QMin
         for name, frag in self.QMin.template["fragments"].items():
@@ -351,14 +354,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         hamiltonian = np.zeros((self._total_site_states, self._total_site_states), dtype=float)
 
         cnt_i = 1
-        for idx, a in enumerate(self._kindergarden.values()):
+        for idx, (label_a, a) in enumerate(self._kindergarden.items()):
             states_a = a.QMin.molecule["states"][0] - 1
-
-            # Create 0->n transition monopole matrices (states x natoms)
-            monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
-            self.log.debug(
-                f"Frag {list(self._kindergarden.keys())[idx]} sum of transition charges {np.round(np.sum(monopoles_a, axis=1), 5)}"
-            )
 
             cnt_i += states_a
             cnt_j = 1
@@ -366,27 +363,33 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             # Add site gs energy to GS prod energy
             np.einsum("ii->i", hamiltonian)[:] += (gs_en := a.QMout.h[0, 0].real)
             np.einsum("ii->i", hamiltonian)[cnt_i - states_a : cnt_i] += np.einsum("ii->i", a.QMout.h[1:, 1:]).real - gs_en
-            for jdx, b in enumerate(self._kindergarden.values()):
+
+            # Create 0->n transition monopole matrices (states x natoms)
+            if idx == self._n_fragments - 1:  # Last fragment has no off diagonal
+                break
+            monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
+            self.log.debug(f"Frag {label_a} sum of transition charges {np.round(np.sum(monopoles_a, axis=1), 5)}")
+
+            for jdx, (label_b, b) in enumerate(self._kindergarden.items()):
                 states_b = b.QMin.molecule["states"][0] - 1
 
-                # Skip upper diagonal
+                # Skip lower diagonal
                 cnt_j += states_b
-                if idx <= jdx:
+                if idx >= jdx:
                     continue
+                self.log.debug(f"{label_a} {label_b}")
 
                 # Calculate inverse distance matrix for fragment A and B (atoms_a x atoms_b)
                 diff = a.QMin.coords["coords"][:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
                 r_ab = 1 / np.linalg.norm(diff, axis=-1)
 
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
-                self.log.debug(
-                    f"Frag {list(self._kindergarden.keys())[idx]} sum of transition charges {np.round(np.sum(monopoles_b, axis=1), 5)}"
-                )
+                self.log.debug(f"Frag {label_b} sum of transition charges {np.round(np.sum(monopoles_b, axis=1), 5)}")
 
                 hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
                     "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab
                 )
-        return np.linalg.eigh(hamiltonian)
+        return np.linalg.eigh(hamiltonian, UPLO="u")
 
     def _get_exciton_gradients(self, coeffs: np.ndarray) -> np.ndarray:
         """
@@ -416,9 +419,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 states_b = b.QMin.molecule["states"][0] - 1
                 atoms_b = self.QMin.template["fragments"][name_b]["atoms"]
 
-                # Skip upper diagonal
+                # Skip lower diagonal
                 state_cnt_b += states_b
-                if idx <= jdx:
+                if idx >= jdx:
                     continue
 
                 # d/dR(1/|R_a-R_b|) = -R_a-R_b/|R_a-R_b|**3
