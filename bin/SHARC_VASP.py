@@ -837,16 +837,16 @@ class SHARC_VASP(SHARC_ABINITIO):
             S_ij.append(s_ij)
        
         #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
-        #This may need to be commented, so it's the driver doing that, before checking for intruder states
-        #After discussion with Sebastian this is probably the safest option. 
+        #This may need to be commented, so it's the driver doing that, before checking for intruder states (to be tested!)
 
         #λ,V = LA.eigh(S_ij[0].T.conjugate() @ S_ij[0])
-        #T=S_ij[0] @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
+        #S_ij_lowdin=S_ij[0] @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
         
         end = datetime.datetime.now()
         
-        self.log.info(check_timing(start,end))
+        self.log.debug(check_timing(start,end))
        
+        #return S_ij_lowdin
         return S_ij[0]
 
     def _get_phases(self,flag: str, overlap: np.ndarray[complex,2] ) -> np.ndarray[complex,1]:
