@@ -727,6 +727,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         ks_u.update(dict([('L+'+ str(i-n_o),ks_en[i]) for i in range(n_o+1,n_o+n_u)])) #obitals above L
         #### Computing excitation energies by orbital energy difference among KS MOs and selecting first "nmstates" only #### 
         ks_mo= ks_o|ks_u
+        ks_mo_index=dict([(i,n+1) for n,i in enumerate(ks_mo.keys())])
         ks_es_all=dict()
         for i in ks_o:
             for j in ks_u:
@@ -734,7 +735,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         ks_es_all=dict(sorted(ks_es_all.items(), key=lambda x: x[1])) #sorting excitation energies
         ks_es= dict(itertools.islice(ks_es_all.items(), nmstates-1)) # Getting first nmstates-1 excitation energies
         if nmstates > 1: 
-            self._write_transitions(ks_es) #Writing out states selected and their composition
+            self._write_transitions(ks_es,ks_mo_index) #Writing out states selected and their composition
         #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
         energies=list()
         pattern=rf'  energy  without entropy=.*energy\(sigma->0\)\s+=\s+(.*?)\n'
@@ -869,7 +870,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         return phases
     
-    def _write_transitions(self,ks_es: dict):
+    def _write_transitions(self,ks_es: dict, mo_index : dict):
         ''' 
         Function for writing out to a text file the orbitals involved in the selected transitions.
         The filename is TRANSITIONS and is written only for timestep 0
@@ -882,9 +883,11 @@ class SHARC_VASP(SHARC_ABINITIO):
             input_path = os.path.join(self.QMin.save["savedir"], f"TRANSITIONS.{step}")
         input_str = f"VASP states and info for step n.{step}\n"
         input_str += f"Bangap: {ks_es['H->L']:<10.5f} eV\n"
-        input_str += f"{'Excited state n.':<20}{'orbitals(H=VBM;L=CBM)':<30}{'Energy(eV)':<20}\n"
+        input_str += f"{'Excited state n.':<20}{'orbitals(vasp band indexes)':<30}{'Energy(eV)':<20}\n"
         for n,(i,j) in enumerate(ks_es.items()):
-            input_str += f"{n+1:<20}{i:<30s}{j:<10.5f}\n"
+            tmp=i.split('->')
+            label=i+" ("+str(mo_index[tmp[0]])+'->'+str(mo_index[tmp[1]])+")"
+            input_str += f"{n+1:<20}{label:<30}{j:<10.5f}\n"
         writefile(input_path, input_str)
         
         return 
