@@ -36,6 +36,7 @@ from utils import expand_path, readfile
 
 
 class SHARC_FAST(SHARC_INTERFACE):
+    _use_with_pysharc = True
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

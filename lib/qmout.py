@@ -23,23 +23,19 @@
 #
 # ******************************************
 
+import ast
 import math
-from itertools import chain
+import re
+from functools import reduce
+from itertools import chain, islice
 
 import numpy as np
+import pyscf
 from constants import IToMult, IToPol
+from logger import log
 from numpy import ndarray
 from printing import formatcomplexmatrix, formatgrad
-from utils import eformat, itnmstates, writefile
-from logger import log
-import pyscf
-from utils import electronic_state
-from functools import reduce
-from itertools import islice
-import ast
-import re
-import ast
-import json
+from utils import eformat, electronic_state, itnmstates, writefile
 
 
 class QMout:
@@ -56,7 +52,7 @@ class QMout:
     npc: int
     point_charges: bool
     # data
-    runtime: int
+    runtime: float
     notes: dict[str, str]
     states: list[int]
     charges: list[int]
@@ -108,8 +104,8 @@ class QMout:
             log.debug(f"Reading file {filepath}")
             try:
                 f = open(filepath, "r", encoding="utf-8")
-            except IOError:
-                raise IOError("'Could not find %s!' % (filepath)")
+            except IOError as exc:
+                raise IOError(f"Could not find {filepath}!") from exc
             log.debug(f"Done raw reading {filepath}")
             # get basic information
             basic_info = {"states": list, "charges": list, "natom": int, "npc": int, "nmstates": int}
@@ -130,6 +126,11 @@ class QMout:
                         line = f.readline()
                     shape = []
                     block_length = 0
+                elif flag == 999:
+                    data = [line]
+                    while line != "\n":
+                        data.append(line)
+                        line = f.readline()
                 elif flag in {21}:
                     data = [line]
                     line = f.readline()
@@ -259,7 +260,6 @@ class QMout:
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
                     case 999: # notes
                         self.notes, iline = QMout.get_notes(data, iline)  
-                        break  # as we do not know how many lines the notes are, we are not reading the QM.out file after the notes
                     case _:
                         iline += 1
                         log.warning(f"Warning!: property with flag {flag} not yet implemented in QMout class")
@@ -277,6 +277,8 @@ class QMout:
     @staticmethod
     def get_quantity(data, iline, type, shape):
         log.debug(f"Parsing: {data[iline]}")
+        if "complex" in data[iline]:
+            type = complex
         if len(shape) == 0:
             iline += 1
             line = data[iline].split()
@@ -295,6 +297,7 @@ class QMout:
                     result[irow] = complex(float(line[0]), float(line[1]))
                 elif type == float:
                     result[irow] = float(line[0])
+            iline += shape[0] - 3
         elif len(shape) == 2:
             iline += 2
             for irow in range(shape[0]):
@@ -369,11 +372,46 @@ class QMout:
 
     @staticmethod                                   
     def get_notes(data, iline):                     
-        num = int(data[iline+1].split()[0])         
-        # currently only skipping                   
-        toskip = 4 + 3*num                          
-        return {'Notes': 'not read'}, iline + toskip
-        # TODO: actually read in the notes as dict. Reading should stop at the first empty line
+        notes = {}
+        iline += 2
+        # First line contains the number of notes
+        num_notes = int(data[iline].split('!')[0].strip())
+        iline += 1
+
+        # Skip the next line with labels header
+        iline += 1
+
+        # Read the next 'num_notes' lines to get the labels
+        labels = []
+        for _ in range(num_notes):
+            labels.append(data[iline].strip())
+            iline += 1
+
+        # Skip the line with notes header
+        iline += 1
+
+        # For each label, get the associated value
+        for i in range(num_notes):
+            if iline >= len(data):
+                break
+            # Skip "! index n ..." line
+            if not data[iline].strip().startswith('! index'):
+                break
+            iline += 1
+
+            # Read the actual value
+            if iline >= len(data):
+                break
+            value_line = data[iline].strip()
+            iline += 1
+
+            # Store in dictionary
+            notes[labels[i]] = value_line
+
+            # Stop if the next line is empty
+            if iline < len(data) and data[iline].strip() == "":
+                break
+        return notes, iline
 
     @staticmethod
     def get_property(data, iline, type, shape):
@@ -1091,7 +1129,7 @@ class QMout:
         for ie, element in enumerate(prop1d):
             string += "%i ! %i %s\n" % (nmstates, ie, element[0])
             for i in range(nmstates):
-                string += "%s 0.\n" % (eformat(element[1][i], 12, 3),)
+                string += "%s\n" % (eformat(element[1][i], 12, 3),)
         string += "\n"
         return string
 

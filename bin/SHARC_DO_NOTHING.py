@@ -103,6 +103,12 @@ class SHARC_DO_NOTHING(SHARC_FAST):
         self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None
     ) -> dict:
         "prepare INFOS obj"
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'Do-nothing interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+
         self.setup_info = question(
             "Please provide your favorite dish!",
             str,
@@ -173,6 +179,7 @@ class SHARC_DO_NOTHING(SHARC_FAST):
 
         self.QMout["notes"]["Do nothing"] = "This is a note."
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def write_step_file(self):

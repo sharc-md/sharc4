@@ -506,8 +506,8 @@ There are two representations:
                             states.append(int(l[i]))
                         INFOS["states"] = states
                 qmfile.close()
-            if "ion" not in INFOS:
-                INFOS["ion"] = False
+        if "ion" not in INFOS:
+            INFOS["ion"] = False
 
         print("\n" + "{:-^60}".format("Reference energy") + "\n")
         if INFOS["read_QMout"]:
@@ -535,9 +535,14 @@ There are two representations:
                     if INFOS["ion"]:
                         P = qmout.ion
                         P = np.einsum("kij,in,jm->knm", P, Ucon, U)
-                INFOS["eref"] = H[0][0].real
+                    INFOS["eref"] = eig[0]
+                else:
+                    INFOS["eref"] = H[0][0].real
                 print("Reference energy read from file \n%s" % (qmfilename))
                 print("E_ref= %16.12f" % (INFOS["eref"]))
+            else:
+                print("\nPlease enter the ground state equilibrium energy in hartree.")
+                INFOS["eref"] = question("Reference energy (hartree): ", float)[0]
         else:
             print("\nPlease enter the ground state equilibrium energy in hartree.")
             INFOS["eref"] = question("Reference energy (hartree): ", float)[0]
@@ -748,15 +753,18 @@ def get_QMout(INFOS, initlist):
             # print('No QM.out for ICOND_%05i!' % (icond))
             continue
         ncond += 1
+        # TODO: this seems to be very slow in some cases (Eu3+ with many multiplicities)
         qmout = QMout(filepath=qmfilename)
         H = qmout.h
         DM = qmout.dm
         if INFOS["diag"]:
-            P = qmout.ion
             eig, U = np.linalg.eigh(H)
+            H = np.diag(eig)
             Ucon = np.conjugate(U)
             DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
-            P = np.einsum("kij,in,jm->knm", P, Ucon, U)
+            if INFOS["ion"]:
+                P = qmout.ion
+                P = np.einsum("kij,in,jm->knm", P, Ucon, U)
         if INFOS["diabatize"]:
             Smat = qmout.overlap
             thres = 0.5

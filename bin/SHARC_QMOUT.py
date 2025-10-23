@@ -103,6 +103,12 @@ class SHARC_QMOUT(SHARC_FAST):
         return all_features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'QMOUT interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
+
         "prepare INFOS obj"
         path = question(
             "Please provide path to QM.out file or to folder containing ICOND folders",
@@ -186,6 +192,7 @@ class SHARC_QMOUT(SHARC_FAST):
         if self.QMin.requests["multipolar_fit"]:
             self.QMout["multipolar_fit"] = self.QMout2["multipolar_fit"]
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def run(self) -> None:

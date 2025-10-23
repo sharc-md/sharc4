@@ -293,7 +293,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # Setup some output to log
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'NUMDIFF interface setup':^76}||\n{'||':<78}||")
+        self.log.info(f"||{'NUMDIFF interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
 

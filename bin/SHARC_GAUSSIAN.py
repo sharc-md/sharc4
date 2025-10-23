@@ -1873,8 +1873,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
         # Dyson norms
         if self.QMin.requests["ion"]:
-            if "prop" not in self.QMout:
-                self.QMout["prop"] = makecmatrix(nmstates, nmstates)
+            ion_mat = makecmatrix(nmstates, nmstates)
             for ion in self.QMin.maps["ionmap"]:
                 outfile = os.path.join(self.QMin.resources["scratchdir"], "Dyson_%i_%i_%i_%i/wfovl.out" % ion)
                 out = readfile(outfile)
@@ -1897,7 +1896,8 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                             factor = (ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
                         else:
                             factor = (-ms1 + 1.0 + (m1 - 1.0) / 2.0) / m1
-                        self.QMout["prop"][i][j] = SHARC_GAUSSIAN.getDyson(out, s1, s2) * factor
+                        ion_mat[i][j] = SHARC_GAUSSIAN.getDyson(out, s1, s2) * factor
+            self.QMout["prop2d"].append(("ion", ion_mat))
 
         # ====================== Requests that read from fchks ===============================
         # ========================== read from master ======================================
@@ -1986,6 +1986,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     shutil.copy(outfile, os.path.join(copydir, "Dyson_%i_%i_%i_%i.out" % ion))
 
         del self.QMin.molecule['mol']
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     # ======================================================================= #

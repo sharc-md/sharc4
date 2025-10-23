@@ -260,6 +260,11 @@ class SHARC_ECI(SHARC_HYBRID):
         INFOS: dictionary with all previously collected infos during setup
         KEYSTROKES: object as returned by open() to be used with question()
         """
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'ECI interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
 
         file = question("Please specify path to the resource file of the ECI interface:", str, default="ECI.resources", KEYSTROKES=KEYSTROKES)
         self.setupINFOS["resources_file"] = expand_path(file)
@@ -1022,6 +1027,7 @@ class SHARC_ECI(SHARC_HYBRID):
                         else:
                             self.QMout['mol'] = merge_moles( self.QMout['mol'], child.QMout['mol'] )
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout 
 
     def clean_savedir(self):
