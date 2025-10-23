@@ -817,7 +817,7 @@ from the initcond files as provided by wigner.py.
         log.info("Please enter the filename of the initial conditions file.")
         while True:
             initfile = question("Initial conditions filename:", str, "initconds")
-            initfile = os.path.expanduser(os.path.expandvars(initfile))
+            initfile = os.path.abspath(os.path.expanduser(os.path.expandvars(initfile)))
             if os.path.isdir(initfile):
                 log.info("Is a directory: %s" % (initfile))
                 continue
@@ -852,13 +852,15 @@ from the initcond files as provided by wigner.py.
     # TODO: it might make sense to initialize the wave function in the diagonal basis
     # but run in the MCH basis (the latter is required because we otherwise cannot match the basis with the subsequent simulation)
     # initializing the wave function in the diagonal basis would suppress oscillations from SOC!
-    INFOS["repr"] = initf.readline().split()[1]
-    if INFOS["repr"].lower() == "diag":
-        INFOS["diag"] = False
-        INFOS["repr"] = "diag"
-    else:
-        INFOS["diag"] = True
-        INFOS["repr"] = "MCH"
+    INFOS["diag"] = True
+    INFOS["repr"] = initf.readline().split()[1] 
+    INFOS["repr"] = "MCH"  # force MCH
+    # if INFOS["repr"].lower() == "diag":
+    #     INFOS["diag"] = False
+    #     INFOS["repr"] = "diag"
+    # else:
+    #     INFOS["diag"] = True
+    #     INFOS["repr"] = "MCH"
 
     INFOS["eref"] = float(initf.readline().split()[1])
     INFOS["eharm"] = float(initf.readline().split()[1])
@@ -1126,7 +1128,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
 
     elif INFOS['method']=='scp':
         INFOS['surf'] = 'diagonal'
-        if surf==True:
+        if surf:
             INFOS['pointer_basis'] = 'diag'
             INFOS['neom_rep'] = 'diag' 
         else:
@@ -1673,7 +1675,7 @@ def get_iconddir(istate, INFOS):
     else:
         mult, state, ms = INFOS["statemap"][istate]
         dirname = IToMult[mult] + "_%i" % (state - (mult == 1 or mult == 2))
-    return dirname
+    return dirname 
 
 
 # ====================================
@@ -1751,7 +1753,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
                 all_qsub.write(string)
 
         sys.stdout.write("\n")
-        INFOS["setupstates_names"].append(get_iconddir(istate, INFOS))
+        INFOS["setupstates_names"].append(os.path.join(os.getcwd(), get_iconddir(istate, INFOS)))
     log.info("\n\n%i trajectories setup, last initial condition was %i in state %i.\n" % (ntraj, icond, istate))
     setup_stat = open("setup_traj.status", "a+")
     string = """*** %s %s %s
