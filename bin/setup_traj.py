@@ -43,9 +43,9 @@ import factory
 from utils import question, itnmstates, expand_path
 from constants import IToMult, U_TO_AMU, HARTREE_TO_EV, n_avogadro, au2a, au2newton
 from SHARC_INTERFACE import SHARC_INTERFACE
-from SHARC_FAST import SHARC_FAST
-from SHARC_ABINITIO import SHARC_ABINITIO
-from SHARC_HYBRID import SHARC_HYBRID
+# from SHARC_FAST import SHARC_FAST
+# from SHARC_ABINITIO import SHARC_ABINITIO
+# from SHARC_HYBRID import SHARC_HYBRID
 
 # =========================================================0
 PI = math.pi
@@ -1546,60 +1546,60 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
                 # if question("Do you want to use ", bool, False)
 
 
-    # droplet potential
-    if question("Do you want to use a droplet force?", bool, default=False):
-        INFOS["droplet"] = True
-        if question("Do you want to calculate the parameters from system size?", bool, default=False):
-            density = question("Specify the density of your solvent [g/mL] (default: water at 298K)", float, default=[0.9974])[0]
-            press_pascal = (
-                question("Specify the desired pressure at the surface of the droplet in bar", float, default=[1])[0] * 100_000
-            )
-            wokness = question(
-                "On a scale from 1 being a harmonic potential and 0 being a solid wall, how fast should the potential increase?",
-                float,
-                default=[0.2],
-            )[0]
-            molar_mass = question("Specify the molar-mass of your solvent [g/mol] (default: water)", float, default=[18.01528])[0]
-            n_mol = question("How many molecules are in you simulation?", int)[0]
-            r_drop = (
-                (3 * (n_mol * (1 / (n_avogadro * (1000 * density / molar_mass) * 1e-27))) / (4 * math.pi)) ** (1 / 3)
-            )
-            r_off = r_drop * (1 - wokness)
-            INFOS["droplet_radius"] = r_off
-            INFOS["droplet_force"] = (press_pascal * 1e-20 * 4 * math.pi * r_drop ** 2) / (r_drop - r_off) / (
-                au2newton / au2a
-            )  # force in N/ang to Hartree/Bohr**2
-            log.info(
-                f"droplet_radius (potential free radius) = {INFOS['droplet_radius']} Å; droplet force {INFOS['droplet_force']} Hartree/Bohr^2"
-            )
-        else:
-            INFOS["droplet_force"] = question("Specify the force constant in Hartree/Bohr^2", float)[0]
-            INFOS["droplet_radius"] = question(
-                "Specify the offset-radius for the droplet (beyond which the force is applied) [Angstrom]", float
-            )[0]
-        if question("Should all atoms be affected by the droplet force?", bool, default=True):
-            INFOS["droplet_atoms"] = "all"
-        else:
-            INFOS["droplet_atoms"] = question("Specify the atom affected by the droplet force (list of atom indexes starting at 1)", int, ranges=True)
+    # # droplet potential
+    # if question("Do you want to use a droplet force?", bool, default=False):
+    #     INFOS["droplet"] = True
+    #     if question("Do you want to calculate the parameters from system size?", bool, default=False):
+    #         density = question("Specify the density of your solvent [g/mL] (default: water at 298K)", float, default=[0.9974])[0]
+    #         press_pascal = (
+    #             question("Specify the desired pressure at the surface of the droplet in bar", float, default=[1])[0] * 100_000
+    #         )
+    #         wokness = question(
+    #             "On a scale from 1 being a harmonic potential and 0 being a solid wall, how fast should the potential increase?",
+    #             float,
+    #             default=[0.2],
+    #         )[0]
+    #         molar_mass = question("Specify the molar-mass of your solvent [g/mol] (default: water)", float, default=[18.01528])[0]
+    #         n_mol = question("How many molecules are in you simulation?", int)[0]
+    #         r_drop = (
+    #             (3 * (n_mol * (1 / (n_avogadro * (1000 * density / molar_mass) * 1e-27))) / (4 * math.pi)) ** (1 / 3)
+    #         )
+    #         r_off = r_drop * (1 - wokness)
+    #         INFOS["droplet_radius"] = r_off
+    #         INFOS["droplet_force"] = (press_pascal * 1e-20 * 4 * math.pi * r_drop ** 2) / (r_drop - r_off) / (
+    #             au2newton / au2a
+    #         )  # force in N/ang to Hartree/Bohr**2
+    #         log.info(
+    #             f"droplet_radius (potential free radius) = {INFOS['droplet_radius']} Å; droplet force {INFOS['droplet_force']} Hartree/Bohr^2"
+    #         )
+    #     else:
+    #         INFOS["droplet_force"] = question("Specify the force constant in Hartree/Bohr^2", float)[0]
+    #         INFOS["droplet_radius"] = question(
+    #             "Specify the offset-radius for the droplet (beyond which the force is applied) [Angstrom]", float
+    #         )[0]
+    #     if question("Should all atoms be affected by the droplet force?", bool, default=True):
+    #         INFOS["droplet_atoms"] = "all"
+    #     else:
+    #         INFOS["droplet_atoms"] = question("Specify the atom affected by the droplet force (list of atom indexes starting at 1)", int, ranges=True)
 
 
-    # tether
-    if question("Do you want to use a tether? (restraints groups of atoms to a certian absolute coordinate)", bool, default=False):
-        INFOS["tether"] = True
-        INFOS["tether_force"] = question("Specify the force constant in Hartree/Bohr^2", float)[0]
-        while True:
-            INFOS["tether_position"] = question("Specify the tether position as 'x y z' in Å", float, default=[0., 0., 0.])
-            if len(INFOS["tether_position"]) != 3:
-                log.info("Please specify three numbers 'x y z' !")
-                continue
-            break
-        INFOS["tether_radius"] = question(
-            "Specify the offset-radius for the tether (beyond which the force is applied) (Angstrom)", float
-        )[0]
-        if question("Should all atoms be affected by the tether force?", bool, default=False):
-            INFOS["tether_atoms"] = "all"
-        else:
-            INFOS["tether_atoms"] = question("Specify the atoms affected by the tether force (list of atom indexes starting at 1)", int, ranges=True)
+    # # tether
+    # if question("Do you want to use a tether? (restraints groups of atoms to a certian absolute coordinate)", bool, default=False):
+    #     INFOS["tether"] = True
+    #     INFOS["tether_force"] = question("Specify the force constant in Hartree/Bohr^2", float)[0]
+    #     while True:
+    #         INFOS["tether_position"] = question("Specify the tether position as 'x y z' in Å", float, default=[0., 0., 0.])
+    #         if len(INFOS["tether_position"]) != 3:
+    #             log.info("Please specify three numbers 'x y z' !")
+    #             continue
+    #         break
+    #     INFOS["tether_radius"] = question(
+    #         "Specify the offset-radius for the tether (beyond which the force is applied) (Angstrom)", float
+    #     )[0]
+    #     if question("Should all atoms be affected by the tether force?", bool, default=False):
+    #         INFOS["tether_atoms"] = "all"
+    #     else:
+    #         INFOS["tether_atoms"] = question("Specify the atoms affected by the tether force (list of atom indexes starting at 1)", int, ranges=True)
 
 
     # Laser file
@@ -1683,7 +1683,8 @@ def get_trajectory_info(INFOS, interface: SHARC_INTERFACE) -> dict:
     log.info(string)
     pysharc_possible = True
     # fast children or hybrids should be run with PySHARC
-    fast_child = isinstance(interface, (SHARC_FAST, SHARC_HYBRID)) 
+    # fast_child = isinstance(interface, (SHARC_FAST, SHARC_HYBRID)) 
+    fast_child = interface._use_with_pysharc
     # adaptive integrator is incompatible with PySHARC
     if Integrator[INFOS['integrator']]["name"] == 'avv':
         log.info("Pysharc not possible with adaptive time step integrator.")
@@ -2126,7 +2127,8 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
 
     # let user look at input and add extra stuff
     if ask:
-        if question("\n\nDo you want to see the input for the first trajectory?", bool, default=False):
+        print("\n\n")
+        if question("Do you want to see the input for the first trajectory?", bool, default=False):
             log.info(f"{'generated input for ' + iconddir:=^80}")
             log.info("-"*80)
             log.info(s)

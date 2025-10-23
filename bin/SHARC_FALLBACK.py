@@ -136,7 +136,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         # Setup some output to log
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'FALLBACK interface setup':^76}||\n{'||':<78}||")
+        self.log.info(f"||{'FALLBACK interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
 
@@ -314,6 +314,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._fallback_interface.set_coords(xyz, pc)
 
     def getQMout(self):
+        self.QMout["runtime"] = self.clock.measuretime(False)
         if self._trial_failed:
             self.QMout = self._fallback_interface.QMout
             return self.QMout

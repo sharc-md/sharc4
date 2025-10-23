@@ -1,0 +1,3 @@
+basis sto-3g
+ansatz UpCCD
+active_orbitals 6 7 8

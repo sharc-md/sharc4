@@ -35,7 +35,6 @@ from io import TextIOWrapper
 from itertools import product
 from math import ceil
 from typing import Any
-import sys
 
 import h5py
 import numpy as np
@@ -110,7 +109,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Add resource keys
         self.QMin.resources.update(
-            {"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False, "driver": None, "wfoverlap": ""}
+            {"molcas": None, "mpi_parallel": False, "delay": 0.0, "dry_run": False, "driver": None} #, "wfoverlap": ""}
         )
 
         self.QMin.resources.types.update({"molcas": str, "mpi_parallel": bool, "delay": float, "dry_run": bool, "driver": str})
@@ -608,8 +607,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         return (s1[0] - s2[0]) * 1000 + (s1[1] - s2[1]) * 100 + (s1[2] - s2[2])
 
     def run(self) -> None:
-        starttime = datetime.datetime.now()
-
         # Generate schedule and run jobs
         self.log.debug("Generate schedule")
         self.QMin.scheduling["schedule"] = self._generate_schedule()
@@ -629,8 +626,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         os.path.join(self.QMin.save["savedir"], f"{file}.{self.QMin.save['step']}"),
                     )
             self.log.debug("All jobs finished successful")
-
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _generate_schedule(self) -> list[dict[str, QMin]]:
         """
@@ -703,15 +698,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Set env variable for master path
         os.environ["master_path"] = os.path.join(qmin.resources["scratchdir"], "master")
-        # Copy JobIphs if not master job
-        if not qmin.control["master"]:
-            self._copy_run_files(workdir)
 
         # Make subdirs
         if qmin.resources["mpi_parallel"]:
             for i in range(qmin.resources["ncpu"]):
                 self.log.debug(f"Create subdir tmp_{i+1}")
                 mkdir(os.path.join(workdir, f"tmp_{i+1}"))
+
+        # Copy JobIphs if not master job
+        if not qmin.control["master"]:
+            self._copy_run_files(workdir)
 
         # Execute MOLCAS
         starttime = datetime.datetime.now()
@@ -819,6 +815,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 )
         except FileNotFoundError:
             self.log.error("Copy file(s) failed! This is most likely due to an error in master job!")
+        
+        for folder in os.listdir(workdir):
+            if folder.startswith("tmp_"):
+                for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master", folder)):
+                    if any(i in file for i in re_runfiles):
+                        shutil.copy(os.path.join(self.QMin.resources["scratchdir"], "master", folder, file), os.path.join(workdir, folder, file))
+                shutil.copy(
+                    os.path.join(self.QMin.resources["scratchdir"], "master/MOLCAS.OneInt"), os.path.join(workdir, folder, "ONEINT")
+                )
 
     def get_readable_densities(self) -> dict[str, str]:
         densities = {}
@@ -1188,10 +1193,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += f"RAS3={qmin.template['ras3']}\n"
         input_str += f"CIROOT={task[2]} {task[2]} 1\n"
         if qmin.template["method"] not in ("ms-caspt2", "xms-caspt2"):
+            # TODO: check if needed
             input_str += "ORBLISTING=NOTHING\nPRWF=1.0e-12\n"
+            # input_str += "ORBLISTING=NOTHING\n"
+        else:
+            input_str += "ORBLISTING=NOTHING\n"
         if qmin.template["method"] == "cms-pdft":
             input_str += "CMSInter\n"
         # TODO: The next piece of code makes the calculation quite a bit more expensive
+        # and if it is used, it should also be used for NACs, not only for gradients
         if qmin.maps["gradmap"] and len(qmin.maps["gradmap"]) > 0:
             input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
         else:
@@ -1209,7 +1219,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 input_str += f"RFROOT = {qmin.template['pcmstate'][1]}\n"
             else:
                 input_str += "NONEQUILIBRIUM\n"
-        input_str += "PRSD\n"
+        if qmin.requests["ion"]:
+            input_str += "PRSD\n"
         input_str += "\n"
         return input_str
 
@@ -1316,7 +1327,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if self.QMin.requests["theodore"]:
             if not self._wfa or not self._hdf5:
-                self.log.error("Theodore not possible without WFA or HDF5!")
+                self.log.error("Theodore not possible without WFA or HDF5 in OpenMolcas!")
                 raise ValueError()
             if not self.QMin.resources["theodore_prop"] or not self.QMin.resources["theodore_fragment"]:
                 self.log.error("theodore_prop and theodore_frag have to be set in resources!")
@@ -1324,7 +1335,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"] or self.QMin.requests["mol"]:
             if not self._hdf5:
-                self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support!")
+                self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support in OpenMolcas!")
                 raise ValueError()
         if self.QMin.requests["multipolar_fit"] and self.QMin.molecule["point_charges"]:
             self.log.error("Multipolar fit not compatible with point charges!")
@@ -1517,6 +1528,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 if self.QMin.requests["multipolar_fit"]:
                     self.QMout["multipolar_fit"] = self._resp_fit_on_densities()
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def read_and_append_densities(self):
@@ -1885,7 +1897,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += f"NROFJOBIPHS\n2 {n_s1} {n_s2}\n"
             input_str += f"{' '.join([str(j) for j in range(1, n_s1 + 1)])}\n{' '.join([str(j) for j in range(1, n_s2 + 1)])}\n"
             input_str += "MEIN\n"
-            input_str += "CIPR\nTHRS=0.000005d0\n"
+            # input_str += "CIPR\nTHRS=0.000005d0\n"
             input_str += "DYSON\n"
             input_str += f"DYSEXPORT\n{n_s1 + n_s2} {n_s1 + n_s2}\n\n"
             input_str += f"*{nstates1}, {nstates2}\n"

@@ -277,7 +277,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         self.log.info("=" * 80)
         self.log.info(f"{'||':<78}||")
-        self.log.info(f"||{'TURBOMOLE interface setup':^76}||\n{'||':<78}||")
+        self.log.info(f"||{'TURBOMOLE interface setup': ^76}||\n{'||':<78}||")
         self.log.info("=" * 80)
         self.log.info("\n")
 
@@ -1250,6 +1250,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                             idx = n_state + grad[1] - 1 + (i * self.QMin.molecule["states"][grad[0] - 1])
                             self.QMout["dm"][:, idx, idx] = self._get_static_dipole(grad_content, gs)
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def _get_ex_ex_dipole(self, ricc2_out: str) -> np.ndarray:
@@ -1258,7 +1259,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         """
         if not (
             dipoles := re.findall(
-                r"Transition Strength\n.*?diplen\s+(-?\d+\.\d+).*\n.*?diplen\s+(-?\d+\.\d+).*\n.*?diplen\s+(-?\d+\.\d+)",
+                r"Transition Strength\n(?:.*\n)*?\s*xdiplen\s+(-?\d+\.\d+).*\n(?:.*\n)*?\s*ydiplen\s+(-?\d+\.\d+).*\n(?:.*\n)*?\s*zdiplen\s+(-?\d+\.\d+)",
                 ricc2_out,
             )
         ):
@@ -1363,8 +1364,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         )
 
     def run(self) -> None:
-        starttime = datetime.datetime.now()
-
         # Generate schedule
         self.log.debug("Generate schedule")
         self._generate_schedule()
@@ -1403,8 +1402,6 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         # Run theodore
         if self.QMin.requests["theodore"]:
             self._run_theodore()
-
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
 
     def _generate_schedule(self) -> None:
         """
