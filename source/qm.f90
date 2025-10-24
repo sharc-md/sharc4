@@ -1475,7 +1475,7 @@ module qm
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
     integer :: istate, jstate, ixyz
-    complex*16:: scalarProd(ctrl%nstates,ctrl%nstates)
+    complex*16:: scalarProd(ctrl%nstates,ctrl%nstates),correction
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
     logical :: all_unit_norm
 
@@ -1486,13 +1486,20 @@ module qm
       if (ctrl%calc_overlap==1) then
 
         if (printlevel>4) then 
-          write(u_log,*) 'Phases not found in QMout. Calculation of phase correction based on overlaps'
+          write(u_log,*) '============================================================================='
+          write(u_log,*) 'Phases not found in QMout. Calculation of phase correction based on overlaps.'
+          write(u_log,*) '============================================================================='
+          write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
         endif 
         traj%phases_s=traj%phases_old_s
         do istate=1,ctrl%nstates
-          traj%phases_s(istate)=traj%phases_s(istate)*CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+          correction=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
           ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 -> more robust for plan wave basis sets 
           ! where overlap matrix is not real
+          if (printlevel>4) then 
+            write(u_log,'(E14.6,1X,E14.6)') real(correction),aimag(correction)
+          endif
+          traj%phases_s(istate)=traj%phases_s(istate)*correction !Applying phase correction with accumulation of previous steps
         enddo
 
       ! from scalar products of old and new NAC vectors
@@ -1572,7 +1579,13 @@ module qm
     endif
 
     if (traj%phases_found.eqv..true. .and. printlevel>4) then 
-      write(u_log,*) 'Phases found in QMout. Applying phase correction.'
+      write(u_log,*) '==========================================================================='
+      write(u_log,*) 'Phases found in QMout. Applying phase correction with the following phases:'
+      write(u_log,*) '==========================================================================='
+      write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
+      do istate=1,ctrl%nstates
+        write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
+      enddo
     endif
     
     !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 

@@ -123,6 +123,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         self._el_vasp =  None #to store VASP indices for sorting input geometry, different from QMin format
         self._indices_vasp =  None #to store indices which sort VASP forces/geometry according to QMin geometry format
 
+
         # Setup stuff
         self._template_file = None
         self._resource_file = None
@@ -609,11 +610,12 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         # Populate energies
         if self.QMin.requests["h"]:
-            energies,ks_info = self._get_energies(OUTCAR)
+            energies,det_t, ks_mo_index = self._get_energies(OUTCAR)
             for i in range(len(energies)):
                 self.QMout["h"][i][i] = energies[i]
-        #ks_info contain MOs excitation energies in eV and corresponding info for the MOs involved in the excitation
-        # It is needed to compute overlaps, see corresponding self._get_energies etc.
+        #ks_mo_index is a dictionary with each orbital label and corresponding orbital index
+        # det_t contains occupation strings for determinants of each active state of current timestep 
+        # It is needed to compute overlaps
         
         # Populate dipole moments
         if self.QMin.requests["dm"]:
@@ -628,9 +630,10 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         # Populate overlaps
         if self.QMin.requests["overlap"]:
-            self.QMout.overlap = self._get_overlap(ks_info[0],ks_info[1])
+            self.QMout.overlap = self._get_overlap(det_t,ks_mo_index)
             self.log.debug("Checking population of self.QMout.overlap, overlap matrix")
             self.log.debug(self.QMout.overlap)
+
 
         # Populate phases
         if self.QMin.requests["overlap"] and self.QMin.requests["phases"]:
@@ -692,7 +695,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         Eigenstate energies from VASP. Excitation energies are computed as orbital energy difference between KS eigenvalues!
         GS energy is the correct DFT one, higher-lying state energies are obtained by summing excitation energy (from KS MOs difference) to GS energy.
         Currently, only single excitations are considered! No double, triple excitations etc. 
-        Moreover, GS is assumed to be closed shell and only singlet excited states are accounter for.
+        Moreover, GS is assumed to be closed shell and only singlet excited states are accounted for.
         Refinements will follow.
         
         reference: J.Chem.TheoryComput.2013,9,4959−4972 (Akimov & Prezhdo)
@@ -727,7 +730,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         ks_u.update(dict([('L+'+ str(i-n_o),ks_en[i]) for i in range(n_o+1,n_o+n_u)])) #obitals above L
         #### Computing excitation energies by orbital energy difference among KS MOs and selecting first "nmstates" only #### 
         ks_mo= ks_o|ks_u
-        ks_mo_index=dict([(i,n+1) for n,i in enumerate(ks_mo.keys())])
+        ks_mo_index=dict([(i,n) for n,i in enumerate(ks_mo.keys())]) #Dictionary {'orbital_label':index} 
         ks_es_all=dict()
         for i in ks_o:
             for j in ks_u:
@@ -750,48 +753,57 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug(energies)
         self.log.debug("KS orbitals and transitions out of VASP")
         self.log.debug(ks_es)
+        #### Saving Slater determinants occupation indexes for overlap calculation #####
+        #GS slater determinant first {'first_occupied_orbital_label' : first_occupied_orbital_index ...etc...}
+        gs=dict(itertools.islice(ks_mo_index.items(), list(ks_mo_index.keys()).index("L")))
+        self.log.debug("checking Slater determinant string of GS")
+        self.log.debug(gs)
+        #Adding excited state determinants now 
+        es=list()
+        for i in ks_es.keys():
+            tmp=gs.copy()
+            from_orbital=(i.split('->')[0]) #Occupied orbital to excite from
+            to_orbital=(i.split('->')[-1]) #Unoccupied orbital to excite into
+            del(tmp[from_orbital])
+            tmp.update({to_orbital:ks_mo_index[to_orbital]})
+            es.append(tmp)
+        self.log.debug("checking Slater determinant strings for selected ES")
+        self.log.debug(es)
+        det_ind=list()
+        det_ind.append(list(gs.values())) #List of orbital indexes for each slater determinant
+        for i in es:
+            det_ind.append(list(i.values()))
+        self.log.debug("checking number of states selected from SHARC input")
+        self.log.debug(self.QMin.molecule["nmstates"]) 
+        self.log.debug("checking number of states for which overlap is computed")
+        self.log.debug(len(det_ind))
+        #Saving Slater Determinant occupations for overlap
+        filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']}") 
+        np.savetxt(filename,np.array(det_ind),fmt='%d') 
         
-        return energies,(ks_es,ks_mo)
+        return energies,det_ind,ks_mo_index
 
 
-    def _get_overlap(self, es_t0: dict,mo_t0: dict ) -> np.ndarray:
+    def _get_overlap(self, det_t: list,  ks_mo_index: dict) -> np.ndarray:
         ''' 
         Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
+
+        det_t: list of determinant strings for current timestep with orbital occupations for selected states
+        ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
         
-        es_t0 : output dictionary of _get_energies containing selected excited states and orbital transitions (ks_es in _get_energies)
-        mo_t0 : output MOs dictionary of _get_energies (ks_mo in _get_energies) 
-        
-        mth : select which method from pawpyseed to compute MO overlaps.
-        -> mth='full',  default AE overlaps are calculated.
-        if mth='pseudo' only pseudowavefunction overlaps
+        self.QMin.template["overlap_method"] selects which method from pawpyseed to compute MO overlaps.
+        if 'full',  default AE overlaps are calculated.
+        if 'pseudo' only pseudowavefunction overlaps
         '''
         
         start = datetime.datetime.now()
         
         from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
-        
-        act_sp={i:n for n,i in enumerate(mo_t0.keys())}
-     
-        #GS slater determinant dictionary
-        gs=dict(itertools.islice(act_sp.items(), list(act_sp.keys()).index("L")))
-        #Adding excited state determinants now
-        es=list()
-        for i in es_t0.keys():
-            tmp=gs.copy()
-            homo=(i.split('->')[0])
-            lumo=(i.split('->')[-1]) 
-            del(tmp[homo])
-            tmp.update({lumo:act_sp[lumo]})
-            es.append(tmp)
-        det_ind=list()
-        det_ind.append(list(gs.values()))
-        for i in es:
-            det_ind.append(list(i.values()))
 
-        self.log.debug("checking number of states selected from SHARC input")
-        self.log.debug(self.QMin.molecule["nmstates"]) 
-        self.log.debug("checking number of states for which overlap is computed")
-        self.log.debug(len(det_ind)) 
+        filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']-1}")
+        det_t0=np.loadtxt(filename,dtype=int).tolist()
+        self.log.debug("Occupation strings of Slater determinants at previous timestep")
+        self.log.debug(det_t0)
         
         #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
         with suppress_stdout_stderr():  
@@ -816,13 +828,13 @@ class SHARC_VASP(SHARC_ABINITIO):
             
             S=list()
             
-            #pr is a list, multiple projector calcualtions could be added, for instance if tNACs have to be computed also S_{ji}(r,t+dt)^* is required.
+            #pr is a list, multiple projector calculations could be added, for instance if tNACs have to be computed also S_{ji}(r,t+dt)^* is required.
             #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
             for j in pr:
                tmp=list()
-               for i in act_sp.values():
-                   tmp.append(j.single_band_projection(i))
-               S.append(np.array(tmp))
+               for i in ks_mo_index.values():
+                   tmp.append(j.single_band_projection(i)) #Each tmp string should have <\psi_1(t0)|\psi_i(t+dt)>....<\psi_n(t0)|\psi_i(t+dt)>
+               S.append(np.array(tmp).T)                   # as a row, so transpose should be applied to have S(t,t+dt) instead of S(t+dt,t)
             #np.savetxt('overlap_VASP.dat',S[0]) #Printing out full MOs overlap matrix for VASP check
 
 
@@ -830,11 +842,11 @@ class SHARC_VASP(SHARC_ABINITIO):
         S_ij=list()
         #Actual retrieval of ij state overlaps via determinants of the corresponding full MOs overlap matrices
         for s in S:
-            s_ij=np.zeros((len(det_ind),len(det_ind)),dtype=complex)
-            for i in range(len(det_ind)):
-                for k in range(len(det_ind)):
-                    s_ij[i,k]=LA.det(s[np.ix_(det_ind[i],det_ind[k])])*LA.det(s[np.ix_(det_ind[0],det_ind[0])])
-                    #First det is alpha electrons, second for beta (always lowest-MOs occupied)
+            s_ij=np.zeros((len(det_t),len(det_t)),dtype=complex)
+            for i in range(len(det_t0)):
+                for k in range(len(det_t)):
+                    s_ij[i,k]=LA.det(s[np.ix_(det_t0[i],det_t[k])])*LA.det(s[np.ix_(det_t0[0],det_t[0])])
+                    #First det is alpha electrons, second for beta (always lowest-MOs occupied for single alpha electron excitations)
             S_ij.append(s_ij)
        
         #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
@@ -873,7 +885,6 @@ class SHARC_VASP(SHARC_ABINITIO):
     def _write_transitions(self,ks_es: dict, mo_index : dict):
         ''' 
         Function for writing out to a text file the orbitals involved in the selected transitions.
-        The filename is TRANSITIONS and is written only for timestep 0
         '''
 
         step=self.QMin.save['step']
@@ -886,7 +897,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         input_str += f"{'Excited state n.':<20}{'orbitals(vasp band indexes)':<30}{'Energy(eV)':<20}\n"
         for n,(i,j) in enumerate(ks_es.items()):
             tmp=i.split('->')
-            label=i+" ("+str(mo_index[tmp[0]])+'->'+str(mo_index[tmp[1]])+")"
+            label=i+" ("+str(mo_index[tmp[0]]+1)+'->'+str(mo_index[tmp[1]]+1)+")" # +1 is because VASP index start from 1 and not 0
             input_str += f"{n+1:<20}{label:<30}{j:<10.5f}\n"
         writefile(input_path, input_str)
         
