@@ -44,6 +44,8 @@ class SHARC_HYBRID(SHARC_INTERFACE):
     Abstract base class for SHARC hybrid interfaces
     """
 
+    _use_with_pysharc = True
+
     def __init__(self, *args, fast_queue: bool = False, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 

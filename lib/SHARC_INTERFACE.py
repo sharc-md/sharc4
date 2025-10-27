@@ -87,6 +87,7 @@ class SHARC_INTERFACE(ABC):
     _states = None
     density_recipes = None
     _DEBUG = False
+    _use_with_pysharc = False
 
     def __init__(
         self,

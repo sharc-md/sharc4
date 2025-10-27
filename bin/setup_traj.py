@@ -43,9 +43,9 @@ import factory
 from utils import question, itnmstates, expand_path
 from constants import IToMult, U_TO_AMU, HARTREE_TO_EV, n_avogadro, au2a, au2newton
 from SHARC_INTERFACE import SHARC_INTERFACE
-from SHARC_FAST import SHARC_FAST
-from SHARC_ABINITIO import SHARC_ABINITIO
-from SHARC_HYBRID import SHARC_HYBRID
+# from SHARC_FAST import SHARC_FAST
+# from SHARC_ABINITIO import SHARC_ABINITIO
+# from SHARC_HYBRID import SHARC_HYBRID
 
 # =========================================================0
 PI = math.pi
@@ -1683,7 +1683,8 @@ def get_trajectory_info(INFOS, interface: SHARC_INTERFACE) -> dict:
     log.info(string)
     pysharc_possible = True
     # fast children or hybrids should be run with PySHARC
-    fast_child = isinstance(interface, (SHARC_FAST, SHARC_HYBRID)) 
+    # fast_child = isinstance(interface, (SHARC_FAST, SHARC_HYBRID)) 
+    fast_child = interface._use_with_pysharc
     # adaptive integrator is incompatible with PySHARC
     if Integrator[INFOS['integrator']]["name"] == 'avv':
         log.info("Pysharc not possible with adaptive time step integrator.")
