@@ -534,8 +534,6 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
     
     def run(self) -> None:
 
-        starttime = datetime.datetime.now()
-
         self.QMin.control["workdir"] = os.path.join(self.QMin.resources["scratchdir"], "mopacpi_calc")
 
         self.execute_from_qmin(self.QMin.control["workdir"], self.QMin)
@@ -545,8 +543,6 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
         self.clean_savedir()
 
         self.log.debug("All jobs finished successfully")
-
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
 
 
     def prepare(self, INFOS: dict, workdir: str):
@@ -635,6 +631,7 @@ class SHARC_MOPACPI(SHARC_ABINITIO):
                 for i in range(nmstates):
                     self.QMout["phases"][i] = -1 if self.QMout["overlap"][i, i] < 0 else 1
         
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def _get_energy(self, log_energies: str):

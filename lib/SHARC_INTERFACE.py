@@ -88,6 +88,7 @@ class SHARC_INTERFACE(ABC):
     _states = None
     density_recipes = None
     _DEBUG = False
+    _use_with_pysharc = False
 
     def __init__(
         self,
@@ -529,6 +530,7 @@ class SHARC_INTERFACE(ABC):
 
         elif isinstance(qmin_file, QMin):
             self.QMin.molecule = deepcopy(qmin_file.molecule)
+            self.QMin.coords = deepcopy(qmin_file.coords)
             self.QMin.maps["statemap"] = deepcopy(qmin_file.maps["statemap"])
             self.QMin.maps["chargemap"] = deepcopy(qmin_file.maps["chargemap"])
             self.QMin.requests["retain"] = qmin_file.requests["retain"]

@@ -181,6 +181,7 @@ class SHARC_DO_NOTHING(SHARC_FAST):
 
         self.QMout["notes"]["Do nothing"] = "This is a note."
 
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def write_step_file(self):

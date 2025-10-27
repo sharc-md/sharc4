@@ -313,6 +313,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                 self.log.info(f"Error of {prop} is {max(error)}")
 
         self.QMout = next(iter(self._kindergarden.values())).QMout
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def create_restart_files(self):

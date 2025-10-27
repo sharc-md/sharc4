@@ -27,7 +27,7 @@ VERSION = "0.1"
 VERSIONDATE = datetime.datetime(2025, 7, 25)
 #TODO: This will be shown in the setup scripts
 NAME = "BASICORCA"
-DESCRIPTION = "a really basic orca interface, just to show you how an inteface works"
+DESCRIPTION = "AB INITIO a very simple ORCA interface as an example of an ab initio interface"
 
 CHANGELOGSTRING = """17.06.2024:     Initial version 0.1 by Sascha and Georg
 - Only energies, TDMs and gradients
@@ -204,8 +204,6 @@ class SHARC_BASICORCA(SHARC_ABINITIO):
 
         self.log.debug("All jobs finished successful")
 
-        self.QMout["runtime"] = datetime.datetime.now() - starttime
-
     def create_restart_files(self) -> None:
             pass
 
@@ -337,6 +335,7 @@ class SHARC_BASICORCA(SHARC_ABINITIO):
 
             self.QMout["grad"][ex_state] = gradients
         
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
     
 

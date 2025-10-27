@@ -137,6 +137,7 @@ class SHARC_NAI(SHARC_FAST):
                 
 
     def getQMout(self):
+        self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
 
