@@ -343,7 +343,7 @@ def parse_promdens_output(initlist, dt):
                 continue
 
     if skip_count > 0:
-        print("WARNING: Some initial conditions/excited states were picked more than once!")
+        print("\nWARNING: Some initial conditions/excited states were picked more than once!")
         print("Consider reducing --nsamples")
         print()
 
@@ -420,12 +420,26 @@ explicit_coefficients     %s
     return 0
 
 
+# add a hook into print_help to also print the help of prom_dens
+class MyParser(argparse.ArgumentParser):
+    def print_help(self):
+        super().print_help()
+        print("\n\nHelp message of promdens --help is following.")
+        print("Note that --nsamples, --nstates, --energy_unit, --tdm_unit, --file_type, and --plot are ignored by excite_from_promdens.py")
+        print("\n\n--- promdens --help ---\n")
+        if shutil.which("promdens"):
+            subprocess.run(["promdens", "--help"], check=False)
+        else:
+            print("promdens not found in PATH.")
+
+
+
 # ==================================== Own code =========================
 
 def main():
 
     # Create wrapper parser
-    parser = argparse.ArgumentParser(
+    parser = MyParser(
         description="Command line script to use promdens to excite an initconds file (with state info)"
     )
     parser.add_argument("ic_file", help="Path to the initconds.excited file")
@@ -440,6 +454,7 @@ def main():
     parser.add_argument("--energy_unit", default="a.u.", help=argparse.SUPPRESS)
     parser.add_argument("--tdm_unit", default="debye", help=argparse.SUPPRESS)
     parser.add_argument("--file_type", default="file", help=argparse.SUPPRESS)
+    parser.add_argument("--plot", default="file", help=argparse.SUPPRESS)
     parser.add_argument(
         "rest", nargs=argparse.REMAINDER,
         help="Arguments to pass to the external PDA script"
