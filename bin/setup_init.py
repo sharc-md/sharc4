@@ -781,7 +781,7 @@ mkdir -p $COPY_DIR
 cp -r $PRIMARY_DIR/* $COPY_DIR
 cd $COPY_DIR
 
-$SHARC/%s QM.in >> QM.log 2>> QM.err
+$SHARC/%s.py QM.in >> QM.log 2>> QM.err
 
 cp -r $COPY_DIR/QM.* $COPY_DIR/SAVE/ $PRIMARY_DIR
 rm -r $COPY_DIR
