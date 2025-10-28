@@ -311,13 +311,13 @@ class SHARC_LVC(SHARC_FAST):
             self._lambda_soc = self._lambda_soc.real.copy()
         if dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
-        if "mdeqm" mag_dipole_real and el_quadrupole_real:
+        if mag_dipole_real and el_quadrupole_real:
             self._mag_dipole = np.reshape(self._mag_dipole.view(float), self._mag_dipole.shape + (2,))[:, :, :, 0]
             self._el_quadrupole = np.reshape(self._el_quadrupole.view(float), self._el_quadrupole.shape + (2,))[:, :, :, :, 0]
-	if self.QMin.molecule["point_charges"] and not hasattr(self, '_fits'):
+        if self.QMin.molecule["point_charges"] and not hasattr(self, '_fits'):
             raise RuntimeError("Point charges present but could not find 'Multipolar Density Fit' in template file.")
-	# if self.QMin.save["init"]:
-        # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
+        # if self.QMin.save["init"]:
+            # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
         self._read_template = True
         return
 
@@ -842,7 +842,7 @@ class SHARC_LVC(SHARC_FAST):
         self.QMout.h = Hd
         self.QMout.dm = dipole
         if self.QMout.requests["mdeqm"]:
-	    self.QMout.mdm = mag_dipole
+            self.QMout.mdm = mag_dipole
             self.QMout.eqm = el_quadrupole
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = overlap

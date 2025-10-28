@@ -419,10 +419,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.QMin.resources["mpi_parallel"] = False
 
         # MOLCAS driver
-        # for p in os.walk(self.QMin.resources["molcas"]):
-        if "pymolcas" in os.listdir(self.QMin.resources["molcas"]):
-            self.QMin.resources.update({"driver": "/user/lorenz/bin/sharc/sharc_github/euo2_mdeqm/opt_freq/pymolcas"})
-            # self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
+        for p in os.walk(self.QMin.resources["molcas"]):
+            if "pymolcas" in p[2]:
+                self.QMin.resources.update({"driver": os.path.join(p[0], "pymolcas")})
+                break
 
         if not os.path.isfile(self.QMin.resources["driver"]):
             self.log.error(f"No driver found in {self.QMin.resources['molcas']}")

@@ -544,7 +544,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         log.info("\n" + f"{'Magnetic Dipole / Electric Quadrupole calculation':-^60}" + "\n")
         INFOS["mdeqm"] = question("Do you want to calculate Magnetic Dipoles and Electric Quadrupoles?", bool, False)
         if INFOS["mdeqm"]:
-            INFOS["needed_requests"].append("mdeqm")
+            INFOS["needed_requests"].add("mdeqm")
     return INFOS
 
 
