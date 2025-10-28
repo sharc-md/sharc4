@@ -112,7 +112,7 @@ program create_laser
   write(10, '(a)') ' ! SHARC 4.0'
   write(10, '(a)') ' ! file_version 2.0'
   write(10, '(a, i0)') ' ! nsteps ', Nt
-  write(10, '(a, 107(es16.8,x))') ' ! dt ', dt
+  write(10, '(a, 107(es16.8,x))') ' ! dt ', dt*au2fs
   if ((export_field_settings==0) .OR. (export_field_settings==1)) then
     write(10, '(a)') ' ! e-field true'
   else
