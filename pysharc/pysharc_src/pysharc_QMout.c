@@ -515,6 +515,10 @@ QMout_set_dipolemoment(QMout * self, PyObject * args)
            }
       }
    }
+#ifdef __PYTHON_DEBUG__
+   printf("FINISHED SETTING DM!\n");
+
+#endif
    self->iset_d = 1;
    Py_RETURN_NONE;
    fail:
@@ -522,51 +526,70 @@ QMout_set_dipolemoment(QMout * self, PyObject * args)
        return NULL;
 }
 
+
 static PyObject *
 QMout_set_mag_dipolemoment(QMout * self, PyObject * args)
 {
-    PyObject * mag_dip;
-    double complex complex_value;
-    if (!PyArg_ParseTuple(args, "O", &mag_dip))
+   PyArrayObject * mag_dip=NULL;
+   /*double complex complex_value;*/
+   /*PyFloat * pyfloat;*/
+
+   if (!PyArg_ParseTuple(args, "O", &mag_dip)){
         return NULL;
-    /* need to be python list */
-    if ( !PyList_Check(mag_dip))
-        goto fail;
+   }
+
+   if (mag_dip == NULL) {
+      return NULL;
+   }
+
+    /* needs to be array */
+   if (!PyArray_Check(mag_dip)) {
+     PyErr_SetString(PyExc_TypeError, "Input must be a NumPy array");
+     return NULL;
+   }
+
+   npy_intp* dim= PyArray_DIMS(mag_dip);
+   int num_dims = PyArray_NDIM(mag_dip);
+   if (num_dims != 3) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be 3d!");
+     goto fail;
+   }
+   if (dim[0] != 3 || dim[1] != self->NStates || dim[2] != self->NStates) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be of dim 3 x Nstates x Nstates!");
+     goto fail;
+   }
+
+   int is_complex = PyArray_TYPE(mag_dip) == NPY_COMPLEX128;
+
     /* Clear the overlap matrix! */
-    clear_complex_double(3*self->NStates*self->NStates, self->mag_dip_mom);
-    /* no further format checks! */
-    if (PyList_GET_SIZE(mag_dip) !=  3)
-        goto fail;
-    /* */
-    for (int k = 0; k < 3; k++){
-        PyObject * xyz_mag_dip = PyList_GetItem(mag_dip, k);
-        if (PyList_GET_SIZE(xyz_mag_dip) != self->NStates)
-            goto fail;
-        for (int is=0; is < self->NStates; is++){
-            PyObject * state_list = PyList_GetItem(xyz_mag_dip, is);
-            for (int js =0; js < self->NStates; js++){
-                PyObject * pyfloat = PyList_GetItem(state_list, js);
-                if (PyFloat_Check(pyfloat)) {
-                    complex_value = (PyFloat_AsDouble(pyfloat) );
-                } else {
-                    complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
-                }
-                // if coefficients were right
-                *(self->mag_dip_mom + (k * self->NStates * self->NStates) + (js * self->NStates) + is) = complex_value;
-                //*(self->mag_dip_mom + (is * 3 * self->NStates) + (js*3) + k) = complex_value;
-            }
-        }
-    }
+   /*Not needed if every element is assigned*/
+    /*clear_complex_double(3*self->NStates*self->NStates, self->mag_dip_mom);*/
+
+
+   for (int k = 0; k < 3; k++){
+       for (int is=0; is < self->NStates; is++){
+           for (int js =0; js < self->NStates; js++){
+               if (is_complex) {
+                  *(self->mag_dip_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = *((double complex *)PyArray_GETPTR3(mag_dip, k, is, js));
+               }
+               else {
+                  *(self->mag_dip_mom + (k * self->NStates * self->NStates) + (js*self->NStates) + is) = *((double *)PyArray_GETPTR3(mag_dip, k, is, js)) + 0. * _Complex_I;
+               }
+           }
+      }
+   }
 #ifdef __PYTHON_DEBUG__
-    printf("FINISHED SETTING MDM!\n");
+   printf("FINISHED SETTING MDM!\n");
 
 #endif
-    self->iset_mdm = 1;
-    Py_RETURN_NONE;
-    fail:
-        Py_XDECREF(mag_dip);
-        return NULL;
+   self->iset_mdm = 1;
+   Py_RETURN_NONE;
+   fail:
+       Py_XDECREF(mag_dip);
+       return NULL;
 }
+
+
 static PyObject *
 QMout_set_el_quadrupolemoment(QMout * self, PyObject * args)
 {

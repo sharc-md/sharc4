@@ -59,9 +59,8 @@ class QMOUT:
         log.debug(f"{type(h)}")
         self._QMout.set_hamiltonian(h)
 
-    # def set_gradient(self, grad: dict[list[list[float], list[float], list[float]]], icall: int):
-    # def set_gradient(self, grad: dict[list[list[float, float, float]]], icall: int):
-    def set_gradient(self, grad , icall: int):
+    def set_gradient(self, grad: dict[list[list[float], list[float], list[float]]], icall: int):
+        log.debug(f"{type(grad)}")
         self._QMout.set_gradient(grad, icall)
 
     def set_dipolemoment(self, dip: list[list[list[Union[complex, float]]]]):
@@ -69,9 +68,11 @@ class QMOUT:
         self._QMout.set_dipolemoment(dip)
 
     def set_mag_dipolemoment(self, mag_dip: list[list[list[Union[complex, float]]]]):
+        log.debug(f"{type(mag_dip)}")
         self._QMout.set_mag_dipolemoment(mag_dip)
 
     def set_el_quadrupolemoment(self, el_quad: list[list[list[Union[complex, float]]]]):
+        log.debug(f"{type(el_quad)}")
         self._QMout.set_el_quadrupolemoment(el_quad)
 
     def set_overlap(self, ovl: list[list[float]]):
@@ -96,18 +97,17 @@ class QMOUT:
             if "h" in data:
                 self._QMout.set_hamiltonian(data["h"])
             if "dm" in data:
-                self._QMout.set_dipolemoment(data["dm"].tolist())
+                self._QMout.set_dipolemoment(data["dm"])
                 log.debug("setting dm")
             if "mdm" in data:
-                self._QMout.set_mag_dipolemoment(data["mdm"].tolist())
+                log.warning("PASSED1")
+                self._QMout.set_mag_dipolemoment(data["mdm"])
                 log.debug("setting mdm")
             if "eqm" in data:
-                self._QMout.set_el_quadrupolemoment(data["eqm"].tolist())
+                self._QMout.set_el_quadrupolemoment(data["eqm"])
                 log.debug("setting eqm")
         if "overlap" in data:
-            if not isinstance(data["overlap"], type([])):
-                # assumes type is numpy array
-                data["overlap"] = data["overlap"].tolist()
+            # assumes type is numpy array
             self._QMout.set_overlap(data["overlap"])
         if "grad" in data:
             if isinstance(data["grad"], list):
@@ -210,7 +210,6 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     i.read_requests(get_all_tasks(icall))
     log.debug(f"\tcoords")
     i.set_coords(get_crd())
-    log.debug(f"\trun")
     with InDir("QM"):
         log.debug(f"\trun")
         safe(i.run)

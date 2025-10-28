@@ -87,7 +87,7 @@ class QMout:
         self.notes = {}
         self.runtime = 0
         if flags == 'all':
-            flags = {k for k in range(30)}
+            flags = {k for k in range(50)}
         if states is not None:
             self.states = states
             self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
