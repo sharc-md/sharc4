@@ -377,7 +377,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 cnt_j += states_b
                 if idx >= jdx:
                     continue
-                self.log.debug(f"{label_a} {label_b}")
 
                 # Calculate inverse distance matrix for fragment A and B (atoms_a x atoms_b)
                 diff = a.QMin.coords["coords"][:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
@@ -406,12 +405,14 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             atoms_a = self.QMin.template["fragments"][name_a]["atoms"]
             states_a = a.QMin.molecule["states"][0] - 1
 
-            # Create 0->n transition monopole matrices (states x natoms)
-            monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
-
             # Add GS gradient to GS prod. gradient and excited site gradients to diagonal
             np.einsum("iijk->ijk", hamiltonian_dr)[:, atoms_a, :] = (gs_grad := a.QMout.grad[0, :, :])
             np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += a.QMout.grad[1:] - gs_grad
+
+            # Create 0->n transition monopole matrices (states x natoms)
+            if idx == self._n_fragments - 1:  # Last fragment has no off diagonal
+                break
+            monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
 
             state_cnt += states_a
             state_cnt_b = 1
@@ -467,7 +468,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     ) - (gs_dp if idx == jdx else 0.0)
 
             state_cnt += states_a
-        dipoles = np.einsum("in,jn,kij->kij", coeffs, coeffs, dipoles)
+        dipoles = np.einsum("pi,kpq,qj->kij", coeffs, dipoles, coeffs)
         np.einsum("jii->ij", dipoles)[1:, :] += dipoles[:, 0, 0]
         return dipoles
 
