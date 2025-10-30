@@ -438,9 +438,13 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
                 # Fill off diagonals dH_ij=dH_ji
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] += d_va
-                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += d_va
+                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += np.einsum(
+                    "ijkl->jikl", d_va
+                )
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_vb
-                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += d_vb
+                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += np.einsum(
+                    "ijkl->jikl", d_vb
+                )
         return np.einsum("in,jn,ijkl->nkl", coeffs, coeffs, hamiltonian_dr)
 
     def _get_exciton_dipoles(self, coeffs: np.ndarray) -> np.ndarray:
