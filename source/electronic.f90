@@ -748,7 +748,7 @@ subroutine surface_hopping(traj,ctrl)
         deltaE=0.d0
         boltzmann_scaling=0.d0
         deltaE=abs(real(traj%H_diag_ss(istate,istate) - traj%H_diag_ss(traj%state_diag,traj%state_diag)))
-        boltzmann_scaling=exp(-deltaE/(boltzmann_k * ctrl%boltzmann_temperature))
+        boltzmann_scaling=exp(-deltaE/(boltzmann_k * ctrl%boltzmann_temperature))*ctrl%boltzmann_damping
         traj%hopprob_s(istate)=traj%hopprob_s(istate)*boltzmann_scaling 
       endif
     enddo

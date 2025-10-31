@@ -173,6 +173,7 @@ module restart
      write(u,*) ctrl%hopping_procedure
      write(u,*) ctrl%boltzmann_hop
      write(u,*) ctrl%boltzmann_temperature
+     write(u,*) ctrl%boltzmann_damping
      write(u,*) ctrl%switching_procedure
      write(u,*) ctrl%army_ants
  
@@ -780,6 +781,7 @@ module restart
      read(u_ctrl,*) ctrl%hopping_procedure
      read(u_ctrl,*) ctrl%boltzmann_hop
      read(u_ctrl,*) ctrl%boltzmann_temperature
+     read(u_ctrl,*) ctrl%boltzmann_damping
      read(u_ctrl,*) ctrl%switching_procedure
      read(u_ctrl,*) ctrl%army_ants
      

@@ -2274,6 +2274,17 @@ module input
         endif
       endif
     endif
+    ! Further damping of upwards hops. This is mostly for testing, default should be 1.0 = no damping
+    ctrl%boltzmann_damping=1.0
+    if (ctrl%boltzmann_hop) then
+      line=get_value_from_key('boltzmann_damping',io)
+      if (io==0) then
+        read(line,*) ctrl%boltzmann_damping
+        if (printlevel>1) then
+          write(u_log,'(a,f6.3)') 'Probability of upwards hops is further damped by the specified boltzmann_damping parameter: ',ctrl%boltzmann_damping
+        endif
+      endif
+    endif
 
     !Checking whether user has specified both Boltzmann scaling and some velocity rescaling upon hopping.
     ! This should not be allowed
