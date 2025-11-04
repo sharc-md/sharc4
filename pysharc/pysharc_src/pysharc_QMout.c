@@ -593,60 +593,63 @@ QMout_set_mag_dipolemoment(QMout * self, PyObject * args)
 static PyObject *
 QMout_set_el_quadrupolemoment(QMout * self, PyObject * args)
 {
-    PyObject * el_quad;
-    double complex complex_value;
-    if (!PyArg_ParseTuple(args, "O", &el_quad))
-         return NULL;
+   PyArrayObject * el_quad=NULL;
+   /*double complex complex_value;*/
+   /*PyFloat * pyfloat;*/
 
-    /* need to be python list */
-    if ( !PyList_Check(el_quad))
-        goto fail;
-    
-    /* Clear the quadrupole moment matrix! */
-    clear_complex_double(9*self->NStates*self->NStates, self->el_quad_mom);
-
-    /* no further format checks! */
-    if (PyList_GET_SIZE(el_quad) != 3)
-        goto fail;
-
-    for (int i = 0; i < 3; i++){
-        PyObject * xyz_quad = PyList_GetItem(el_quad, i);
-        if (!PyList_Check(xyz_quad) || PyList_GET_SIZE(xyz_quad) != 3)
-            goto fail;
-
-        for (int j = 0; j < 3; j++){
-            PyObject * ij_quad = PyList_GetItem(xyz_quad, j);
-            if (!PyList_Check(ij_quad) || PyList_GET_SIZE(ij_quad) != self->NStates)
-                goto fail;
-
-            for (int is = 0; is < self->NStates; is++){
-                PyObject * state_list = PyList_GetItem(ij_quad, is);
-                if (!PyList_Check(state_list) || PyList_GET_SIZE(state_list) != self->NStates)
-                    goto fail;
-
-                for (int js = 0; js < self->NStates; js++){
-                    PyObject * pyfloat = PyList_GetItem(state_list, js);
-                    if (PyFloat_Check(pyfloat)) {
-                        complex_value = (PyFloat_AsDouble(pyfloat) );
-                    } else {
-                        complex_value = (PyComplex_RealAsDouble(pyfloat) + PyComplex_ImagAsDouble(pyfloat) * _Complex_I);
-                    }
-                    //*(self->el_quad_mom + (is * 3*3 * self->NStates) + (js *3*3) + (i*3) + j) = complex_value;
-                    *(self->el_quad_mom + (i * 3 * self->NStates * self->NStates) + (j * self->NStates * self->NStates) + (js * self->NStates) + is) = complex_value;
-                }
-            }
-        }
-    }
-
-#ifdef __PYTHON_DEBUG__
-    printf("FINISHED SETTING EQM!\n");
-#endif
-    self->iset_eqm = 1;
-    Py_RETURN_NONE;
-    fail:
-        Py_XDECREF(el_quad);
+   if (!PyArg_ParseTuple(args, "O", &el_quad)){
         return NULL;
+   }
+
+   if (el_quad == NULL) {
+      return NULL;
+   }
+
+    /* needs to be array */
+   if (!PyArray_Check(el_quad)) {
+     PyErr_SetString(PyExc_TypeError, "Input must be a NumPy array");
+     return NULL;
+   }
+
+   npy_intp* dim= PyArray_DIMS(el_quad);
+   int num_dims = PyArray_NDIM(el_quad);
+   if (num_dims != 4) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be 4d (field, derivative, Nstates, Nstates)!");
+     goto fail;
+   }
+   if (dim[0] != 3 || dim[1] != 3 || dim[2] != self->NStates || dim[3] != self->NStates) {
+     PyErr_SetString(PyExc_TypeError, "Input array must be of dim 3 x 3 x Nstates x Nstates!");
+     goto fail;
+   }
+
+   int is_complex = PyArray_TYPE(el_quad) == NPY_COMPLEX128;
+
+
+   for (int k = 0; k < 3; k++){
+       for (int l = 0; l < 3; l++){
+           for (int is=0; is < self->NStates; is++){
+               for (int js =0; js < self->NStates; js++){
+                   if (is_complex) {
+                      *(self->el_quad_mom + (3 * k * self->NStates + self->NStates) + (l * self->NStates * self->NStates) + (js*self->NStates) + is) = *((double complex *)PyArray_GETPTR4(el_quad, k, l, is, js));
+                   }
+                   else {
+                      *(self->el_quad_mom + (3 * k * self->NStates + self->NStates) + (l * self->NStates * self->NStates) + (js*self->NStates) + is) = *((double *)PyArray_GETPTR4(el_quad, k, l, is, js)) + 0. * _Complex_I;
+                   }
+               }
+           }
+       }
+   }
+#ifdef __PYTHON_DEBUG__
+   printf("FINISHED SETTING EQM!\n");
+
+#endif
+   self->iset_eqm = 1;
+   Py_RETURN_NONE;
+   fail:
+       Py_XDECREF(el_quad);
+       return NULL;
 }
+
 
 static PyObject *
 QMout_set_overlap(QMout * self, PyObject * args)

@@ -1645,8 +1645,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     for i2, s2, in enumerate(self.states, 0):
                         spin_p, spin_n, spin_m = 0, 0, 0
                         if s1 // s2:  # floor_div defined in utils.py 
-                            print("s1",s1.N, s1.S, s1.M)
-                            print("s2",s2.N, s2.S, s2.M)
+                            print("s1", s1.N, s1.S, s1.M)
+                            print("s2", s2.N, s2.S, s2.M)
                             print("-----------------------") 
                             if s1.M == s2.M-2:  # <s1, m1| S+ |s2, m2>
                                 spin_p = np.sqrt(s2.S/2*(s2.S/2+1)-s2.M/2.*(s2.M/2.-1))

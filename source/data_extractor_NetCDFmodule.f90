@@ -108,7 +108,7 @@ module data_extractor_NetCDFmodule
     real*8,allocatable :: expec_mdm_act(:)           !< oscillator strength per state with active state as source state
     real*8,allocatable :: expec_eqm_act(:)           !< oscillator strength per state with active state as source state
     real*8,allocatable :: dipole_mch(:)               !< static dipole moment per state in MCH basis
-    real*8,allocatable :: dipole_diag(:)               !< static dipole moment per state in diagonal basis    
+    real*8,allocatable :: dipole_diag(:)               !< static dipole moment per state in diagonal basis
     real*8,allocatable :: spin0_s(:)                !< spin value per MCH state (initialized in the beginning)
     real*8,allocatable :: grad_mch_sad(:,:,:)       !< gradient per MCH state per atom per xyz
     real*8,allocatable :: NAC_ssad(:,:,:,:)         !< nonadiabatic coupling per element (MCH state, MCH state) per atom per xyz
@@ -321,7 +321,7 @@ contains
     elseif (trim(args(i)) == "-cb") then
       write_options%write_coeffdiab = .true.
     elseif (trim(args(i)) == "-da") then
-      write_options%write_dipact = .true.            
+      write_options%write_dipact = .true.
     elseif (trim(args(i)) == "-daeq") then
       write_options%write_el_quadact = .true.
     elseif (trim(args(i)) == "-damd") then
@@ -1609,7 +1609,7 @@ contains
           endif                                 
        enddo                                     
     enddo                                         
-    write(*,*) "SUM", sum
+    write(*,*) "SUMmodule", sum
 
 !     compute density matrix
       do istate=1,nstates

@@ -1447,7 +1447,7 @@ program data_extractor
             endif
         enddo
     enddo 
-    write(*,*) "SUM", sum
+    write(*,*) "SUM_data_ext", sum
 !     call matwrite(nstates,H_diag_ss,0,'Hafter','F12.9')
 
 !     compute density matrix

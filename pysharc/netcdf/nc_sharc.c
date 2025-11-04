@@ -28,6 +28,19 @@
 #define INATOMS 1
 #define ISPATIAL 2
 
+// -----NEWLORENZ-----
+#define TRACE_INQ_VAR(ncfile, varname, varidptr) \
+    do { \
+        int _iret = nc_inq_varid((ncfile), (varname), (varidptr)); \
+        if (_iret != NC_NOERR) { \
+            fprintf(stderr, "DEBUG: nc_inq_varid('%s') FAILED: %s (code %d)\n", \
+                    (varname), nc_strerror(_iret), _iret); \
+        } else { \
+            printf("DEBUG: nc_inq_varid('%s') OK -> id=%d\n", (varname), *(varidptr)); \
+        } \
+    } while (0)
+// -------------ENDLORENZ-----------
+
 void
 write_sharc_ncoutputdat_init_()
 {
@@ -157,6 +170,8 @@ reopen_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
     check_nccall(iret, nc_inq_varid(ncdat->id, "U", &ncdat->U_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "Ovlap", &ncdat->overlaps_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "DM", &ncdat->DM_id));
+    check_nccall(iret, nc_inq_varid(ncdat->id, "MDM", &ncdat->MDM_id));
+    check_nccall(iret, nc_inq_varid(ncdat->id, "EQM", &ncdat->EQM_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "coeff_diag", &ncdat->coeff_diag_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "hopprob", &ncdat->hopprop_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "Energy", &ncdat->e_id));
@@ -207,9 +222,9 @@ write_sharc_ncoutputdat_istep_(
     }
 
     // counter does not change 
-    size_t count[4] = {1, 2* *nstates, *nstates, 3};
+    size_t count[5] = {1, 2* *nstates, *nstates, 3, 3};
 
-    size_t start[4] = {*istep, 0, 0, 0};
+    size_t start[5] = {*istep, 0, 0, 0, 0};
     if(*istep < 0) {
       start[0] *= -1;
     }
@@ -221,6 +236,12 @@ write_sharc_ncoutputdat_istep_(
     );
     check_nccall(iret, 
             nc_put_vara_double(ncdat->id, ncdat->DM_id, start, count, DM_print_ssd)
+    );
+    check_nccall(iret, 
+            nc_put_vara_double(ncdat->id, ncdat->MDM_id, start, count, MDM_print_ssd)
+    );
+    check_nccall(iret, 
+            nc_put_vara_double(ncdat->id, ncdat->EQM_id, start, count, EQM_print_ssdd)
     );
     check_nccall(iret, 
             nc_put_vara_double(ncdat->id, ncdat->overlaps_id, start, count, overlaps_ss)
@@ -279,6 +300,8 @@ read_sharc_ncoutputdat_istep_(
         double* H_MCH_ss,           // complex, (frame, 2*nstates, nstates)
         double* U_ss,               // complex, (frame, 2*nstates, nstates)
         double* DM_print_ssd,       // complex, (frame, 2*nstates, nstates, 3)
+        double* MDM_print_ssd,       // complex, (frame, 2*nstates, nstates, 3)
+        double* EQM_print_ssdd,       // complex, (frame, 2*nstates, nstates, 3, 3)
         double* overlaps_ss,        // complex, (frame, 2*nstates, nstates)
         double* coeff_diag_s,       // complex, (frame, 2*nstates)
         double* E,                  // real, contains Etot, Epot and Ekin, (frame, 3)
@@ -312,26 +335,54 @@ read_sharc_ncoutputdat_istep_(
                 nc_inq_dimlen(ncdat->id, unlim_id, nsteps)
         );
 
+        /* before doing any inq_varid, print file handle and unlimited-dim info */
+
+        printf("DEBUG: opening NetCDF id=%d for read\n", ncdat->id);
+        {
+          int nvars = 0;
+          int ndims = 0;
+          nc_inq(ncdat->id, &ndims, &nvars, NULL, NULL);
+          printf("DEBUG: NetCDF file has ndims=%d nvars=%d\n", ndims, nvars);
+        }
         
-        check_nccall(iret, 
-                nc_inq_varid(ncdat->id, "H_MCH", &ncdat->H_MCH_id)
-        );
-        check_nccall(iret, nc_inq_varid(ncdat->id, "U", &ncdat->U_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "Ovlap", &ncdat->overlaps_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "DM", &ncdat->DM_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "coeff_diag", &ncdat->coeff_diag_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "hopprob", &ncdat->hopprop_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "Energy", &ncdat->e_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "geom", &ncdat->crd_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "veloc", &ncdat->veloc_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "randnum", &ncdat->randnum_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "state_diag", &ncdat->state_diag_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "state_MCH", &ncdat->state_MCH_id));
-        check_nccall(iret, nc_inq_varid(ncdat->id, "time_step", &ncdat->time_step_id));
+        /* then query variables one by one with clear diagnostics */
+        TRACE_INQ_VAR(ncdat->id, "H_MCH", &ncdat->H_MCH_id);
+        TRACE_INQ_VAR(ncdat->id, "U", &ncdat->U_id);
+        TRACE_INQ_VAR(ncdat->id, "Ovlap", &ncdat->overlaps_id);
+        TRACE_INQ_VAR(ncdat->id, "DM", &ncdat->DM_id);
+        TRACE_INQ_VAR(ncdat->id, "MDM", &ncdat->MDM_id);
+        TRACE_INQ_VAR(ncdat->id, "EQM", &ncdat->EQM_id);
+        TRACE_INQ_VAR(ncdat->id, "coeff_diag", &ncdat->coeff_diag_id);
+        TRACE_INQ_VAR(ncdat->id, "hopprob", &ncdat->hopprop_id);
+        TRACE_INQ_VAR(ncdat->id, "Energy", &ncdat->e_id);
+        TRACE_INQ_VAR(ncdat->id, "geom", &ncdat->crd_id);
+        TRACE_INQ_VAR(ncdat->id, "veloc", &ncdat->veloc_id);
+        TRACE_INQ_VAR(ncdat->id, "randnum", &ncdat->randnum_id);
+        TRACE_INQ_VAR(ncdat->id, "state_diag", &ncdat->state_diag_id);
+        TRACE_INQ_VAR(ncdat->id, "state_MCH", &ncdat->state_MCH_id);
+        TRACE_INQ_VAR(ncdat->id, "time_step", &ncdat->time_step_id);
+
+        // check_nccall(iret, 
+        //         nc_inq_varid(ncdat->id, "H_MCH", &ncdat->H_MCH_id)
+        // );
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "U", &ncdat->U_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "Ovlap", &ncdat->overlaps_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "DM", &ncdat->DM_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "MDM", &ncdat->MDM_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "EQM", &ncdat->EQM_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "coeff_diag", &ncdat->coeff_diag_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "hopprob", &ncdat->hopprop_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "Energy", &ncdat->e_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "geom", &ncdat->crd_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "veloc", &ncdat->veloc_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "randnum", &ncdat->randnum_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "state_diag", &ncdat->state_diag_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "state_MCH", &ncdat->state_MCH_id));
+        // check_nccall(iret, nc_inq_varid(ncdat->id, "time_step", &ncdat->time_step_id));
     }
 
-   size_t start[4] = {*istep, 0, 0, 0};
-   size_t count[4] = {1, *nstates*2, *nstates, 3};
+   size_t start[5] = {*istep, 0, 0, 0, 0};
+   size_t count[5] = {1, *nstates*2, *nstates, 3, 3};
 
    check_nccall(iret, 
             nc_get_vara_double(ncdat->id, 
@@ -363,6 +414,22 @@ read_sharc_ncoutputdat_istep_(
                                start, 
                                count, 
                                DM_print_ssd)
+   );
+
+   check_nccall(iret, 
+            nc_get_vara_double(ncdat->id, 
+                               ncdat->MDM_id, 
+                               start, 
+                               count, 
+                               MDM_print_ssd)
+   );
+
+   check_nccall(iret, 
+            nc_get_vara_double(ncdat->id, 
+                               ncdat->EQM_id, 
+                               start, 
+                               count, 
+                               EQM_print_ssdd)
    );
 
    check_nccall(iret, 

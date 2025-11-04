@@ -190,6 +190,8 @@ module qm
 
     ! get Hamiltonian
     call get_hamiltonian(ctrl%nstates, traj%H_MCH_ss)
+        
+    call matwrite(ctrl%nstates,traj%H_MCH_ss,u_log,'qm.f90 after ham','F12.9')
     ! apply reference energy shift
     do i=1,ctrl%nstates
       traj%H_MCH_ss(i,i)=traj%H_MCH_ss(i,i)-ctrl%ezero
@@ -198,6 +200,7 @@ module qm
     if (ctrl%scalingfactor/=1.d0) then
       traj%H_MCH_ss=traj%H_MCH_ss*ctrl%scalingfactor
     endif
+    call matwrite(ctrl%nstates,traj%H_MCH_ss,u_log,'qm.f90 before soc_scaling','F12.9')
     ! apply SOC scaling factor
     if (ctrl%soc_scaling/=1.d0) then
       do istate=1, ctrl%nstates
@@ -208,6 +211,7 @@ module qm
         enddo
       enddo
     endif
+    call matwrite(ctrl%nstates,traj%H_MCH_ss,u_log,'qm.f90 after soc_scaling','F12.9')
     ! apply frozen-state mask
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
@@ -1182,23 +1186,24 @@ module qm
         U_temp=traj%U_ss
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
-        if (ctrl%laser_e) then
-          do idir=1,3
-            H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
-          enddo
-        endif
-        if (ctrl%laser_b) then
-          do idir=1,3
-            H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
-          enddo
-        endif
-        if (ctrl%laser_egrad) then
-          do idir=1,3
-            do jdir=1,3
-              H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
-            enddo
-          enddo
-        endif
+	write(u_log,*) "REACHEDqmf90"
+    if (ctrl%laser_e) then
+      do idir=1,3
+        H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
+      enddo
+    endif
+    if (ctrl%laser_b) then
+      do idir=1,3
+        H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+      enddo
+    endif
+    if (ctrl%laser_egrad) then
+      do idir=1,3
+        do jdir=1,3
+          H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+        enddo
+      enddo
+    endif
 
 
         call diagonalize(ctrl%nstates,H_temp,U_temp)
@@ -1734,23 +1739,23 @@ module qm
 
       traj%H_diag_ss=traj%H_MCH_ss
       if (ctrl%laser==2) then
-        if (ctrl%laser_e) then
-          do ixyz=1,3
-            traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ixyz))
-          enddo
-        endif
-        if (ctrl%laser_b) then
-          do ixyz=1,3
-            traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,ixyz)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,ixyz))
-          enddo
-        endif
-        if (ctrl%laser_egrad) then
-          do ixyz=1,3
-            do jxyz=1,3
-              traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,ixyz,jxyz)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,ixyz,jxyz))
-            enddo
-          enddo
-        endif
+         if (ctrl%laser_e) then
+           do ixyz=1,3
+             traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ixyz))
+           enddo
+         endif
+         if (ctrl%laser_b) then
+           do ixyz=1,3
+             traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,ixyz)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,ixyz))
+           enddo
+         endif
+         if (ctrl%laser_egrad) then
+           do ixyz=1,3
+             do jxyz=1,3
+               traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,ixyz,jxyz)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,ixyz,jxyz))
+             enddo
+           enddo
+         endif
       endif
       if (ctrl%surf==0) then
         ! obtain the diagonal Hamiltonian
