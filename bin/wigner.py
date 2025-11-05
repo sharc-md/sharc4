@@ -41,7 +41,7 @@ from constants import CM_TO_HARTREE, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, NUMBE
 # =========================================================0
 
 # some constants
-DEBUG = True
+DEBUG = False
 
 version = '4.0'
 versiondate = datetime.date(2025, 4, 1)
@@ -527,8 +527,8 @@ The function returns a probability for this set of parameters."""
                     n = 500
     if n == 0:    # vibrational ground state
         return (math.exp(-Q**2) * math.exp(-P**2), 0.)
-        # TODO: see eq (6) of Zobel 10.1039/C8CP03273D for a better way to sample the canonical ensemble of an harmonic oscillator
-        # TODO: alternatively, one could implement a Husimi distirbution inside the current function
+    # TODO: see eq (6) of Zobel 10.1039/C8CP03273D for a better way to sample the canonical ensemble of an harmonic oscillator
+    # TODO: alternatively, one could implement a Husimi distirbution inside the current function
     # TODO: what about n==-1 ??
     else:    # vibrational excited state
         rhosquare = 2.0 * (P**2 + Q**2)
