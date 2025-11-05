@@ -35,6 +35,11 @@
 !> - writing static restart information to restart.ctrl
 !> - writing timestep-dependent information to restart.traj
 !> - reading restart.ctrl and restart.traj to initialize all arrays
+!>
+!>                   modified 2025 by Marco Romanelli
+!>                       addeded new variables (see definitions.F90) ctrl%boltzmann_hop and ctrl%boltzmann_temperature
+!>
+!>
 module restart
   contains
  
@@ -166,6 +171,9 @@ module restart
      write(u,*) ctrl%track_phase
      write(u,*) ctrl%track_phase_at_zero
      write(u,*) ctrl%hopping_procedure
+     write(u,*) ctrl%boltzmann_hop
+     write(u,*) ctrl%boltzmann_temperature
+     write(u,*) ctrl%boltzmann_damping
      write(u,*) ctrl%switching_procedure
      write(u,*) ctrl%army_ants
  
@@ -771,6 +779,9 @@ module restart
      read(u_ctrl,*) ctrl%track_phase
      read(u_ctrl,*) ctrl%track_phase_at_zero
      read(u_ctrl,*) ctrl%hopping_procedure
+     read(u_ctrl,*) ctrl%boltzmann_hop
+     read(u_ctrl,*) ctrl%boltzmann_temperature
+     read(u_ctrl,*) ctrl%boltzmann_damping
      read(u_ctrl,*) ctrl%switching_procedure
      read(u_ctrl,*) ctrl%army_ants
      
