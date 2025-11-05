@@ -27,6 +27,11 @@
  * @date: 18.04.2018
  * @version: 0.1.1 
  *
+ *
+ * modified by Marco Romanelli
+ * @date: 28/07/2025
+ * Added routine for reading in phases from QMout
+ *
  * Python Wrapper for the SHARC LIBRARY
  *
  * header for interface.f90
@@ -61,6 +66,7 @@ void get_ian_(int * NAtoms, int * IAn);
 // set pointer
 void setPointers(double complex ** H, double complex ** dm, 
                  double complex ** overlap, 
+                 double complex ** phases, 
                  double ** grad,
                  double ** nacs 
                  );
@@ -68,9 +74,10 @@ void setQMinPointers(double ** Crd);
 void postprocess_qmout_data_(int * IH, int * IDM,
                              int * IGrad, 
                              int * IOverlap,
+                             int * IPhases,
                              int * INAC);
 // SET VALUES
-void set_phases_(void);
+void set_phases_(int * N, double complex * phases);
 void set_hamiltonian_(int * N, double complex * H);
 void set_dipolemoments_(int * N, double complex * DM);
 void set_overlap_(int * N, double complex * overlap);

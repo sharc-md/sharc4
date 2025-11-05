@@ -65,6 +65,15 @@
 !>                   modified 2024 by Severin Polonius
 !>                         added keywords for no_write_restart and split netCDF files
 !>
+!>                   modified 2025 by Marco Romanelli
+!>                         added ctrl%boltzmann_hop and ctrl%boltzmann_temperature for scaling
+!>                         upwards hops probability. CPA approximation for excited-state dynamics.
+!>                         added Boltzmann constant as well as parameter
+!>
+!>                   modified 28/07/2025 by Marco Romanelli
+!>                         definition of traj%phases_s has been extended to pointer if PYSHARC is enabled.
+!>                         pysharc can now correctly pass phases from QMOut to Fortran driver.
+!>
 !> This module defines the trajectory and control types.
 !>
 !> All arrays defined here have their order and meaning of the
@@ -211,7 +220,11 @@ module definitions
     complex*16,allocatable :: Rtotal_ss(:,:)               !< total propagator for the current timestep
     complex*16,allocatable :: RDtotal_ss(:,:)              !< total propagator with decay of mixing for the current timestep
     complex*16,allocatable :: Dtotal_ss(:,:)               !< total decoherent propagator for the current timestep
+#ifdef __PYSHARC__
+    complex*16, pointer :: phases_s(:)                  !< electronic state phases of the current step
+#else
     complex*16,allocatable :: phases_s(:)                  !< electronic state phases of the current step
+#endif
     complex*16,allocatable :: phases_old_s(:)              !< electronic state phases of the last step
     real*8, allocatable :: hopprob_s(:)                    !< hopping probabilities
     real*8, allocatable :: switchprob_s(:)                 !< switching probabilities
@@ -480,6 +493,9 @@ module definitions
     integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
     integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
     integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
+    logical :: boltzmann_hop                  !< if .true. it activates boltzmann scaling for upwards hops -> CPA approximation
+    real*8  :: boltzmann_temperature          !< temperature value for Boltzmann scaling of hops probability. default will be 300K
+    real*8  :: boltzmann_damping              !< To furher damp upwards hops. This is for testing the effect of different supercell sizes approximately 
     integer :: switching_procedure            !< 0=no switches, 1=CSDM, 2=SCDM, 3=NDM
     integer :: army_ants                      !< 0=no army ants,i.e. anteater algorithm, 1=army ants algorithm
     integer :: output_format                  !< 0 ASCII, 1 NetCDF
@@ -549,6 +565,7 @@ module definitions
   complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
   real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
   real*8,parameter:: alpha=7.2973525693d-3          !< fine-structure constant
+  real*8,parameter:: boltzmann_k=3.1668115634564263e-06   !< boltzmann constant in Hartree * K^-1
   
   logical :: debug
   integer :: allocatestatus
@@ -1130,6 +1147,7 @@ module definitions
       if (associated(traj%H_MCH_ss))                  deallocate(traj%H_MCH_ss)
       if (associated(traj%DM_ssd))                    deallocate(traj%DM_ssd)
       if (associated(traj%overlaps_ss))               deallocate(traj%overlaps_ss)
+      if (associated(traj%phases_s))                  deallocate(traj%phases_s)
       if (associated(traj%grad_MCH_sad))              deallocate(traj%grad_MCH_sad)
       if (associated(traj%NACdR_ssad))                deallocate(traj%NACdR_ssad)
       if (associated(traj%geom_ad))                   deallocate(traj%geom_ad)
@@ -1137,6 +1155,7 @@ module definitions
       if (allocated(traj%H_MCH_ss))                   deallocate(traj%H_MCH_ss)
       if (allocated(traj%DM_ssd))                     deallocate(traj%DM_ssd)
       if (allocated(traj%overlaps_ss))                deallocate(traj%overlaps_ss)
+      if (allocated(traj%phases_s))                   deallocate(traj%phases_s)
       if (allocated(traj%grad_MCH_sad))               deallocate(traj%grad_MCH_sad)
       if (allocated(traj%NACdR_ssad))                 deallocate(traj%NACdR_ssad)
       if (allocated(traj%geom_ad))                    deallocate(traj%geom_ad)
@@ -1181,7 +1200,7 @@ module definitions
       if (allocated(traj%Dtotal_ss))                  deallocate(traj%Dtotal_ss)
       if (allocated(traj%Kmatrix_MCH_ss))             deallocate(traj%Kmatrix_MCH_ss)
       if (allocated(traj%Kmatrix_diag_ss))            deallocate(traj%Kmatrix_diag_ss)
-      if (allocated(traj%phases_s))                   deallocate(traj%phases_s)
+      !if (allocated(traj%phases_s))                   deallocate(traj%phases_s)
       if (allocated(traj%phases_old_s))               deallocate(traj%phases_old_s)
       if (allocated(traj%hopprob_s))                  deallocate(traj%hopprob_s)
       if (allocated(traj%switchprob_s))               deallocate(traj%switchprob_s)
@@ -1261,6 +1280,7 @@ module definitions
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        associated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          associated(traj%DM_ssd          )
       write(u,'(A20,1X,L1)') 'overlaps_ss',     associated(traj%overlaps_ss     )
+      write(u,'(A20,1X,L1)') 'phases_s',        associated(traj%phases_s     )
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    associated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      associated(traj%NACdR_ssad      )
       write(u,'(A20,1X,L1)') 'geom_ad',         associated(traj%geom_ad         )
@@ -1268,6 +1288,7 @@ module definitions
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        allocated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
       write(u,'(A20,1X,L1)') 'overlaps_ss',     allocated(traj%overlaps_ss     )
+      write(u,'(A20,1X,L1)') 'phases_s',        allocated(traj%phases_s     )
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    allocated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      allocated(traj%NACdR_ssad      )
       write(u,'(A20,1X,L1)') 'geom_ad',         allocated(traj%geom_ad         )
@@ -1319,7 +1340,7 @@ module definitions
       write(u,'(A20,1X,L1)') 'Dtotal_ss',       allocated(traj%Dtotal_ss       )
       write(u,'(A20,1X,L1)') 'Kmatrix_MCH_ss',  allocated(traj%Kmatrix_MCH_ss  )
       write(u,'(A20,1X,L1)') 'Kmatrix_diag_ss', allocated(traj%Kmatrix_diag_ss )
-      write(u,'(A20,1X,L1)') 'phases_s',        allocated(traj%phases_s        )
+      !write(u,'(A20,1X,L1)') 'phases_s',        allocated(traj%phases_s        )
       write(u,'(A20,1X,L1)') 'phases_old_s',    allocated(traj%phases_old_s    )
       write(u,'(A20,1X,L1)') 'hopprob_s',       allocated(traj%hopprob_s       )
       write(u,'(A20,1X,L1)') 'switchprob_s',    allocated(traj%switchprob_s    )

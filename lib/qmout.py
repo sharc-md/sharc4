@@ -62,8 +62,8 @@ class QMout:
     grad_pc: ndarray[float, 3]
     nacdr: ndarray[float, 4]
     nacdr_pc: ndarray[float, 4]
-    overlap: ndarray[float, 2]
-    phases: ndarray[float,1]
+    overlap: ndarray[complex, 2]
+    phases: ndarray[complex,1]
     prop0d: list[tuple[str, float,1]]
     prop1d: list[tuple[str, ndarray[float,1]]]
     prop2d: list[tuple[str, ndarray[float, 2]]]
@@ -513,9 +513,9 @@ class QMout:
             if self.point_charges:
                 self.nacdr_pc = np.zeros((self.nmstates, self.nmstates, npc, 3), dtype=float)
         if "overlap" in requests:
-            self.overlap = np.zeros((self.nmstates, self.nmstates), dtype=float)
+            self.overlap = np.zeros((self.nmstates, self.nmstates), dtype=complex)
         if "phases" in requests:
-            self.phases = np.zeros((self.nmstates), dtype=float)
+            self.phases = np.zeros((self.nmstates), dtype=complex)
         self.prop0d = []
         self.prop1d = []
         self.prop2d = []

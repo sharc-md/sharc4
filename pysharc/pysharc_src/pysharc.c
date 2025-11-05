@@ -27,6 +27,10 @@
  * @date: 18.04.2018
  * @version: 0.1.1
  *
+ * modified by Marco Romanelli
+ * @date: 28/07/2025
+ * Added routine for reading in phases from QMout and so here it is modified accordingly
+ *
  * Python Wrapper for the SHARC LIBRARY
  *
  * Main routine to setup the sharc driver.
@@ -386,6 +390,13 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
         set_overlap_(&qmout->NStates, qmout->overlap);
         qmout->iset_o = 0;
     }
+    /* PHASES*/
+    if (qmout->iset_phases == 1) {
+        printf("sharc.c: set phases\n");
+        set_phases_(&qmout->NStates, qmout->phases);
+        qmout->iset_phases = 0;
+    }
+
     /* Non-adiabatic couplings */
     if (qmout->iset_nacdr == 1) {
         printf("sharc.c: set nacs\n");
@@ -398,11 +409,12 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
                               &qmout->iset_d,
                               &qmout->iset_g,
                               &qmout->iset_o,
+                              &qmout->iset_phases,
                               &qmout->iset_nacdr
                             );
 #endif
     /* set phases */
-    //set_phases_();
+    //set_phases_(); Now proper phases reading routine is implemented and the call is in driver.py
     // Post process data after setting it
     int ISecond = 0;
     if (icall == 1) {
