@@ -559,6 +559,19 @@ class SHARC_BASICORCA(SHARC_ABINITIO):
 
         shutil.copy(os.path.join(workdir, "BASICORCA.gbw"), os.path.join(savedir, f"BASICORCA.gbw.{step}"))
 
+    def _copy_gbw(self, qmin: QMin, workdir: str) -> None:
+        """
+        Copy gbw file from last/current time step
+
+        jobid:      Job ID
+        qmin:       QMin object
+        workdir:    Current working directory
+        """
+        self.log.debug("Copy ORCA.gbw to work directory")
+        gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']-1}")
+        if os.path.isfile(gbw_file):
+            shutil.copy(gbw_file, os.path.join(workdir, "ORCA.gbw"))
+
     def _create_aoovl(self) -> None:
         """
         Create AO_overl.mixed for overlap calculations
