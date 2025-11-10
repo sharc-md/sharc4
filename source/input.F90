@@ -40,6 +40,9 @@
 !>                   modified 2023 by Brigitta Bachmair
 !>                         added keywords for thermostat, additional restrictive potentials, frozen atoms
 !>                       
+!>                   modified 2025 by Marco Romanelli
+!>                         added keywords for Boltzmann scaling of transition probability. See definitions.f90 ctrl%boltzmann_hop etc.
+!>                       
 !> This module provides the central input parsing routine and some 
 !> auxilliary routines for input parsing
 !> 
@@ -2244,6 +2247,58 @@ module input
           write(0,*) 'Unknown keyword ',trim(line),' to "hopping_procedure"!'
           stop 1
       endselect
+    endif
+
+    ! boltzmann scaling of upwards hop probability. Classical-Path-Apprxoimation (CPA)
+    ctrl%boltzmann_hop=.false.
+    ctrl%boltzmann_temperature=300 !Default is 300 K
+    line=get_value_from_key('boltzmann_hop',io)
+    if (io==0) then
+      ctrl%boltzmann_hop=.true.
+      if (printlevel>1) then
+        write(u_log,'(a)') 'Scaling of upwards hop probability is enabled. CPA approximation dynamics is considered'
+      endif
+    endif
+    line=get_value_from_key('noboltzmann_hop',io)
+    if (io==0) then
+      ctrl%boltzmann_hop=.false.
+    endif
+    ! Temperature
+    if (ctrl%boltzmann_hop) then
+      line=get_value_from_key('boltzmann_temperature',io)
+      if (io==0) then
+        read(line,*) ctrl%boltzmann_temperature
+      else
+        if (printlevel>1) then
+          write(u_log,'(a)') 'No boltzmann_temperature was specified for CPA probability scaling. Default value of 300 K is assigned.'
+        endif
+      endif
+    endif
+    ! Further damping of upwards hops. This is mostly for testing, default should be 1.0 = no damping
+    ctrl%boltzmann_damping=1.0
+    if (ctrl%boltzmann_hop) then
+      line=get_value_from_key('boltzmann_damping',io)
+      if (io==0) then
+        read(line,*) ctrl%boltzmann_damping
+        if (printlevel>1) then
+          write(u_log,'(a,f6.3)') 'Probability of upwards hops is further damped by the specified boltzmann_damping parameter: ',ctrl%boltzmann_damping
+        endif
+      endif
+    endif
+
+    !Checking whether user has specified both Boltzmann scaling and some velocity rescaling upon hopping.
+    ! This should not be allowed
+    if ((ctrl%boltzmann_hop) .and. (ctrl%method /= 0)) then
+      write(0,*) '"boltzmann_hop" only makes sense within trajectory surface hopping, please set method to tsh in input'
+      stop 1
+    endif
+    
+    !Checking whether user has specified both Boltzmann scaling and a method different than tsh.
+    ! This should not be allowed
+    if ((ctrl%boltzmann_hop) .and. (ctrl%ekincorrect > 0)) then
+      write(u_log,'(a)') 'if "boltzmann_hop" is activated you should avoid any sort of velocity rescaling. "ekincorrect" changed to "none"'
+      write(u_log,'(a)') 'CPA approximation theoretically account for velocity rescaling via Boltzmann scaling of upwards hops probability.'
+      ctrl%ekincorrect=0
     endif
 
     ! force hops to ground state

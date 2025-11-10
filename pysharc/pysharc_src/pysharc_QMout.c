@@ -27,6 +27,10 @@
  * @date: 29.07.2024
  * @version: 0.1.1 
  *
+ * modified by Marco Romanelli
+ * @date: 28/07/2025
+ * Added routine for reading in phases from QMout
+ *
  * Python Wrapper for the SHARC LIBRARY
  * 
  * DEFINES the QMout object of the SHARC LIBRARY
@@ -42,10 +46,12 @@ typedef struct {
     double complex * hamiltonian;
     double complex * dipole_mom;
     double complex * overlap;
+    double complex * phases;
     int iset_h;
     int iset_g;
     int iset_d;
     int iset_o;
+    int iset_phases;
     int iset_nacdr;
     int imem;
 } QMout;
@@ -59,6 +65,7 @@ QMout_dealloc(QMout * self)
     free(self->gradient);
     free(self->dipole_mom);
     free(self->overlap);
+    free(self->phases);
     free(self->nacdr);
 #endif
     Py_TYPE(self)->tp_free((PyObject*)self);
@@ -83,6 +90,7 @@ QMout_new(PyTypeObject * type, PyObject *args, PyObject *kwds)
         self->iset_g = 0;
         self->iset_d = 0;
         self->iset_o = 0;
+        self->iset_phases = 0;
         self->iset_nacdr = 0;
 #ifdef __OWN_SPACE_QMout__
         self->imem = 0;
@@ -127,27 +135,32 @@ QMout_init(QMout *self, PyObject *args, PyObject *kwds)
              * self->NStates * sizeof(double complex));
     self->overlap = (double complex *) malloc(self->NStates
              * self->NStates * sizeof(double complex));
+    self->phases = (double complex *) malloc(self->NStates
+             * sizeof(double complex));
     /* if fail goto fail */
     if ( (self->hamiltonian == NULL) ||
          (self->gradient== NULL)     ||
          (self->dipole_mom == NULL)  ||
-         (self->overlap == NULL) ) {
+         (self->overlap == NULL)     ||
+         (self->phases == NULL) ) {
             goto fail;
     }
 #else
     double complex ** H_ptr = &self->hamiltonian;
     double complex ** DM_ptr = &self->dipole_mom;
     double complex ** Ov_ptr = &self->overlap;
+    double complex ** phases_ptr = &self->phases;
     double ** G_ptr = &self->gradient;
     double ** NACDR_ptr = &self->nacdr;
     setPointers( (double complex **)H_ptr, 
                  (double complex **)DM_ptr, 
                  (double complex **)Ov_ptr, 
+                 (double complex **)phases_ptr, 
                  (double **)G_ptr, 
                  (double **)NACDR_ptr);
 #endif
 
-    set_phases_();
+    //set_phases_();
     return 0;
 
   fail:
@@ -239,6 +252,13 @@ QMout_printAll(QMout * self)
                     printf("%lf + %lf * i    ", creal(value), cimag(value));
             }
             printf("\n");
+        }
+    }
+
+    if (self->iset_phases == 1) {
+        printf("PHASES:\n");
+        for (int i = 0; i < self->NStates; i++) {
+            printf("Phase[%d] = %lf + %lf i\n", i, creal(self->phases[i]), cimag(self->phases[i]));
         }
     }
 
@@ -483,10 +503,6 @@ QMout_set_overlap(QMout * self, PyObject * args)
         return NULL;
    }
 
-   if (overlap == NULL) {
-      return NULL;
-   }
-
     /* needs to be array */
    if (!PyArray_Check(overlap)) {
      PyErr_SetString(PyExc_TypeError, "Input must be a NumPy array");
@@ -527,6 +543,44 @@ QMout_set_overlap(QMout * self, PyObject * args)
    fail:
       Py_XDECREF(overlap);
       return NULL;
+}
+
+
+static PyObject *
+QMout_set_phases(QMout * self, PyObject * args)
+{
+    PyArrayObject * phases = NULL;
+
+    if (!PyArg_ParseTuple(args, "O", &phases))
+        return NULL;
+
+    if (!PyArray_Check(phases)) {
+        PyErr_SetString(PyExc_TypeError, "Input must be a NumPy array");
+        return NULL;
+    }
+
+    npy_intp* dim = PyArray_DIMS(phases);
+    int num_dims = PyArray_NDIM(phases);
+    if (num_dims != 1 || dim[0] != self->NStates) {
+        PyErr_SetString(PyExc_ValueError, "Input array must be 1D with length NStates");
+        return NULL;
+    }
+
+    int is_complex = PyArray_TYPE(phases) == NPY_COMPLEX128;
+
+   for (int i = 0; i < self->NStates; i++) {
+        if (is_complex) {
+            self->phases[i] = *((double complex *)PyArray_GETPTR1(phases, i));
+        } else {
+            self->phases[i] = *((double *)PyArray_GETPTR1(phases, i)) + 0. * _Complex_I;
+        }
+    }
+    
+    self->iset_phases = 1;
+    Py_RETURN_NONE;
+    fail:
+       Py_XDECREF(phases);
+       return NULL;
 }
 
 static PyObject *
@@ -665,6 +719,8 @@ static PyMethodDef QMout_methods[] = {
      "gradient ndarray [nstates][NAtoms][3], dtype: float  "},
     {"set_dipolemoment", (PyCFunction)QMout_set_dipolemoment, METH_VARARGS,
      "enters a list of list of list of [3][nstate][nstate], type: complex or float"},
+    {"set_phases", (PyCFunction)QMout_set_phases, METH_VARARGS,
+        "Set complex phases as NumPy array of shape [NStates]"},
     {"set_overlap", (PyCFunction)QMout_set_overlap, METH_VARARGS,
      "enters a list of list of [nstate][nstate], type: complex or float "},
     {"set_nacdr", (PyCFunction)QMout_set_nacdr, METH_VARARGS,

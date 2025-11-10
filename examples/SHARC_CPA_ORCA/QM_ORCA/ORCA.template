@@ -1,0 +1,82 @@
+    ## This is a commented version of the ORCA.template file 
+    ## for version 1.0 of the SHARC_ORCA.py interface.
+
+    ## ======== BASIS SETS ============
+
+
+    ## This keyword defines the basis set for all atoms.
+    ## copied verbatim to input
+basis cc-pvdz
+
+    ## This keyword defines the auxiliary basis set for all atoms.
+    ## copied verbatim to input
+#auxbasis cc-pvdz/j 
+
+    ## This keyword can be used to override the main basis set for certain elements
+#basis_per_element F cc-pvqz
+
+    ## This keyword can be used to override the main basis set for certain atoms
+    ## note that in QM/MM calculations, the number refers to atoms within QM region only!
+basis_per_atom 2 cc-pvtz
+
+    ## Used to add ECPs for some atoms
+#ecp_per_atom 1 def2-ecp
+
+    ## ======== CHEMISTRY ============
+
+    ## This keyword defines the XC functional.
+    ## copied verbatim to input
+    ## "hf" can also be used and gives TDHF or CIS for excited states
+functional PBE
+
+    ## This keyword modifies the amount of HF exchange in the XC functional.
+    ## If not present, the original value of the chosen functional is used.
+#hfexchange 0.15
+
+    ## This keyword activates dispersion correction.
+    ## All arguments are written verbatim to input.
+#dispersion D3
+
+    ## This keyword deactivates TDA (which the interface will request by default).
+#no_tda
+
+    ## This keyword requests that triplet states are calculated in a separate job based on an open-shell triplet ground state.
+    ## The default is that triplets are calculated based on the closed-shell singlet ground state.
+    ## Unrestricted triplets are not compatible with a spin-orbit computation.
+#unrestricted_triplets
+
+
+
+    ## ======== ACCURACY and CONVERGENCE ============
+
+    ## This keyword sets the density fitting scheme.
+    ## this is off by default and can be activated with:
+#ri rijcosx
+
+    ## maximum SCF cycles
+maxiter 700
+
+
+
+    ## ======== EXPERT OPTIONS ============
+
+    ## With this keyword, any ORCA keyword can be added to the input
+    ## copied verbatim to input
+#keys tightscf zora
+
+    ## used to add verbatim input to the ORCA input file
+#paste_input_file /path/to/file
+
+
+
+
+
+
+
+
+
+
+
+
+
+# kate: syntax python

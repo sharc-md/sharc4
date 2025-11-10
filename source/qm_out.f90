@@ -324,7 +324,7 @@ subroutine get_phases(n,phase_s,stat)
   endif
 
   call vecread(n,phase_tmp,qmout_unit, title)
-  phase_s=phase_s*phase_tmp
+  phase_s=phase_tmp
   read(title,*) io
   if ( io==n ) then
     stat=0

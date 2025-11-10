@@ -1,0 +1,34 @@
+    ## This is a commented version of the VASP.resources file
+
+    ## ======== VASP setup ============
+
+vaspdir $VASP   #vasp executable folder. On manganese is recommendable to load the vasp module
+
+potcardir  ./ #Path to directory containing POTCAR, pseudopotential file.
+                                    # Ensure POTCAR complies with proper VASP format and the geometry format that will be written in the POSCAR. Check VASP wiki  
+
+ ## ======== SCRATCH and SAVE ============
+
+scratchdir $SCRADIR/SCRATCH
+
+    ## Sets the path to the scratch directory employed by the interface.
+    ## There, all VASP will be launched.
+
+
+    ## Sets the path to the save directory.
+    ## There, WAVECAR, CONTCAR and vasprun.xml from previous time-steps will be saved. Necessary for overlap calculations by pawpyseed
+    ## Hence, this should be a persistent directory.
+    ## Note that the savedir from QM.in takes precedence over the one here.
+
+savedir $SCRADIR/SAVEDIR
+
+    ## ======== RESOURCES ============
+    ## Number of CPU cores the interface can use.
+ncpu 2
+   
+    ## Number of allocated cores that work on each orbital. check VASP NCORE 
+ncore 1
+
+# This is gonna be memory in Mb for each MPI rank in VASP. Check MAXMEM keyword in VASP wiki. Default is 2000
+memory 2500 
+
