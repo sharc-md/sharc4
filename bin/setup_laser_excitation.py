@@ -656,10 +656,14 @@ def get_laser(INFOS, output_fields=False):
                     print("E-field", INFOS["laser_efield"])
                 elif key == "b-field":
                     INFOS["laser_bfield"] = val
+                    INFOS["needed_requests"].add("mdeqm")
                     print("B-field", INFOS["laser_bfield"])
+                    print("Calculation of MD and EQ moments requested!")
                 elif key == "e-field_gradients":
                     INFOS["laser_efield_grad"] = val
+                    INFOS["needed_requests"].add("mdeqm")
                     print("efield_grad", INFOS["laser_efield_grad"])
+                    print("Calculation of MD and EQ moments requested!")
                 elif key == "b-field_gradients":
                     INFOS["laser_bfield_grad"] = val
                     print("B-field_grad", INFOS["laser_bfield_grad"])
@@ -1084,8 +1088,8 @@ from the initcond files as provided by wigner.py.
         setupstates = question("States to setup the dynamics:", int, defsetupstates, ranges=True)
         valid = True
         for i in setupstates:
-            if i > INFOS["nstates"]:
-                log.info("There are only %i states!" % (INFOS["nstates"]))
+            if i > len(INFOS["statemap"]):
+                log.info("There are only %i states!" % (len(INFOS["statemap"])))
                 valid = False
                 continue
             if i < 0:
@@ -1096,6 +1100,7 @@ from the initcond files as provided by wigner.py.
                 valid = False
         if not valid:
             continue
+        setupstates = sorted(setupstates)
         INFOS["setupstates"] = set(setupstates)
         # log.info(INFOS["n_issel"])
         log.info(INFOS["setupstates"])
