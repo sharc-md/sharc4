@@ -19,7 +19,6 @@ dependencies:
   - pytorch
   - pytest
   - ase
-  - ast
   - opt_einsum
   - threadpoolctl
 
