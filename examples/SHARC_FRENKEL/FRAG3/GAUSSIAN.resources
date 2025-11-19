@@ -1,0 +1,14 @@
+groot /usr/license/gaussian16_new/rev_c01/avx2/g16/
+scratchdir scratch
+savedir ./SAVEDIR
+retain 3
+ncpu 4
+memory 4000
+min_cpu 1
+schedule_scaling 0.5
+delay 0.
+wfoverlap $SHARC/wfoverlap_ascii.x
+wfthres 0.99999
+numfrozcore 6
+wfnumocc 0
+resp_fit_order 2

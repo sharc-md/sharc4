@@ -1,0 +1,19 @@
+fragments:
+    FRAG1:
+        interface: GAUSSIAN
+        kwargs: {logname: frag1, logfile: frag1.log}
+        atoms: 0-3
+        states: [4]
+        charges: [0]
+    FRAG2:
+        interface: GAUSSIAN
+        kwargs: {logname: frag2, logfile: frag2.log}
+        atoms: 4-7
+        states: [6]
+        charges: [0]
+    FRAG3:
+        interface: GAUSSIAN
+        kwargs: {logname: frag3, logfile: frag3.log}
+        atoms: 8-11
+        states: [6]
+        charges: [0]

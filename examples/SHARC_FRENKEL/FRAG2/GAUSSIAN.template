@@ -1,0 +1,7 @@
+basis def2svp
+functional b3lyp
+dispersion GD3
+grid finegrid     # Options: coarsegrid, SG1Grid, finegrid (default), ultrafine, superfinegrid
+denfit 
+scf tight
+td_conv 6
