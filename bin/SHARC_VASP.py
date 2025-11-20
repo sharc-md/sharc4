@@ -81,14 +81,15 @@ class SHARC_VASP(SHARC_ABINITIO):
             {
                 "system": "unspecified", #String for "SYSTEM" label of VASP INCAR
                 "gga": "PE", #PBE functional by default (PE flag in VASP)
-                "ismear": -2, #Smearing parameter for VASP, default set to "no smearing" (-2) or read from previous WAVECAR
-                "sigma": 0.0, #Smearing width
+                "ismear": 1, #Smearing parameter for VASP, default set to Gaussian smearing (1) 
+                "sigma": 0.0001, #Smearing width
                 "encut": 200, #Energy cutoff for plan waves in eV
                 "ispin": 1, #keyword for selecting spin calculation, only singlet ISPIN=1 is implemented below
-                "nbands": 0, #If left to 0 VASP will automatically set this, it specifies n. of KS orbital
+                "nbands": None, #If unspecified it will not appear in INCAR, so VASP will determine it automatically
                 "nelm": 60, #setting maximun number of SCF electronic steps
-                "ialgo": 38, #selects the algorithm to optimize orbitals
-                "time_vasp" : 0.4, #select time step for some VASP algorithm depending on IALGO value, check VASP wiki
+                "algo": "Normal", #selects the algorithm to optimize orbitals, ALGO
+                "ialgo": None, #If unspecified it will not appear in INCAR, so VASP will use its default
+                "time_vasp" : None, #If unspecified it will not appear in INCAR, so VASP will use its default
                 "ediff" : 1e-4, # eV energy change for SCF break condition 
                 "scale_param": 1, #scaling parameter for VASP unit cell
                 "a1": None, #1st unit cell lattice vector
@@ -108,6 +109,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "ispin": int, 
                 "nbands" : int,
                 "nelm" : int,
+                "algo":str, 
                 "ialgo": int, 
                 "time_vasp": float,
                 "ediff" : float, 
@@ -195,7 +197,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                 self.log.error("ispin has to be set to 1, singlet calculation. Higher multiplicities are not implemented yet")
                 raise ValueError()
 
-        if not isinstance(self.QMin.template["nbands"],int):
+        if self.QMin.template["nbands"] is not None and not isinstance(self.QMin.template["nbands"],int):
             self.log.error("nbands in template has to be an integer, check vasp wiki")
             raise ValueError()
         
@@ -203,7 +205,7 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.error("nelm in template has to be an integer, check vasp wiki")
             raise ValueError()
         
-        if not isinstance(self.QMin.template["ialgo"],int):
+        if self.QMin.template["ialgo"] is not None and not isinstance(self.QMin.template["ialgo"],int):
             self.log.error("ialgo in template has to be an integer, check vasp wiki")
             raise ValueError()
         
@@ -211,7 +213,7 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.error("ediff in template has to be an integer, check vasp wiki")
             raise ValueError()
         
-        if not isinstance(self.QMin.template["time_vasp"],float):
+        if self.QMin.template["time_vasp"] is not None and not isinstance(self.QMin.template["time_vasp"],float):
             self.log.error("time_vasp in template has to be an integer, check vasp wiki")
             raise ValueError()
         
@@ -919,13 +921,14 @@ class SHARC_VASP(SHARC_ABINITIO):
         inputstring += f"EFERMI = MIDGAP\n"
         inputstring += f"ISPIN = {self.QMin.template['ispin']}\n" #Only singlets currently available
         inputstring += f"GGA = {self.QMin.template['gga']}\n"
-        inputstring += f"TIME = {self.QMin.template['time_vasp']}\n"
-        inputstring += f"IALGO = {self.QMin.template['ialgo']}\n"
+        if self.QMin.template['time_vasp'] != None: 
+            inputstring += f"TIME = {self.QMin.template['time_vasp']}\n"
+        if self.QMin.template['ialgo'] !=  None:
+            inputstring += f"IALGO = {self.QMin.template['ialgo']}\n"
+        inputstring += f"ALGO = {self.QMin.template['algo']}\n"
         inputstring += f"NELM = {self.QMin.template['nelm']}\n"
         inputstring += f"EDIFF = {self.QMin.template['ediff']}\n"
-        
-        
-        if self.QMin.template["nbands"] != 0:
+        if self.QMin.template["nbands"] != None:
             inputstring += f"NBANDS = {self.QMin.template['nbands']}\n" 
         inputstring += f"ENCUT = {self.QMin.template['encut']}" 
         
