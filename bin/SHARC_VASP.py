@@ -81,7 +81,7 @@ class SHARC_VASP(SHARC_ABINITIO):
             {
                 "system": "unspecified", #String for "SYSTEM" label of VASP INCAR
                 "gga": "PE", #PBE functional by default (PE flag in VASP)
-                "ismear": 1, #Smearing parameter for VASP, default set to Gaussian smearing (1) 
+                "ismear": 0, #Smearing parameter for VASP, default set to Gaussian smearing (0) 
                 "sigma": 0.001, #Smearing width
                 "encut": 200, #Energy cutoff for plan waves in eV
                 "ispin": 1, #keyword for selecting spin calculation, only singlet ISPIN=1 is implemented below
