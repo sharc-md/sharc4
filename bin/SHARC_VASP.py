@@ -82,7 +82,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "system": "unspecified", #String for "SYSTEM" label of VASP INCAR
                 "gga": "PE", #PBE functional by default (PE flag in VASP)
                 "ismear": 1, #Smearing parameter for VASP, default set to Gaussian smearing (1) 
-                "sigma": 0.0001, #Smearing width
+                "sigma": 0.001, #Smearing width
                 "encut": 200, #Energy cutoff for plan waves in eV
                 "ispin": 1, #keyword for selecting spin calculation, only singlet ISPIN=1 is implemented below
                 "nbands": None, #If unspecified it will not appear in INCAR, so VASP will determine it automatically
@@ -214,7 +214,7 @@ class SHARC_VASP(SHARC_ABINITIO):
             raise ValueError()
         
         if self.QMin.template["time_vasp"] is not None and not isinstance(self.QMin.template["time_vasp"],float):
-            self.log.error("time_vasp in template has to be an integer, check vasp wiki")
+            self.log.error("time_vasp in template has to be a real number, check vasp wiki")
             raise ValueError()
         
         if not isinstance(self.QMin.template["scale_param"],int):
@@ -921,14 +921,14 @@ class SHARC_VASP(SHARC_ABINITIO):
         inputstring += f"EFERMI = MIDGAP\n"
         inputstring += f"ISPIN = {self.QMin.template['ispin']}\n" #Only singlets currently available
         inputstring += f"GGA = {self.QMin.template['gga']}\n"
-        if self.QMin.template['time_vasp'] != None: 
+        if self.QMin.template['time_vasp'] is not None: 
             inputstring += f"TIME = {self.QMin.template['time_vasp']}\n"
-        if self.QMin.template['ialgo'] !=  None:
+        if self.QMin.template['ialgo'] is not None:
             inputstring += f"IALGO = {self.QMin.template['ialgo']}\n"
         inputstring += f"ALGO = {self.QMin.template['algo']}\n"
         inputstring += f"NELM = {self.QMin.template['nelm']}\n"
         inputstring += f"EDIFF = {self.QMin.template['ediff']}\n"
-        if self.QMin.template["nbands"] != None:
+        if self.QMin.template["nbands"] is not None:
             inputstring += f"NBANDS = {self.QMin.template['nbands']}\n" 
         inputstring += f"ENCUT = {self.QMin.template['encut']}" 
         
