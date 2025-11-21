@@ -37,7 +37,7 @@ import re
 import time
 import numpy as np
 
-from constants import CM_TO_HARTREE, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, NUMBERS, MASSES, ISOTOPES
+from constants import CM_TO_HARTREE, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, NUMBERS, MASSES, MASSES_VASP, ISOTOPES
 # =========================================================0
 
 # some constants
@@ -290,7 +290,10 @@ def get_mass(symb, number):
         return MASS_LIST[number]
     else:
         try:
-            return MASSES[symb]
+            if vasp_masses:
+                return MASSES_VASP[symb]
+            else: 
+                return MASSES[symb]
         except KeyError:
             print('No default mass for atom %s' % (symb))
             quit(1)
@@ -1227,6 +1230,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
     parser.add_option(
         '--keep_trans_rot', dest='KTR', action='store_true', help="Keep translational and rotational components"
     )
+    parser.add_option('--VASP_masses', dest='VM', action='store_true', help="Use atom masses as defined in VASP PBE POTCAR files")
     parser.add_option(
         '--use_eq_geom',
         dest='UEG',
@@ -1256,6 +1260,8 @@ as described in [2] (non-fixed energy, independent mode sampling).
         filename = args[0]
     outfile = options.o
     nondefmass = options.m
+    global vasp_masses
+    vasp_masses = options.VM
     scaling = options.s
     flag = options.f
     lvc = options.lvc
@@ -1323,11 +1329,12 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
     string = '\nGeometry:\n'
     for atom in molecule:
         string += str(atom)[:61] + '\n'
-    string += 'Assumed Isotopes: '
-    for i in set(whichatoms):
-        string += ISOTOPES[i] + ' '
-    string += '\nIsotopes with * are pure isotopes.\n'
-    print(string)
+    if not vasp_masses:
+        string += 'Assumed Isotopes: '
+        for i in set(whichatoms):
+            string += ISOTOPES[i] + ' '
+        string += '\nIsotopes with * are pure isotopes.\n'
+        print(string)
 
     string = 'Frequencies (cm^-1) used in the calculation:\n'
     for i, mode in enumerate(modes):

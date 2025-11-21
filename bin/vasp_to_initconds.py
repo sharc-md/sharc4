@@ -33,7 +33,7 @@ import sys
 import datetime
 import re
 from optparse import OptionParser
-from constants import au2fs, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, MASSES, NUMBERS
+from constants import au2fs, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, MASSES_VASP, NUMBERS
 import os
 import numpy as np
 import random
@@ -371,12 +371,59 @@ def remove_rotations(ic):
 
 # ======================================================================================================================
 
-def get_mass(symb):
-    try:
-        return MASSES[symb]
-    except KeyError:
-        print('No default mass for atom %s' % (symb))
-        sys.exit(1)
+def ask_for_masses():
+    print('''
+Option -m used, please enter non-default masses:
++ number mass           add non-default mass <mass> for atom <number> (counting starts at 1)
+- number                remove non-default mass for atom <number> (default mass will be used)
+show                    show non-default atom masses
+end                     finish input for non-default masses
+''')
+    MASS_LIST = {}
+    while True:
+        line = input()
+        if 'end' in line:
+            break
+        if 'show' in line:
+            s = '-----------------------\nAtom               Mass\n'
+            for i in MASS_LIST:
+                s += '% 4i %18.12f\n' % (i, MASS_LIST[i])
+            s += '-----------------------'
+            print(s)
+            continue
+        if '+' in line:
+            f = line.split()
+            if len(f) < 3:
+                continue
+            try:
+                num = int(f[1])
+                mass = float(f[2])
+            except ValueError:
+                continue
+            MASS_LIST[num] = mass * U_TO_AMU
+            continue
+        if '-' in line:
+            f = line.split()
+            if len(f) < 2:
+                continue
+            try:
+                num = int(f[1])
+            except ValueError:
+                continue
+            del MASS_LIST[num]
+            continue
+    return MASS_LIST
+
+# ======================================================================================================================
+def get_mass(symb, number, MASSLIST):
+    if number in MASSLIST:
+        return MASSLIST[number]
+    else:
+        try:
+            return MASSES_VASP[symb]
+        except KeyError:
+            print('No default mass for atom %s' % (symb))
+            sys.exit(1)
 
 # ======================================================================================================================
 
@@ -445,7 +492,7 @@ def get_coords(INFOS):
             symb = ATOMS[iatom]
             num = NUMBERS[symb]
             vel = [0., 0., 0.]
-            mass = get_mass(symb)
+            mass = get_mass(symb,iatom+1,INFOS["masslist"])
             atomlist.append(ATOM(symb, num, xyz[iatom], mass, vel))
         for iatom in range(natom):
             atomlist[iatom].veloc = velocity[iatom]
@@ -538,6 +585,7 @@ def main():
 
     parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
     parser.add_option('-x', dest='X', action='store_true', help="Generate a xyz file with the sampled geometries in addition to the initconds file")
+    parser.add_option('-m', dest='m', action='store_true', help="Enter non-default atom masses")
     parser.add_option('--keep_trans_rot', dest='KTR', action='store_true', help="Keep translational and rotational components")
 
     # arg processing
@@ -561,6 +609,8 @@ def main():
     
     INFOS['outfile'] = options.o
     INFOS['masslist'] = {}
+    if options.m:
+        INFOS['masslist'] = ask_for_masses()
     INFOS['KTR'] = options.KTR
     INFOS['NFRAMES']=options.frames
     INFOS['NINIT']=options.init
