@@ -366,11 +366,14 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
             # Create 0->n transition monopole matrices (states x natoms)
             if idx == self._n_fragments - 1:  # Last fragment has no off diagonal
+                self.log.debug(
+                    f"Frag {label_a} sum of transition charges {np.round(np.sum(np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]]), axis=1), 5)}"
+                )
                 break
             monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
             self.log.debug(f"Frag {label_a} sum of transition charges {np.round(np.sum(monopoles_a, axis=1), 5)}")
 
-            for jdx, (label_b, b) in enumerate(self._kindergarden.items()):
+            for jdx, b in enumerate(self._kindergarden.values()):
                 states_b = b.QMin.molecule["states"][0] - 1
 
                 # Skip lower diagonal
@@ -383,7 +386,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 r_ab = 1 / np.linalg.norm(diff, axis=-1)
 
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
-                self.log.debug(f"Frag {label_b} sum of transition charges {np.round(np.sum(monopoles_b, axis=1), 5)}")
 
                 hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
                     "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab
