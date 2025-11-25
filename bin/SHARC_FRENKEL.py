@@ -59,8 +59,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         super().__init__(*args, **kwargs)
 
         # Update template keys
-        self.QMin.template.update({"fragments": None, "embedding": None})
-        self.QMin.template.types.update({"fragments": dict, "embedding": dict})
+        self.QMin.template.update({"fragments": None, "embedding": None, "embedding_lj": None})
+        self.QMin.template.types.update({"fragments": dict, "embedding": dict, "embedding_lj": dict})
 
         # Template interface structure
         self._interface_templ = {
@@ -76,6 +76,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         # Interface for electrostatic embedding
         self._embedding_interface = None
+        self._embedding_lj = None  # LJ repulsion
 
         # Keep track of total site states to preallocate Hamiltonian
         self._total_site_states = 1  # GS prod
@@ -175,6 +176,14 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 tmpl_dict["embedding"]["args"] = []
             if "kwargs" not in tmpl_dict["embedding"]:
                 tmpl_dict["embedding"]["kwargs"] = {}
+        if "embedding_lj" in tmpl_dict:
+            if "interface" not in tmpl_dict["embedding_lj"]:
+                self.log.error("Interface has to be defined in embedding!")
+                raise ValueError
+            if "args" not in tmpl_dict["embedding_lj"]:
+                tmpl_dict["embedding_lj"]["args"] = []
+            if "kwargs" not in tmpl_dict["embedding_lj"]:
+                tmpl_dict["embedding_lj"]["kwargs"] = {}
 
         self.QMin.template.update(tmpl_dict)
         self._read_template = True
@@ -255,6 +264,26 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 self._embedding_interface.read_resources()
                 self._embedding_interface.read_template()
                 self._embedding_interface.setup_interface()
+        if self.QMin.template["embedding_lj"]:
+            self._embedding_lj = self._load_interface(self.QMin.template["embedding_lj"]["interface"])(
+                self.QMin.template["embedding_lj"]["args"], self.QMin.template["embedding_lj"]["kwargs"]
+            )
+
+            self._embedding_lj.setup_mol(
+                {
+                    "states": [1],
+                    "charge": self.QMin.molecule["charge"],
+                    "NAtoms": self.QMin.molecule["natom"],
+                    "IAn": [NUMBERS[a] for a in self.QMin.molecule["elements"]],
+                    "retain": f"retain {self.QMin.requests['retain']}",
+                    "savedir": expand_path(os.path.join(self.QMin.save["savedir"], "embedding_lj")),
+                }
+            )
+
+            with InDir("embedding_lj"):
+                self._embedding_lj.read_resources()
+                self._embedding_lj.read_template()
+                self._embedding_lj.setup_interface()
         # TODO: does it need an embedding child for each fragment?
 
     def set_coords(self, xyz, pc=False):
@@ -269,12 +298,16 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         # Set coords for embedding
         if self._embedding_interface and not pc:
             self._embedding_interface.set_coords(xyz, pc)
+        if self._embedding_lj and not pc:
+            self._embedding_lj.set_coords(xyz, pc)
 
     def read_requests(self, requests_file="QM.in"):
         super().read_requests(requests_file)
 
         if self._embedding_interface:
             self._embedding_interface.read_requests({"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]})
+        if self._embedding_lj:
+            self._embedding_lj.read_requests({"h": True, "grad": [0], "step": self.QMin.save["step"]})
 
             # Check if fragment children can do point charges
             for name, child in self._kindergarden.items():
@@ -310,6 +343,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 child.set_coords(pccoords, True)
                 child.QMin.molecule["point_charges"] = True
                 # TODO: add external pc
+        if self.QMin.requests["grad"] and self._embedding_lj:
+            self._embedding_lj.run()
         self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
 
     def _wfa(self, wavefunction: np.ndarray) -> list[list[str, np.ndarray]]:
@@ -519,6 +554,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         if self.QMin.requests["grad"]:
             self.QMout.grad = self._get_exciton_gradients(coeffs)[: self.QMin.molecule["states"][0], :, :]
+            if self._embedding_lj:
+                self.QMout.grad += self._embedding_lj.getQMout()["grad"]
 
         if self.QMin.requests["dm"]:
             self.QMout.dm[:, : self.QMin.molecule["states"][0], : self.QMin.molecule["states"][0]] = self._get_exciton_dipoles(
