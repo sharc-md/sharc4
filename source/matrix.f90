@@ -389,9 +389,9 @@ subroutine zintruder(n,A_ss)
       if (sums < intr_thrs) then
         write(u_log,'(A)') '! ======== INTRUDER STATE PROBLEM ======== !'
         write(u_log,'(A,I4)') 'State: ',i
-        do k=1,n
-          write(u_log,'(1000(F8.5,1X))') (A_ss(k,j),j=1,n)
-        enddo
+        !do k=1,n
+        !  write(u_log,'(1000(F8.5,1X))') (A_ss(k,j),j=1,n)
+        !enddo
 
         A_ss(i,:)=dcmplx(0.d0,0.d0)
         A_ss(:,i)=dcmplx(0.d0,0.d0)
