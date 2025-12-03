@@ -12,6 +12,7 @@ from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import  expand_path, question, link,  mkdir,  writefile,is_exec,phase_correction_cmplx
 from scipy import linalg as LA
 from scipy import optimize as opt
+from copy import deepcopy
 import importlib.util
 import sys
 
@@ -62,6 +63,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.QMin.resources.update(
             {
                 "vaspdir": None, # Path to the executable of VASP
+                "hdf5vaspdir": None, # Path to the HDF5 libraries used for VASP compilation
                 "potcardir": None, # Path to the POTCAR VASP file with PAW pseudopotentials
                 "ncore" : 1, #Default number of compute cores to work on a single orbital in VASP 
                 "ncpu" : 2, #Default number of cpus for mpi run with VASP 
@@ -72,6 +74,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.QMin.resources.types.update(
             {
                 "vaspdir": str,
+                "hdf5vaspdir": str,
                 "potcardir": str, 
                 "ncore":int, 
             }
@@ -285,6 +288,17 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.error("vaspdir has to be set in resource file!")
             raise ValueError()
 
+        if not self.QMin.resources["hdf5vaspdir"]:
+            hdf5vaspdir=os.path.join(self.QMin.resources["vaspdir"],"../libs/lib")
+            self.log.debug(hdf5vaspdir)
+            if os.path.isdir(hdf5vaspdir):
+                self.QMin.resources["hdf5vaspdir"]=hdf5vaspdir
+            else:
+                self.log.error(f"No HDF5 libraries linked to your VASP installation can be found. Please set hdf5vaspdir explicitly in VASP.resources")
+                self.log.error(f"If you have not compiled VASP with HDF5 support please do")
+                raise ValueError()
+
+
         if not self.QMin.resources["potcardir"]:
             self.log.error("Please specify pathway to POTCAR file in resource file!")
             raise ValueError()
@@ -396,6 +410,9 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.info("Specify the path to the VASP binary files")
             self.setupINFOS["vaspdir"] = question("path to VASP binary files", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
 
+            self.log.info("Specify the path to the VASP HDF5 libraries")
+            self.setupINFOS["hdf5vaspdir"] = question("path to VASP HDF5 libraries", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+
             self.log.info("Specify the path to the VASP potcar file")
             self.setupINFOS["potcardir"] = question("path to VASP POTCAR file", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
 
@@ -415,7 +432,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         create_file = link if INFOS["link_files"] else shutil.copy
         if not self._resource_file:
             with open(os.path.join(dir_path, "VASP.resources"), "w", encoding="utf-8") as file:
-                for key in ("vaspdir", "potcardir", "scratchdir", "ncpu", "memory", "savedir","ncore"):
+                for key in ("vaspdir","hdf5vaspdir", "potcardir", "scratchdir", "ncpu", "memory", "savedir","ncore"):
                     if key in self.setupINFOS:
                         file.write(f"{key} {self.setupINFOS[key]}\n")
         else:
@@ -512,6 +529,20 @@ class SHARC_VASP(SHARC_ABINITIO):
         """
         pass
 
+    def _setup_env(self) -> dict[str, str]:
+        """
+        Generate an env dict to properly setup a local ENV for running VASP.
+        This is required because the HDF5 library that SHARC uses for NETCDF and with which it is compiled through CONDA env is often different than 
+        the that of VASP with HDF5 support.
+        This only modify the local environment of the subprocess where VASP is executed.
+        """
+        vasp_env = deepcopy(os.environ)
+        #Prepending path for VASP execution
+        self.log.debug(self.QMin.resources["hdf5vaspdir"])
+        vasp_env["LD_LIBRARY_PATH"]=f"{self.QMin.resources["hdf5vaspdir"]}:{vasp_env["LD_LIBRARY_PATH"]}"
+        self.log.debug(vasp_env["LD_LIBRARY_PATH"])
+        return vasp_env
+
     def execute_from_qmin(self, workdir: str, qmin: QMin) -> tuple[int, datetime.timedelta]:
         """
         Do VASP QM calculation
@@ -556,7 +587,7 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         exec_str = f"mpirun -np {ncpu} {os.path.join(qmin.resources['vaspdir'],'vasp_std')} > {os.path.join(workdir, 'VASP.out')}"
         exit_code = self.run_program(
-            workdir, exec_str, os.path.join(workdir, "VASP.out"), os.path.join(workdir, "VASP.err"))
+            workdir, exec_str, os.path.join(workdir, "VASP.out"), os.path.join(workdir, "VASP.err"),self._setup_env())
 
         ### Checking correct execution of VASP calculation. ###
         #Checking correct POSCAR and POTCAR format, only at first step is enough to make sure remaining steps run smoothly
