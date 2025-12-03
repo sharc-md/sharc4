@@ -286,7 +286,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         if not self.QMin.resources["vaspdir"]:
             self.log.error("vaspdir has to be set in resource file!")
-            raise ValueError()
+            raise ValueError("vaspdir has to be set in resource file!")
 
         if not self.QMin.resources["hdf5vaspdir"]:
             hdf5vaspdir=os.path.join(self.QMin.resources["vaspdir"],"../libs/lib")
@@ -294,14 +294,14 @@ class SHARC_VASP(SHARC_ABINITIO):
             if os.path.isdir(hdf5vaspdir):
                 self.QMin.resources["hdf5vaspdir"]=hdf5vaspdir
             else:
-                self.log.error(f"No HDF5 libraries linked to your VASP installation can be found. Please set hdf5vaspdir explicitly in VASP.resources")
-                self.log.error(f"If you have not compiled VASP with HDF5 support please do")
-                raise ValueError()
+                self.log.error("No HDF5 libraries linked to your VASP installation can be found. Please set hdf5vaspdir explicitly in VASP.resources")
+                self.log.error("If you have not compiled VASP with HDF5 support please do")
+                raise ValueError("No HDF5 libraries linked to your VASP installation can be found. Please set hdf5vaspdir explicitly in VASP.resources")
 
 
         if not self.QMin.resources["potcardir"]:
             self.log.error("Please specify pathway to POTCAR file in resource file!")
-            raise ValueError()
+            raise ValueError("Please specify pathway to POTCAR file in resource file!")
     
         if not self.QMin.resources["ncore"]:
             self.log.warning(" No ncore keyword found in the resource file. Default value of 1 is applied.")
