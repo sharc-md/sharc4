@@ -94,6 +94,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "ialgo": None, #If unspecified it will not appear in INCAR, so VASP will use its default
                 "time_vasp" : None, #If unspecified it will not appear in INCAR, so VASP will use its default
                 "ediff" : 1e-4, # eV energy change for SCF break condition 
+                "lreal" : None, #If unspecified it will not appear in INCAR, so VASP will determine it automatically 
                 "scale_param": 1, #scaling parameter for VASP unit cell
                 "a1": None, #1st unit cell lattice vector
                 "a2": None, #2nd unit cell lattice vector
@@ -115,7 +116,8 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "algo":str, 
                 "ialgo": int, 
                 "time_vasp": float,
-                "ediff" : float, 
+                "ediff" : float,
+                "lreal" : str, 
                 "scale_param": int, #scaling parameter for VASP unit cell
                 "a1": list, #1st unit cell lattice vector
                 "a2": list, #2nd unit cell lattice vector
@@ -214,6 +216,10 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         if not isinstance(self.QMin.template["ediff"],float):
             self.log.error("ediff in template has to be an integer, check vasp wiki")
+            raise ValueError()
+        
+        if self.QMin.template["lreal"] is not None and not isinstance(self.QMin.template["lreal"],str):
+            self.log.error("lreal in template has to be a string, check vasp wiki")
             raise ValueError()
         
         if self.QMin.template["time_vasp"] is not None and not isinstance(self.QMin.template["time_vasp"],float):
@@ -961,6 +967,8 @@ class SHARC_VASP(SHARC_ABINITIO):
         inputstring += f"EDIFF = {self.QMin.template['ediff']}\n"
         if self.QMin.template["nbands"] is not None:
             inputstring += f"NBANDS = {self.QMin.template['nbands']}\n" 
+        if self.QMin.template["lreal"] is not None:
+            inputstring += f"LREAL = {self.QMin.template['lreal']}\n" 
         inputstring += f"ENCUT = {self.QMin.template['encut']}" 
         
         return inputstring
