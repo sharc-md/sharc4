@@ -845,6 +845,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug(det_t0)
         
         #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
+        self.log.debug("-----------------------------")
+        self.log.debug("PAWPYSEED overlap calculation")
+        self.log.debug("-----------------------------\n")
         with suppress_stdout_stderr():  
             wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
                                            wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
@@ -856,26 +859,29 @@ class SHARC_VASP(SHARC_ABINITIO):
                                             cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
                                             vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
             
-            self.log.debug("-----------------------------")
-            self.log.debug("PAWPYSEED overlap calculation")
-            self.log.debug("-----------------------------\n")
             
             if self.QMin.template["overlap_method"]=="pseudo":
                 pr=[Projector(wf_t, wf_t0,method=self.QMin.template["overlap_method"])]
             else:
                 pr=[Projector(wf_t, wf_t0)]
-            
-            S=list()
-            
-            #pr is a list, multiple projector calculations could be added, for instance if tNACs have to be computed also S_{ji}(r,t+dt)^* is required.
-            #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
-            for j in pr:
-               tmp=list()
-               for i in ks_mo_index.values():
-                   tmp.append(j.single_band_projection(i)) #Each tmp string should have <\psi_1(t0)|\psi_i(t+dt)>....<\psi_n(t0)|\psi_i(t+dt)>
-               S.append(np.array(tmp).T)                   # as a row, so transpose should be applied to have S(t,t+dt) instead of S(t+dt,t)
-            #np.savetxt('overlap_VASP.dat',S[0]) #Printing out full MOs overlap matrix for VASP check
+        
+        S=list()
+        time_setup= datetime.datetime.now()
+        self.log.debug("==> Pawpyseed projectors setup"+ check_timing(start,time_setup))
 
+        #pr is a list, multiple projector calculations could be added, for instance if tNACs have to be computed also S_{ji}(r,t+dt)^* is required.
+        #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
+        with suppress_stdout_stderr():  
+            for j in pr:
+                tmp=list()
+                for i in ks_mo_index.values():
+                    tmp.append(j.single_band_projection(i)) #Each tmp string should have <\psi_1(t0)|\psi_i(t+dt)>....<\psi_n(t0)|\psi_i(t+dt)>
+                S.append(np.array(tmp).T)                   # as a row, so transpose should be applied to have S(t,t+dt) instead of S(t+dt,t)
+        
+        #np.savetxt('overlap_VASP.dat',S[0]) #Printing out full MOs overlap matrix for VASP check
+
+        time_pawpy= datetime.datetime.now()
+        self.log.debug("==> Pawpyseed overlap"+ check_timing(time_setup,time_pawpy))
 
         #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
         S_ij=list()
@@ -896,7 +902,8 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         end = datetime.datetime.now()
         
-        self.log.debug(check_timing(start,end))
+        self.log.debug("==> Slater determinants overlap" + check_timing(time_pawpy,end))
+        self.log.debug("==> Full overlap routine" + check_timing(start,end))
        
         #return S_ij_lowdin
         return S_ij[0]
@@ -1118,7 +1125,7 @@ def check_timing(starttime : datetime.datetime ,endtime : datetime.datetime):
     minutes = runtime.seconds // 60 - hours * 60
     seconds = runtime.seconds % 60
     seconds += 1.0e-6 * runtime.microseconds
-    output=("==> Runtime for pawpyseed overlap calculation:\t%i Days\t%i Hours\t%i Minutes\t%f Seconds\n\n" % (runtime.days, hours, minutes, seconds))
+    output=(". Timings:  %i d  %i h  %i m  %f s\n\n" % (runtime.days, hours, minutes, seconds))
 
     return output
 
