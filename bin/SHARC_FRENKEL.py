@@ -271,6 +271,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 self._embedding_interface.read_resources()
                 self._embedding_interface.read_template()
                 self._embedding_interface.setup_interface()
+            self._embedding_interface.QMin.resources["scratchdir"] = expand_path(
+                os.path.join(self.QMin.resources["scratchdir"], "embedding")
+            )
+
         if self.QMin.template["embedding_lj"]:
             self._embedding_lj = self._load_interface(self.QMin.template["embedding_lj"]["interface"])(
                 self.QMin.template["embedding_lj"]["args"], self.QMin.template["embedding_lj"]["kwargs"]
@@ -291,6 +295,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 self._embedding_lj.read_resources()
                 self._embedding_lj.read_template()
                 self._embedding_lj.setup_interface()
+            self._embedding_lj.QMin.resources["scratchdir"] = expand_path(
+                os.path.join(self.QMin.resources["scratchdir"], "embedding_lj")
+            )
         # TODO: does it need an embedding child for each fragment?
 
     def set_coords(self, xyz, pc=False):
