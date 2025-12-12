@@ -635,6 +635,13 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 )
             )
 
+        if self.QMin.template["embedding"]:
+            self._embedding_interface = self._load_interface(self.QMin.template["embedding"]["interface"])(
+                self.QMin.template["embedding"]["args"], self.QMin.template["embedding"]["kwargs"]
+            )
+            self._embedding_interface.log = self.log
+            self._embedding_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
+
         for child, instance in self._kindergarden.items():
             self.log.info(f"Setting up interface {child}")
             instance.log = self.log
@@ -653,6 +660,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             mkdir(child_dir)
             instance.prepare(INFOS, child_dir)
 
+        if self.QMin.template["embedding"]:
+            child_dir = os.path.join(dir_path, "embedding")
+            mkdir(child_dir)
+            self._embedding_interface.prepare(INFOS, child_dir)
 
 if __name__ == "__main__":
     SHARC_FRENKEL().main()
