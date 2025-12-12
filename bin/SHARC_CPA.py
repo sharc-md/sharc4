@@ -40,7 +40,7 @@ AUTHORS = "Marco Romanelli"
 VERSION = "1.0"
 VERSIONDATE = datetime.datetime(2025, 6, 4)
 NAME = "CPA"
-DESCRIPTION = "HYBRID interface for performing Classical-Path-Approximation (CPA) dynamics." 
+DESCRIPTION = "   HYBRID interface for performing Classical-Path-Approximation (CPA) dynamics." 
 
 CHANGELOGSTRING = """ This hybrid interface only request the ground-state gradients to each child interface and 
 return to the driver call always the ground-state gradient for each excited-state. This is meant to be
