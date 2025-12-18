@@ -30,6 +30,8 @@ import os
 import shutil
 import readline
 import numpy as np
+from scipy import linalg as LA
+from scipy import optimize
 from dataclasses import dataclass
 from error import Error, exception_hook
 import subprocess as sp
@@ -1004,8 +1006,6 @@ def phase_correction_cmplx(overlap,flag="simple"):
 
     Return: phases for corrections 
     """
-    from scipy import linalg as LA
-    from scipy import optimize
     
     if flag=="simple": #This does not require the matrix to be exactly unitary
         phases=[]
@@ -1081,3 +1081,47 @@ def phase_correction_cmplx(overlap,flag="simple"):
                 #logging.debug(f"Final Tr(|log(U)|^2) {trace_log(U)}")
                 break
         return phases
+
+def det_slog(matrix):
+    '''
+    Compute determinant of a square (complex or real) matrix by using np.linalg.slogdet(),  which is significantly faster than
+    np.linalg.det() for matrix size < 5000x5000
+    '''
+    sign, logdet = np.linalg.slogdet(matrix)
+    det = sign * np.exp(logdet)
+    return det
+
+def schur_det(matrix,size_block,det_block,lu_block):
+    '''
+    Computes determinant of a big input 'matrix' by relying on Schur complement.
+    Assuming  a partitioning -> matrix=A=(A_11 A_12; A_21 A_22) then the Schur complement is S=A_22-A_21*A_11^-1*A_12
+    from which it follows: det(A)=det(A_11)*det(S).
+
+    This assumes that A_11 and its inverse are precomputed to speed up multideterminant evauluation when A_11 is never changing.
+
+    input quantitites:
+    matrix -> Full-matrix (A in the notation above)
+    size_block -> size n of the upper A_11 nxn block 
+    det_block -> precomputed determinant of A_11
+    lu_block -> result of LU decomposition of A_11 to avoid A_11^-1 computation explicitly.
+
+    return:
+    det(matrix)
+    '''
+
+    n = matrix.shape[0]
+    assert matrix.shape[1] == n, "Matrix must be square"
+    assert 0 < size_block < n, "Block size k must be valid"
+    # Partition blocks
+    A12 = matrix[:size_block, size_block:]
+    A21 = matrix[size_block:, :size_block]
+    A22 = matrix[size_block:, size_block:]
+
+    X=LA.lu_solve(lu_block,A12) #Computed A_11^-1 * A_12 with LU factorization of A_11
+    
+    S = A22 - A21 @ X
+    det=det_block*det_slog(S)
+    return det
+
+
+

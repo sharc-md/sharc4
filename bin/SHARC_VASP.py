@@ -9,9 +9,8 @@ import re
 from constants import *
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import  expand_path, question, link,  mkdir,  writefile,is_exec,phase_correction_cmplx
-from scipy import linalg as LA
-from scipy import optimize as opt
+from utils import  expand_path, question, link,  mkdir,  writefile,is_exec,phase_correction_cmplx,det_slog,schur_det
+from scipy.linalg import lu_factor
 from copy import deepcopy
 import importlib.util
 import sys
@@ -738,7 +737,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         return dip
 
-    def _get_energies(self, vasp_out: str) -> tuple[list,tuple[dict,dict]]:
+    def _get_energies(self, vasp_out: str) -> tuple[np.ndarray,tuple[dict,dict]]:
         """
         Eigenstate energies from VASP. Excitation energies are computed as orbital energy difference between KS eigenvalues!
         GS energy is the correct DFT one, higher-lying state energies are obtained by summing excitation energy (from KS MOs difference) to GS energy.
@@ -790,14 +789,14 @@ class SHARC_VASP(SHARC_ABINITIO):
         if nmstates > 1: 
             self._write_transitions(ks_es,ks_mo_index) #Writing out states selected and their composition
         #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
-        energies=list()
+        energies=np.zeros(nmstates,dtype=complex)
         pattern=rf'  energy  without entropy=.*energy\(sigma->0\)\s+=\s+(.*?)\n'
         gs_en=float(re.search(pattern,vasp_out).group(1))
         self.log.debug("debugging GS energy from VASP")
         self.log.debug(gs_en)
-        energies.append(gs_en/au2eV)
-        for i in ks_es.values():
-            energies.append(energies[0]+i/au2eV)
+        energies[0]=(gs_en/au2eV)
+        for n,i in enumerate(ks_es.values()):
+            energies[n+1]=(energies[0]+i/au2eV)
 
         self.log.debug("TESTING ENERGIES PARSING")
         self.log.debug(energies)
@@ -819,29 +818,47 @@ class SHARC_VASP(SHARC_ABINITIO):
             es.append(tmp)
         self.log.debug("checking Slater determinant strings for selected ES")
         self.log.debug(es)
-        det_ind=list()
-        det_ind.append(list(gs.values())) #List of orbital indexes for each slater determinant
-        for i in es:
-            det_ind.append(list(i.values()))
+        det_ind=np.zeros((nmstates,len(gs)),dtype=int)
+        det_ind[0]=np.array(list(gs.values())) #array of orbital indexes for each slater determinant
+        for n,i in enumerate(es):
+            det_ind[n+1]=np.array(list(i.values()))
         self.log.debug("checking number of states selected from SHARC input")
         self.log.debug(self.QMin.molecule["nmstates"]) 
         self.log.debug("checking number of states for which overlap is computed")
-        self.log.debug(len(det_ind))
+        self.log.debug(det_ind.shape)
         #Saving Slater Determinant occupations for overlap
         filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']}") 
-        np.savetxt(filename,np.array(det_ind),fmt='%d') 
+        np.savetxt(filename,det_ind,fmt='%d') 
         
         end = datetime.datetime.now()
         self.log.debug("==> Building excitations out of VASP orbitals done." + check_timing(start,end))
 
         return energies,det_ind,ks_mo_index
+    
+    @staticmethod
+    def longest_common_prefix(A,B):
+        """
+        Compute the longest set of indexes k  for which A[:k,:k]==B[:k,:k] assuming that the same
+        block, if presents, sits on the upper left corner of the matrices. Necessary for faster Schur complement determinant
+        of many matrices that share the same A_10 block. 
+        Stops scanning as soon as a mismatch is found.
+        """
+        # Stack vertically
+        combined = np.vstack((A,B))
+        n_cols = combined.shape[0]
+        # Compare column by column
+        for i in range(n_cols):
+            col = combined[:, i]
+            if not np.all(col == col[-1]):
+                return combined[-1, :i]  # stop at first mismatch
+        # All columns match
+        return combined[-1, :]
 
-
-    def _get_overlap(self, det_t: list,  ks_mo_index: dict) -> np.ndarray:
+    def _get_overlap(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
         ''' 
         Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
 
-        det_t: list of determinant strings for current timestep with orbital occupations for selected states
+        det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
         ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
         
         self.QMin.template["overlap_method"] selects which method from pawpyseed to compute MO overlaps.
@@ -854,7 +871,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
 
         filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']-1}")
-        det_t0=np.loadtxt(filename,dtype=int).tolist()
+        det_t0=np.loadtxt(filename,dtype=int)
         self.log.debug("Occupation strings of Slater determinants at previous timestep")
         self.log.debug(det_t0)
         
@@ -900,17 +917,27 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
         S_ij=np.zeros((len(det_t),len(det_t)),dtype=complex) #Storing overlap matrix for SHARC dynamics len(det_t)=self.QMin.molecule["nmstates"]
-        det_beta=LA.det(S[np.ix_(det_t0[0],det_t[0])])
+        det_beta=det_slog(S[np.ix_(det_t0[0],det_t[0])])
         elapsed=[]
+        #Schur complement for speeding up determinant evaluation for SD overlaps for alpha electrons.
+        #All these determinants share a big block, which is always the same and can be pre-computed to make use of Schur complement for full determinant.
+        t0=datetime.datetime.now()
+        common_idx=SHARC_VASP.longest_common_prefix(det_t0,det_t)
+        sub_block=S[np.ix_(common_idx,common_idx)]
+        det_block=det_slog(sub_block)
+        lu_block = lu_factor(sub_block)
+        t1=datetime.datetime.now()
+        self.log.debug("==> Determinant of the subblock and LU factorization done."+check_timing(t0,t1))
         for i in range(len(det_t0)):
             for j in range(len(det_t)):
                 t0=datetime.datetime.now()
-                S_ij[i,j]=LA.det(S[np.ix_(det_t0[i],det_t[j])])*det_beta
+                det_alpha=schur_det(S[np.ix_(det_t0[i],det_t[j])],len(common_idx),det_block,lu_block) 
+                S_ij[i,j]=det_alpha*det_beta
+                #First det is alpha electrons, det_beta always the same (always lowest-MOs occupied for single alpha electron excitations)
                 t1=datetime.datetime.now()
                 elapsed.append(t1-t0)
-                #First det is alpha electrons, det_beta always the same (always lowest-MOs occupied for single alpha electron excitations)
         elapsed_average=sum(elapsed,datetime.timedelta())/len(elapsed)
-        self.log.debug(f"==> Average timing for each Slater determinant overlap computation: {elapsed_average.total_seconds()}")
+        self.log.debug(f"==> Average timing for each Slater determinant overlap computation using Schur complement: {elapsed_average.total_seconds()} s\n")
         
         #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
         #This may need to be commented, so it's the driver doing that, before checking for intruder states (to be tested!)
@@ -922,6 +949,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug("==> Full overlap routine done." + check_timing(start,end))
        
         return S_ij
+    
+
+
 
     def _get_phases(self,flag: str, overlap: np.ndarray[complex,2] ) -> np.ndarray[complex,1]:
         ''' 
@@ -1145,7 +1175,7 @@ def check_timing(starttime : datetime.datetime ,endtime : datetime.datetime):
     minutes = runtime.seconds // 60 - hours * 60
     seconds = runtime.seconds % 60
     seconds += 1.0e-6 * runtime.microseconds
-    output=(" Timings:  %i d  %i h  %i m  %f s\n\n" % (runtime.days, hours, minutes, seconds))
+    output=(" Timings:  %i d  %i h  %i m  %f s\n" % (runtime.days, hours, minutes, seconds))
 
     return output
 
