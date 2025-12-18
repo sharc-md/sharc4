@@ -695,7 +695,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         Gradients are output in Hartree/Bohr units and read in eV/Ang. from VASP OUTCAR
 
         vasp_out: VASP OUTCAR file
-        """
+        """        
+        
+        start = datetime.datetime.now()
         
         nmstates = self.QMin.molecule["nmstates"]
 
@@ -717,7 +719,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug(forces)
 
         gradients= -forces.copy() #We get forces from VASP but we need to pass gradients to SHARC driver
-        
+
+        end = datetime.datetime.now()
+        self.log.debug("==> Getting gradients out of VASP done." + check_timing(start,end))
         return gradients
 
     def _get_dipoles(self, vasp_out: str) -> np.ndarray:
@@ -828,7 +832,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         np.savetxt(filename,np.array(det_ind),fmt='%d') 
         
         end = datetime.datetime.now()
-        self.log.debug("==> Building excitations out of VASP orbitals" + check_timing(start,end))
+        self.log.debug("==> Building excitations out of VASP orbitals done." + check_timing(start,end))
 
         return energies,det_ind,ks_mo_index
 
@@ -897,21 +901,25 @@ class SHARC_VASP(SHARC_ABINITIO):
         #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
         S_ij=np.zeros((len(det_t),len(det_t)),dtype=complex) #Storing overlap matrix for SHARC dynamics len(det_t)=self.QMin.molecule["nmstates"]
         det_beta=LA.det(S[np.ix_(det_t0[0],det_t[0])])
+        elapsed=[]
         for i in range(len(det_t0)):
             for j in range(len(det_t)):
+                t0=datetime.datetime.now()
                 S_ij[i,j]=LA.det(S[np.ix_(det_t0[i],det_t[j])])*det_beta
+                t1=datetime.datetime.now()
+                elapsed.append(t1-t0)
                 #First det is alpha electrons, det_beta always the same (always lowest-MOs occupied for single alpha electron excitations)
-       
+        elapsed_average=sum(elapsed,datetime.timedelta())/len(elapsed)
+        self.log.debug(f"==> Average timing for each Slater determinant overlap computation: {elapsed_average.total_seconds()}")
+        
         #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
         #This may need to be commented, so it's the driver doing that, before checking for intruder states (to be tested!)
-
         #λ,V = LA.eigh(S_ij.T.conjugate() @ S_ij)
         #S_ij_lowdin=S_ij @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
         
         end = datetime.datetime.now()
-        
-        self.log.debug("==> Slater determinants overlap" + check_timing(time_pawpy,end))
-        self.log.debug("==> Full overlap routine" + check_timing(start,end))
+        self.log.debug("==> Slater determinants overlap done." + check_timing(time_pawpy,end))
+        self.log.debug("==> Full overlap routine done." + check_timing(start,end))
        
         return S_ij
 
@@ -927,11 +935,16 @@ class SHARC_VASP(SHARC_ABINITIO):
         returns: 1D array of complex numbers for phase correction.
         '''
         
+        start = datetime.datetime.now()
+
         if flag=="none":
             phases=np.ones(self.QMin.molecule["nmstates"],dtype=complex) 
         
         elif flag=="simple" or flag=="robust":
             phases=phase_correction_cmplx(overlap,flag)
+
+        end = datetime.datetime.now()
+        self.log.debug("==> Phase correction routine done." + check_timing(start,end))
         
         return phases
     
@@ -1132,7 +1145,7 @@ def check_timing(starttime : datetime.datetime ,endtime : datetime.datetime):
     minutes = runtime.seconds // 60 - hours * 60
     seconds = runtime.seconds % 60
     seconds += 1.0e-6 * runtime.microseconds
-    output=(". Timings:  %i d  %i h  %i m  %f s\n\n" % (runtime.days, hours, minutes, seconds))
+    output=(" Timings:  %i d  %i h  %i m  %f s\n\n" % (runtime.days, hours, minutes, seconds))
 
     return output
 
