@@ -30,7 +30,6 @@ import os
 import shutil
 import readline
 import numpy as np
-from scipy import linalg as LA
 from scipy import optimize
 from dataclasses import dataclass
 from error import Error, exception_hook
@@ -1024,21 +1023,21 @@ def phase_correction_cmplx(overlap,flag="simple"):
             return delta
         #Function to compute Tr(|log(matrix)|**2) for debugging algorithm below
         def trace_log(U):
-            eig=LA.eigvals(U)
+            eig=np.linalg.eigvals(U)
             out=np.sum(np.abs(np.log(eig))**2)
             return out
         
         ##### start of actual algorithm ####
         
         #First we need to make the matrix unitary -> Löwdin's orthogonalization
-        λ,V = LA.eigh(overlap.T.conjugate() @ overlap)
+        λ,V = np.linealg.eigh(overlap.T.conjugate() @ overlap)
         S=overlap @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
         U = S.copy()
         for i in range(U.shape[0]):
             tmp=np.argmax(np.abs(U[:,i]))
             max_el=U[tmp,i]
             U[:,i]=U[:,i]*max_el.conjugate()/np.abs(max_el)
-        det = LA.det(U)
+        det = np.linalg.det(U)
         #logging.debug(f"debugging phase fixing algorithm. Initial determinant {det}") #Only for debugs, requires extra computations
         #logging.debug(f"Initial Tr(|log(U)|^2) {trace_log(U)}")
         if isinstance(det,complex):
@@ -1085,43 +1084,12 @@ def phase_correction_cmplx(overlap,flag="simple"):
 def det_slog(matrix):
     '''
     Compute determinant of a square (complex or real) matrix by using np.linalg.slogdet(),  which is significantly faster than
-    np.linalg.det() for matrix size < 5000x5000
+    np.linalg.det(), especially for small matrix size < 1000x1000
     '''
     sign, logdet = np.linalg.slogdet(matrix)
     det = sign * np.exp(logdet)
     return det
 
-def schur_det(matrix,size_block,det_block,lu_block):
-    '''
-    Computes determinant of a big input 'matrix' by relying on Schur complement.
-    Assuming  a partitioning -> matrix=A=(A_11 A_12; A_21 A_22) then the Schur complement is S=A_22-A_21*A_11^-1*A_12
-    from which it follows: det(A)=det(A_11)*det(S).
-
-    This assumes that A_11 and its inverse are precomputed to speed up multideterminant evauluation when A_11 is never changing.
-
-    input quantitites:
-    matrix -> Full-matrix (A in the notation above)
-    size_block -> size n of the upper A_11 nxn block 
-    det_block -> precomputed determinant of A_11
-    lu_block -> result of LU decomposition of A_11 to avoid A_11^-1 computation explicitly.
-
-    return:
-    det(matrix)
-    '''
-
-    n = matrix.shape[0]
-    assert matrix.shape[1] == n, "Matrix must be square"
-    assert 0 < size_block < n, "Block size k must be valid"
-    # Partition blocks
-    A12 = matrix[:size_block, size_block:]
-    A21 = matrix[size_block:, :size_block]
-    A22 = matrix[size_block:, size_block:]
-
-    X=LA.lu_solve(lu_block,A12) #Computed A_11^-1 * A_12 with LU factorization of A_11
-    
-    S = A22 - A21 @ X
-    det=det_block*det_slog(S)
-    return det
 
 
 
