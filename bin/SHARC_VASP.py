@@ -810,12 +810,23 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug(gs)
         #Adding excited state determinants now 
         es=list()
+        # for i in ks_es.keys():
+        #     tmp=gs.copy()
+        #     from_orbital=(i.split('->')[0]) #Occupied orbital to excite from
+        #     to_orbital=(i.split('->')[-1]) #Unoccupied orbital to excite into
+        #     del(tmp[from_orbital])
+        #     tmp.update({to_orbital:ks_mo_index[to_orbital]})
+        #     es.append(tmp)
         for i in ks_es.keys():
-            tmp=gs.copy()
+            tmp={}
             from_orbital=(i.split('->')[0]) #Occupied orbital to excite from
             to_orbital=(i.split('->')[-1]) #Unoccupied orbital to excite into
-            del(tmp[from_orbital])
-            tmp.update({to_orbital:ks_mo_index[to_orbital]})
+            for k, v in gs.items():
+                if k == from_orbital:
+                # replace key in the same position
+                    tmp[to_orbital] = ks_mo_index[to_orbital]
+                else:
+                    tmp[k] = v
             es.append(tmp)
         self.log.debug("checking Slater determinant strings for selected ES")
         self.log.debug(es)
@@ -926,11 +937,23 @@ class SHARC_VASP(SHARC_ABINITIO):
             for j in range(nt):
                 # Compute submatrix on-the-fly to save memory
                 submatrix = S[np.ix_(det_t0[i], det_t[j])]
-                row[j] = schur_det(submatrix, len(common_idx), det_block, inv_block) * det_beta
+                #Change of determinant sign because of re-ordering of orbitals in SD string
+                #Reordering assume the new orbital after excitation will be put at the end of the string
+                #Energy-based order of orbitals in SD
+                if i!=0:
+                    sgn_row=(-1)**((det_length-1)-np.argmax(det_t0[i]-det_t0[0]))
+                else:
+                    sgn_row=1
+                if j!=0:
+                    sgn_col=(-1)**((det_length-1)-np.argmax(det_t[j]-det_t[0]))
+                else:
+                    sgn_col=1
+                row[j] = sgn_col*sgn_row*schur_det(submatrix, len(common_idx), det_block, inv_block) * det_beta
             return row
         # Parallel computation over rows
         n0 = len(det_t0)
         nt = len(det_t)
+        det_length=len(det_t0[0]) #Length of each SD string
         njobs=int(os.environ['OMP_NUM_THREADS']) 
         S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i) for i in range(n0)))
 
