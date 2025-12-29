@@ -15,7 +15,6 @@ import importlib.util
 import sys
 from scipy.linalg import lu_solve, lu_factor 
 from joblib import Parallel, delayed
-#from line_profiler import profile
 
 __all__ = ["SHARC_VASP"]  # Only export interface class
 
@@ -798,7 +797,6 @@ class SHARC_VASP(SHARC_ABINITIO):
         energies[0]=(gs_en/au2eV)
         for n,i in enumerate(ks_es.values()):
             energies[n+1]=(energies[0]+i/au2eV)
-
         self.log.debug("TESTING ENERGIES PARSING")
         self.log.debug(energies)
         self.log.debug("KS orbitals and transitions out of VASP")
@@ -810,13 +808,6 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug(gs)
         #Adding excited state determinants now 
         es=list()
-        # for i in ks_es.keys():
-        #     tmp=gs.copy()
-        #     from_orbital=(i.split('->')[0]) #Occupied orbital to excite from
-        #     to_orbital=(i.split('->')[-1]) #Unoccupied orbital to excite into
-        #     del(tmp[from_orbital])
-        #     tmp.update({to_orbital:ks_mo_index[to_orbital]})
-        #     es.append(tmp)
         for i in ks_es.keys():
             tmp={}
             from_orbital=(i.split('->')[0]) #Occupied orbital to excite from
@@ -854,14 +845,14 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
         ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
-        
+       
         self.QMin.template["overlap_method"] selects which method from pawpyseed to compute MO overlaps.
         if 'full',  default AE overlaps are calculated.
         if 'pseudo' only pseudowavefunction overlaps
         '''
-        
+       
         start = datetime.datetime.now()
-        
+       
         from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
 
         filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']-1}")
@@ -902,14 +893,21 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug("==> Pawpyseed overlap"+ check_timing(end_setup,end_pawpyseed))
 
         #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
-        start_inv=datetime.datetime.now()
+        start_lu=datetime.datetime.now()
         S_GS=S[np.ix_(det_t0[0],det_t[0])] #<GS(t0)|GS(t)>
-        det_gs=det_slog(S_GS) 
+        #LU factorization for determinant evaluation and inverse
+        lu_gs,piv_gs=lu_factor(S_GS)
+        #Determinant from LU factorization
+        diag = np.diag(lu_gs)
+        logdet_gs = np.sum(np.log(np.abs(diag)))
+        phase_gs  = np.prod(diag / np.abs(diag))
+        piv_sign = (-1) ** np.sum(piv_gs != np.arange(len(piv_gs)))
+        sign_gs = piv_sign * phase_gs
+        det_gs  = sign_gs * np.exp(logdet_gs)
         #Setting up matrix determinant Lemma ingredients for speeding up multiple SD overlap computation.
         det_beta=det_gs #beta electrons always the same, alpha excitations only here.
-        inv_gs = np.linalg.inv(S_GS)
-        end_inv=datetime.datetime.now()
-        self.log.debug("==> Determinant and inverse of GS SDs overlap done."+check_timing(start_inv,end_inv))
+        end_lu=datetime.datetime.now()
+        self.log.debug("==> Determinant and LU factorization of GS SDs overlap done."+check_timing(start_lu,end_lu))
 
         #Computing the overlap matrix elements with joblib parallelization
         def compute_row(i):
@@ -941,7 +939,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                     diff_c=S[0:det_length,det_t[j][idx_c]]-S_GS[:,idx_c]
                     basis_c=np.zeros_like(diff_c)
                     basis_c[idx_c]=complex(1,0)
-                    update=inv_gs @ diff_c
+                    update=lu_solve((lu_gs,piv_gs),diff_c) #Inverse from LU factorization
                     det_alpha=det_gs*(1+update[idx_c]) #1-rank column update of new determinant
                     row[j]=sgn_col*sgn_row*det_alpha*det_beta 
                 elif i!=0 and j==0: #1-rank update determinant lemma for rows
@@ -951,7 +949,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                     diff_r=S[det_t0[i][idx_r],0:det_length]-S_GS[idx_r,:]
                     basis_r=np.zeros_like(diff_r)
                     basis_r[idx_r]=complex(1,0)
-                    update=diff_r.T @ inv_gs
+                    update = lu_solve((lu_gs, piv_gs), diff_r, trans=1).T
                     det_alpha=det_gs*(1+update[idx_r]) #1-rank row update of new determinant
                     row[j]=sgn_col*sgn_row*det_alpha*det_beta 
                 else: #2-rank update, both row and column change
@@ -972,10 +970,12 @@ class SHARC_VASP(SHARC_ABINITIO):
                     diff_r[idx_c]=0
                     U=np.column_stack((diff_c,basis_r))
                     V=np.column_stack((basis_c,diff_r))
-                    det_alpha=det_gs*det_slog(np.eye(2)+V.T @ inv_gs @ U)
+                    X=lu_solve((lu_gs,piv_gs),U)
+                    M=np.eye(2)+V.T @ X
+                    det_alpha=det_gs*det_slog(M)
                     row[j]=sgn_col*sgn_row*det_alpha*det_beta
             return row
-        
+       
         # Parallel computation over rows
         n0 = len(det_t0)
         nt = len(det_t)
@@ -987,11 +987,11 @@ class SHARC_VASP(SHARC_ABINITIO):
         #This may need to be commented, so it's the driver doing that, before checking for intruder states (to be tested!)
         #λ,V = LA.eigh(S_ij.T.conjugate() @ S_ij)
         #S_ij_lowdin=S_ij @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
-        
+       
         end = datetime.datetime.now()
-        self.log.debug("==> Slater determinants overlap done." + check_timing(end_inv,end))
+        self.log.debug("==> Slater determinants overlap done." + check_timing(end_lu,end))
         self.log.debug("==> Full overlap routine done." + check_timing(start,end))
-        
+       
         return S_ij
     
     @staticmethod
@@ -999,21 +999,28 @@ class SHARC_VASP(SHARC_ABINITIO):
         """
         Compute the longest set of indexes k  for which A[:k,:k]==B[:k,:k] assuming that the same
         block, if presents, sits on the upper left corner of the matrices. Necessary for faster Schur complement determinant
-        of many matrices that share the same A_10 block. 
+        of many matrices that share the same A_11 block. 
         Stops scanning as soon as a mismatch is found.
         """
-        # Stack vertically
-        combined = np.vstack((A,B))
-        n_cols = combined.shape[0]
-        # Compare column by column
-        for i in range(n_cols):
-            col = combined[:, i]
-            if not np.all(col == col[-1]):
-                return combined[-1, :i]  # stop at first mismatch
-        # All columns match
-        return combined[-1, :]
-
-    #Routine with determinant lemma should be faster!
+        n_rows, n_cols = A.shape
+        common_seq = []
+        for j in range(n_cols):
+            # Check column j across all rows
+            col_vals = np.concatenate((A[:, j], B[:, j]))
+            if np.all(col_vals == col_vals[0]):  # All rows have same value at this position
+                if len(common_seq) == 0:
+                    common_seq.append(col_vals[0])
+                else:
+                    # Ensure it continues the increasing sequence by +1
+                    if col_vals[0] == common_seq[-1] + 1:
+                        common_seq.append(col_vals[0])
+                    else:
+                        break
+            else:
+                break  # mismatch in this column
+        return common_seq
+    
+    #Routine above with determinant lemma should be faster!
     def _get_overlap_schur(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
         ''' 
         Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
@@ -1072,13 +1079,20 @@ class SHARC_VASP(SHARC_ABINITIO):
         det_beta=det_slog(S[np.ix_(det_t0[0],det_t[0])]) #beta electrons always the same, alpha excitations.
         #Schur complement for speeding up determinant evaluation for SD overlaps for alpha electrons.
         #All these determinants share a big block, which is always the same and can be pre-computed to make use of Schur complement for full determinant.
-        start_inv=datetime.datetime.now()
+        start_lu=datetime.datetime.now()
         common_idx=SHARC_VASP.longest_common_prefix(det_t0,det_t)
+        self.log.debug(f"common set of orbitals among all SDs: {common_idx}")
         sub_block=S[np.ix_(common_idx,common_idx)]
-        det_block=det_slog(sub_block)
-        inv_block = np.linalg.inv(sub_block)
-        end_inv=datetime.datetime.now()
-        self.log.debug("==> Determinant of the sub_block and inverse done."+check_timing(start_inv,end_inv))
+        lu_block, piv_block = lu_factor(sub_block)
+        # determinant info from LU
+        diag = np.diag(lu_block)
+        logdet_block = np.sum(np.log(np.abs(diag)))
+        phase_block = np.prod(diag / np.abs(diag))
+        piv_sign = (-1) ** np.sum(piv_block != np.arange(len(piv_block)))
+        sign_block = piv_sign * phase_block
+        det_block = sign_block * np.exp(logdet_block)
+        end_lu=datetime.datetime.now()
+        self.log.debug("==> Determinant of the sub_block and LU factorization done."+check_timing(start_lu,end_lu))
 
         #Computing the overlap matrix elements with joblib parallelization
         def compute_row(i):
@@ -1097,7 +1111,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                     sgn_col=(-1)**((det_length-1)-np.argmax(det_t[j]-det_t[0]))
                 else:
                     sgn_col=1
-                row[j] = sgn_col*sgn_row*schur_det(submatrix, len(common_idx), det_block, inv_block) * det_beta
+                row[j] = sgn_col*sgn_row*schur_det(submatrix, len(common_idx), det_block, lu_block,piv_block) * det_beta
             return row
         # Parallel computation over rows
         n0 = len(det_t0)
@@ -1112,7 +1126,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         #S_ij_lowdin=S_ij @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
         
         end = datetime.datetime.now()
-        self.log.debug("==> Slater determinants overlap done." + check_timing(end_inv,end))
+        self.log.debug("==> Slater determinants overlap done." + check_timing(end_lu,end))
         self.log.debug("==> Full overlap routine done." + check_timing(start,end))
         
         return S_ij
@@ -1345,18 +1359,20 @@ def check_timing(starttime : datetime.datetime ,endtime : datetime.datetime):
 
     return output
 
-def schur_det(matrix,size_block,det_block,inv_block):
+def schur_det(matrix,size_block,det_block,lu_block,piv_block):
     '''
     Computes determinant of a big input 'matrix' by relying on Schur complement.
     Assuming  a partitioning -> matrix=A=(A_11 A_12; A_21 A_22) then the Schur complement is S=A_22-A_21*A_11^-1*A_12
     from which it follows: det(A)=det(A_11)*det(S).
     This assumes that A_11 and its inverse are precomputed to speed up multideterminant evauluation when A_11 is a fixed block.
+    it actually relies on LU decomposition of A_11 instead of numerically storing A_11^-1 for more numerical stability
     
     input quantitites:
     matrix -> Full-matrix (A in the notation above)
     size_block -> size n of the upper A_11 nxn block 
     det_block -> precomputed determinant of A_11
-    inv_block -> precoumputed inverse A_11^-1.
+    lu_block -> LU factorization output of A_11 
+    piv_block -> LU factorization output of A_11 
 
     return:
     det(matrix)
@@ -1370,7 +1386,8 @@ def schur_det(matrix,size_block,det_block,inv_block):
     A21 = matrix[size_block:, :size_block]
     A22 = matrix[size_block:, size_block:]
     # Calculation of Schur determinant
-    S = A22 - A21 @ inv_block @ A12
+    X = lu_solve((lu_block,piv_block),A12)
+    S = A22 - A21 @ X
     det=det_block*det_slog(S)
     return det
 
