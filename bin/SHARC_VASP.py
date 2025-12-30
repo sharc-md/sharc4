@@ -841,6 +841,7 @@ class SHARC_VASP(SHARC_ABINITIO):
     def _get_overlap(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
         ''' 
         Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
+        
         This routine relies on matrix determinant lemma (rank-1 and rank-2 updates) for speeding up multiple SD overlaps computation.
 
         det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
@@ -1021,9 +1022,11 @@ class SHARC_VASP(SHARC_ABINITIO):
         return common_seq
     
     #Routine above with determinant lemma should be faster!
+    #Keeping this here just in case we need to go back to Schur complement
     def _get_overlap_schur(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
         ''' 
         Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
+        
         This routine relies on Schur complement to speed up multi SDs overlap evaluation.
 
         det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
@@ -1120,13 +1123,101 @@ class SHARC_VASP(SHARC_ABINITIO):
         njobs=int(os.environ['OMP_NUM_THREADS']) 
         S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i) for i in range(n0)))
 
-        #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
-        #This may need to be commented, so it's the driver doing that, before checking for intruder states (to be tested!)
-        #λ,V = LA.eigh(S_ij.T.conjugate() @ S_ij)
-        #S_ij_lowdin=S_ij @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
-        
         end = datetime.datetime.now()
         self.log.debug("==> Slater determinants overlap done." + check_timing(end_lu,end))
+        self.log.debug("==> Full overlap routine done." + check_timing(start,end))
+        
+        return S_ij
+
+    #Routine for computing overlap matrix with no speedup. Only for debugging purposes.
+    def _get_overlap_fulldet(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
+        ''' 
+        Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
+
+        This does not provide any speedup for multi SDs evaluation. ONLY FOR DEBUGGING!
+
+        det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
+        ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
+        
+        self.QMin.template["overlap_method"] selects which method from pawpyseed to compute MO overlaps.
+        if 'full',  default AE overlaps are calculated.
+        if 'pseudo' only pseudowavefunction overlaps.
+        '''
+        
+        start = datetime.datetime.now()
+        
+        from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
+
+        filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']-1}")
+        det_t0=np.loadtxt(filename,dtype=int)
+        self.log.debug("Occupation strings of Slater determinants at previous timestep")
+        self.log.debug(det_t0)
+        self.log.debug(f"Checking OMP_NUM_THREADS parallelization for pawpyseed: {os.environ['OMP_NUM_THREADS']}")
+
+        #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
+        self.log.debug("-----------------------------")
+        self.log.debug("PAWPYSEED overlap calculation")
+        self.log.debug("-----------------------------\n")
+        with suppress_stdout_stderr():  
+            wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
+                                            wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
+                                            cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
+                                            vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
+            wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save['step']-1}"), #previous timestep wf
+                                            wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save['step']-1}"),
+                                            cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
+                                            vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
+            if self.QMin.template["overlap_method"]=="pseudo":
+                pr=Projector(wf_t, wf_t0,method=self.QMin.template["overlap_method"])
+            else:
+                pr=Projector(wf_t, wf_t0)
+        end_setup= datetime.datetime.now()
+        self.log.debug("==> Pawpyseed projectors setup"+ check_timing(start,end_setup))
+
+        #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
+        S=np.zeros((len(ks_mo_index),len(ks_mo_index)),dtype=complex)
+        with suppress_stdout_stderr():  
+            for idx,i in enumerate(ks_mo_index.values()):
+                S[idx,:]=pr.single_band_projection(i) #Computing each ith row of the KS overlap matrix 
+        S=S.T  #Because each single_band_projection() loop computes <\psi_1(t0)|\psi_i(t+dt)>....<\psi_n(t0)|\psi_i(t+dt)>
+        #which is a column of S(t,t+dt) 
+        #np.savetxt('overlap_VASP.dat',S) #Printing out full MOs overlap matrix for VASP check
+        end_pawpyseed= datetime.datetime.now()
+        self.log.debug("==> Pawpyseed overlap"+ check_timing(end_setup,end_pawpyseed))
+
+        #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
+        det_beta=det_slog(S[np.ix_(det_t0[0],det_t[0])]) #beta electrons always the same, alpha excitations.
+        end_gs=datetime.datetime.now()
+        self.log.debug("==> Determinant of the GS overlap evaluated."+check_timing(end_pawpyseed,end_gs))
+
+        #Computing the overlap matrix elements with joblib parallelization
+        def compute_row(i):
+            row = np.empty(nt, dtype=complex)
+            for j in range(nt):
+                # Compute submatrix on-the-fly to save memory
+                submatrix = S[np.ix_(det_t0[i], det_t[j])]
+                #Change of determinant sign because of re-ordering of orbitals in SD string
+                #Reordering assume the new orbital after excitation will be put at the end of the string
+                #Energy-based order of orbitals in SD
+                if i!=0:
+                    sgn_row=(-1)**((det_length-1)-np.argmax(det_t0[i]-det_t0[0]))
+                else:
+                    sgn_row=1
+                if j!=0:
+                    sgn_col=(-1)**((det_length-1)-np.argmax(det_t[j]-det_t[0]))
+                else:
+                    sgn_col=1
+                row[j] = sgn_col*sgn_row*np.linalg.det(submatrix) * det_beta
+            return row
+        # Parallel computation over rows
+        n0 = len(det_t0)
+        nt = len(det_t)
+        det_length=len(det_t0[0]) #Length of each SD string
+        njobs=int(os.environ['OMP_NUM_THREADS']) 
+        S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i) for i in range(n0)))
+        
+        end = datetime.datetime.now()
+        self.log.debug("==> Slater determinants overlap done." + check_timing(end_gs,end))
         self.log.debug("==> Full overlap routine done." + check_timing(start,end))
         
         return S_ij
