@@ -98,7 +98,7 @@ subroutine set_pointers(H, dm, mdm, eqm, overlap, phases, grad, nac) bind(C, nam
     implicit none
 
     type(c_ptr), intent(inout) :: H, dm, overlap, phases, grad
-    type(c_ptr), intent(inout) :: nac
+    type(c_ptr), intent(inout) :: nac, mdm, eqm
 
     H = C_NULL_PTR
     dm = C_NULL_PTR
@@ -1318,6 +1318,8 @@ subroutine write_data_netcdf_seperate_nuc()
       & traj%H_MCH_ss, &
       & traj%U_ss, &
       & traj%DM_print_ssd, &
+      & traj%MDM_print_ssd, &
+      & traj%EQM_print_ssdd, &
       & traj%overlaps_ss, &
       & traj%coeff_diag_s, &
       & E, &

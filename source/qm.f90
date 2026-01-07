@@ -1297,7 +1297,7 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 pNACdR_diag_ss(istate,jstate)=pNACdR_diag_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
@@ -1369,7 +1369,6 @@ module qm
     ! =============================
     if (ctrl%method==0) then !TSH
       traj%grad_ad(:,:)=real(traj%Gmatrix_ssad(traj%state_diag,traj%state_diag,:,:))
-      ! write(u_log,*) 'GRAAAAD0',(traj%grad_ad(1,1:3))
       if (printlevel>3) then
         write(u_log,*) ''
         write(u_log,*) 'Gradient of diagonal state',traj%state_diag,'picked.'

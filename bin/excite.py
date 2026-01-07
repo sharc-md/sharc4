@@ -771,7 +771,7 @@ def get_QMout(INFOS, initlist):
             DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
             MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
             EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
-	    if INFOS["ion"]:
+            if INFOS["ion"]:
                 P = qmout.ion
                 P = np.einsum("kij,in,jm->knm", P, Ucon, U)
         if INFOS["diabatize"]:
