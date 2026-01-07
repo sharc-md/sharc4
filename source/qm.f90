@@ -38,6 +38,10 @@
 !>                       changed subroutines select_grad and select_nacdr - for SCP, all states are selected
 !>                       changed subroutine Mix_gradients - add the SCP gradient
 !> 
+!>                   modified 30.06.2025 by Marco Romanelli
+!>                       changed subroutine Adjust_phases to comply with complex phase factors for phase correction
+!>                       necessary for plan wave basis sets
+!> 
 !> This module implements the SHARC-QM interface.
 !> It writes the QM.in file, calls the interfaces, 
 !> and reads the QM.out file to update the electronic matrices.
@@ -1293,7 +1297,7 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 pNACdR_diag_ss(istate,jstate)=pNACdR_diag_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
@@ -1365,6 +1369,7 @@ module qm
     ! =============================
     if (ctrl%method==0) then !TSH
       traj%grad_ad(:,:)=real(traj%Gmatrix_ssad(traj%state_diag,traj%state_diag,:,:))
+      ! write(u_log,*) 'GRAAAAD0',(traj%grad_ad(1,1:3))
       if (printlevel>3) then
         write(u_log,*) ''
         write(u_log,*) 'Gradient of diagonal state',traj%state_diag,'picked.'
@@ -1554,7 +1559,6 @@ module qm
 
     endif ! The big if for ctrl%method
 
-
   endsubroutine
 
 ! ===========================================================
@@ -1566,7 +1570,7 @@ module qm
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
     integer :: istate, jstate, ixyz, jxyz
-    complex*16:: scalarProd(ctrl%nstates,ctrl%nstates)
+    complex*16:: scalarProd(ctrl%nstates,ctrl%nstates), correction
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
     complex*16 :: sum
     integer :: idir, jdir
@@ -1579,13 +1583,20 @@ module qm
       if (ctrl%calc_overlap==1) then
 
         if (printlevel>4) then 
-          write(u_log,*) 'phase correction based on overlaps'
+          write(u_log,*) '============================================================================='
+          write(u_log,*) 'Phases not found in QMout. Calculation of phase correction based on overlaps.'
+          write(u_log,*) '============================================================================='
+          write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
         endif 
         traj%phases_s=traj%phases_old_s
         do istate=1,ctrl%nstates
-          if (real(traj%overlaps_ss(istate,istate))<0.d0) then
-            traj%phases_s(istate)=traj%phases_s(istate)*(-1.d0)
+          correction=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+          ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 -> more robust for plan wave basis sets 
+          ! where overlap matrix is not real
+          if (printlevel>4) then 
+            write(u_log,'(E14.6,1X,E14.6)') real(correction),aimag(correction)
           endif
+          traj%phases_s(istate)=traj%phases_s(istate)*correction !Applying phase correction with accumulation of previous steps
         enddo
 
       ! from scalar products of old and new NAC vectors
@@ -1664,6 +1675,24 @@ module qm
       endif ! if (ctrl%calc_overlap==1) then
     endif
 
+    if (traj%phases_found.eqv..true. .and. printlevel>4) then 
+      write(u_log,*) '==========================================================================='
+      write(u_log,*) 'Phases found in QMout. Applying phase correction with the following phases:'
+      write(u_log,*) '==========================================================================='
+      write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
+      do istate=1,ctrl%nstates
+        write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
+      enddo
+    endif
+    
+    !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 
+    ! See also if-block above  where ctrl%calc_overlap==1 and ...traj%phases_s=traj%phases_old_s ...
+    if (traj%phases_found.eqv..true. .and. ctrl%calc_overlap==1) then
+        do istate=1,ctrl%nstates
+            traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
+        enddo
+    endif
+    
     ! check if phases have all norm 1
     ! all_unit_norm = .true.
     do istate=1,ctrl%nstates
@@ -1677,16 +1706,16 @@ module qm
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
     ! Bra
     do istate=1,ctrl%nstates
-      traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*traj%phases_s(istate)
-      traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*traj%phases_s(istate)
-      traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*traj%phases_s(istate)
+      traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*CONJG(traj%phases_s(istate))
+      traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+      traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
       if (ctrl%laser_b) then 
-        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*traj%phases_s(istate)
-        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*traj%phases_s(istate)
+        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
       endif
       if (ctrl%laser_egrad) then
-        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*traj%phases_s(istate)
-        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*traj%phases_s(istate)
+        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
+        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
       endif  
       !this if is taken off because we add QM processing subroutine
       !if (ctrl%calc_nacdt==1) then
@@ -1697,10 +1726,10 @@ module qm
       endif
       !this if is taken off because we add QM processing subroutine
       if (ctrl%calc_overlap==1) then
-        traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*traj%phases_old_s(istate)
+        traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*CONJG(traj%phases_old_s(istate))
       endif
     enddo
-    ! Ket: TODO: need to complex conjugate all phases in the ket (or the bra?)
+    ! Ket
     do istate=1,ctrl%nstates
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)

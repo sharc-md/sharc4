@@ -75,9 +75,13 @@ class QMOUT:
         log.debug(f"{type(el_quad)}")
         self._QMout.set_el_quadrupolemoment(el_quad)
 
-    def set_overlap(self, ovl: list[list[float]]):
+    def set_overlap(self, ovl: list[list[Union[float, complex]]]):
         log.debug(f"{type(ovl)}")
         self._QMout.set_overlap(ovl)
+
+    def set_phases(self, phases: list[Union[float, complex]]):
+        log.debug(f"{type(phases)}")
+        self._QMout.set_phases(phases)
 
     def set_nacdr(self, nac: dict[int, dict[int, list[float, float, float]]], icall: int):
         log.debug(f"{type(nac)}")
@@ -108,6 +112,9 @@ class QMOUT:
         if "overlap" in data:
             # assumes type is numpy array
             self._QMout.set_overlap(data["overlap"])
+        if "phases" in data:
+            # assumes type is numpy array
+            self._QMout.set_phases(data["phases"])
         if "grad" in data:
             if isinstance(data["grad"], list):
                 self._QMout.set_gradient(list2dict(data["grad"]), icall)
@@ -215,7 +222,8 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         log.debug(f"\twrite Stepfile")
         i.write_step_file()
     log.debug(f"\tset_props")
-    qmout.set_props(i.getQMout(), icall)
+    qmdata=i.getQMout()
+    qmout.set_props(qmdata, icall)
     i.clean_savedir()
 
     isecond = set_qmout(qmout._QMout, icall)
@@ -224,7 +232,8 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
         i.read_requests(get_all_tasks(icall))
         with InDir("QM"):
             safe(i.run)
-        qmout.set_props(i.getQMout(), icall)
+        qmdata=i.getQMout()
+        qmout.set_props(qmdata, icall)
         isecond = set_qmout(qmout._QMout, icall)
     return icall
 

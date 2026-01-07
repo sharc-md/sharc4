@@ -27,6 +27,14 @@
 !C @date: 18.04.2018
 !C @version: 0.1.1
 !C 
+!C modified by Marco Romanelli
+!C @date: 28/07/2025
+!C Added routine for reading in phases from QMout
+!C 
+!C modified by Lorenz Grünewald                                              
+!C @date: 07/01/2026                                                         
+!C Added routine for reading magnetic dipole and electric quadrupole moments 
+!C
 !C wrapper functions for the SHARC python module
 !C 
 !C All functions etc. are modified version from the original sharc library
@@ -83,20 +91,21 @@ end subroutine set_qmin_pointers
 
 ! ------------------------------------------------------
 
-subroutine set_pointers(H, dm, mdm, eqm, overlap, grad, nac) bind(C, name='setPointers')
+subroutine set_pointers(H, dm, mdm, eqm, overlap, phases, grad, nac) bind(C, name='setPointers')
     use, intrinsic :: iso_c_binding
     use memory_module, only: traj, ctrl
 
     implicit none
 
-    type(c_ptr), intent(inout) :: H, dm, overlap, grad
-    type(c_ptr), intent(inout) :: nac, mdm, eqm
+    type(c_ptr), intent(inout) :: H, dm, overlap, phases, grad
+    type(c_ptr), intent(inout) :: nac
 
     H = C_NULL_PTR
     dm = C_NULL_PTR
     mdm = C_NULL_PTR
     eqm = C_NULL_PTR
     overlap = C_NULL_PTR
+    phases = C_NULL_PTR
     grad = C_NULL_PTR
     nac = C_NULL_PTR
 
@@ -122,6 +131,10 @@ subroutine set_pointers(H, dm, mdm, eqm, overlap, grad, nac) bind(C, name='setPo
 
     if (associated(traj%overlaps_ss)) then
         overlap = c_loc(traj%overlaps_ss(1,1))
+    endif
+
+    if (associated(traj%phases_s)) then
+        phases = c_loc(traj%phases_s(1))
     endif
 
     if (associated(traj%grad_MCH_sad)) then
@@ -581,14 +594,14 @@ endsubroutine
 
 !if pointer are use, also call the scaling etc.!
 
-subroutine postprocess_qmout_data(IH, IDM, IMDM, IEQM, IGrad, IOverlap, INac)
+subroutine postprocess_qmout_data(IH, IDM, IMDM, IEQM, IGrad, IOverlap, IPhases, INac)
     use memory_module, only: traj, ctrl
     use definitions, only: printlevel, u_log
 !C
 !C  if pointers are used, do still the postprocessing!
 !C
     implicit none
-    __INT__, intent(inout) :: IH, IDM, IMDM, IEQM, IGrad, IOverlap, INac
+    __INT__, intent(inout) :: IH, IDM, IMDM, IEQM, IGrad, IOverlap, IPhases, INac
     integer :: i,j,istate,jstate
 
 !    write(*,*) "Postprocess setting data", IH, IDM, IGrad, IOverlap
@@ -680,6 +693,12 @@ subroutine postprocess_qmout_data(IH, IDM, IMDM, IEQM, IGrad, IOverlap, INac)
         IOverlap = 0
     endif
 
+    if (IPhases .eq. 1) then
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Phases:                        ','OK'
+      if (ctrl%calc_phases .eq. 1) traj%phases_found= .true. !Necessary for printing out phases when print_qm is called 
+      IPhases = 0
+    endif
+
     ! if it was set, reset to 0, else stay
     if (INac .eq. 1) then
       if (printlevel>3) write(u_log,'(A31,A2)') 'Non-adiabatic couplings (DDR): ','OK'
@@ -741,16 +760,32 @@ endsubroutine
 
 ! ------------------------------------------------------
 
-subroutine set_phases()
+subroutine set_phases(N,phases)
     use memory_module, only: traj, ctrl
-!C
-!C  Currently phases key word not implemented
+    use definitions, only: printlevel, u_log
+!C  Phases implemented 
+!C  modified by: Marco Romanelli 28/07/2025
 !C
     implicit none
-    __INT__ :: Istart
+    integer, intent(in)    :: N
+    complex*16, intent(in) :: phases(N) 
 
-    traj%phases_s=dcmplx(1.d0,0.d0)
-    traj%phases_found = .false.
+    integer :: i,j
+    integer :: unit_num 
+    character(len=25) :: filename
+
+    if ( ctrl%nstates .ne. N) then
+        write(*,*) "Phases vector is of wrong dimension!"
+        call Exit(1)
+    end if
+
+    if (ctrl%calc_phases == 1) then !Requesting phases from interface
+        do i=1,N
+            traj%phases_s(i) = phases(i)
+        end do
+        traj%phases_found=.true. !Probably this is gonna be ignored, has to be added somewhere else
+    endif
+
 
     return 
 endsubroutine
@@ -1120,7 +1155,6 @@ subroutine post_process_data(ISecond)
       enddo
     endif
 
-
 !    call check_allocation(u_log,ctrl,traj)
 
     ! get state in all representations
@@ -1206,6 +1240,7 @@ subroutine write_data_netcdf()
   ! TODO: striding is deactivated currently
 !   stride=1
   if (modulo(traj%step,stride)==0) then
+
     call write_sharc_ncoutputdat_istep(&
         & traj%nc_index, &
         & ctrl%natom, &
@@ -1283,8 +1318,6 @@ subroutine write_data_netcdf_seperate_nuc()
       & traj%H_MCH_ss, &
       & traj%U_ss, &
       & traj%DM_print_ssd, &
-      & traj%MDM_print_ssd, &
-      & traj%EQM_print_ssdd, &
       & traj%overlaps_ss, &
       & traj%coeff_diag_s, &
       & E, &
@@ -1586,7 +1619,7 @@ subroutine Verlet_finalize(IExit, iskip)
     use restart, only: write_restart_traj
     use tsh_tu, only: tshtu_time_travelling, record_time_travelling_point
     implicit none
-    
+
     __INT__, intent(out) :: IExit ! if IExit = 0 end loop, else continue
     __INT__, intent(in)  :: iskip ! if IExit = 0 end loop, else continue
 

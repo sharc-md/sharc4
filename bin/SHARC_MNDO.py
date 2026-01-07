@@ -118,7 +118,7 @@ class SHARC_MNDO(SHARC_ABINITIO):
                 "ici2": 0,
                 "act_orbs": [],
                 "imomap": 0,
-                "hamiltonian": None,
+                "hamiltonian": "OM2",
                 "fomo": 0,
                 "rohf": 0,
                 "levexc": 2,
@@ -1090,16 +1090,19 @@ mocoef
         if self.QMin["template"]["imomap"] == 1:
             self.QMin["template"]["imomap"] = 3   #Orbital tracking activated when imomap=3 in the MNDO.inp file.
         
-        if self.QMin["template"]["hamiltonian"] != None:
-            if self.QMin["template"]["hamiltonian"].lower() == "om2":
-                self.QMin["template"]["iop"] = -6
-            elif self.QMin["template"]["hamiltonian"].lower() == "odm2":
-                self.QMin["template"]["iop"] = -22
-            else:
-                raise ValueError(f"Hamiltonian can either be OM2 or ODM2 (with dispersion correction). Other hamiltonians are currently not supported!")
-        else:
-            raise ValueError(f"You have to set the hamiltonian keyword. Hamiltonian can either be OM2 or ODM2 (with dispersion correction). Other hamiltonians are currently not supported!")
-                 
+        
+        ham_dictionary = {"om1" : -5,
+                            "om2" : -6,
+                            "om3" : -8,
+                            "odm2" : -22,
+                            "odm3" : -23}
+        try: 
+            self.QMin["template"]["iop"] = ham_dictionary[self.QMin["template"]["hamiltonian"].lower()]
+        except:
+            self.QMin["template"]["iop"] = -6
+            raise ValueError("No or wrong input for the Hamiltonian was given! Only OMx and ODMx methods are allowed. Falling back to default OM2 Hamiltonian.")
+
+
 
         
         # self.QMin["template"]["movo"] = int(self.QMin["template"]["movo"])
