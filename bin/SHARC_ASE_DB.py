@@ -125,8 +125,9 @@ class SHARC_ASE_DB(SHARC_HYBRID):
         self.QMin.template["reference"] = tmpl_dict["reference"]
 
         # Instantiate reference
-        child = self.QMin.template["reference"]
-        self.instantiate_children({"reference": (child["interface"], child["args"], child["kwargs"])})
+        with InDir("QM"):
+            child = self.QMin.template["reference"]
+            self.instantiate_children({"reference": (child["interface"], child["args"], child["kwargs"])})
 
         self._read_template = True
 
