@@ -249,7 +249,7 @@ class SHARC_LVC(SHARC_FAST):
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-            elif "DM" in line and "MDM" not in line:
+            elif "DM" in line and "MDEQM" not in line:
                 j = xyz[line[2]]
                 if factor != 1:
                     dipole_real = False
@@ -915,7 +915,7 @@ class SHARC_LVC(SHARC_FAST):
             for line in f:
                 if "SOC" in line or "lambda_soc" in line:
                     soc_found = True
-                if "DM" in line and "MDM" not in line:
+                if "DM" in line and "MDEQM" not in line:
                     dm_found = True
                 if "MDEQM" in line:
                     mdeqm_found = True 

@@ -100,7 +100,6 @@ class QMOUT:
                 self._QMout.set_dipolemoment(data["dm"])
                 log.debug("setting dm")
             if "mdm" in data:
-                log.warning("PASSED1")
                 self._QMout.set_mag_dipolemoment(data["mdm"])
                 log.debug("setting mdm")
             if "eqm" in data:

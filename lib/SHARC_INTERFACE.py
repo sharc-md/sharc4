@@ -868,6 +868,7 @@ class SHARC_INTERFACE(ABC):
 
         self.log.debug(lines)
         for line in lines:
+            print(line)
             match line.lower().split(maxsplit=1):
                 case [key] if key in (*self.QMin.requests.keys(), "step"):
                     self.log.debug(f"Parsing request {key}")

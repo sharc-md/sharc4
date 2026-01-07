@@ -1126,9 +1126,28 @@ def write_LVC_template(INFOS, template_name):
             lvc_template_content += LVC_complex_mat("SOC", QMout_soc.h, deldiag=True)
         else:
             lvc_template_content += LVC_complex_mat("SOC", QMout_eq.h, deldiag=True)
+    # Adding electric dipole (DM) contribution
     lvc_template_content += LVC_complex_mat("DMX", QMout_eq.dm[0])
     lvc_template_content += LVC_complex_mat("DMY", QMout_eq.dm[1])
     lvc_template_content += LVC_complex_mat("DMZ", QMout_eq.dm[2])
+    if INFOS["beyond_dipole"]:
+        # Adding magnetic dipole (MDM) contribution
+        lvc_template_content += LVC_complex_mat("MDMX", QMout_eq.mdm[0])
+        lvc_template_content += LVC_complex_mat("MDMY", QMout_eq.mdm[1])
+        lvc_template_content += LVC_complex_mat("MDMZ", QMout_eq.mdm[2])
+        # Adding electric quadrupole (EQM) contribution
+        # x-polarized
+        lvc_template_content += LVC_complex_mat("EQMX_dX", QMout_eq.eqm[0][0])
+        lvc_template_content += LVC_complex_mat("EQMX_dY", QMout_eq.eqm[0][1])
+        lvc_template_content += LVC_complex_mat("EQMX_dZ", QMout_eq.eqm[0][2])
+        # y-polarized
+        lvc_template_content += LVC_complex_mat("EQMY_dX", QMout_eq.eqm[1][0])
+        lvc_template_content += LVC_complex_mat("EQMY_dY", QMout_eq.eqm[1][1])
+        lvc_template_content += LVC_complex_mat("EQMY_dZ", QMout_eq.eqm[1][2])
+        # z-polarized 
+        lvc_template_content += LVC_complex_mat("EQMZ_dX", QMout_eq.eqm[2][0])
+        lvc_template_content += LVC_complex_mat("EQMZ_dY", QMout_eq.eqm[2][1])
+        lvc_template_content += LVC_complex_mat("EQMZ_dZ", QMout_eq.eqm[2][2])
 
     # --------------------- multipolar fit ---------------------------
     if "multipolar_fit" in QMout_eq:

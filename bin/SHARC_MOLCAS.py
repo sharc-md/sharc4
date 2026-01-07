@@ -1637,7 +1637,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                 #             np.array(mdp["AO_MLTPL_Y"]),
                                 #             np.array(mdp["AO_MLTPL_Z"])]
                                 sum_states = self.QMin.molecule["states"][m-1]
-                                self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = -1.j*mdp["SFS_ANGMOM"][:]
+                                # https://github.com/jautschbach/mcd-molcas/blob/master/read-data-files.f90#L123
+                                self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = 1.j*mdp["SFS_ANGMOM"][:]
                                 s_cnt += s
                 self.log.info("STATES")
                 self.log.info(self.states)

@@ -131,7 +131,7 @@ def read_QMout(path, nstates, natom, request):
                             row = [float(line[i]) for i in range(targets[t]['dim'][2])]
                         block.append(row)
                     values.append(block)
-            
+
                 elif len(targets[t]['dim']) == 4:
                     # e.g. eqm: (3, 3, nstates, nstates)
                     superblock = []
@@ -384,10 +384,20 @@ excitation energies and oscillator strengths.
 
     if not options.L:
         sys.stderr.write('Number of states: %s\n' % (states))
-        sys.stderr.write('%5s  %11s %16s %12s %12s   %6s\n' % ('State', 'Label', 'E (E_h)', 'dE (eV)', ['f_osc','Dys norm'][options.I], 'Spin'))
+        sys.stderr.write('%5s  %11s %16s %12s %12s   %6s\n' % ('State', 'Label', 'E (E_h)', 'dE (eV)', ['f_osc', 'Dys norm'][options.I], 'Spin'))
 
     if options.D:
+        # print("SHAPE", np.asarray(QMout['dm']).shape, np.real(np.asarray(QMout['dm'])[:, 0, 4])*1E8)
+        # print("SHAPE", np.asarray(QMout['dm']).shape, np.real(np.asarray(QMout['dm'])[:, 0, 5])*1E8)
         h, dm, mdm, eqm, U = transform(QMout['h'][0], QMout['dm'], QMout['mdm'], QMout['eqm'], None)
+        print(np.asarray(dm).shape)
+        print(np.asarray(dm)[:, 4, 0])
+        print(np.asarray(dm)[:, 5, 0])
+        print(np.asarray(dm)[:, 6, 0])
+        np.savetxt("U_mat", U)
+        # print("SHAPE4", np.asarray(dm).shape, np.real(np.asarray(dm)[:, 0, 4]))
+        # print("SHAPE5", np.asarray(dm).shape, np.real(np.asarray(dm)[:, 0, 5]))
+        # print("SHAPE6", np.asarray(dm).shape, np.real(np.asarray(dm)[:, 0, 6]))
         QMout['h'] = [h]
         QMout['dm'] = dm
         QMout['mdm'] = mdm
@@ -417,21 +427,23 @@ excitation energies and oscillator strengths.
                     ist = (m, s)
                     imax = c
             # fosc
-            dmx = QMout['dm'][0][istate][initial].real
-            dmy = QMout['dm'][1][istate][initial].real
-            dmz = QMout['dm'][2][istate][initial].real
-            f = 2. / 3. * (e - energies[initial]) * (dmx**2 + dmy**2 + dmz**2)
+            dmx = QMout['dm'][0][istate][initial]
+            dmy = QMout['dm'][1][istate][initial]
+            dmz = QMout['dm'][2][istate][initial]
+            # print("DM", istate, initial, e, energies[initial], dmx, dmy, dmz)
+            # print(istate)
+            # f = 2. / 3. * (e - energies[initial]) * (np.abs(dmx)**2 + np.abs(dmy)**2 + np.abs(dmz)**2)
             mdmx = QMout['mdm'][0][istate][initial]
             mdmy = QMout['mdm'][1][istate][initial]
             mdmz = QMout['mdm'][2][istate][initial]
-            f += 2. / 3. * (e - energies[initial]) * (np.abs(mdmx)**2* + np.abs(mdmy)**2 + np.abs(mdmz)**2)
+            f = 2. / 3. * (e - energies[initial]) * (np.imag(mdmx)**2 + np.imag(mdmy)**2 + np.imag(mdmz)**2)
             fosc.append(f)
             eqm = np.zeros((3, 3), dtype=complex)
             for i in range(3):
                 for j in range(3):
                     eqm[i][j] = QMout['eqm'][i][j][istate][initial]
             quad_term = np.sum(np.abs(eqm)**2) - 1/3.*np.abs(np.trace(eqm))**2 
-            f += (1.0/20.0) * const.alpha**2 * (e - energies[initial])**3 * quad_term
+            #f += (1.0/20.0) * const.alpha**2 * (e - energies[initial])**3 * quad_term
             # else:
             # dmx=dmy=dmz=0.
             # fosc.append(0.)
@@ -439,7 +451,7 @@ excitation energies and oscillator strengths.
                 de = (e - ezero) * HARTREE_TO_EV
             else:
                 de = (e - energies[0]) * HARTREE_TO_EV
-            string = '%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate + 1, IToMult[ist[0]][0], ist[1] - (ist[0] <= 2), e, de, fosc[-1], spin)
+            string = '%5i %10s%02i %16.10f % 12.8f % 1.9e   %6.4f' % (istate + 1, IToMult[ist[0]][0], ist[1] - (ist[0] <= 2), e, de, fosc[-1], spin)
             if istate == initial:
                 string += ' #initial state'
             if not options.L:
@@ -457,18 +469,22 @@ excitation energies and oscillator strengths.
             if options.I:
                 f = QMout['ion'][0][istate][initial].real
             else:
-                dmx = QMout['dm'][0][istate][initial].real
-                dmy = QMout['dm'][1][istate][initial].real
-                dmz = QMout['dm'][2][istate][initial].real
-                f = 2. / 3. * (e - energies[initial]) * (dmx**2 + dmy**2 + dmz**2)
+                # print("SHAPE", np.asarray(QMout['dm']).shape, np.real(np.asarray(QMout['dm'])[:, istate, initial])*1E8)
+                dmx = QMout['dm'][0][istate][initial]
+                dmy = QMout['dm'][1][istate][initial]
+                dmz = QMout['dm'][2][istate][initial]
+                f = 2. / 3. * (e - energies[initial]) * (np.abs(dmx)**2 + np.abs(dmy)**2 + np.abs(dmz)**2)
                 mdmx = QMout['mdm'][0][istate][initial]
                 mdmy = QMout['mdm'][1][istate][initial]
                 mdmz = QMout['mdm'][2][istate][initial]
-                f += 2. / 3. * (e - energies[initial]) * (np.abs(mdmx)**2* + np.abs(mdmy)**2 + np.abs(mdmz)**2)
+                # f = 2. / 3. * (e - energies[initial]) * (np.abs(mdmx)**2* + np.abs(mdmy)**2 + np.abs(mdmz)**2)
                 fosc.append(f)
-                eqm = QMout['eqm'][:][:][istate][initial]
-                quad_term = np.sum(np.abs(eqm)**2) - 1/3.*np.abs(np.trace(eqm))**2
-                f += (1.0/20.0) * const.alpha**2 * (e - energies[initial])**3 * quad_term
+                eqm = np.zeros((3, 3), dtype=complex)
+                for i in range(3):
+                    for j in range(3):
+                        eqm[i][j] = QMout['eqm'][i][j][istate][initial]
+                quad_term = np.sum(np.abs(eqm)**2) - 1/3.*np.abs(np.trace(eqm))**2 
+                #f += (1.0/20.0) * const.alpha**2 * (e - energies[initial])**3 * quad_term
             fosc.append(f)
             # else:
             # dmx=dmy=dmz=0.
@@ -477,7 +493,7 @@ excitation energies and oscillator strengths.
                 de = (e - ezero) * HARTREE_TO_EV
             else:
                 de = (e - energies[initial]) * HARTREE_TO_EV
-            string = '%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate + 1, IToMult[m][0], s - (m <= 2), e, de, fosc[-1], m)
+            string = '%5i %10s%02i %16.10f %12.8f %12.10f   %6.4f' % (istate + 1, IToMult[m][0], s - (m <= 2), e, de, fosc[-1], m)
             if istate == initial:
                 string += ' #initial state'
             if not options.L:
