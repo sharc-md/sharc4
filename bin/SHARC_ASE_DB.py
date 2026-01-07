@@ -157,7 +157,7 @@ class SHARC_ASE_DB(SHARC_HYBRID):
                 for prop in self.QMin.template["props_to_save"]:
                     match prop:
                         case "h":
-                            data["energy"] = np.einsum("ii->i", self.QMout[prop])
+                            data["energy"] = np.einsum("ii->i", self.QMout[prop].real)
                         case "grad":
                             data["forces"] = -np.einsum("ijk->jik", self.QMout[prop])
                         case "nacdr":
