@@ -629,8 +629,6 @@ def read_coeff(INFOS, setup_statelist, exc_list):
 
 
 def writeoutput(setupstate_initlist, INFOS):
-    print("TEST1", len(setupstate_initlist))
-    print("TEST2", len(setupstate_initlist[0]))
     for idx_setupstate, setupstate in enumerate(setupstate_initlist): 
         dirname = get_iconddir(INFOS["setupstates"][idx_setupstate], INFOS)
         outfilename = INFOS["initf"] + "_" + dirname + ".excited"

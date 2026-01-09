@@ -764,7 +764,6 @@ def get_QMout(INFOS, initlist):
         MDM = qmout.mdm
         EQM = qmout.eqm
         if INFOS["diag"]:
-            P = qmout.ion
             eig, U = np.linalg.eigh(H)
             H = np.diag(eig)
             Ucon = np.conjugate(U)

@@ -628,17 +628,34 @@ def get_initconds(INFOS):
     # INFOS["n_issel"] = [True]+[False]*(INFOS["nstates"]-1)  # analyze_initconds(initlist, INFOS)
     return INFOS
 
+
+def get_laser_freq(INFOS):
+    """For new laser files, the script reads in the frequency information from the separate laser_freq_file
+    saved in the laser_freq_file_path
+
+    Parameters:
+    INFOS (dict): INFOS object containing the laser_freq_file path 
+
+    Returns:
+    list:laser_freqs
+
+    """
+
+    laser_freq_file = np.loadtxt(INFOS["laser_freq_path"], comments=["!", "#"])
+    if laser_freq_file.shape[1] != 2:
+        raise NotImplementedError("Currently, multiple frequencies are not supported!")
+    return laser_freq_file[:, -1]
+
 def get_laser(INFOS, output_fields=False):
     INFOS["laser_efield"] = True
     INFOS["laser_bfield"] = False
     INFOS["laser_efield_grad"] = False
     INFOS["laser_bfield_grad"] = False
-    INFOS["laser_file_version"] = int(2)
+    INFOS["laser_file_version"] = int(1)
     with open (INFOS["laserfile"]) as laser_f:
         for line in laser_f:
-            if "!" not in line:
+            if "!" in line and INFOS["laser_file_version"] != 2:
                 INFOS["laser_file_version"] = int(2)
-                break
             line = line.strip("!\n").split()
                     # match the four possible keywords
             key, value = line[1].lower(), line[2].lower()
@@ -662,11 +679,15 @@ def get_laser(INFOS, output_fields=False):
                 elif key == "e-field_gradients":
                     INFOS["laser_efield_grad"] = val
                     INFOS["needed_requests"].add("mdeqm")
-                    print("efield_grad", INFOS["laser_efield_grad"])
+                    print("E-field gradient", INFOS["laser_efield_grad"])
                     print("Calculation of MD and EQ moments requested!")
                 elif key == "b-field_gradients":
                     INFOS["laser_bfield_grad"] = val
-                    print("B-field_grad", INFOS["laser_bfield_grad"])
+                    print("B-field gradient", INFOS["laser_bfield_grad"])
+            if key == "laser_freq_path":
+                INFOS["laser_freq_path"] = os.path.join(os.path.dirname(INFOS["laserfile"]), value)
+                print("Found separate laser frequency file!")
+                break
     laser = np.loadtxt(INFOS["laserfile"], comments=["!", "#"])
     # old laser file format 
     if INFOS["laser_file_version"] == 1:
@@ -682,13 +703,20 @@ def get_laser(INFOS, output_fields=False):
                 return [laser_tsteps, laser_freqs]
     # new laser file format
     elif INFOS["laser_file_version"] == 2:
-        no_columns = np.sum([INFOS["laser_efield"], INFOS["laser_bfield"], INFOS["laser_efield_grad"], INFOS["laser_bfield_grad"]])*6+2
-        print(no_columns)
+        if "laser_freq_path" in INFOS:
+            no_columns = np.sum([INFOS["laser_efield"]*6, INFOS["laser_bfield"]*6, INFOS["laser_efield_grad"]*3*6, INFOS["laser_bfield_grad"]*3*6])+1
+            # if exported from fdtd (separated frequency file, the file always has 31 columns)
+        else:
+            no_columns = np.sum([INFOS["laser_efield"]*6, INFOS["laser_bfield"]*6, INFOS["laser_efield_grad"]*3*6, INFOS["laser_bfield_grad"]*3*6])+2
         if laser.shape[1] != no_columns: 
             print("Laser file (v2) does not match specifications!")
             raise IOError
         else:
-            laser_tsteps, laser_freqs = laser[:, 0], laser[:, -1]
+            if "laser_freq_path" in INFOS:
+                laser_tsteps = laser[:, 0]
+                laser_freqs = get_laser_freq(INFOS)
+            else:
+                laser_tsteps, laser_freqs = laser[:, 0], laser[:, -1]
             results = [laser_tsteps, laser_freqs]
             if output_fields:
                 field_counter = 0 
