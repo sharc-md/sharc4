@@ -66,7 +66,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "potcardir": None, # Path to the POTCAR VASP file with PAW pseudopotentials
                 "ncore" : 1, #Default number of compute cores to work on a single orbital in VASP 
                 "ncpu" : 2, #Default number of cpus for mpi run with VASP 
-                "memory" : 2000,
+                "memory" : 0, #If left to 0 no MAXMEM will appear in INCAR and so VASP automatically sets it.
                 "wfoverlap" : "", #easy workaround to prevent bin_executable check, pawpyseed used here! 
             }                      
         )
@@ -544,7 +544,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         vasp_env["LD_LIBRARY_PATH"]=f"{self.QMin.resources["hdf5vaspdir"]}:{vasp_env["LD_LIBRARY_PATH"]}"
         self.log.debug(vasp_env["LD_LIBRARY_PATH"])
         # Preventing VASP step to use OpenMP
-        self.log.debug("Setting OMP_NUM_THREADS to 1. No OpenMP allowed in VASP here.")
+        self.log.debug("Setting OMP_NUM_THREADS to 1 for the VASP run only. No OpenMP allowed in VASP here.")
         vasp_env["OMP_NUM_THREADS"]="1"
         return vasp_env
 
@@ -622,11 +622,17 @@ class SHARC_VASP(SHARC_ABINITIO):
         """
         Parse VASP output files
         """
-
-        self.log.debug(f"Setting OMP_NUM_THREADS to self.QMin.resources['ncpu']: {self.QMin.resources['ncpu']}")
-        os.environ["OMP_NUM_THREADS"]=str(self.QMin.resources['ncpu'])
-        self.log.debug(f"Checking OMP_NUM_THREADS: {os.environ['OMP_NUM_THREADS']}")
-
+        
+        #This should be set by the user in the slurm script to make it working properly.
+        #Setting it here doesn't work properly with pysharc.
+        #self.log.debug(f"Setting OMP_NUM_THREADS to self.QMin.resources['ncpu']: {self.QMin.resources['ncpu']}")
+        #os.environ["OMP_NUM_THREADS"]=str(self.QMin.resources['ncpu'])
+        threads=os.environ.get('OMP_NUM_THREADS')
+        if threads is None:
+            self.log.debug(f"OMP_NUM_THREADS is not set. Setting it to 1, but Pawpyseed overlap computation would benefit from multithreading. Set OMP_NUM_THREADS > 1 in your env.")
+            os.environ["OMP_NUM_THREADS"]=str(1)
+        else:
+            self.log.debug(f"Checking OMP_NUM_THREADS: {threads}")
 
         self.log.debug("Testing VASP geometry sorting indices")
         self.log.debug(self._indices_vasp)
@@ -860,7 +866,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         det_t0=np.loadtxt(filename,dtype=int)
         self.log.debug("Occupation strings of Slater determinants at previous timestep")
         self.log.debug(det_t0)
-        self.log.debug(f"Checking OMP_NUM_THREADS parallelization for pawpyseed: {os.environ['OMP_NUM_THREADS']}")
+        self.log.debug(f"Checking OMP_NUM_THREADS parallelization for pawpyseed: {os.environ.get('OMP_NUM_THREADS')}")
 
         #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
         self.log.debug("-----------------------------")
@@ -1277,7 +1283,8 @@ class SHARC_VASP(SHARC_ABINITIO):
         """
         
         inputstring = f"SISTEM = {self.QMin.template['system']}\n"
-        inputstring += f"MAXMEM = {self.QMin.resources['memory']}\n" #allocated memory in Mb for each MPI rank
+        if self.QMin.resources['memory'] != 0: 
+            inputstring += f"MAXMEM = {self.QMin.resources['memory']}\n" #allocated memory in Mb for each MPI rank
         inputstring += f"NCORE = {self.QMin.resources['ncore']}\n" #n. of cores working on a single orbital.
         inputstring += f"ISMEAR = {self.QMin.template['ismear']}\n"
         inputstring += f"SIGMA = {self.QMin.template['sigma']}\n"
