@@ -23,8 +23,8 @@ __all__ = ["SHARC_BASICORCA"]  # Only export interface class
 
 #TODO: This will be shown in the header when running a single point or sharc.x
 AUTHORS = "Hans Georg Gallmetzer"
-VERSION = "0.1"
-VERSIONDATE = datetime.datetime(2025, 7, 25)
+VERSION = "1.0"
+VERSIONDATE = datetime.datetime(2025, 11, 6)
 #TODO: This will be shown in the setup scripts
 NAME = "BASICORCA"
 DESCRIPTION = "AB INITIO a very simple ORCA interface as an example of an ab initio interface"
@@ -33,7 +33,10 @@ CHANGELOGSTRING = """17.06.2024:     Initial version 0.1 by Sascha and Georg
 - Only energies, TDMs and gradients
 - Only singlets
 
-25.07.25:     Refined and adapted to SAHRC4.0 by Georg"""
+25.07.25:     Refined and adapted to SHARC4.0 by Georg
+
+06.11.25:     Release-ready Version 1.0 by Georg
+- Bugfixes"""
 
 all_features = set(
     [
@@ -558,6 +561,19 @@ class SHARC_BASICORCA(SHARC_ABINITIO):
         self.log.debug("Copying files to savedir")
 
         shutil.copy(os.path.join(workdir, "BASICORCA.gbw"), os.path.join(savedir, f"BASICORCA.gbw.{step}"))
+
+    def _copy_gbw(self, qmin: QMin, workdir: str) -> None:
+        """
+        Copy gbw file from last/current time step
+
+        jobid:      Job ID
+        qmin:       QMin object
+        workdir:    Current working directory
+        """
+        self.log.debug("Copy ORCA.gbw to work directory")
+        gbw_file = os.path.join(qmin.save["savedir"], f"ORCA.gbw.{qmin.control['jobid']}.{qmin.save['step']-1}")
+        if os.path.isfile(gbw_file):
+            shutil.copy(gbw_file, os.path.join(workdir, "ORCA.gbw"))
 
     def _create_aoovl(self) -> None:
         """
