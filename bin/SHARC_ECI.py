@@ -38,10 +38,11 @@ from ast import literal_eval as make_tuple
 import numpy as np
 import yaml
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, mkdir, itnmstates, expand_path, question
+from utils import InDir, mkdir, expand_path, question
 from pyscf import gto
 import EHF
 import ECI
+import pickle
 merge_moles = gto.mole.conc_mol
 
 
@@ -221,9 +222,9 @@ class SHARC_ECI(SHARC_HYBRID):
 
 
         num_to_key = {}
-        print("Based on the template file, the following EHF and SSC children of ECI interface will be instantiated:")
+        self.log.info("Based on the template file, the following EHF and SSC children of ECI interface will be instantiated:")
         for i, (key, value) in enumerate(child_dict.items()):
-            print(" ["+str(i+1)+"] "+str(key)+" "+value)
+            self.log.info(" ["+str(i+1)+"] "+str(key)+" "+value)
             num_to_key[i+1] = key
         answer = question("Would you like to delete (i.e., not instantiate) some of them? If so, type the comma-separated list of children's numbers in one line:", 
                           str, KEYSTROKES=KEYSTROKES, autocomplete=False, default="")
@@ -231,24 +232,20 @@ class SHARC_ECI(SHARC_HYBRID):
             nums = [int(num) for num in answer.split(',')]
             for num in nums:
                 del child_dict[num_to_key[num]]
-        print("Instantiating the following EHF and SSC children of ECI interface:")
+        self.log.info("Instantiating the following EHF and SSC children of ECI interface:")
         for i, (key, value) in enumerate(child_dict.items()):
-            print(str(key)+" "+str(value[0]))
-            #  if key[1] == 'embedding':
-                #  mkdir(key[0]+"_"+key[1]+"_Z"+str(key[2]))
-            #  else:
-                #  mkdir(key[0]+"_z"+str(key[1])+"_Z"+str(key[2]))
+            self.log.info(str(key)+" "+str(value[0]))
         self.instantiate_children(child_dict)
         for (label,z,Z), child in self._kindergarden.items():
             child_features = child.get_features(KEYSTROKES)
             if not "point_charges" in child_features:
-                print("Child "+str(label,z,Z)+" does not have point_charges feature and thus cannot be a child of ECI interface. Aborting.")
+                self.log.error("Child "+str(label,z,Z)+" does not have point_charges feature and thus cannot be a child of ECI interface. Aborting.")
                 raise ValueError
             if z == "embedding" and not "multipolar_fit" in child_features:
-                print("Child "+str(label,z,Z)+" does not have multipolar_fit feature and thus cannot be a child of ECI interface. Aborting.")
+                self.log.error("Child "+str(label,z,Z)+" does not have multipolar_fit feature and thus cannot be a child of ECI interface. Aborting.")
                 raise ValueError
             if isinstance(z,int) and not "density_matrices" in child_features:
-                print("Child "+str(label,z,Z)+" does not have density_matrices feature and thus cannot be a child of ECI interface. Aborting.")
+                self.log.error("Child "+str(label,z,Z)+" does not have density_matrices feature and thus cannot be a child of ECI interface. Aborting.")
                 raise ValueError
         return all_features
 
@@ -268,11 +265,9 @@ class SHARC_ECI(SHARC_HYBRID):
 
         file = question("Please specify path to the resource file of the ECI interface:", str, default="ECI.resources", KEYSTROKES=KEYSTROKES)
         self.setupINFOS["resources_file"] = expand_path(file)
-        #  INFOS["children_infos"] = {label:{} for label in self._kindergarden.keys()}
         for label, child in self._kindergarden.items():
             print("Getting infos of the child "+str(label))
             child.get_infos(INFOS,KEYSTROKES=KEYSTROKES)
-            #child.get_infos(INFOS["children_infos"][label],KEYSTROKES=KEYSTROKES)
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str):
@@ -431,7 +426,7 @@ class SHARC_ECI(SHARC_HYBRID):
 
         mkdir(QMin.resources['scratchdir'])
 
-        self.charges_to_do = set([ Z for i, Z in enumerate(QMin.molecule['charge']) if QMin.molecule['states'][i] > 0 ])
+        self.charges_to_do = set(Z for i, Z in enumerate(QMin.molecule['charge']) if QMin.molecule['states'][i] > 0)
         self.mults_per_charges = { Z: [ i+1 for i,s in enumerate(QMin.molecule["states"]) if s > 0 and QMin.molecule["charge"][i] == Z ] for Z in self.charges_to_do }        
 
         # Instatiate all children
@@ -445,8 +440,6 @@ class SHARC_ECI(SHARC_HYBRID):
                 for z in fragment["SSC"]["states"].keys(): # Fragment's charge
                     if os.path.isdir(label+"_z"+str(z)+"_Z"+str(Z)):
                         child_dict[(label,z,Z)] = (interface, [], {"logfile": os.path.join(label+"_z"+str(z)+"_Z"+str(Z), "QM.log"), "logname": label+"_z"+str(z)+"_Z"+str(Z)}) 
-                #  z = fragment["refcharge"][Z]
-                #  child_dict[(label,z,Z)] = (interface, [], {"logfile": os.path.join(label+"_z"+str(z)+"_Z"+str(Z), "QM.log"), "logname": label+"_z"+str(z)+"_Z"+str(Z)}) 
 
 
         self.instantiate_children(child_dict)
@@ -503,10 +496,6 @@ class SHARC_ECI(SHARC_HYBRID):
             child.QMin.resources["cwd"] = os.path.join( self.QMin.resources["cwd"], label+"_embedding_Z"+str(Z) )
             with InDir(child.QMin.resources["pwd"]):
                 child.setup_interface()
-            #  if self.QMin.template["fragments"][label]["EHF"]["guess_file"] == True:
-                #  self.QMin.template["fragments"][label]["EHF"]["guess_file"] = os.path.join( child.QMin.resources["cwd"], 'QM.out' )
-            #  if self.QMin.template["fragments"][label]["EHF"]["write"] == True:
-                #  self.QMin.template["fragments"][label]["EHF"]["write"] = os.path.join( child.QMin.resources["cwd"], 'QM.out' )
 
         # Call setup_mol read_resources, read_template for each SSC child, and do sanity checks
         astates = { label: [] for label in self.QMin.template["fragments"].keys() }
@@ -540,53 +529,31 @@ class SHARC_ECI(SHARC_HYBRID):
             child.QMin.resources['scratchdir'] = scratchdir
             child.QMin.resources["pwd"] = os.path.join( self.QMin.resources["pwd"], label+"_z"+str(z)+"_Z"+str(Z) )
             child.QMin.resources["cwd"] = os.path.join( self.QMin.resources["cwd"], label+"_z"+str(z)+"_Z"+str(Z) )
-            child.setup_interface()
+            with InDir(child.QMin.resources["pwd"]):
+                child.setup_interface()
 
         # Save the reference to the aufbau site states in the template object of ECI interface
         for label, fdict in self.QMin.template["fragments"].items():
             fdict["aufbau_site_states"] = astates[label]
 
         # Constructing active_integrals from the template
-        #  active_integrals = {"J": { (0,0): [], (0,1): [], (0,2): [],
-                                        #  (1,0): [], (1,1): [] },
-                                  #  "K": { (0,0): [], (0,1): [], (0,2): [],
-                                        #  (1,0): [], (1,1): [] }
-                                  #  }
         active_integrals = {"J": { (0,0): [], (0,1): [], (0,2): [] },
                                   "K": { (0,0): [], (0,1): [], (0,2): [] }
                                   }
         if QMin.template['calculation']['active_integrals'] == 'all':
             for JK in ['J','K']:
-                #  for int_type in [ (0,0), (0,1), (0,2), (1,1) ]:
                 for int_type in [ (0,0), (0,1), (0,2) ]:
                     for fpair in itertools.combinations( QMin.template['fragments'], 2 ):
                         active_integrals[JK][int_type].append(fpair)
-                #  for fpair in itertools.combinations( QMin.template['fragments'], 2 ):
-                    #  for spectator in QMin.template['fragments']:
-                        #  ftriple = (fpair[0], fpair[1], spectator)
-                        #  active_integrals[JK][(1,0)].append(ftriple)
         else: 
             for JK, value in QMin.template['calculation']['active_integrals'].items(): 
                 if value == 'all':
-                    #  for int_type in [ (0,0), (0,1), (0,2), (1,1) ]:
                     for int_type in [ (0,0), (0,1), (0,2) ]:
                         for fpair in itertools.combinations( QMin.template['fragments'], 2 ):
                             active_integrals[JK][int_type].append(fpair)
-                        #  for fpair in itertools.combinations( QMin.template['fragments'], 2 ):
-                            #  for spectator in QMin.template['fragments']:
-                                #  ftriple = (fpair[0], fpair[1], spectator)
-                                #  active_integrals[JK][(1,0)].append(ftriple)
                 else:
                     for int_type, multiples in value.items():
                         if multiples == 'all':
-                            #  if int_type == '(1,0)':
-                                #  for fpair in itertools.combinations( QMin.template['fragments'], 2 ):
-                                    #  for spectator in QMin.template['fragments']:
-                                        #  ftriple = (fpair[0],fpair[1],spectator)
-                                        #  active_integrals[JK][(1,0)].append(ftriple)
-                            #  else:
-                                #  for fpair in itertools.combinations( QMin.template['fragments'], 2 ):
-                                    #  active_integrals[JK][make_tuple(int_type)].append(fpair)
                             for fpair in itertools.combinations( QMin.template['fragments'], 2 ):
                                 active_integrals[JK][make_tuple(int_type)].append(fpair)
                         else:
@@ -610,27 +577,6 @@ class SHARC_ECI(SHARC_HYBRID):
                 for subset in value:
                     ECI[rank].append(list(subset))
         basis['ECI'] = ECI
-        # charge-transfers
-        #  CT = {}
-        #  CT[0] = basis['CT'].get(0,False)
-        #  if CT[0]: CT[0] = [ ((),()) ]
-        #  if not CT[0]: CT[0] = []
-        #  del basis['CT'][0] 
-        #  for rank, value in basis['CT'].items():
-            #  CT[rank] = []
-            #  if value == 'all':
-                #  for donors in itertools.combinations_with_replacement(QMin.template['fragments'], rank):
-                    #  for acceptors in itertools.combinations_with_replacement(QMin.template['fragments'], rank): 
-                        #  mutual = [ d == a for d in donors for a in acceptors ]
-                        #  #  print('donors = ', donors)
-                        #  #  print('acceptors = ', acceptors)
-                        #  #  print('mutual = ', mutual)
-                        #  if not any(mutual):
-                            #  CT[rank].append((donors,acceptors))
-            #  else: # ToDo
-                #  for subset in value:
-                    #  CT[rank].append(list(subset))
-        #  basis['CT'] = CT
 
         # Set inevitable requests to the children
         # Set point-charge request to all embedding children
@@ -642,25 +588,12 @@ class SHARC_ECI(SHARC_HYBRID):
 
         # Set density requests 
         for (label,z,Z), child in self._kindergarden["SSC"].items():
-            #  child.read_requests({"h": True, "density_matrices": ["all"], "mol": True})
             child.QMin.requests['h'] = True
             child.QMin.requests['density_matrices'] = ["all"]
             child.QMin.requests['mol'] = True
 
-        #  Setup children interfaces
-        #  for (label,C), child in self.embedding_kindergarden.items():
-            #  child.setup_interface()
-            #  child.QMin.resources['pwd'] = os.path.join( os.getcwd(), label+'_embedding_C'+str(C) ) 
-            #  child.QMin.save['savedir'] = os.path.join( QMin.save['savedir'], label+'_embedding_C'+str(C), 'SAVE' ) 
-        #  for (label,c,C), child in self._kindergarden.items():
-            #  child.setup_interface()
-            #  child.QMin.resources['pwd'] = os.path.join( os.getcwd(), label+'_c'+str(c)+'_C'+str(C) ) 
-            #  child.QMin.save['savedir'] = os.path.join( QMin.save['savedir'], label+'_c'+str(c)+'_C'+str(C), 'SAVE' ) 
-
         self.EHFjobs = {Z: None for Z in self.charges_to_do}
         self.SSCjobs = {Z: None for Z in self.charges_to_do}
-
-        return
 
     def read_requests(self, requests_file: str= "QM.in") -> None:
         super().read_requests(requests_file)
@@ -744,7 +677,6 @@ class SHARC_ECI(SHARC_HYBRID):
     def run(self):
         QMin = self.QMin
          
-        #  DOs = { Z:{ label:{} for label in QMin.template['fragments']} for Z in self.charges_to_do}
         self.log.print('Full-system charges to do: '+str(self.charges_to_do))
         self.log.print("")
         for Z in self.charges_to_do:
@@ -853,54 +785,6 @@ class SHARC_ECI(SHARC_HYBRID):
             self.log.print(self._format_header("End of site-state calculations"))
             self.log.print("")
 
-#            # Calculate or read site-specific Dyson orbitals if needed
-#            # Dyson orbitals cannot be read from children's QM.out because even if read_children = true, CT level is changed
-#            for label in QMin.template['fragments']:
-#                dyson_garden = {key[1]:value for key,value in garden.items() if key[0] == label}
-#                for c1, child1 in dyson_garden.items():
-#                    for c2, child2 in dyson_garden.items():
-#                        if c1 ==  c2 - 1:
-#                            if not 'r' in QMin.template['calculation']['manage_children']:
-#                                self.log.print(' Calculating the Dyson orbitals of fragment '+label+' between charges '+str(c1)+' and '+str(c2))
-#                                DOs[C][label][(c1,c2)] = child1.dyson_orbitals_with_other(child2,QMin.resources['scratchdir'],QMin.resources['ncpu'],"64000")
-#                            else:
-#                                f = open( os.path.join( QMin.resources['cwd'], label+'_C'+str(C)+'_c'+str(c1)+'_c'+str(c2)+'.dyson'), 'r')
-#                                lines = f.readlines()
-#                                DOs[C][label][(c1,c2)] = {}
-#                                for line in lines:
-#                                    thes1, thes2, spin, coeffs = line.split('|')
-#                                    for s1 in child1.states:
-#                                        if s1.symbol(True,True) == thes1:
-#                                            break
-#                                    for s2 in child2.states:
-#                                        if s2.symbol(True,True) == thes2:
-#                                            break
-#                                    DOs[C][label][(c1,c2)][(s1,s2,spin)] = np.array( [ float(x) for x in coeffs.split() ] )
-#                                f.close()
-#                            if 'w' in QMin.template['calculation']['manage_children']: 
-#                                f = open( os.path.join( QMin.resources['cwd'], label+'_C'+str(C)+'_c'+str(c1)+'_c'+str(c2)+'.dyson'), 'w' )
-#                                for (s1,s2,spin), phi in DOs[C][label][(c1,c2)].items():
-#                                    f.write(s1.symbol(True,True)+'|'+s2.symbol(True,True)+'|'+spin+'|'+' '.join([ str(round(phi[i],10)) for i in range(len(phi))] )+'\n' )
-#                                f.close()
-#                #  involved, active = False, False
-#                #  for ct, value in QMin.template['calculation']['excitonic_basis']['CT'].items():
-#                    #  if ct > 0:
-#                        #  if label in set([ item for pair in value for item in pair ]):
-#                            #  involved = True
-#                            #  break
-#                #  actives = []
-#                #  for JK in ["J","K"]:
-#                    #  for int_types in [(1,0),(1,1)]:
-#                        #  actives += QMin.template['calculation']['active_integrals'][JK][int_types]  
-#                #  actives = set([ item for subset in actives for item in subset ])
-#                #  if label in actives: active = True
-#                #  if active and involved:
-#                    #  dyson_garden = {key[1]:value for key,value in garden.items() if key[0] == label}
-#                    #  for c1, child1 in dyson_garden.items():
-#                        #  for c2, child2 in dyson_garden.items():
-#                            #  if c1 ==  c2 - 1:
-#                                #  DOs[C][label][(c1,c2)] = child1.dyson_orbitals_with_other(child2)
-#
             # Calculate dipole-moment matrices of children, should be done in children
             if self.QMin.requests['dm']:
                 self.log.print('')
@@ -928,17 +812,13 @@ class SHARC_ECI(SHARC_HYBRID):
                 H = {}
                 rho = {}
                 mu = {}
-                grad = {}
                 states = {}
-                #  phi = DOs[C][flabel]
-                #  charge = fdict['refcharge'][Z]
                 mol = [ child.QMout['mol'] for (label,z), child in ssc_garden.items() if label == flabel ][0]
                 aufbau_states = fdict['aufbau_site_states']
 
                 #  for z, nstates in fdict['SSC']['states'].items():
                 for (label,z), child in ssc_garden.items():
                     if label == flabel:
-                        #  child = ssc_garden[(flabel,z)]
                         states[z] = child.states
                         H[z] = child.QMout['h']
                         rho[z] = child.QMout['density_matrices']
@@ -970,7 +850,6 @@ class SHARC_ECI(SHARC_HYBRID):
                                    multiplicities=[m+1 for m, nstates in enumerate(QMin.molecule['states']) if nstates > 0 and QMin.molecule['charge'][m] == Z ],
                                    tO=QMin.template['calculation']['tO'],
                                    eci_level=QMin.template['calculation']['excitonic_basis']['ECI'],
-                                   #  ct_level=QMin.template['calculation']['excitonic_basis']['CT'],
                                    active_integrals=copy.deepcopy(QMin.template['calculation']['active_integrals']), 
                                    ri=QMin.template['calculation']['RI'],
                                    properties=properties
@@ -997,18 +876,14 @@ class SHARC_ECI(SHARC_HYBRID):
 
     def getQMout(self):
         QMin = self.QMin
-        QMout = self.QMout
         ECIjobs = self.ECIjobs
 
         states = QMin.molecule["states"]
-        nmstates = QMin.molecule["nmstates"]
         natom = QMin.molecule["natom"]
         self.QMout.allocate(
             states, natom, QMin.molecule["npc"], {r for r in QMin.requests.keys() if QMin.requests[r]}
         )
 
-
-        iterator = list(enumerate(itnmstates(QMin.molecule['states'])))
         for request, value in QMin.requests.items():
             if value:
                 if request == 'h':
