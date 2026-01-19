@@ -3159,6 +3159,8 @@ module input
           select case (line(1:1))
             case('!')
               select case (trim(values(2)))
+                case ("laser_freq_path")
+                  ctrl%laser_freq_path = trim(values(3))
                 case ("e-field", "b-field", "e-field_gradients", "b-field_gradients")
                   if (trim(values(3))=='true') then
                     tmp = .true.
@@ -3183,11 +3185,15 @@ module input
             case ('#')
               cycle
             case default
-              ctrl%nlasers = n - read_shift - 1
-              write(0,*) "Found number of lasers:", ctrl%nlasers 
-              if (ctrl%nlasers < 1) then
-                write(0,*) 'No central energies for lasers found in ',filename
-                stop 1
+              if (ctrl%laser_freq_path == "None") then  
+                ctrl%nlasers = n - read_shift - 1
+              ! else
+              !  ctrl%nlasers = n - read_shift  !  
+                write(0,*) "Found number of lasers:", ctrl%nlasers 
+                if (ctrl%nlasers < 1) then
+                  write(0,*) 'No central energies for lasers found in ',filename
+                  stop 1
+                endif
               endif
           end select
         enddo
@@ -3214,9 +3220,11 @@ module input
         if (ctrl%laser_egrad) then
           allocate(ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3))
         endif
-        allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
+        if (ctrl%laser_freq_path == "None") then  
+          allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
+        endif
         if (ctrl%nsteps*ctrl%nsubsteps+1 /= line_number-com_line_number) then
-          write(0,*) 'Number of lines in laserfile does not match requested steps!'
+          write(0,*) 'Number of lines in laserfile does not match requested steps! (Found/Required)', (line_number-com_line_number, ctrl%nsteps*ctrl%nsubsteps+1) 
           stop 1
         endif
       else if (laser_file_version==1.0) then
@@ -3224,8 +3232,86 @@ module input
         allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
         allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
       endif  !allocate(laser_freq_file_path)
-      
+      close(u_i_laser)
+
+      ! Check for header of laser frequency file
+      open(u_i_laser_freq,file=ctrl%laser_freq_path, status='old', action='read', iostat=io)
+      if (laser_file_version==2.0 .and. ctrl%laser_freq_path /= "None") then
+        read(u_i_laser_freq,'(A)',iostat=io) line
+        if (io/=0) then
+          write(0,*) 'EOF encountered during read of laser frequency file!'
+          stop 1
+        endif
+        rewind(u_i_laser_freq)
+        read(u_i_laser_freq,'(A)',iostat=io) line 
+        if (allocated(values)) deallocate(values)
+        call split(line,' ',values,n)
+        ! deallocate(values) 
+        rewind(u_i_laser_freq)
+        freq_line_number = 0
+        freq_com_line_number = 0 ! blank line after comment section in laser file
+        do
+          read(u_i_laser_freq,'(A)',iostat=io) line 
+          if (allocated(values)) deallocate(values)
+          call split(line,' ',values,n)
+          if (io/=0) then
+            exit
+          else if (trim(values(1))=='!' .OR. index(values(1),'#')/=0 .OR. n==1) then
+            freq_com_line_number = freq_com_line_number+1
+            freq_line_number = freq_line_number+1
+          else
+            freq_line_number = freq_line_number+1
+            ctrl%nlasers = n-1
+          endif
+        enddo
+        allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
+        rewind(u_i_laser_freq)
+      endif
+
+      ! READING FREQUENCIES
+      write(*,*) "TEST0"
+      if (laser_file_version==2.0 .and. ctrl%laser_freq_path /= "None") then
+        do i=1, freq_line_number
+          write(*,*) freq_line_number
+          read(u_i_laser_freq,'(A)',iostat=io) line
+          if (io/=0) then
+            write(0,*) 'EOF encountered during read of laser freq file!'
+            stop 1
+          endif
+          if (i<=freq_com_line_number) then
+              cycle
+          else
+            write(*,*) "TEST1", values
+            if (allocated(values)) deallocate(values)
+            call split(line,' ',values,n)
+            if ((i>=(freq_com_line_number+1)+1) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
+              write(0,*) 'Laser frequency file malformatted (laser file version 2.0)! Line=',i
+              stop 1
+            endif
+            write(*,*) "TEST2"
+            read(values(1),*) a
+            if (i==1) then
+              if (dabs(a)>0.001d0) then
+                write(0,*) 'Laser frequency file must start at t=0 fs!'
+                stop 1
+              endif
+            endif
+            b=ctrl%dtstep/ctrl%nsubsteps
+            if ( dabs(a-b*(i-2-freq_com_line_number+1))>0.001d0) then 
+              write(0,*) 'Time spacing does not match substep spacin in laser frequency file!'
+              stop 1
+            endif
+            do j=1,ctrl%nlasers
+              read(values(2*j),*) a
+              ctrl%laserenergy_tl(i-freq_com_line_number,j)=dcmplx(a,0)
+            enddo
+          endif
+        enddo
+      endif
+      close(u_i_laser_freq)
+
       ! READING FIELDS
+      open(u_i_laser,file=filename, status='old', action='read', iostat=io)
       if (laser_file_version==2.0) then
         do i=1, line_number
           read_shift=0
@@ -3237,6 +3323,7 @@ module input
           if (i<=com_line_number) then
               cycle
           else
+            if (allocated(values)) deallocate(values)
             call split(line,' ',values,n)
             if ((i>=(com_line_number+1)+1) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
               write(0,*) 'Laser file malformatted (laser file version 2.0)! Line=',i
@@ -3295,10 +3382,12 @@ module input
                 write(0,*) "Found conflicting number of lasers in line:", i, line
                 stop 1
             endif
-            do j=1,ctrl%nlasers
-              read(values(read_shift+j+1),*) a
-              ctrl%laserenergy_tl(i-com_line_number,j)=dcmplx(a,0.d0)
-            enddo
+            if (ctrl%laser_freq_path == "None") then
+              do j=1,ctrl%nlasers
+                read(values(read_shift+j+1),*) a
+                ctrl%laserenergy_tl(i-com_line_number,j)=dcmplx(a,0.d0)
+              enddo
+            endif
           endif
         enddo
         close(u_i_laser)

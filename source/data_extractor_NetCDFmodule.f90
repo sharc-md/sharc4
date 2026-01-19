@@ -124,6 +124,7 @@ module data_extractor_NetCDFmodule
     logical :: laser_e=.false.                       !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
     logical :: laser_b=.false.                       !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
     logical :: laser_egrad=.false.                       !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
+    character :: laser_freq_path="None"     !< laser frequency file path - default is "None" 
     integer :: nsteps                       !< number of timesteps from dat file (needed to read the laser field)
     integer :: nsubsteps                    !< number of substeps (needed to read the laser field)
 
@@ -571,6 +572,7 @@ contains
     read(u_dat,*) general_infos%laser_e
     read(u_dat,*) general_infos%laser_b
     read(u_dat,*) general_infos%laser_egrad
+    read(u_dat,*) general_infos%laser_freq_path
     read(u_dat,*) general_infos%nsteps
     read(u_dat,*) general_infos%nsubsteps
   
@@ -730,7 +732,7 @@ contains
     if (io==0) then
       read(line,*) general_infos%laser
       if (general_infos%laser==2) then
-        line=get_value_from_key('laser_b',io)
+        line=get_value_from_key('laser_bfield',io)
         if (io==0) then
           read(line,*) general_infos%laser_b
         else
@@ -738,11 +740,19 @@ contains
         endif
         
         ! look up laser e-field gradient keyword
-        line=get_value_from_key('laser_egrad',io)
+        line=get_value_from_key('laser_efield_grad',io)
         if (io==0) then
           read(line,*) general_infos%laser_egrad
         else
           general_infos%laser_egrad=.false.! look up laser e-field gradient keyword
+        endif
+
+        ! look up laser freq path keyword
+        line=get_value_from_key('laser_freq_path',io)
+        if (io==0) then
+          read(line,*) general_infos%laser_freq_path
+        else
+          general_infos%laser_freq_path="None" 
         endif
 
         if (general_infos%laser_b) then

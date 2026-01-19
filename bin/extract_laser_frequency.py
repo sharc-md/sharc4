@@ -246,14 +246,14 @@ def main():
          laser frequency file 
          SHARC {sharcversion}
          file_version 2.0'''
-    header_line = f''' #{"="*26}'''+"\n"
+    header_line = f''' #{"="*26}'''
     field_columns = ["Time", "Frequency"]
     unit_columns = ["[fs]"]+["a.u."]*(len(field_columns)-1)
     max_lengths = [9, 11]
     header = "\n".join(" ! " + line.lstrip() for line in header.split('\n'))+"\n"
     header_fields = " # " + " | ".join([f"{column:>{length}}" for column, length in zip(field_columns, max_lengths)])+" |"+"\n"
     header_units = " # " + " | ".join([f"{column:>{length}}" for column, length in zip(unit_columns, max_lengths)])+" |"+"\n"  
-    header = header+header_line+header_fields+header_units+header_line
+    header = header+header_line+"\n"+header_fields+header_units+header_line
     laser_freq_file = np.nan*np.ones((len(time_arr), 2))  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
     laser_freq_file[:, 0] = time_arr*1E15  # SAVE timesteps in fs
     if check_laser_file_version(INFOS["laser_file_path"]):
@@ -342,7 +342,6 @@ def main():
     log.info("Writing frequencies to file: laser_freq")
     formatted_laser_freq_file = np.array([[custom_formatter(val) for val in row] for row in laser_freq_file], dtype=str)
     np.savetxt("laser_freq", formatted_laser_freq_file, fmt="%s", delimiter="", header=header, comments='')
-        
     close_keystrokes()
     
 # ======================================================================================================================

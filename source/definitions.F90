@@ -441,6 +441,7 @@ module definitions
     logical :: laser_e = .false.                  !< false=none, true=exists (Laser E-field)
     logical :: laser_b = .false.                  !< false=none, true=exists/ (Laser B-field)
     logical :: laser_egrad = .false.              !< false=none, true=exists (Laser E-field gradients)
+    character*1023 :: laser_freq_path = "None"     !< Laser frequency file path - default is "None"
     integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
     integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation
     integer :: kmatrix_method                 !< 0=gradient based approximation, 1=energy based approximation

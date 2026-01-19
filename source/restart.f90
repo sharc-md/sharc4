@@ -128,6 +128,7 @@ module restart
      write(u,*) ctrl%laser_e, '! laser_efield'
      write(u,*) ctrl%laser_b, '! laser_bfield'
      write(u,*) ctrl%laser_egrad, '! laser_efield_grad'
+     write(u,*) ctrl%laser_freq_path, '! laser frequency file path'
      write(u,*) ctrl%coupling
      write(u,*) ctrl%ktdc_method
      write(u,*) ctrl%kmatrix_method
@@ -784,6 +785,7 @@ module restart
      read(u_ctrl,*) ctrl%laser_e
      read(u_ctrl,*) ctrl%laser_b
      read(u_ctrl,*) ctrl%laser_egrad
+     read(u_ctrl,*) ctrl%laser_freq_path
      read(u_ctrl,*) ctrl%coupling
      read(u_ctrl,*) ctrl%ktdc_method
      read(u_ctrl,*) ctrl%kmatrix_method

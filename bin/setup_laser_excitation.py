@@ -1552,8 +1552,11 @@ def writeSHARCinput(
         s += f"laser_efield {str(INFOS['laser_efield']).lower()}\n"
         s += f"laser_bfield {str(INFOS['laser_bfield']).lower()}\n"
         s += f"laser_efield_grad {str(INFOS['laser_efield_grad']).lower()}\n"
-        s += f"laser_bfield_grad {str(INFOS['laser_bfield_grad']).lower()}\n\n"
-
+        if INFOS["laser_freq_path"]:
+            s += f"laser_bfield_grad {str(INFOS['laser_bfield_grad']).lower()}\n"
+            s += 'laser_freq_path "laser_freq" \n' 
+        else:
+            s += f"laser_bfield_grad {str(INFOS['laser_bfield_grad']).lower()}\n\n"
     inputf.write(s)
     inputf.close()
 
@@ -1568,6 +1571,7 @@ def writeSHARCinput(
 
     # ============ Laser file ============
     laserfname = os.path.join(iconddir, "laser")
+    laserfreqname = os.path.join(iconddir, "laser_freq")
     sharcpath = os.getenv("SHARC")
     if sharcpath is None:
         print("Please set $SHARC to the directory containing the SHARC executables!")
@@ -1624,7 +1628,8 @@ def writeSHARCinput(
             write_fields(laserfname, *fields_out)
         else:
             link(INFOS["laserfile"], laserfname)
-
+        if INFOS["laser_freq_path"]:
+            link(INFOS["laser_freq_path"], laserfreqname)
     return
 
 
