@@ -180,7 +180,7 @@ def read_QMout(path, nstates, natom, request):
 def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
     rnonzero = False
     inonzero = False
-
+    print(header, mat)
     rstr = header + " R\n"
     istr = header + " I\n"
     for i in range(len(mat)):
@@ -202,12 +202,13 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
         rstr += "\n"
         istr += "\n"
 
+    print(rnonzero, inonzero)
     retstr = ""
     if rnonzero:
         retstr += rstr
     if inonzero:
         retstr += istr
-
+    print(header, retstr)
     return retstr
 
 
@@ -427,6 +428,9 @@ def write_LVC_template(INFOS, template_name):
         flags.add(5)
     if INFOS["multipolar_fit"]:
         flags.add(22)
+    if INFOS["beyond_ed"]:
+        flags.add(41)  # 41=MDM 
+        flags.add(42)  # 42=EQM
     QMout_eq = QMout(path, INFOS["states"], len(INFOS["atoms"]), npc=0, flags=flags)
     lvc_template_content += "charge " + " ".join(map(str, QMout_eq.charges)) + "\n"
     print(", ".join(requests))
@@ -1127,10 +1131,11 @@ def write_LVC_template(INFOS, template_name):
         else:
             lvc_template_content += LVC_complex_mat("SOC", QMout_eq.h, deldiag=True)
     # Adding electric dipole (DM) contribution
+    print(lvc_template_content)
     lvc_template_content += LVC_complex_mat("DMX", QMout_eq.dm[0])
     lvc_template_content += LVC_complex_mat("DMY", QMout_eq.dm[1])
     lvc_template_content += LVC_complex_mat("DMZ", QMout_eq.dm[2])
-    if INFOS["beyond_dipole"]:
+    if INFOS["beyond_ed"]:
         # Adding magnetic dipole (MDM) contribution
         lvc_template_content += LVC_complex_mat("MDMX", QMout_eq.mdm[0])
         lvc_template_content += LVC_complex_mat("MDMY", QMout_eq.mdm[1])

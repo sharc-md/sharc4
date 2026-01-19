@@ -92,7 +92,7 @@ class QMout:
             self.states = states
             self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
             self.nstates = sum(self.states)
-            log.info("init_states", states)
+            log.info(f"init_states: {states}")
         if natom is not None:
             self.natom = natom
         if npc is not None:

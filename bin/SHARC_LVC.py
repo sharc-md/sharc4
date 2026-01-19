@@ -249,7 +249,7 @@ class SHARC_LVC(SHARC_FAST):
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-            elif "DM" in line and "MDEQM" not in line:
+            elif "DM" in line and "MDM" not in line and "EQM" not in line:
                 j = xyz[line[2]]
                 if factor != 1:
                     dipole_real = False
@@ -259,7 +259,7 @@ class SHARC_LVC(SHARC_FAST):
                     self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-            elif "MDEQM" in line:
+            elif "MDM" in line:
                 self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
                 j = xyz[line[3]]
                 if factor != 1:
@@ -271,9 +271,11 @@ class SHARC_LVC(SHARC_FAST):
                     i += 1
                     line = f.readline()
 
+            elif "EQM" in line:
                 self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
                 k = xyz[line[3]]  # Readout of derivative direction EQMXY -> X
-                j = xyz[line[4]]  # Readout of polarization direction  -> Y
+                j = xyz[line[6]]  # Readout of polarization direction  -> Y
+                print(k, j)
                 if factor != 1:
                     el_quadrupole_real = False
                 line = f.readline()
@@ -818,7 +820,7 @@ class SHARC_LVC(SHARC_FAST):
             dipole = np.einsum("inm,ij->jnm", dipole, self._Trot)
             if self.QMin.requests['mdeqm']:
                 mag_dipole = np.einsum("inm,ij->jnm", mag_dipole, self._Trot)
-                el_quadrupole = np.einsum("inm,ij->jnm", el_quadrupole, self._Trot)
+                el_quadrupole = np.einsum("ai,abkl,bj->ijkl", self._Trot, self._el_quadrupole, self._Trot, optimize=True)  # Trot.T @ quad @ Trot
 
         if self.QMin.requests["grad"]:
             grad = grad.T.reshape((req_nmstates, self.QMin.molecule["natom"], 3))
@@ -841,7 +843,7 @@ class SHARC_LVC(SHARC_FAST):
         self.QMout.point_charges = do_pc
         self.QMout.h = Hd
         self.QMout.dm = dipole
-        if self.QMout.requests["mdeqm"]:
+        if self.QMin.requests["mdeqm"]:
             self.QMout.mdm = mag_dipole
             self.QMout.eqm = el_quadrupole
         if self.QMin.requests["overlap"]:
@@ -917,7 +919,7 @@ class SHARC_LVC(SHARC_FAST):
                     soc_found = True
                 if "DM" in line and "MDEQM" not in line:
                     dm_found = True
-                if "MDEQM" in line:
+                if "MDM" in line or "EQM" in line:
                     mdeqm_found = True 
                 if "Multipolar Density Fit" in line:
                     mfit_found = True

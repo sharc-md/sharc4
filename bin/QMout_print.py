@@ -432,18 +432,18 @@ excitation energies and oscillator strengths.
             dmz = QMout['dm'][2][istate][initial]
             # print("DM", istate, initial, e, energies[initial], dmx, dmy, dmz)
             # print(istate)
-            # f = 2. / 3. * (e - energies[initial]) * (np.abs(dmx)**2 + np.abs(dmy)**2 + np.abs(dmz)**2)
+            f = 2. / 3. * (e - energies[initial]) * (np.abs(dmx)**2 + np.abs(dmy)**2 + np.abs(dmz)**2)
             mdmx = QMout['mdm'][0][istate][initial]
             mdmy = QMout['mdm'][1][istate][initial]
             mdmz = QMout['mdm'][2][istate][initial]
-            f = 2. / 3. * (e - energies[initial]) * (np.imag(mdmx)**2 + np.imag(mdmy)**2 + np.imag(mdmz)**2)
+            f += 2. / 3. * (e - energies[initial]) * (np.imag(mdmx)**2 + np.imag(mdmy)**2 + np.imag(mdmz)**2)
             fosc.append(f)
             eqm = np.zeros((3, 3), dtype=complex)
             for i in range(3):
                 for j in range(3):
                     eqm[i][j] = QMout['eqm'][i][j][istate][initial]
             quad_term = np.sum(np.abs(eqm)**2) - 1/3.*np.abs(np.trace(eqm))**2 
-            #f += (1.0/20.0) * const.alpha**2 * (e - energies[initial])**3 * quad_term
+            f += (1.0/20.0) * const.alpha**2 * (e - energies[initial])**3 * quad_term
             # else:
             # dmx=dmy=dmz=0.
             # fosc.append(0.)
