@@ -110,45 +110,14 @@ class excitonic_slater_determinant:
 
     # ----START of excitonic_slater_determinant.compare------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     def compare(self, other):
-        diffs = [site for site in self.site_states if self.site_states[site] is not other.site_states[site]]
-        ndiffs = len(diffs)
-        if ndiffs == 0:
-            return {"relationship": (0, 0)}
-        if ndiffs == 1:
-            return {"relationship": (0, 1), "exciton": diffs[0]}
-        if ndiffs == 2:
-            f, g = diffs
-            sf1, sg1 = self.site_states[f], self.site_states[g]
-            sf2, sg2 = other.site_states[f], other.site_states[g]
-            dZf = sf2.Z - sf1.Z
-            dZg = sg2.Z - sg1.Z
-            if dZf == 0 and dZg == 0:
-                return {"relationship": (0, 2), "excitons": diffs}
-            if dZf == 1 and dZg == -1:
-                return {"relationship": (1, 0), "donor": f, "acceptor": g}
-            if dZf == -1 and dZg == 1:
-                return {"relationship": (1, 0), "donor": g, "acceptor": f}
-            return None
-        if ndiffs == 3:
-            f, g, h = diffs
-            sf1, sg1, sh1 = self.site_states[f], self.site_states[g], self.site_states[h]
-            sf2, sg2, sh2 = other.site_states[f], other.site_states[g], other.site_states[h]
-            dZf = sf2.Z - sf1.Z
-            dZg = sg2.Z - sg1.Z
-            dZh = sh2.Z - sh1.Z
-            if dZf == 1 and dZg == -1 and dZh == 0:
-                return {"relationship": (1, 1), "donor": f, "acceptor": g, "exciton": h}
-            if dZf == -1 and dZg == 1 and dZh == 0:
-                return {"relationship": (1, 1), "donor": g, "acceptor": g, "exciton": h}
-            if dZf == 1 and dZg == 0 and dZh == -1:
-                return {"relationship": (1, 1), "donor": f, "acceptor": h, "exciton": g}
-            if dZf == -1 and dZg == 0 and dZh == 1:
-                return {"relationship": (1, 1), "donor": h, "acceptor": f, "exciton": g}
-            if dZf == 0 and dZg == 1 and dZh == -1:
-                return {"relationship": (1, 1), "donor": g, "acceptor": h, "exciton": f}
-            if dZf == 0 and dZg == -1 and dZh == 1:
-                return {"relationship": (1, 1), "donor": h, "acceptor": g, "exciton": f}
-            return None
+        diffs = []
+
+        for site, s1 in self.site_states.items():
+            s2 = other.site_states[site]
+            if s1 is not s2:
+                diffs.append((site, s1, s2))
+                if len(diffs) > 2:
+                    return None
 
     # ----END of excitonic_slater_determinant.compare------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -214,7 +183,8 @@ class excitonic_basis:
 
         for i1 in range(n):
             ESD1 = ESDs[i1]
-            for i2 in range(i1, n):
+            self.relationships[(0, 0)].append({"ESDs": (ESD1, ESD1), "indices": (i1, i1)})
+            for i2 in range(i1+1, n):
                 ESD2 = ESDs[i2]
                 comparison = ESD1.compare(ESD2)
                 if comparison:
@@ -306,7 +276,7 @@ class ECI:
             else:
                 eci_level[rank] = []
                 for subset in value:
-                    newsubset = [site for site in sites if site.label in subset]
+                    newsubset = {site for site in sites if site.label in subset}
                     eci_level[rank].append(newsubset)
         job.eci_level = eci_level
 
@@ -386,7 +356,7 @@ class ECI:
 
         aufbaus = []
         aufbaustates = [site.aufbau_states for site in sites]
-        aufbaus = list(itertools.product(*aufbaustates))
+        aufbaus = itertools.product(*aufbaustates)
         ESDs = [excitonic_slater_determinant(sites=sites, site_states=list(aufbau)) for aufbau in aufbaus]
 
         # Take only those with correct charge
@@ -398,10 +368,7 @@ class ECI:
                 + "! Either change the given set of aufbau site states or do not calculate this full-system charge. Aborting..."
             )
 
-        self.log.print("       Aufbau ESDs ( # = " + str(len(ESDs)) + " ):")
-        #for ESD in ESDs:
-        #    self.log.print("          " + repr(ESD))
-        #self.log.print("")
+        self.log.info(f"       Aufbau ESDs ( # = {len(ESDs)} )")
         return ESDs
 
     # ----END of ECI.get_aufbaus------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -418,11 +385,15 @@ class ECI:
                     for subset in subsets:
                         aufbau_state_sets = {f: set(f.aufbau_states) for f in subset}
                         site_state_lists = (
-                            [s for s in f.states[site_states_map[f].Z] if s not in aufbau_state_sets[f]] for f in subset
+                            (s for s in f.states[site_states_map[f].Z] if s not in aufbau_state_sets[f]) for f in subset
                         )
                         subset_index = {f: i for i, f in enumerate(subset)}
+                        default_site_states = [site_states_map[f] for f in sites]
                         for e in itertools.product(*site_state_lists):
-                            site_states = [site_states_map[f] if not f in subset else e[subset_index[f]] for f in sites]
+                            site_states = list(default_site_states)
+                            for f in subset:
+                                i = sites.index(f)
+                                site_states[i] = e[subset_index[f]]
                             excitedESDs.add(excitonic_slater_determinant(sites=sites, site_states=site_states))
         if job.eci_level.get(0, False):
             ESDs = ESDs + list(excitedESDs)
@@ -526,21 +497,19 @@ class ECI:
         ESDs = [ESD for ESD in allESDs if ESD.M == (m - 1)]
         self.log.print(f"          Found {len(ESDs)} ESDs with MS = {ESDs[0].M / 2}")
 
+        def signature(esd):
+            return tuple((state.Z, state.S, state.N) for state in esd.site_states.values())
+
         groups = {}
         for ESD in ESDs:
-            found = False
-            for keyESD, valESD in groups.items():
-                if keyESD // ESD:
-                    valESD.append(ESD)
-                    found = True
-                    break
-            if not found:
-                groups[ESD] = [ESD]
+            sig = signature(ESD)
+            groups.setdefault(sig, []).append(ESD)
 
         ECSFs = []
-        for keyESD, groupESDs in groups.items():
+        # Target S(S+1) eigenvalue for multiplicity m
+        for _, groupESDs in groups.items():
             S2mat = self.calculate_S2mat(groupESDs)
-            S2val, groupU = np.linalg.eigh(S2mat, UPLO="U")
+            S2val, groupU = np.linalg.eigh(S2mat, "U")
             mults = (np.sqrt(4.0 * abs(S2val)) + 1.0).astype(int)
             for i, mult in enumerate(mults):
                 if mult == m:
@@ -560,12 +529,6 @@ class ECI:
             for i, ESD in enumerate(ECSF.ESDs):
                 U[ESD_index[ESD], j] = ECSF.U[i]
 
-        #for i, ECSF in enumerate(ECSFs):
-        #    self.log.print("")
-        #    self.log.print(f"             {repr(ECSF)} = ")
-        #    for j, ESD in enumerate(ECSF.ESDs):
-        #        self.log.print(f"             {ECSF.U[j]: 10.6f} {repr(ESD)}")
-        #self.log.print("")
         return ESDs, ECSFs, U
 
     # ----END of ECI.spin_adapt------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -573,34 +536,50 @@ class ECI:
     # ----START of ECI.calculate_S2mat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     def calculate_S2mat(self, ESDs):
         nESD = len(ESDs)
-        S2mat = np.zeros((nESD, nESD))
         sites = list(ESDs[0].site_states.keys())
+        n_sites = len(sites)
 
-        # Precompute site_states, S/2, M/2 for each ESD
-        ESD_data = []
-        for ESD in ESDs:
-            states = ESD.site_states
-            data = {
-                "states": states,
-                "S_by_2": {f: states[f].S / 2.0 for f in sites},
-                "M_by_2": {f: states[f].M / 2.0 for f in sites},
-            }
-            ESD_data.append(data)
+        # Site-invariant S/2
+        S_by_2 = np.fromiter(
+            (ESDs[0].site_states[f].S * 0.5 for f in sites),
+            dtype=float,
+            count=n_sites
+        )
 
-        # Diagonal
-        for i, data in enumerate(ESD_data):
-            diag = sum(S * (S + 1) for S in data["S_by_2"].values())
-            m_vals = data["M_by_2"]
-            diag += 2.0 * sum(m_vals[f] * m_vals[g] for idx, f in enumerate(sites) for g in sites[idx + 1 :])
-            S2mat[i, i] = diag
+        # Preallocate containers
+        # Object array for state references
+        ESD_states = np.empty((nESD, n_sites), dtype=object)
+        # Float array for M/2 values
+        ESD_M = np.empty((nESD, n_sites), dtype=float)
 
-        # Off-diagonal (upper triangle only)
+        # Fill preallocated arrays
+        for i, ESD in enumerate(ESDs):
+            for k, f in enumerate(sites):
+                st = ESD.site_states[f]
+                ESD_states[i, k] = st
+                ESD_M[i, k] = st.M * 0.5
+
+        S2mat = np.zeros((nESD, nESD), dtype=float)
+
+        # Diagonal terms
+        S_term = np.sum(S_by_2 * (S_by_2 + 1.0))
+        for i in range(nESD):
+            M = ESD_M[i]
+            S2mat[i, i] = S_term + (M.sum() ** 2 - np.dot(M, M))
+
+        # Off-diagonal terms
         for i, j in itertools.combinations(range(nESD), 2):
-            states_i = ESD_data[i]["states"]
-            states_j = ESD_data[j]["states"]
+            states_i = ESD_states[i]
+            states_j = ESD_states[j]
 
-            # Sites where the local states differ
-            diffs = [f for f in sites if states_i[f] is not states_j[f]]
+            # Find differing sites (early exit)
+            diffs = []
+            for k in range(n_sites):
+                if states_i[k] is not states_j[k]:
+                    diffs.append(k)
+                    if len(diffs) > 2:
+                        break
+
             if len(diffs) != 2:
                 continue
 
@@ -608,17 +587,19 @@ class ECI:
             sf1, sg1 = states_i[f], states_i[g]
             sf2, sg2 = states_j[f], states_j[g]
 
-            # Check that they are equivalent up to M (// operator)
             if sf1 // sf2 and sg1 // sg2:
                 M1_f, M2_f = sf1.M, sf2.M
                 M1_g, M2_g = sg1.M, sg2.M
-                S_f, S_g = sf1.S / 2.0, sg1.S / 2.0
-                M_f, M_g = sf1.M / 2.0, sg1.M / 2.0
+
+                S_f, S_g = S_by_2[f], S_by_2[g]
+                M_f = M1_f * 0.5
+                M_g = M1_g * 0.5
 
                 if M1_f == M2_f - 2 and M1_g == M2_g + 2:
                     x = S_f * (S_f + 1) - M_f * (M_f + 1)
                     y = S_g * (S_g + 1) - M_g * (M_g - 1)
                     S2mat[i, j] = math.sqrt(x * y)
+
                 elif M1_f == M2_f + 2 and M1_g == M2_g - 2:
                     x = S_f * (S_f + 1) - M_f * (M_f - 1)
                     y = S_g * (S_g + 1) - M_g * (M_g + 1)

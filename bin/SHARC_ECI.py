@@ -208,7 +208,7 @@ class SHARC_ECI(SHARC_HYBRID):
         self.read_template(self.setupINFOS["template_file"])
         QMin = self.QMin
 
-        self.charges_to_do = set([ Z for fdict in self.QMin.template["fragments"].values() for Z in fdict["EHF"]["embedding_site_state"].keys() ])
+        self.charges_to_do = set(Z for fdict in self.QMin.template["fragments"].values() for Z in fdict["EHF"]["embedding_site_state"].keys())
         # Instatiate all children
         child_dict = {}
         for Z in self.charges_to_do: # Full-system charge
@@ -572,10 +572,10 @@ class SHARC_ECI(SHARC_HYBRID):
             ECI[rank] = []
             if value == 'all':
                 for subset in itertools.combinations( QMin.template['fragments'], rank ):
-                    ECI[rank].append(list(subset))
+                    ECI[rank].append(set(subset))
             else:
                 for subset in value:
-                    ECI[rank].append(list(subset))
+                    ECI[rank].append(set(subset))
         basis['ECI'] = ECI
 
         # Set inevitable requests to the children
