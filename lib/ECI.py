@@ -76,15 +76,24 @@ class fragment:
 # ----START of excitonic_slater_determinant class------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class excitonic_slater_determinant:
     def __init__(self, sites, site_states):
-        if isinstance(site_states, list):
-            self.site_states = {}  # list of electronic_state instances
-            for state, site in zip(site_states, sites):
-                self.site_states[site] = state
-        elif isinstance(site_states, dict):
-            self.site_states = site_states.copy()
+        self.excitations = set()
+        self.site_states = {}  # list of electronic_state instances
+        for idx, (state, site) in enumerate(zip(site_states, sites)):
+            self.site_states[site] = state
+            if site.aufbau_states[0] is not state:
+                self.excitations.add((idx,state))
+        self.level = len(self.excitations)
         self.Z = sum(self.site_states[site].Z for site in sites)
         self.M = sum(self.site_states[site].M for site in sites)
         self.index = None
+        self.hash = self._hash()
+
+    
+    def _hash(self):
+        h = hashlib.blake2b(digest_size=16)
+        for st in self.site_states.values():
+            h.update(struct.pack(">4q", st.Z, st.S, st.M, st.N))
+        return int.from_bytes(h.digest(), "big")
 
     def __repr__(self):
         s = "[ "
@@ -100,7 +109,8 @@ class excitonic_slater_determinant:
         return s
 
     def __hash__(self):
-        return repr(self).__hash__()
+        return self.hash
+        #return repr(self).__hash__()
 
     def __eq__(self, other):
         return all(map(operator.is_, self.site_states.values(), other.site_states.values()))
@@ -115,19 +125,15 @@ class excitonic_slater_determinant:
         for site, s1 in self.site_states.items():
             s2 = other.site_states[site]
             if s1 is not s2:
-                diffs.append((site, s1, s2))
+                diffs.append(site)
                 if len(diffs) > 2:
                     return None
 
         nd = len(diffs)
-        if nd == 0:
-            return {"relationship": (0, 0)}
         if nd == 1:
-            site, _, _ = diffs[0]
-            return {"relationship": (0, 1), "exciton": site}
+            return {"relationship": (0, 1), "exciton": diffs[0]}
         if nd == 2:
-            (f, _, _), (g, _, _) = diffs
-            return {"relationship": (0, 2), "excitons": (f, g)}
+            return {"relationship": (0, 2), "excitons": (diffs[0], diffs[1])}
 
     # ----END of excitonic_slater_determinant.compare------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -189,18 +195,55 @@ class excitonic_basis:
     def determine_relationships(self):
         self.relationships = {key: [] for key in [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (2, 0)]}
         ESDs = self.ESDs
-        n = len(ESDs)
 
-        for i1 in range(n):
-            ESD1 = ESDs[i1]
-            self.relationships[(0, 0)].append({"ESDs": (ESD1, ESD1), "indices": (i1, i1)})
-            for i2 in range(i1+1, n):
-                ESD2 = ESDs[i2]
-                comparison = ESD1.compare(ESD2)
-                if comparison:
-                    rel = comparison.pop("relationship")
-                    comparison.update({"ESDs": (ESD1, ESD2), "indices": (i1, i2)})
-                    self.relationships[rel].append(comparison)
+        esd_idx = {esd: idx for idx, esd in enumerate(ESDs)}
+
+        esd_dict = defaultdict(list)
+        for esd in ESDs:
+            esd_dict[esd.level].append(esd)
+
+        rel00_append = self.relationships[(0,0)].append
+        rel01_append = self.relationships[(0,1)].append
+        rel02_append = self.relationships[(0,2)].append
+ 
+        labels = list(ESDs[0].site_states.keys())
+        for level, esds in esd_dict.items():
+            m = len(esds)
+            for a in range(m):
+                esd = esds[a]
+                rel00_append({"ESDs": (esd, esd), "indices": (esd_idx[esd], esd_idx[esd])})
+                for b in range(a + 1, m):
+                    esd2 = esds[b]
+                    diff = esd.excitations ^ esd2.excitations
+                    match len(diff):
+                        case 1:
+                            rel01_append({"ESDs": (esd, esd2), "exciton": labels[next(iter(diff))[0]], "indices": (esd_idx[esd], esd_idx[esd2])})
+                        case 2:
+                            it = iter(diff)
+                            i0 = next(it)[0]
+                            i1 = next(it)[0]
+                            rel02_append({"ESDs": (esd, esd2), "excitons": (labels[i0], labels[i1]), "indices": (esd_idx[esd], esd_idx[esd2])})
+                for esd2 in esd_dict.get(level+1, []):
+                    diff = esd.excitations ^ esd2.excitations
+                    match len(diff):
+                        case 1:
+                            rel01_append({"ESDs": (esd, esd2), "exciton": labels[next(iter(diff))[0]], "indices": (esd_idx[esd], esd_idx[esd2])})
+                        case 2:
+                            it = iter(diff)
+                            i0 = next(it)[0]
+                            i1 = next(it)[0]
+                            rel02_append({"ESDs": (esd, esd2), "excitons": (labels[i0], labels[i1]), "indices": (esd_idx[esd], esd_idx[esd2])})
+                for esd2 in esd_dict.get(level+2, []):
+                    diff = esd.excitations ^ esd2.excitations
+                    match len(diff):
+                        case 1:
+                            rel01_append({"ESDs": (esd, esd2), "exciton": labels[next(iter(diff))[0]], "indices": (esd_idx[esd], esd_idx[esd2])})
+                        case 2:
+                            it = iter(diff)
+                            i0 = next(it)[0]
+                            i1 = next(it)[0]
+                            rel02_append({"ESDs": (esd, esd2), "excitons": (labels[i0], labels[i1]), "indices": (esd_idx[esd], esd_idx[esd2])})
+
 
     # ----END of excitonic_basis.determine_relationships------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -406,9 +449,9 @@ class ECI:
                                 site_states[i] = e[subset_index[f]]
                             excitedESDs.add(excitonic_slater_determinant(sites=sites, site_states=site_states))
         if job.eci_level.get(0, False):
-            ESDs = ESDs + list(excitedESDs)
+            ESDs = ESDs.union(excitedESDs)
         else:
-            ESDs = list(excitedESDs)
+            ESDs = excitedESDs
         self.log.print(f"       Number of aufbau and excited ESDs before overlap criterion: {len(ESDs)}")
         self.log.print("")
         return ESDs
