@@ -23,21 +23,23 @@
 #
 # ******************************************
 
-
+import hashlib
 import itertools
 import math
 import operator
+import pickle
+import struct
 import time
 from collections import defaultdict
 
 import numpy as np
 import opt_einsum as oe
 import scipy as sp
-from pyscf import gto
+from pyscf import gto, lib
 from threadpoolctl import threadpool_limits
+from utils import electronic_state
 
 merge_moles = gto.mole.conc_mol
-
 
 # ----START of calculation class------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class calculation:
@@ -212,9 +214,10 @@ class excitonic_basis:
             for a in range(m):
                 esd = esds[a]
                 rel00_append({"ESDs": (esd, esd), "indices": (esd_idx[esd], esd_idx[esd])})
+                exc1 = esd.excitations
                 for b in range(a + 1, m):
                     esd2 = esds[b]
-                    diff = esd.excitations ^ esd2.excitations
+                    diff = exc1 ^ esd2.excitations
                     match len(diff):
                         case 1:
                             rel01_append({"ESDs": (esd, esd2), "exciton": labels[next(iter(diff))[0]], "indices": (esd_idx[esd], esd_idx[esd2])})
@@ -224,7 +227,7 @@ class excitonic_basis:
                             i1 = next(it)[0]
                             rel02_append({"ESDs": (esd, esd2), "excitons": (labels[i0], labels[i1]), "indices": (esd_idx[esd], esd_idx[esd2])})
                 for esd2 in esd_dict.get(level+1, []):
-                    diff = esd.excitations ^ esd2.excitations
+                    diff = exc1 ^ esd2.excitations
                     match len(diff):
                         case 1:
                             rel01_append({"ESDs": (esd, esd2), "exciton": labels[next(iter(diff))[0]], "indices": (esd_idx[esd], esd_idx[esd2])})
@@ -234,7 +237,7 @@ class excitonic_basis:
                             i1 = next(it)[0]
                             rel02_append({"ESDs": (esd, esd2), "excitons": (labels[i0], labels[i1]), "indices": (esd_idx[esd], esd_idx[esd2])})
                 for esd2 in esd_dict.get(level+2, []):
-                    diff = esd.excitations ^ esd2.excitations
+                    diff = exc1 ^ esd2.excitations
                     match len(diff):
                         case 1:
                             rel01_append({"ESDs": (esd, esd2), "exciton": labels[next(iter(diff))[0]], "indices": (esd_idx[esd], esd_idx[esd2])})
@@ -581,6 +584,7 @@ class ECI:
         for j, ECSF in enumerate(ECSFs):
             for i, ESD in enumerate(ECSF.ESDs):
                 U[ESD_index[ESD], j] = ECSF.U[i]
+            del ECSF.U
 
         return ESDs, ECSFs, U
 
@@ -679,14 +683,26 @@ class ECI:
 
     # ----START of ECI.calculate_Fmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     def calculate_Fmat(self, nucs, mol):
-        F = np.zeros((mol.nao, mol.nao))
+        """
+        F[pq] = sum_k Z_k * <p| 1/|r-R_k| |q>
+        """
+        coords_list = []
+        charges_list = []
         for g in nucs:
             charges = g.mol.atom_charges() - g.Q
-            coords = g.mol.atom_coords()
+            coords  = g.mol.atom_coords()
             for Z, R in zip(charges, coords):
-                mol.set_rinv_orig(R)
-                F += Z * mol.intor("int1e_rinv")
-        return F
+                if Z != 0:
+                    charges_list.append(float(Z))
+                    coords_list.append(R)
+
+        coords_all  = np.asarray(coords_list, dtype=float)
+        charges_all = np.asarray(charges_list, dtype=float)
+
+        # (npts, nao, nao)
+        j3c = mol.intor("int1e_grids", hermi=1, grids=coords_all)
+
+        return np.einsum("kpq,k->pq", j3c, charges_all)
 
     # ----END of ECI.calculate_Fmat------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -832,10 +848,6 @@ class ECI:
                     auxmol = merge_moles(f1.mol, f2.mol)
                     auxmol.build(basis=job.ri["Jauxbasis"])
                     t1 = time.time()
-                    P = np.linalg.inv(auxmol.intor("int2c2e"))
-                    t2 = time.time()
-                    self.log.print(f"             Calculation of P-matrix of dim. {P.shape} took {round(t2 - t1, 3)} sec.")
-                    t1 = time.time()
                     calcmol = merge_moles(f1.mol, auxmol)
                     L1 = calcmol.intor("int3c2e", shls_slice=(0, f1.mol.nbas, 0, f1.mol.nbas, f1.mol.nbas, calcmol.nbas))
                     calcmol = merge_moles(f2.mol, auxmol)
@@ -845,14 +857,29 @@ class ECI:
                         f"             Calculation of L-tensors of dims. {L1.shape} and {L2.shape} took {round(t2 - t1, 3)} sec."
                     )
                     t1 = time.time()
-                    LP12 = oe.contract("mij,ijp,pq,klq->mkl", rhos1, L1, P, L2, optimize=True)
+                    # metric
+                    S = auxmol.intor("int2c2e")
+                    S.flat[::S.shape[0] + 1] += 1e-10  # optional regularization
+                    c, low = sp.linalg.cho_factor(S, lower=True, check_finite=False)
+
+                    # L1: (ij,p), rhos1: (m,ij)
+                    # If your L1 is currently (i,j,p), reshape it once:
+                    L1_ijp = L1.reshape(-1, L1.shape[-1])          # (ij, p)
+                    r1 = rhos1.reshape(rhos1.shape[0], -1)         # (m, ij)
+
+                    # Step 1: B = rhos1 @ L1
+                    B = r1 @ L1_ijp                                 # (m, p)
+
+                    # Step 2: X = S^{-1} B^T, then transpose back to (m,q)
+                    X = sp.linalg.cho_solve((c, low), B.T, check_finite=False).T  # (m, q)
+
+                    # Step 3: LP12[m,k,l] = sum_q X[m,q] * L2[k,l,q]
+                    LP12 = np.tensordot(X, L2, axes=([1],[2]))      # (m, k, l)
                     t2 = time.time()
                     self.log.print("             First contraction took " + str(round(t2 - t1, 3)) + " sec.")
                     t1 = time.time()
-                    values = [
-                        np.einsum("kl,nkl->n", LP12[i, :, :], rhos2[i], optimize=["einsum_path", (0, 1)])
-                        for i in range(rhos1.shape[0])
-                    ]
+                    LP12_flat = [LP12[i].reshape(-1) for i in range(LP12.shape[0])]
+                    values = [rhos2[i].reshape(rhos2[i].shape[0], -1) @ LP12_flat[i] for i in range(len(LP12_flat))]
                     t2 = time.time()
                     self.log.print(f"             Second contraction took {round(t2 - t1, 3)} sec.")
                     t1 = time.time()
@@ -1027,10 +1054,11 @@ class ECI:
                     t2 = time.time()
                     self.log.print(f"             Calculation of Cholesky factors took {round(t2 - t1, 3)} sec.")
                     t1 = time.time()
-                    mask = np.abs(L) > job.ri["tC"]
-                    big_aux = np.where(np.any(mask, axis=(1, 2)))[0]
-                    big1 = np.where(np.any(mask, axis=(0, 2)))[0]
-                    big2 = np.where(np.any(mask, axis=(0, 1)))[0]
+                    absL = np.abs(L)
+                    tC = job.ri["tC"]
+                    big_aux = np.where(absL.max(axis=(1,2)) > tC)[0]
+                    big1    = np.where(absL.max(axis=(0,2)) > tC)[0]
+                    big2    = np.where(absL.max(axis=(0,1)) > tC)[0]
                     L = np.ascontiguousarray(np.take(np.take(np.take(L, big_aux, axis=0), big1, axis=1), big2, axis=2))
                     rhos1 = np.ascontiguousarray(np.take(np.take(rhos1, big1, axis=1), big1, axis=2))
                     rhos2 = [np.ascontiguousarray(np.take(np.take(rho2, big2, axis=1), big2, axis=2)) for rho2 in rhos2]
@@ -1114,124 +1142,148 @@ class ECI:
     def get_ECI_integrals(self):
         job = self.job
         sites = self.sites
-        ECIbasis = self.ECIbasis
+        ecibasis = self.ECIbasis
 
-        ECI_integrals = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(set))))
+        eci_integrals = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(set))))
 
         def add_integral(k1, k2, k3, k4, loc):
-            ECI_integrals[k1][k2][k3][k4].add(loc)
+            eci_integrals[k1][k2][k3][k4].add(loc)
+
+        rho_allowed = {
+            f: set().union(*(rho.keys() for rho in f.rho.values()))
+            for f in sites
+        }
+        # Precompute active neighbor maps for v-like usage from J actives:
+        # active_neighbors_by_rel[rel] = {site -> set(neighbor_sites)}
+        active_neighbors_by_rel = {}
+        for rel, actives in job.active_integrals["J"].items():
+            neigh = defaultdict(set)
+            for a, b in actives:
+                neigh[a].add(b)
+                neigh[b].add(a)
+            active_neighbors_by_rel[rel] = neigh
+
+        # Spin channels for K integrals by relationship type
+        # (0,0): only aa, bb
+        # (0,1) and (0,2): aa, bb, ab/ba, ba/ab
+        k_channels_by_rel = {
+            (0, 0): (("aa", "aa"), ("bb", "bb")),
+            (0, 1): (("aa", "aa"), ("bb", "bb"), ("ab", "ba"), ("ba", "ab")),
+            (0, 2): (("aa", "aa"), ("bb", "bb"), ("ab", "ba"), ("ba", "ab")),
+        }
 
         for m in job.multiplicities:
-            relationship = ECIbasis[m].relationships
+            relationship = ecibasis[m].relationships
 
-            # -----Start of relationship[(0,0)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            for pair in relationship[(0, 0)]:
-                ESD = pair["ESDs"][0]
-                index = ESD.index
-                # V0-integrals
-                actives = job.active_integrals["J"][(0, 0)]
-                active_neighbors = defaultdict(set)
-                for a, b in actives:
-                    active_neighbors[a].add(b)
-                    active_neighbors[b].add(a)
+            # -----------------------------
+            # relationship[(0,0)]
+            # -----------------------------
+            rel = (0, 0)
+            j_actives_00 = job.active_integrals["J"][rel]
+            k_actives_00 = job.active_integrals["K"][rel]
+            neigh_00 = active_neighbors_by_rel[rel]
+
+            for pair in relationship[rel]:
+                esd = pair["ESDs"][0]  # your data uses "esds"
+                index = esd.index
+                loc = (m, index, index)
+
+                # v0-integrals (uses neighbor map built from j actives)
                 for f in sites:
-                    nucs = tuple(g for g in sites if g in active_neighbors[f])
-                    if len(nucs) > 0:
-                        d = (ESD.site_states[f], ESD.site_states[f], "tot")
-                        add_integral(k1="ECI_V", k2=f, k3=nucs, k4=d, loc=(m, index, index))
-                # J0-integrals
-                for f1, f2 in actives:
-                    d1 = (ESD.site_states[f1], ESD.site_states[f1], "tot")
-                    d2 = (ESD.site_states[f2], ESD.site_states[f2], "tot")
-                    add_integral(k1="ECI_J", k2=(f1, f2), k3=d1, k4=d2, loc=(m, index, index))
-                # K0-integrals
-                actives = job.active_integrals["K"][(0, 0)]
-                for f1, f2 in actives:
-                    d1 = (ESD.site_states[f1], ESD.site_states[f1], "aa")
-                    d2 = (ESD.site_states[f2], ESD.site_states[f2], "aa")
-                    add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, index, index))
-                    d1 = (ESD.site_states[f1], ESD.site_states[f1], "bb")
-                    d2 = (ESD.site_states[f2], ESD.site_states[f2], "bb")
-                    add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, index, index))
-            # -----End of relationship[(0,0)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                    nucs = tuple(neigh_00.get(f, ()))
+                    if not nucs:
+                        continue
+                    d = (esd.site_states[f], esd.site_states[f], "tot")
+                    add_integral("ECI_V", f, nucs, d, loc)
 
-            # -----Start of relationship[(0,1)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            for pair in relationship[(0, 1)]:
-                ESD1, ESD2 = pair["ESDs"]
-                i1, i2 = ESD1.index, ESD2.index
+                # j0-integrals
+                for f1, f2 in j_actives_00:
+                    d1 = (esd.site_states[f1], esd.site_states[f1], "tot")
+                    d2 = (esd.site_states[f2], esd.site_states[f2], "tot")
+                    add_integral("ECI_J", (f1, f2), d1, d2, loc)
+
+                # k0-integrals
+                for f1, f2 in k_actives_00:
+                    for s1, s2 in k_channels_by_rel[rel]:
+                        d1 = (esd.site_states[f1], esd.site_states[f1], s1)
+                        d2 = (esd.site_states[f2], esd.site_states[f2], s2)
+                        add_integral("ECI_K", (f1, f2), d1, d2, loc)
+
+            # -----------------------------
+            # relationship[(0,1)]
+            # -----------------------------
+            rel = (0, 1)
+            j_actives_01 = job.active_integrals["J"][rel]
+            k_actives_01 = job.active_integrals["K"][rel]
+            neigh_01 = active_neighbors_by_rel[rel]
+
+            for pair in relationship[rel]:
+                esd1, esd2 = pair["ESDs"]
+                i1, i2 = esd1.index, esd2.index
+                loc = (m, i1, i2)
+
                 f = pair["exciton"]
-                actives = job.active_integrals["J"][(0, 1)]
-                active_neighbors = defaultdict(set)
-                for a, b in actives:
-                    active_neighbors[a].add(b)
-                    active_neighbors[b].add(a)
-                # V-integrals
-                nucs = tuple(g for g in sites if g in active_neighbors[f])
-                d = (ESD1.site_states[f], ESD2.site_states[f], "tot")
-                if any(d in rho for rho in f.rho.values()) and len(nucs) > 0:
-                    add_integral(k1="ECI_V", k2=f, k3=nucs, k4=d, loc=(m, i1, i2))
-                # J-integrals
-                for f1, f2 in actives:
-                    if f1 is f or f2 is f:
-                        d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "tot")
-                        d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "tot")
-                        if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                            add_integral(k1="ECI_J", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
-                # K-integrals
-                actives = job.active_integrals["K"][(0, 1)]
-                for f1, f2 in actives:
-                    if f1 is f or f2 is f:
-                        d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "aa")
-                        d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "aa")
-                        if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                            add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
-                        d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "bb")
-                        d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "bb")
-                        if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                            add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
-                        d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "ab")
-                        d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "ba")
-                        if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                            add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
-                        d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "ba")
-                        d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "ab")
-                        if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                            add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
-            # -----End of relationship[(0,1)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-            # -----Start of relationship[(0,2)]------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            for pair in relationship[(0, 2)]:
-                ESD1, ESD2 = pair["ESDs"]
-                i1, i2 = ESD1.index, ESD2.index
+                # v-integrals (only if rho allows and there are active neighbors)
+                nucs = tuple(neigh_01.get(f, ()))
+                if nucs:
+                    d = (esd1.site_states[f], esd2.site_states[f], "tot")
+                    if (d in rho_allowed[f]):
+                        add_integral("ECI_V", f, nucs, d, loc)
+
+                # j-integrals (only pairs involving the exciton site)
+                for f1, f2 in j_actives_01:
+                    if f1 is not f and f2 is not f:
+                        continue
+                    d1 = (esd1.site_states[f1], esd2.site_states[f1], "tot")
+                    d2 = (esd1.site_states[f2], esd2.site_states[f2], "tot")
+                    if (d1 in rho_allowed[f1]) and (d2 in rho_allowed[f2]):
+                        add_integral("ECI_J", (f1, f2), d1, d2, loc)
+
+                # k-integrals (only pairs involving the exciton site)
+                for f1, f2 in k_actives_01:
+                    if f1 is not f and f2 is not f:
+                        continue
+                    for s1, s2 in k_channels_by_rel[rel]:
+                        d1 = (esd1.site_states[f1], esd2.site_states[f1], s1)
+                        d2 = (esd1.site_states[f2], esd2.site_states[f2], s2)
+                        if (d1 in rho_allowed[f1]) and (d2 in rho_allowed[f2]):
+                            add_integral("ECI_K", (f1, f2), d1, d2, loc)
+
+            # -----------------------------
+            # relationship[(0,2)]
+            # -----------------------------
+            rel = (0, 2)
+            j_actives_02 = job.active_integrals["J"][rel]
+            k_actives_02 = job.active_integrals["K"][rel]
+
+            # If these are large lists, membership checks below should be against a set:
+            j_actives_02_set = set(j_actives_02)
+            k_actives_02_set = set(k_actives_02)
+
+            for pair in relationship[rel]:
+                esd1, esd2 = pair["ESDs"]
+                i1, i2 = esd1.index, esd2.index
+                loc = (m, i1, i2)
+
                 f1, f2 = pair["excitons"]
-                # J-integrals
-                actives = job.active_integrals["J"][(0, 2)]
-                if (f1, f2) in actives:
-                    d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "tot")
-                    d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "tot")
-                    if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                        add_integral(k1="ECI_J", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
-                # K-integrals
-                actives = job.active_integrals["K"][(0, 2)]
-                if (f1, f2) in actives:
-                    d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "aa")
-                    d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "aa")
-                    if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                        add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
-                    d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "bb")
-                    d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "bb")
-                    if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                        add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
-                    d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "ab")
-                    d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "ba")
-                    if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                        add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
-                    d1 = (ESD1.site_states[f1], ESD2.site_states[f1], "ba")
-                    d2 = (ESD1.site_states[f2], ESD2.site_states[f2], "ab")
-                    if any(d1 in rho for rho in f1.rho.values()) and any(d2 in rho for rho in f2.rho.values()):
-                        add_integral(k1="ECI_K", k2=(f1, f2), k3=d1, k4=d2, loc=(m, i1, i2))
 
-        return ECI_integrals
+                # j-integrals (only if (f1,f2) active)
+                if (f1, f2) in j_actives_02_set:
+                    d1 = (esd1.site_states[f1], esd2.site_states[f1], "tot")
+                    d2 = (esd1.site_states[f2], esd2.site_states[f2], "tot")
+                    if (d1 in rho_allowed[f1]) and (d2 in rho_allowed[f2]):
+                        add_integral("ECI_J", (f1, f2), d1, d2, loc)
+
+                # k-integrals (only if (f1,f2) active)
+                if (f1, f2) in k_actives_02_set:
+                    for s1, s2 in k_channels_by_rel[rel]:
+                        d1 = (esd1.site_states[f1], esd2.site_states[f1], s1)
+                        d2 = (esd1.site_states[f2], esd2.site_states[f2], s2)
+                        if (d1 in rho_allowed[f1]) and (d2 in rho_allowed[f2]):
+                            add_integral("ECI_K", (f1, f2), d1, d2, loc)
+
+        return eci_integrals
 
     def calculate_eigenstates(self):
         job = self.job
