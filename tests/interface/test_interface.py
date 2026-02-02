@@ -11,11 +11,11 @@ SHARC_INTERFACE.__abstractmethods__ = set()
 PATH = "$SHARC/../tests/interface"
 
 
-def get_states(path: str, states: list):
+def get_states(path: str):
     test_interface = SHARC_INTERFACE()
 
     test_interface.setup_mol(path)
-    assert test_interface.QMin.molecule["states"] == states
+    return test_interface.QMin.molecule["states"]
 
 
 def set_requests(path: str, requests: dict):
@@ -56,17 +56,28 @@ def read_resources(path: str, params: dict, whitelist: list):
 
 
 def test_states1():
-    tests = [("inputs/QM1.in", [3, 1, 5]), ("inputs/QM3.in", [0, 0, 0, 0, 9, 9])]
+    tests = [("inputs/QM1.in", [3, 1, 5]), ("inputs/QM3.in", [0, 0, 0, 0, 9, 9]), ("inputs/test_charge4.in", [3])]
     for path, state in tests:
-        get_states(os.path.join(expand_path(PATH), path), state)
+        assert get_states(os.path.join(expand_path(PATH), path)) == state
 
 
 def test_states2():
-    tests = [("inputs/QM_failstate1.in", []), ("inputs/QM_failstate2.in", []), ("inputs/QM2.in", [])]
-    for path, state in tests:
+    tests = ["inputs/QM_failstate1.in", "inputs/QM_failstate2.in", "inputs/QM2.in"]
+    for path in tests:
         with pytest.raises(ValueError):
-            get_states(os.path.join(expand_path(PATH), path), state)
+            get_states(os.path.join(expand_path(PATH), path))
 
+
+def test_charge1():
+    tests = ["inputs/test_charge1.in", "inputs/test_charge2.in", "inputs/test_charge3.in", "inputs/test_charge4.in"]
+    for test in tests:
+        get_states(os.path.join(expand_path(PATH), test))
+
+def test_charge2():
+    tests = ["inputs/test_charge5.in", "inputs/test_charge6.in"]
+    for test in tests:
+        with pytest.raises(ValueError):
+            get_states(os.path.join(expand_path(PATH), test))
 
 def test_requests1():
     tests = [
