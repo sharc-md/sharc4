@@ -555,19 +555,7 @@ class SHARC_INTERFACE(ABC):
             self.log.warning(f"charge not specified setting default, {self.QMin.molecule['charge']}")
         else:
             # sanity check
-            if len(self.QMin.molecule["charge"]) == 1:
-                charge = int(self.QMin.molecule["charge"][0])
-                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
-                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
-                    charge -= 1
-                self.QMin.molecule["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
-                self.log.info(
-                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.molecule["charge"]}).'
-                )
-                self.log.info(
-                    'You can set the charge in the QMin or input files manually for each multiplicity ("charge 0 +1 0 ...")'
-                )
-            elif len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
+            if len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
                 self.QMin.molecule["charge"] = [
                     int(self.QMin.molecule["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
                 ]
