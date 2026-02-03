@@ -281,15 +281,15 @@ def main():
     print(f"States to generate: {states}")
 
     coords_rot, _, _ = pca_align_coords(coords)
-    write_xyz(f"{args.output}.xyz", coords_rot, [IAn2AName[a] for a in atom_charges])
+    write_xyz(f"{args.output}.xyz", coords_rot*au2a, [IAn2AName[a] for a in atom_charges])
     print(f"Generating grid with {args.padding} padding, {args.spacing} spacing...")
-    origin, spacing, shape = make_grid(coords_rot / au2a, padding_bohr=args.padding / au2a, spacing_bohr=args.spacing / au2a)
+    origin, spacing, shape = make_grid(coords_rot, padding_bohr=args.padding, spacing_bohr=args.spacing)
 
     for s in states:
-        rho = gaussian_smeared_density(charges[s], coords_rot / au2a, origin, spacing, shape, args.sigma)
+        rho = gaussian_smeared_density(charges[s], coords_rot, origin, spacing, shape, args.sigma)
         max_rho = np.max(np.abs(rho))
-        print(f"Recommended isovalue for state {s}: {0.02*max_rho:.6f} - {0.05*max_rho:.6f}")
-        write_cube(f"{args.output}_{s:03d}.cube", origin, spacing, rho, atom_charges, coords_rot / au2a)
+        print(f"Recommended isovalue for state {s:3d}: {0.02*max_rho:.6f} - {0.05*max_rho:.6f}")
+        write_cube(f"{args.output}_{s:03d}.cube", origin, spacing, rho, atom_charges, coords_rot)
 
 
 if __name__ == "__main__":
