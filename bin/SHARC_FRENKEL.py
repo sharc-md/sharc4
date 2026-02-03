@@ -275,8 +275,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             )
             # Set point charges if requested
             if self.QMin.molecule["point_charges"]:
-                self._kindergarden[name].QMin.coords["pccharge"] = self.QMin.coords["pccharge"]
-                self._kindergarden[name].QMin.molecule["npc"] = self.QMin.molecule["npc"]
+                self._kindergarden[name].set_pccharge(self.QMin.coords["pccharge"])
                 self._kindergarden[name].set_coords(self.QMin.coords["pccoords"], True)
 
             # Setup template, resources, interface
@@ -310,6 +309,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     "savedir": expand_path(os.path.join(self.QMin.save["savedir"], "embedding")),
                 }
             )
+            self._embedding_interface.QMin.molecule["unit"] = self.QMin.molecule["unit"]
+            self._embedding_interface.QMin.molecule["factor"] = self.QMin.molecule["factor"]
 
             with InDir("embedding"):
                 self._embedding_interface.read_resources()
@@ -334,6 +335,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     "savedir": expand_path(os.path.join(self.QMin.save["savedir"], "embedding_lj")),
                 }
             )
+            self._embedding_lj.QMin.molecule["unit"] = self.QMin.molecule["unit"]
+            self._embedding_lj.QMin.molecule["factor"] = self.QMin.molecule["factor"]
 
             with InDir("embedding_lj"):
                 self._embedding_lj.read_resources()
@@ -349,7 +352,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         # Set coords for fragments
         for name, frag in self.QMin.template["fragments"].items():
             if pc:
-                self._kindergarden[name].set_coords(xyz, pc)
+                self._kindergarden[name].set_coords(xyz*self.QMin.molecule["factor"], pc)
                 continue
             self._kindergarden[name].set_coords(self.QMin.coords["coords"][frag["atoms"]], pc)
 
