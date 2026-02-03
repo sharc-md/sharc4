@@ -24,6 +24,7 @@
 # ******************************************
 import datetime
 import os
+import pickle
 import shutil
 from io import TextIOWrapper
 
@@ -31,6 +32,7 @@ import numpy as np
 import yaml
 from constants import NUMBERS
 from SHARC_HYBRID import SHARC_HYBRID
+from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import InDir, expand_path, link, mkdir, question
 
 __all__ = ["SHARC_FRENKEL"]
@@ -43,6 +45,39 @@ DESCRIPTION = "   HYBRID interface for Frenkel exciton model"
 
 CHANGELOGSTRING = """
 """
+
+
+def generate_cube_data(
+    kindergarden_values: list[SHARC_INTERFACE], coeffs: np.ndarray, max_states: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Generate per-atom effective transition charges for all exciton states
+
+    kindergarden_values:    List of kindergarden instances
+    coeffs:                 Exciton wave function
+    max_states:             Save states from first excited to max_states
+    """
+    atoms_per_frag = [f.QMin.molecule["natom"] for f in kindergarden_values]
+    exc_per_frag = [f.QMin.molecule["states"][0] - 1 for f in kindergarden_values]
+    all_coords = np.concatenate([f.QMin.coords["coords"] for f in kindergarden_values])
+
+    atom_charges = []
+    for frag in kindergarden_values:
+        atom_charges.append([NUMBERS[a] for a in frag.QMin.molecule["elements"]])
+    atom_charges = np.concatenate(atom_charges, axis=0)
+
+    trans_charges_per_atom = np.zeros((coeffs.shape[0], int(np.sum(atoms_per_frag))))
+
+    offset_at = 0
+    offset_exc = 0
+    for frag, nat, nexc in zip(kindergarden_values, atoms_per_frag, exc_per_frag):
+        local_charge = np.stack([frag.QMout.multipolar_fit[(frag.states[0], state)][:, 0] for state in frag.states[1:]])
+        trans_charges_per_atom[offset_exc : offset_exc + nexc, offset_at : offset_at + nat] = local_charge
+        offset_at += nat
+        offset_exc += nexc
+
+    all_trans_charges = coeffs[:, :max_states].T @ trans_charges_per_atom
+    return all_trans_charges, all_coords, atom_charges
 
 
 class SHARC_FRENKEL(SHARC_HYBRID):
@@ -63,6 +98,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         # Update template keys
         self.QMin.template.update({"fragments": None, "embedding": None, "embedding_lj": None})
         self.QMin.template.types.update({"fragments": dict, "embedding": dict, "embedding_lj": dict})
+
+        # Update resource keys
+        self.QMin.resources.update({"save_cube": False})
+        self.QMin.resources.types.update({"save_cube": bool})
 
         # Template interface structure
         self._interface_templ = {
@@ -112,9 +151,14 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
     def get_features(self, KEYSTROKES=None):
         if not self._read_template:
-            self.template_file = expand_path(question(
-                "Please specify the path to your FRENKEL.template file", str, KEYSTROKES=KEYSTROKES, default="FRENKEL.template"
-            ))
+            self.template_file = expand_path(
+                question(
+                    "Please specify the path to your FRENKEL.template file",
+                    str,
+                    KEYSTROKES=KEYSTROKES,
+                    default="FRENKEL.template",
+                )
+            )
             self.read_template(self.template_file)
             kindergarden = {
                 name: (frag["interface"], frag["args"], frag["kwargs"]) for name, frag in self.QMin.template["fragments"].items()
@@ -589,6 +633,11 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         if self.QMin.requests["theodore"]:
             self.QMout.prop1d.extend(self._wfa(coeffs.copy()))
 
+        if self.QMin.resources["save_cube"]:
+            cube_data = generate_cube_data(self._kindergarden.values(), coeffs, self.QMin.molecule["states"][0])
+            with open(os.path.join(self.QMin.save["savedir"], f"cube_data.{self.QMin.save['step']}"), "wb") as f:
+                pickle.dump(cube_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
         self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
@@ -664,6 +713,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             child_dir = os.path.join(dir_path, "embedding")
             mkdir(child_dir)
             self._embedding_interface.prepare(INFOS, child_dir)
+
 
 if __name__ == "__main__":
     SHARC_FRENKEL().main()
