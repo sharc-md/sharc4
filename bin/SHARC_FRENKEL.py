@@ -202,12 +202,14 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     raise ValueError
 
             # Convert atoms string to list
-            frag["atoms"] = sorted(
-                {
-                    n
-                    for part in frag["atoms"].split(",")
-                    for n in (range(int(part.split("-")[0]), int(part.split("-")[1]) + 1) if "-" in part else [int(part)])
-                }
+            frag["atoms"] = np.array(
+                sorted(
+                    {
+                        n
+                        for part in frag["atoms"].split(",")
+                        for n in (range(int(part.split("-")[0]), int(part.split("-")[1]) + 1) if "-" in part else [int(part)])
+                    }
+                )
             )
             # Increment total site states excluding site gs
             self._total_site_states += frag["states"][0] - 1
@@ -352,7 +354,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         # Set coords for fragments
         for name, frag in self.QMin.template["fragments"].items():
             if pc:
-                self._kindergarden[name].set_coords(xyz*self.QMin.molecule["factor"], pc)
+                self._kindergarden[name].set_coords(xyz * self.QMin.molecule["factor"], pc)
                 continue
             self._kindergarden[name].set_coords(self.QMin.coords["coords"][frag["atoms"]], pc)
 
@@ -367,12 +369,13 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         if self._embedding_interface:
             self._embedding_interface.read_requests({"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]})
-        if self._embedding_lj:
-            self._embedding_lj.read_requests({"h": True, "grad": [0], "step": self.QMin.save["step"]})
 
             # Check if fragment children can do point charges
             for name, child in self._kindergarden.items():
                 assert "point_charges" in child.get_features(), f"Fragment {name} does not support point charges!"
+
+        if self._embedding_lj:
+            self._embedding_lj.read_requests({"h": True, "grad": [0], "step": self.QMin.save["step"]})
 
         for iface in self._kindergarden.values():
             requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
@@ -390,21 +393,12 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             ][:, 0]
 
             for name, child in self._kindergarden.items():
-                pccharge = np.zeros(embedding_charges.shape[0] - child.QMin.molecule["natom"])
-                pccoords = np.zeros((pccharge.shape[0], 3))
-                iter_gen = iter(range(pccharge.shape[0]))
-
-                for idx, charge in enumerate(embedding_charges):
-                    if idx in self.QMin.template["fragments"][name]["atoms"]:
-                        continue
-                    pccharge[it_idx := next(iter_gen)] = charge
-                    pccoords[it_idx, :] = self.QMin.coords["coords"][idx, :]
-
-                child.set_pccharges(pccharge)
-                child.set_coords(pccoords, True)
+                atoms = self.QMin.template["fragments"][name]["atoms"]
+                child.set_pccharges(embedding_charges[~atoms])
+                child.set_coords(self.QMin.coords["coords"][~atoms, :], True)
                 child.QMin.molecule["point_charges"] = True
                 # TODO: add external pc
-        if self.QMin.requests["grad"] and self._embedding_lj:
+        if self._embedding_lj and self.QMin.requests["grad"]:
             self._embedding_lj.run()
         self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
 
@@ -484,7 +478,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
 
                 hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
-                    "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab
+                    "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab, optimize=True
                 )
         return np.linalg.eigh(hamiltonian, UPLO="u")
 
@@ -531,8 +525,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
 
                 # dV/dR for atoms on fragment A and B
-                d_va = -np.einsum("ia,jb,abk->ijak", monopoles_a, monopoles_b, r_ab)
-                d_vb = np.einsum("ia,jb,abk->ijbk", monopoles_a, monopoles_b, r_ab)
+                d_va = -np.einsum("ia,jb,abk->ijak", monopoles_a, monopoles_b, r_ab, optimize=True)
+                d_vb = np.einsum("ia,jb,abk->ijbk", monopoles_a, monopoles_b, r_ab, optimize=True)
 
                 # Fill off diagonals dH_ij=dH_ji
                 hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] += d_va
@@ -543,7 +537,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += np.einsum(
                     "ijkl->jikl", d_vb
                 )
-        return np.einsum("in,jn,ijkl->nkl", coeffs, coeffs, hamiltonian_dr)
+        return np.einsum("in,jn,ijkl->nkl", coeffs, coeffs, hamiltonian_dr, optimize=True)
 
     def _get_exciton_dipoles(self, coeffs: np.ndarray) -> np.ndarray:
         """
@@ -573,7 +567,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     ) - (gs_dp if idx == jdx else 0.0)
 
             state_cnt += states_a
-        return np.einsum("pi,kpq,qj->kij", coeffs, dipoles, coeffs)
+        return np.einsum("pi,kpq,qj->kij", coeffs, dipoles, coeffs, optimize=True)
 
     def _get_exciton_overlaps(self, prev_coeffs: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
         """
@@ -606,9 +600,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             npc=self.QMin.molecule["npc"],
             requests=requests,
         )
+        nstates = self.QMin.molecule["states"][0]
 
         energies, coeffs = self._get_exciton_energies()
-        np.einsum("ii->i", self.QMout.h)[:] = energies[: self.QMin.molecule["states"][0]]
+        np.einsum("ii->i", self.QMout.h)[:] = energies[:nstates]
 
         # Save eigenvectors for overlap calculations
         with open(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']}"), "wb") as f:
@@ -620,13 +615,11 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 self.QMout.grad += self._embedding_lj.getQMout()["grad"]
 
         if self.QMin.requests["dm"]:
-            self.QMout.dm[:, : self.QMin.molecule["states"][0], : self.QMin.molecule["states"][0]] = self._get_exciton_dipoles(
-                coeffs
-            )[:, : self.QMin.molecule["states"][0], : self.QMin.molecule["states"][0]]
+            self.QMout.dm[:, :nstates, :nstates] = self._get_exciton_dipoles(coeffs)[:, :nstates, :nstates]
 
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
             prev_coeffs = np.load(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']-1}"))
-            overlap = self._get_exciton_overlaps(prev_coeffs, coeffs)
+            overlap = self._get_exciton_overlaps(prev_coeffs, coeffs)[:nstates, :nstates]
             if self.QMin.requests["overlap"]:
                 self.QMout.overlap = overlap
             if self.QMin.requests["phases"]:
@@ -638,7 +631,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             self.QMout.prop1d.extend(self._wfa(coeffs.copy()))
 
         if self.QMin.resources["save_cube"]:
-            cube_data = generate_cube_data(self._kindergarden.values(), coeffs, self.QMin.molecule["states"][0])
+            cube_data = generate_cube_data(self._kindergarden.values(), coeffs, nstates)
             with open(os.path.join(self.QMin.save["savedir"], f"cube_data.{self.QMin.save['step']}"), "wb") as f:
                 pickle.dump(cube_data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
