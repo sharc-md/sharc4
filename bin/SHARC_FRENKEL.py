@@ -561,15 +561,16 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             )
 
             for idx, s1 in enumerate(a.states[1:]):
+                gsle = np.einsum("i,ij->j", a.QMout.multipolar_fit[(a.states[0], s1)][:, 0], coords_a)
+                dipoles[:, 0, state_cnt + idx] = gsle
+                dipoles[:, state_cnt + idx, 0] = gsle
                 for jdx, s2 in enumerate(a.states[1:]):
                     dipoles[:, state_cnt + idx, state_cnt + jdx] = np.einsum(
                         "i,ik->k", a.QMout.multipolar_fit[(s1, s2)][:, 0], coords_a
                     ) - (gs_dp if idx == jdx else 0.0)
 
             state_cnt += states_a
-        dipoles = np.einsum("pi,kpq,qj->kij", coeffs, dipoles, coeffs)
-        np.einsum("jii->ij", dipoles)[1:, :] += dipoles[:, 0, 0]
-        return dipoles
+        return np.einsum("pi,kpq,qj->kij", coeffs, dipoles, coeffs)
 
     def _get_exciton_overlaps(self, prev_coeffs: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
         """
@@ -689,8 +690,18 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 self.QMin.template["embedding"]["args"], self.QMin.template["embedding"]["kwargs"]
             )
             self._embedding_interface.log = self.log
+            self.log.info("=" * 80)
+            self.log.info(f"{'||':<78}||")
+            self.log.info(f"||{'Embedding interface setup': ^76}||\n{'||':<78}||")
+            self.log.info("=" * 80)
+            self.log.info("\n")
             self._embedding_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
 
+        self.log.info("=" * 80)
+        self.log.info(f"{'||':<78}||")
+        self.log.info(f"||{'Child interface setup': ^76}||\n{'||':<78}||")
+        self.log.info("=" * 80)
+        self.log.info("\n")
         for child, instance in self._kindergarden.items():
             self.log.info(f"Setting up interface {child}")
             instance.log = self.log
