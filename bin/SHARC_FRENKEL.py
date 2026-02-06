@@ -122,8 +122,12 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         # Keep track of total site states to preallocate Hamiltonian
         self._total_site_states = 1  # GS prod
-
+        self._allow_coupling = False  # Allow NACs and overlaps
         self._n_fragments = None
+
+        # Precompute atoms and states
+        self._atoms = None
+        self._states = None
 
     @staticmethod
     def description():
@@ -165,11 +169,15 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             }
             self.instantiate_children(kindergarden)
 
-        all_features = set(["h", "grad", "point_charges", "dm", "overlap", "phases"])
+        all_features = set(["h", "grad", "point_charges", "dm", "overlap", "phases", "nacdr"])
         for child in self._kindergarden.values():
             all_features &= child.get_features(KEYSTROKES=KEYSTROKES)
         self.log.debug(f"Features: {all_features}")
         all_features.add("theodore")
+        if self._allow_coupling:
+            all_features.add("nacdr")
+            all_features.add("overlap")
+            all_features.add("phases")
         return all_features
 
     def read_template(self, template_file="FRENKEL.template", kw_whitelist=None):
@@ -182,6 +190,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         assert len(tmpl_dict["fragments"]) > 1, "At least two fragments have to be defined!"
 
+        self._atoms = []
+        self._states = []
         for name, frag in tmpl_dict["fragments"].items():
             # Set default value for args, kwargs and charges
             if "args" not in frag:
@@ -201,7 +211,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     self.log.error(f"Value of key {k} in fragment {name} must be of type {v}")
                     raise ValueError
 
-            # Convert atoms string to list
+            # Convert atoms string to array
             frag["atoms"] = np.array(
                 sorted(
                     {
@@ -211,6 +221,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     }
                 )
             )
+            self._atoms.append(frag["atoms"])
+            self._states.append(frag["states"][0] - 1)
             # Increment total site states excluding site gs
             self._total_site_states += frag["states"][0] - 1
 
@@ -239,6 +251,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 tmpl_dict["embedding_lj"]["kwargs"] = {}
 
         self.QMin.template.update(tmpl_dict)
+        # NACs available if all fragments only have 1 excited state
+        if all(frag["states"][0] < 3 for frag in self.QMin.template["fragments"].values()):
+            self._allow_coupling = True
         self._read_template = True
 
     def read_resources(self, resources_file="FRENKEL.resources", kw_whitelist=None):
@@ -379,9 +394,11 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         for iface in self._kindergarden.values():
             requests = {"h": True, "multipolar_fit": ["all"], "step": self.QMin.save["step"]}
-            if self.QMin.requests["grad"]:
+            if self.QMin.requests["grad"] or (self.QMin.requests["nacdr"] and not self._allow_coupling):
                 requests["grad"] = list(range(1, iface.QMin.molecule["nstates"] + 1))
-            if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
+            if self.QMin.requests["nacdr"] and not self._allow_coupling:
+                requests["nacdr"] = "all"
+            if (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and not self._allow_coupling:
                 requests["overlap"] = True
             iface.read_requests(requests)
 
@@ -440,104 +457,93 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         Construct and diagonalize exciton Hamiltonian
         returns eigenvalues and eigenvectors
         """
+        frags = list(self._kindergarden.items())
+        coords = [f.QMin.coords["coords"] for _, f in frags]
+        states = self._states
 
         hamiltonian = np.zeros((self._total_site_states, self._total_site_states), dtype=float)
+        # Create 0->n transition monopole matrices (states x natoms)
+        monopoles = [np.stack([f.QMout.multipolar_fit[(f.states[0], k)][:, 0] for k in f.states[1:]]) for _, f in frags]
 
         cnt_i = 1
-        for idx, (label_a, a) in enumerate(self._kindergarden.items()):
-            states_a = a.QMin.molecule["states"][0] - 1
-
-            cnt_i += states_a
+        for idx, (_, a) in enumerate(frags):
+            cnt_i += states[idx]
             cnt_j = 1
 
             # Add site gs energy to GS prod energy
             np.einsum("ii->i", hamiltonian)[:] += (gs_en := a.QMout.h[0, 0].real)
-            np.einsum("ii->i", hamiltonian)[cnt_i - states_a : cnt_i] += np.einsum("ii->i", a.QMout.h[1:, 1:]).real - gs_en
+            np.einsum("ii->i", hamiltonian)[cnt_i - states[idx] : cnt_i] += np.einsum("ii->i", a.QMout.h[1:, 1:]).real - gs_en
 
-            # Create 0->n transition monopole matrices (states x natoms)
             if idx == self._n_fragments - 1:  # Last fragment has no off diagonal
-                self.log.debug(
-                    f"Frag {label_a} sum of transition charges {np.round(np.sum(np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]]), axis=1), 5)}"
-                )
                 break
-            monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
-            self.log.debug(f"Frag {label_a} sum of transition charges {np.round(np.sum(monopoles_a, axis=1), 5)}")
 
-            for jdx, b in enumerate(self._kindergarden.values()):
-                states_b = b.QMin.molecule["states"][0] - 1
-
+            for jdx, _ in enumerate(frags):
                 # Skip lower diagonal
-                cnt_j += states_b
+                cnt_j += states[jdx]
                 if idx >= jdx:
                     continue
 
                 # Calculate inverse distance matrix for fragment A and B (atoms_a x atoms_b)
-                diff = a.QMin.coords["coords"][:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
-                r_ab = 1 / np.linalg.norm(diff, axis=-1)
+                diff = coords[idx][:, np.newaxis, :] - coords[jdx][np.newaxis, :, :]
+                r2 = np.einsum("...k,...k->...", diff, diff)
+                r_ab = 1.0 / np.sqrt(r2)
 
-                monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
-
-                hamiltonian[cnt_i - states_a : cnt_i, cnt_j - states_b : cnt_j] = np.einsum(
-                    "ia,jb,ab->ij", monopoles_a, monopoles_b, r_ab, optimize=True
-                )
+                hamiltonian[cnt_i - states[idx] : cnt_i, cnt_j - states[jdx] : cnt_j] = monopoles[idx] @ r_ab @ monopoles[jdx].T
         return np.linalg.eigh(hamiltonian, UPLO="u")
 
-    def _get_exciton_gradients(self, coeffs: np.ndarray) -> np.ndarray:
+    def _get_derivatives(self) -> np.ndarray:
         """
         Calculate derivative of Hamiltonian (Hellmann-Feynman theorem)
         dE/dR ~ site-state gradient + dV/dR, assuming transition charges
         are not a function of R
-
-        coeffs: n_states x n_states array of eigenvectors from Hamiltonian
         """
+        frags = list(self._kindergarden.items())
+        coords = [f.QMin.coords["coords"] for _, f in frags]
+        states = self._states
+        atoms = self._atoms
+
         hamiltonian_dr = np.zeros((self._total_site_states, self._total_site_states, self.QMin.molecule["natom"], 3))
+        monopoles = [np.stack([f.QMout.multipolar_fit[(f.states[0], k)][:, 0] for k in f.states[1:]]) for _, f in frags]
 
         state_cnt = 1
-        for idx, (name_a, a) in enumerate(self._kindergarden.items()):
-            atoms_a = self.QMin.template["fragments"][name_a]["atoms"]
-            states_a = a.QMin.molecule["states"][0] - 1
+        for idx, (_, a) in enumerate(frags):
 
             # Add GS gradient to GS prod. gradient and excited site gradients to diagonal
-            np.einsum("iijk->ijk", hamiltonian_dr)[:, atoms_a, :] = (gs_grad := a.QMout.grad[0, :, :])
-            np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states_a, atoms_a, :] += a.QMout.grad[1:] - gs_grad
+            np.einsum("iijk->ijk", hamiltonian_dr)[:, atoms[idx], :] = a.QMout.grad[0]
+            np.einsum("iijk->ijk", hamiltonian_dr)[state_cnt : state_cnt + states[idx], atoms[idx], :] = a.QMout.grad[1:]
 
             # Create 0->n transition monopole matrices (states x natoms)
             if idx == self._n_fragments - 1:  # Last fragment has no off diagonal
                 break
-            monopoles_a = np.stack([a.QMout.multipolar_fit[(a.states[0], k)][:, 0] for k in a.states[1:]])
 
-            state_cnt += states_a
+            state_cnt += states[idx]
             state_cnt_b = 1
-            for jdx, (name_b, b) in enumerate(self._kindergarden.items()):
-                states_b = b.QMin.molecule["states"][0] - 1
-                atoms_b = self.QMin.template["fragments"][name_b]["atoms"]
-
+            for jdx, _ in enumerate(frags):
                 # Skip lower diagonal
-                state_cnt_b += states_b
+                state_cnt_b += states[jdx]
                 if idx >= jdx:
                     continue
 
                 # d/dR(1/|R_a-R_b|) = -R_a-R_b/|R_a-R_b|**3
-                diff = a.QMin.coords["coords"][:, np.newaxis, :] - b.QMin.coords["coords"][np.newaxis, :, :]
-                dist = np.linalg.norm(diff, axis=-1) ** 3
-                r_ab = diff / dist[:, :, np.newaxis]
-
-                monopoles_b = np.stack([b.QMout.multipolar_fit[(b.states[0], k)][:, 0] for k in b.states[1:]])
+                diff = coords[idx][:, np.newaxis, :] - coords[jdx][np.newaxis, :, :]
+                r2 = np.einsum("...k,...k->...", diff, diff)
+                inv_r3 = 1.0 / (r2 * np.sqrt(r2))
+                r_ab = diff * inv_r3[..., None]
 
                 # dV/dR for atoms on fragment A and B
-                d_va = -np.einsum("ia,jb,abk->ijak", monopoles_a, monopoles_b, r_ab, optimize=True)
-                d_vb = np.einsum("ia,jb,abk->ijbk", monopoles_a, monopoles_b, r_ab, optimize=True)
+                d_va = -np.einsum("ia,jb,abk->ijak", monopoles[idx], monopoles[jdx], r_ab, optimize=True)
+                d_vb = np.einsum("ia,jb,abk->ijbk", monopoles[idx], monopoles[jdx], r_ab, optimize=True)
 
                 # Fill off diagonals dH_ij=dH_ji
-                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_a, :] += d_va
-                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_a, :] += np.einsum(
-                    "ijkl->jikl", d_va
+                hamiltonian_dr[state_cnt - states[idx] : state_cnt, state_cnt_b - states[jdx] : state_cnt_b, atoms[idx], :] = d_va
+                hamiltonian_dr[state_cnt_b - states[jdx] : state_cnt_b, state_cnt - states[idx] : state_cnt, atoms[idx], :] = (
+                    d_va.swapaxes(0, 1)
                 )
-                hamiltonian_dr[state_cnt - states_a : state_cnt, state_cnt_b - states_b : state_cnt_b, atoms_b, :] += d_vb
-                hamiltonian_dr[state_cnt_b - states_b : state_cnt_b, state_cnt - states_a : state_cnt, atoms_b, :] += np.einsum(
-                    "ijkl->jikl", d_vb
+                hamiltonian_dr[state_cnt - states[idx] : state_cnt, state_cnt_b - states[jdx] : state_cnt_b, atoms[jdx], :] = d_vb
+                hamiltonian_dr[state_cnt_b - states[jdx] : state_cnt_b, state_cnt - states[idx] : state_cnt, atoms[jdx], :] = (
+                    d_vb.swapaxes(0, 1)
                 )
-        return np.einsum("in,jn,ijkl->nkl", coeffs, coeffs, hamiltonian_dr, optimize=True)
+        return hamiltonian_dr
 
     def _get_exciton_dipoles(self, coeffs: np.ndarray) -> np.ndarray:
         """
@@ -578,6 +584,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         coeffs:         n_states x n_states array of eigenvectors from Hamiltonian
                         from current step
         """
+        if self._allow_coupling:
+            return prev_coeffs.T @ coeffs
+
         site_overlaps = np.eye(self._total_site_states)
 
         state_cnt = 1
@@ -609,10 +618,37 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         with open(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']}"), "wb") as f:
             np.save(f, coeffs)
 
-        if self.QMin.requests["grad"]:
-            self.QMout.grad = self._get_exciton_gradients(coeffs)[: self.QMin.molecule["states"][0], :, :]
-            if self._embedding_lj:
-                self.QMout.grad += self._embedding_lj.getQMout()["grad"]
+        if self.QMin.requests["grad"] or self.QMin.requests["nacdr"]:
+            # dH/dR including site gradients
+            hamiltonian_dr = self._get_derivatives()
+            if self.QMin.requests["nacdr"]:
+                # Add intra site NACs to block diaginal if available
+                # <i|dH/dR|j> * (E_i - E_j)
+                gap = energies[None, :] - energies[:, None]
+                if not self._allow_coupling:
+                    s_cnt = 1
+                    for label, frag in self._kindergarden.items():
+                        nacs = frag.QMout.nacdr
+                        atoms = self.QMin.template["fragments"][label]["atoms"]
+                        states = s_cnt + frag.QMin.molecule["states"][0] - 1
+                        hamiltonian_dr[s_cnt:states, s_cnt:states, atoms, :] += (
+                            nacs[1:, 1:, :, :] * gap[s_cnt:states, s_cnt:states, None, None]
+                        )
+                        s_cnt += states - s_cnt
+            if self.QMin.requests["grad"]:
+                self.QMout.grad = np.einsum("in,jn,ijkl->nkl", coeffs, coeffs, hamiltonian_dr, optimize=True)[:nstates, :, :]
+                if self._embedding_lj:
+                    self.QMout.grad += self._embedding_lj.getQMout()["grad"]
+
+            if self.QMin.requests["nacdr"]:
+                # <i|dH/dR|j> / (E_i - E_j)
+                # Make sure diagonal is 0 after division
+                gap[np.diag_indices_from(gap)] = np.inf
+                np.divide(hamiltonian_dr, gap[:, :, None, None], out=hamiltonian_dr)
+                ct = np.ascontiguousarray(coeffs.T)
+                tmp = np.tensordot(hamiltonian_dr, coeffs, axes=([1], [0]))
+                out = np.tensordot(ct, tmp, axes=([1], [0]))
+                self.QMout.nacdr = out.transpose(0, 3, 1, 2)[:nstates, :nstates, :, :]
 
         if self.QMin.requests["dm"]:
             self.QMout.dm[:, :nstates, :nstates] = self._get_exciton_dipoles(coeffs)[:, :nstates, :nstates]
