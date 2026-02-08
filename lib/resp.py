@@ -124,7 +124,7 @@ class Resp:
         mm = self.ints._mmap
         os.close(fd)
 
-        block_size = self.block_size//10
+        block_size = max(1, self.block_size//10)
         with misc.with_omp_threads(ncpu):
             for ib, p0 in enumerate(range(0, self.ngrids, block_size)):
                 p1 = min(p0 + block_size, self.ngrids)
@@ -429,7 +429,7 @@ class Resp:
 
 
 def multipoles_from_dens_parallel(
-    dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None, target=None
+    dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None, target=None, block_size=5000,grid_size=0
 ):
     # self.log.info("Start sequential multipolar fit")
     if not include_core_charges and charge != 0:
@@ -439,7 +439,19 @@ def multipoles_from_dens_parallel(
         raise RuntimeError("Specify order in the range of 0 - 2")
 
     dm = fit_data["densities_dict"][dm_key]
-    Fesp_i = -np.einsum("ijp,ij->p", fit_data["ints"], dm)
+
+    mm = fit_data["ints"]._mmap
+
+    block_size = max(1, block_size//10)
+    Fesp_i = np.zeros(grid_size)
+    for ib, p0 in enumerate(range(0, grid_size, block_size)):
+        p1 = min(p0 + block_size, grid_size)
+        blk = fit_data["ints"][:, :, p0:p1]  # only this slice is paged in
+        Fesp_i[p0:p1] = -np.einsum("ijp,ij->p", blk, dm)
+        del blk
+        if (ib + 1) % 10 == 0:
+            fit_data["ints"].flush()
+            mm.madvise(mmap.MADV_DONTNEED)
 
     if include_core_charges:
         Fesp_i += fit_data["Vnuc"]
