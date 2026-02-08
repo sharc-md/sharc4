@@ -26,6 +26,10 @@
 # Source Phys.Chem.Chem.Phys.,2019,21, 4082--4095 cp/c8cp06567e and TheJournalofPhysicalChemistry,Vol.97,No.40,199 10.1021/j100142a004
 #  gaussian can do RESP
 
+import mmap
+import os
+import tempfile
+
 import numpy as np
 from asa_grid import mk_layers
 from constants import au2a
@@ -53,6 +57,7 @@ class Resp:
         grid="lebedev",
         logger=log,
         generate_raw_fit_file=False,
+        block_size: int = 5000,
     ):
         """
         creates an object with a fitting grid and precalculated properties for the molecule.
@@ -79,6 +84,7 @@ class Resp:
         self.coords = coords
         self.atom_symbols = atom_symbols
         self.mk_grid = custom_grid
+        self.block_size = block_size
         self.weights = None
         self.generate_raw_fit_file = generate_raw_fit_file
         if self.mk_grid is None:
@@ -109,9 +115,27 @@ class Resp:
         self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
         # NOTE the value of these integrals is not affected by the atom charge
         self.log.info("starting to evaluate integrals")
+        grids = self.mk_grid
+        self.ngrids = grids.shape[0]
+        nao = mol.nao_nr()
+        fd, path = tempfile.mkstemp(prefix="int1e_grids_", suffix=".dat")
+        os.unlink(path)
+        self.ints = np.memmap(f"/proc/self/fd/{fd}", mode="w+", dtype=float, shape=(nao, nao, self.ngrids))
+        mm = self.ints._mmap
+        os.close(fd)
 
-        with misc.with_omp_threads(ncpu) as _:
-            self.ints = np.einsum("pij->ijp", mol.intor("int1e_grids", grids=self.mk_grid))
+        block_size = self.block_size//10
+        with misc.with_omp_threads(ncpu):
+            for ib, p0 in enumerate(range(0, self.ngrids, block_size)):
+                p1 = min(p0 + block_size, self.ngrids)
+                blk = mol.intor("int1e_grids", grids=grids[p0:p1])  # (pb, nao, nao)
+                tmp = np.ascontiguousarray(blk.transpose(1, 2, 0))
+                self.ints[:, :, p0:p1] = tmp
+                del blk, tmp
+                if (ib + 1) % 10 == 0:
+                    self.ints.flush()
+                    mm.madvise(mmap.MADV_DONTNEED)
+
         self.log.info("done")
 
     def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
@@ -136,7 +160,11 @@ class Resp:
         n_fits = sum([1, 3, 6][: order + 1])
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
-        Vele = np.einsum("ijp,ij->p", self.ints, dm)
+        Vele = np.zeros(self.ngrids)
+        for p0 in range(0, self.ngrids, self.block_size):
+            p1 = min(p0 + self.block_size, self.ngrids)
+            blk = self.ints[:, :, p0:p1]  # only this slice is paged in
+            Vele[p0:p1] = np.einsum("ijp,ij->p", blk, dm)
         Fesp_i = Vnuc - Vele
         R_alpha = self.R_alpha
         r_inv = self.r_inv
@@ -282,7 +310,11 @@ class Resp:
             raise Error("Specify order in the range of 0 - 2")
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
-        Vele = np.einsum("ijp,ij->p", self.ints, dm)
+        Vele = np.zeros(self.ngrids)
+        for p0 in range(0, self.ngrids, self.block_size):
+            p1 = min(p0 + self.block_size, self.ngrids)
+            blk = self.ints[:, :, p0:p1]  # only this slice is paged in
+            Vele[p0:p1] = np.einsum("ijp,ij->p", blk, dm)
         Fesp_i = Vnuc - Vele
         R_alpha = self.R_alpha
         r_inv = self.r_inv
