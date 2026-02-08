@@ -109,11 +109,12 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_betas": [0.0005, 0.0015, 0.003],
                 "resp_layers": 4,
                 "resp_first_layer": 1.4,
-                "resp_density": 4.0,
+                "resp_density": 10.0,
                 "resp_fit_order": 2,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
                 "resp_target": "zero",
+                "resp_block_size": 5000, 
             }
         )
 
@@ -137,6 +138,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_mk_radii": bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": str,
                 "resp_target": str,
+                "resp_block_size": int,
             }
         )
 
@@ -1147,6 +1149,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.resources["resp_shells"],
             grid=self.QMin.resources["resp_grid"],
             logger=self.log,
+            block_size=self.QMin.resources["resp_block_size"],
         )
         mol = self.QMout["mol"]
         if self.QMin.resources["resp_target"] == "loewdin":
