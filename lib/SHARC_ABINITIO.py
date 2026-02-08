@@ -1197,6 +1197,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         self.QMin.resources["resp_betas"],
                         self.QMin.molecule["natom"],
                         target,
+                        self.QMin.resources["resp_block_size"],
+                        fits.ngrids
                     ),
                 )
             pool.close()
