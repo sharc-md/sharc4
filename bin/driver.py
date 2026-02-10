@@ -27,7 +27,7 @@
 # EXTERNAL
 import time
 import numpy as np
-from typing import Any, Union
+from typing import Any
 from optparse import OptionParser
 from importlib import import_module
 import inspect
@@ -44,7 +44,7 @@ except:
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
 from error import Error
-from utils import list2dict, InDir
+from utils import InDir
 from logger import log, loglevel as loglevel_env
 
 
@@ -53,30 +53,6 @@ class QMOUT:
 
     def __init__(self, interface: str, natoms: int, nmstates: int):
         self._QMout = sharc.QMout(interface, natoms, nmstates)
-
-    def set_hamiltonian(self, h: list[list[Union[float, complex]]]):
-        log.debug(f"{type(h)}")
-        self._QMout.set_hamiltonian(h)
-
-    def set_gradient(self, grad: dict[list[list[float], list[float], list[float]]], icall: int):
-        log.debug(f"{type(grad)}")
-        self._QMout.set_gradient(grad, icall)
-
-    def set_dipolemoment(self, dip: list[list[list[Union[complex, float]]]]):
-        log.debug(f"{type(dip)}")
-        self._QMout.set_dipolemoment(dip)
-
-    def set_overlap(self, ovl: list[list[Union[float, complex]]]):
-        log.debug(f"{type(ovl)}")
-        self._QMout.set_overlap(ovl)
-
-    def set_phases(self, phases: list[Union[float, complex]]):
-        log.debug(f"{type(phases)}")
-        self._QMout.set_phases(phases)
-
-    def set_nacdr(self, nac: dict[int, dict[int, list[float, float, float]]], icall: int):
-        log.debug(f"{type(nac)}")
-        self._QMout.set_nacdr(nac, icall)
 
     def printInfos(self):
         self._QMout.printInfos()
@@ -90,39 +66,20 @@ class QMOUT:
         if icall == 1:
             log.debug("setting h and dm")
             if "h" in data:
-                self._QMout.set_hamiltonian(data["h"])
+                self._QMout.set_hamiltonian(np.asfortranarray(data["h"]))
             if "dm" in data:
-                self._QMout.set_dipolemoment(data["dm"])
+                self._QMout.set_dipolemoment(np.asfortranarray(data["dm"]))
 
         if "overlap" in data:
             # assumes type is numpy array
-            self._QMout.set_overlap(data["overlap"])
+            self._QMout.set_overlap(np.asfortranarray(data["overlap"]))
         if "phases" in data:
             # assumes type is numpy array
-            self._QMout.set_phases(data["phases"])
+            self._QMout.set_phases(np.asfortranarray(data["phases"]))
         if "grad" in data:
-            if isinstance(data["grad"], list):
-                self._QMout.set_gradient(list2dict(data["grad"]), icall)
-            elif data["grad"] is None:
-                self._QMout.set_gradient({}, icall)
-            elif isinstance(data["grad"], np.ndarray):
-                self._QMout.set_gradient_full_array(data["grad"])
-            else:
-                raise RuntimeError
+            self._QMout.set_gradient_full_array(np.asfortranarray(data["grad"]))
         if "nacdr" in data:
-            if isinstance(data["nacdr"], dict):
-                self._QMout.set_nacdr(data["nacdr"], icall)
-            elif isinstance(data["nacdr"], list):
-                nacdr = {}
-                for i, ele in enumerate(data["nacdr"]):
-                    nacdr[i] = list2dict(ele)
-                self._QMout.set_nacdr(nacdr, icall)
-            elif isinstance(data["nacdr"], np.ndarray):
-                self._QMout.set_nacdr_full_array(data["nacdr"])
-            else:
-                raise RuntimeError
-
-        return
+            self._QMout.set_nacdr_full_array(np.asfortranarray(data["nacdr"]))
 
 
 def setup_sharc(inp_file: str) -> int:
