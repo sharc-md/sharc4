@@ -406,6 +406,21 @@ class SHARC_INTERFACE(ABC):
         else:
             raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
 
+        if not pc:
+            shape = self.QMin.coords["coords"].shape
+            assert shape[0] == self.QMin.molecule["natom"], "Number of coordinates does not match with natom."
+            assert shape[1] == 3 and len(shape) == 2, "Coordinates must be of shape Natom*3"
+
+    def set_veloc(self, xyz: np.ndarray | list) -> None:
+        """
+        Set velocities from array or list
+        xyz: N*3 array or list
+        """
+        self.QMin.coords["veloc"] = np.asarray(xyz)
+        shape = self.QMin.coords["veloc"].shape
+        assert shape[0] == self.QMin.molecule["natom"], "Number of velocities does not match with natom."
+        assert shape[1] == 3 and len(shape) == 2, "Velocities must be of shape Natom*3"
+
     def set_pccharges(self, charges: list | np.ndarray) -> None:
         self.QMin.coords["pccharge"] = charges
         self.QMin.molecule["npc"] = len(charges)

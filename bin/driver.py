@@ -115,6 +115,10 @@ def get_crd(unit: int = 0) -> list[list[float]]:
     """returns coordinates in specified unit (0 = Bohr, 1 = Angstrom)"""
     return sharc.get_crd(unit)
 
+def get_vel() -> np.ndarray:
+    """returns velocities"""
+    return sharc.get_vel()
+
 
 def initial_qm_pre():
     return sharc.initial_qm_pre()
@@ -158,6 +162,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     i.read_requests(get_all_tasks(icall))
     log.debug(f"\tcoords")
     i.set_coords(get_crd())
+    i.set_veloc(get_vel())
     with InDir("QM"):
         log.debug(f"\trun")
         safe(i.run)
