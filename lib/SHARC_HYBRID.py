@@ -54,7 +54,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         self.log.debug(f"Fast queue: {fast_queue}")
 
         # Dict of child interfaces
-        self._kindergarden = {}
+        self._kindergarden: dict[str, SHARC_INTERFACE] = {}
 
     @staticmethod
     def run_fast(logger, children_dict: dict[str, SHARC_INTERFACE], *args, **kwargs) -> None:
