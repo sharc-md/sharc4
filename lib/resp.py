@@ -26,10 +26,6 @@
 # Source Phys.Chem.Chem.Phys.,2019,21, 4082--4095 cp/c8cp06567e and TheJournalofPhysicalChemistry,Vol.97,No.40,199 10.1021/j100142a004
 #  gaussian can do RESP
 
-import mmap
-import os
-import tempfile
-
 import numpy as np
 from asa_grid import mk_layers
 from constants import au2a
@@ -98,6 +94,45 @@ class Resp:
         self.R_alpha: np.ndarray = np.full((self.natom, self.ngp, 3), self.mk_grid) - self.coords[:, None, :]  # rA-ri
         self.r_inv: np.ndarray = 1 / np.sqrt(np.sum((self.R_alpha) ** 2, axis=2))  # 1 / |ri-rA|
 
+    def low_ram_prepare(self, mol: gto.Mole, order: int):
+        """
+        Resp fit for memory heavy systems
+        """
+
+        # Preparation
+        Z = mol.atom_charges()
+        self.log.trace(f"{self.natom} {Z} {self.r_inv.shape}")
+        self.Sao = mol.intor("int1e_ovlp")
+        self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
+        grids = self.mk_grid
+        self.ngrids = grids.shape[0]
+
+        if not (0 <= order <= 2):
+            raise Error("Specify order in the range of 0 - 2")
+        R_alpha = self.R_alpha
+
+        if order > 0:
+            r_inv3 = self.r_inv**3
+
+            # fit dipoles
+            self.geo_tens1 = np.vstack(
+                (R_alpha[:, :, 0] * r_inv3, R_alpha[:, :, 1] * r_inv3, R_alpha[:, :, 2] * r_inv3)
+            )  # m_A_i
+
+            if order > 1:
+                r_inv5 = self.r_inv**5
+
+                self.geo_tens2 = np.vstack(
+                    (
+                        R_alpha[:, :, 0] * R_alpha[:, :, 0] * r_inv5 * 0.5,
+                        R_alpha[:, :, 1] * R_alpha[:, :, 1] * r_inv5 * 0.5,
+                        R_alpha[:, :, 2] * R_alpha[:, :, 2] * r_inv5 * 0.5,
+                        R_alpha[:, :, 0] * R_alpha[:, :, 1] * r_inv5,
+                        R_alpha[:, :, 0] * R_alpha[:, :, 2] * r_inv5,
+                        R_alpha[:, :, 1] * R_alpha[:, :, 2] * r_inv5,
+                    )
+                )  # m_A_i
+
     def prepare(self, mol: gto.Mole, ncpu=1):
         """
         Prepares the gto.Mole object and 3c2e integrals
@@ -115,27 +150,9 @@ class Resp:
         self.Vnuc = np.sum(Z[..., None] * self.r_inv, axis=0)
         # NOTE the value of these integrals is not affected by the atom charge
         self.log.info("starting to evaluate integrals")
-        grids = self.mk_grid
-        self.ngrids = grids.shape[0]
-        nao = mol.nao_nr()
-        fd, path = tempfile.mkstemp(prefix="int1e_grids_", suffix=".dat")
-        os.unlink(path)
-        self.ints = np.memmap(f"/proc/self/fd/{fd}", mode="w+", dtype=float, shape=(nao, nao, self.ngrids))
-        mm = self.ints._mmap
-        os.close(fd)
 
-        block_size = max(1, self.block_size//10)
         with misc.with_omp_threads(ncpu):
-            for ib, p0 in enumerate(range(0, self.ngrids, block_size)):
-                p1 = min(p0 + block_size, self.ngrids)
-                blk = mol.intor("int1e_grids", grids=grids[p0:p1])  # (pb, nao, nao)
-                tmp = np.ascontiguousarray(blk.transpose(1, 2, 0))
-                self.ints[:, :, p0:p1] = tmp
-                del blk, tmp
-                if (ib + 1) % 10 == 0:
-                    self.ints.flush()
-                    mm.madvise(mmap.MADV_DONTNEED)
-
+            self.ints = np.einsum("pij->ijp", mol.intor("int1e_grids", grids=self.mk_grid))
         self.log.info("done")
 
     def one_shot_fit(self, dm: np.ndarray, include_core_charges: bool, order=2, charge=0, **kwargs):
@@ -160,11 +177,7 @@ class Resp:
         n_fits = sum([1, 3, 6][: order + 1])
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
-        Vele = np.zeros(self.ngrids)
-        for p0 in range(0, self.ngrids, self.block_size):
-            p1 = min(p0 + self.block_size, self.ngrids)
-            blk = self.ints[:, :, p0:p1]  # only this slice is paged in
-            Vele[p0:p1] = np.einsum("ijp,ij->p", blk, dm)
+        Vele = np.einsum("ijp,ij->p", self.ints, dm)
         Fesp_i = Vnuc - Vele
         R_alpha = self.R_alpha
         r_inv = self.r_inv
@@ -310,11 +323,7 @@ class Resp:
             raise Error("Specify order in the range of 0 - 2")
         natom = self.natom
         Vnuc = np.copy(self.Vnuc) if include_core_charges else np.zeros((self.ngp), dtype=float)
-        Vele = np.zeros(self.ngrids)
-        for p0 in range(0, self.ngrids, self.block_size):
-            p1 = min(p0 + self.block_size, self.ngrids)
-            blk = self.ints[:, :, p0:p1]  # only this slice is paged in
-            Vele[p0:p1] = np.einsum("ijp,ij->p", blk, dm)
+        Vele = np.einsum("ijp,ij->p", self.ints, dm)
         Fesp_i = Vnuc - Vele
         R_alpha = self.R_alpha
         r_inv = self.r_inv
@@ -427,9 +436,55 @@ class Resp:
     multipoles_from_dens = sequential_multipoles
     #  multipoles_from_dens = one_shot_fit
 
+    def low_ram_multipoles(self, dm, mol, betas, order):
+        self.log.debug("Create Fesp dict")
+        fesps = {}
+        transpose = []
+        for (s1, s2, dens) in dm.keys():
+            if dens != "tot":
+                continue
+            if (s2, s1) in fesps:
+                transpose.append((s2, s1))
+                continue
+            fesps[(s1, s2)] = np.zeros(self.ngrids)
+
+        grids = self.mk_grid
+        block_size = max(1, self.block_size)
+        for p0 in range(0, self.ngrids, block_size):
+            p1 = min(p0 + block_size, self.ngrids)
+            ints = mol.intor("int1e_grids", grids=grids[p0:p1])  # (pb, nao, nao)
+            for (s1, s2), fesp in fesps.items():
+                np.einsum("pij,ij->p", ints, dm[(s1, s2, "tot")], out=fesp[p0:p1])
+            del ints
+        self.log.debug("Finished Fesps")
+
+        multipolar_fits = {}
+        for (s1, s2), fesp in fesps.items():
+            fesp *= -1
+            if s1 // s2:
+                fesp += self.Vnuc
+
+            monopoles, fres = _fit(self.r_inv, fesp, 1, self.natom, beta=betas[0], charge=s1.Z if s1 // s2 else 0, weights=self.weights)
+            if order > 0:
+                dipoles, fres = _fit(self.geo_tens1, fres, 3, self.natom, beta=betas[1], charge=None, weights=self.weights)
+            if order > 1:
+                quadrupoles, fres = _fit(self.geo_tens2, fres, 6, self.natom, weights=self.weights, traceless_quad=True)
+            match order:
+                case 0:
+                    multipolar_fits[(s1, s2)] = monopoles
+                case 1:
+                    multipolar_fits[(s1, s2)] = np.hstack((monopoles, dipoles))
+                case 2:
+                    multipolar_fits[(s1, s2)] = np.hstack((monopoles, dipoles, quadrupoles))
+        for (s1, s2) in transpose:
+            multipolar_fits[(s2, s1)] = multipolar_fits[(s1, s2)]
+
+        self.log.debug("Finished fit.")
+        return multipolar_fits
+        
 
 def multipoles_from_dens_parallel(
-    dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None, target=None, block_size=5000,grid_size=0
+    dm_key: tuple, include_core_charges=True, charge=0, order=2, betas=[0.0005, 0.0015, 0.003], natom=None, target=None
 ):
     # self.log.info("Start sequential multipolar fit")
     if not include_core_charges and charge != 0:
@@ -439,19 +494,7 @@ def multipoles_from_dens_parallel(
         raise RuntimeError("Specify order in the range of 0 - 2")
 
     dm = fit_data["densities_dict"][dm_key]
-
-    mm = fit_data["ints"]._mmap
-
-    block_size = max(1, block_size//10)
-    Fesp_i = np.zeros(grid_size)
-    for ib, p0 in enumerate(range(0, grid_size, block_size)):
-        p1 = min(p0 + block_size, grid_size)
-        blk = fit_data["ints"][:, :, p0:p1]  # only this slice is paged in
-        Fesp_i[p0:p1] = -np.einsum("ijp,ij->p", blk, dm)
-        del blk
-        if (ib + 1) % 10 == 0:
-            fit_data["ints"].flush()
-            mm.madvise(mmap.MADV_DONTNEED)
+    Fesp_i = -np.einsum("ijp,ij->p", fit_data["ints"], dm)
 
     if include_core_charges:
         Fesp_i += fit_data["Vnuc"]

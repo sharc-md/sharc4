@@ -114,7 +114,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
                 "resp_target": "zero",
-                "resp_block_size": 5000, 
+                "resp_block_size": 5000,
+                "resp_nuke_ram": False,  # Old, memory heavy fitting
             }
         )
 
@@ -139,6 +140,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_grid": str,
                 "resp_target": str,
                 "resp_block_size": int,
+                "resp_nuke_ram": bool,
             }
         )
 
@@ -1152,6 +1154,14 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             block_size=self.QMin.resources["resp_block_size"],
         )
         mol = self.QMout["mol"]
+
+        if not self.QMin.resources["resp_nuke_ram"]:
+            # Use new RAM friendly batched fitting
+            fits.low_ram_prepare(mol, self.QMin.resources["resp_fit_order"])
+            return fits.low_ram_multipoles(
+                self.QMout.density_matrices, mol, self.QMin.resources["resp_betas"], self.QMin.resources["resp_fit_order"]
+            )
+
         if self.QMin.resources["resp_target"] == "loewdin":
             Sao_root = fractional_matrix_power(self.QMin.molecule["SAO"], 0.5)
         fits.prepare(mol, self.QMin.resources["ncpu"])  # the charge of the atom does not affect integrals
@@ -1197,8 +1207,6 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                         self.QMin.resources["resp_betas"],
                         self.QMin.molecule["natom"],
                         target,
-                        self.QMin.resources["resp_block_size"],
-                        fits.ngrids
                     ),
                 )
             pool.close()
