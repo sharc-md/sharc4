@@ -100,6 +100,16 @@ class SHARC_LVC(SHARC_FAST):
     def description():
         return "     FAST interface for linear/quadratic vibronic coupling models (LVC, QVC, LVC/MM)"
 
+    def read_requests(self, requests_file = "QM.in"):
+        if isinstance(requests_file, dict) and "multipolar_fit" in requests_file:
+            requests_file["multipolar_fit"] = []
+            for s1 in self.states:
+                for s2 in self.states:
+                    if s1.S == s2.S and s1.M == s2.M and s1.S == s1.M and s2.S == s2.M:
+                        requests_file["multipolar_fit"].append((s1, s2))
+            
+        super().read_requests(requests_file)
+
     def read_template(self, template_filename="LVC.template"):
         f = open(os.path.abspath(template_filename), "r")
         V0file = f.readline()[:-1]
@@ -786,7 +796,7 @@ class SHARC_LVC(SHARC_FAST):
             multipolar_fit = {}
             for s1, s2 in self.QMin.requests["multipolar_fit"]:
                 im = s1.S
-                multipolar_fit[(s1, s2)] = dfits[im][s1.N - 1, s2.N - 1, ...]
+                multipolar_fit[(s1, s2)] = self._fits[im][s1.N - 1, s2.N - 1, ...]
 
         # ======================================== assign to QMout =========================================
         self.log.debug(f"requests: {self.QMin.requests}")
