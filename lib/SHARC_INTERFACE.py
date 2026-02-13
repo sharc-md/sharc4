@@ -406,6 +406,25 @@ class SHARC_INTERFACE(ABC):
         else:
             raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
 
+        if not pc:
+            shape = self.QMin.coords["coords"].shape
+            assert shape[0] == self.QMin.molecule["natom"], "Number of coordinates does not match with natom."
+            assert shape[1] == 3 and len(shape) == 2, "Coordinates must be of shape Natom*3"
+
+    def set_veloc(self, xyz: np.ndarray | list) -> None:
+        """
+        Set velocities from array or list
+        xyz: N*3 array or list
+        """
+        self.QMin.coords["veloc"] = np.asarray(xyz)
+        shape = self.QMin.coords["veloc"].shape
+        assert shape[0] == self.QMin.molecule["natom"], "Number of velocities does not match with natom."
+        assert shape[1] == 3 and len(shape) == 2, "Velocities must be of shape Natom*3"
+
+    def set_pccharges(self, charges: list | np.ndarray) -> None:
+        self.QMin.coords["pccharge"] = charges
+        self.QMin.molecule["npc"] = len(charges)
+
     # ----- initialization routine -----
 
     def setup_mol(self, qmin_file: str | dict | QMin) -> None:
@@ -555,19 +574,7 @@ class SHARC_INTERFACE(ABC):
             self.log.warning(f"charge not specified setting default, {self.QMin.molecule['charge']}")
         else:
             # sanity check
-            if len(self.QMin.molecule["charge"]) == 1:
-                charge = int(self.QMin.molecule["charge"][0])
-                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
-                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
-                    charge -= 1
-                self.QMin.molecule["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
-                self.log.info(
-                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.molecule["charge"]}).'
-                )
-                self.log.info(
-                    'You can set the charge in the QMin or input files manually for each multiplicity ("charge 0 +1 0 ...")'
-                )
-            elif len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
+            if len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
                 self.QMin.molecule["charge"] = [
                     int(self.QMin.molecule["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
                 ]
