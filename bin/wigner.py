@@ -988,7 +988,7 @@ def sample_initial_condition(molecule, modes):
 # ======================================================================================================================
 
 
-def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0):
+def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0, start_index = 1, skip_header = False):
     """This function converts an list of initial conditions into a string."""
     ninit = len(ic_list)
     natom = ic_list[0].natom
@@ -997,7 +997,8 @@ def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0):
     eharm = 0.
     for mode in modes:
         eharm += mode['freq'] * 0.5
-    string = '''SHARC Initial conditions file, version %s
+    if not skip_header:
+        string = '''SHARC Initial conditions file, version %s
 Ninit     %i
 Natom     %i
 Repr      %s
@@ -1007,12 +1008,14 @@ Eharm     %18.10f
 
 Equilibrium
 ''' % (version, ninit, natom, representation, temperature, eref, eharm)
-    for atom in molecule:
-        string += str(atom) + '\n'
-    string += '\n\n'
+        for atom in molecule:
+            string += str(atom) + '\n'
+        string += '\n\n'
+    else:
+        string = ''
 
     for i, ic in enumerate(ic_list):
-        string += 'Index     %i\n%s' % (i + 1, str(ic))
+        string += 'Index     %i\n%s' % (i + start_index, str(ic))
     return string
 
 
@@ -1242,6 +1245,12 @@ as described in [2] (non-fixed energy, independent mode sampling).
     parser.add_option(
         '--single_atom', dest='atom', type=str, nargs=1, default="", help="Ignore molden file and generate initconds with one atom of specified element at origin"
     )
+    parser.add_option(
+        '--start_index', dest='start_index', type=int, nargs=1, default=1, help="Start indexing at this number"
+    )
+    parser.add_option(
+        '--skip_header', dest='skip_header', action='store_true', help="Do not print the file header (useful together with --start_index)"
+    )
 
     (options, args) = parser.parse_args()
 
@@ -1258,7 +1267,6 @@ as described in [2] (non-fixed energy, independent mode sampling).
     nondefmass = options.m
     scaling = options.s
     flag = options.f
-    lvc = options.lvc
     global LOW_FREQ
     LOW_FREQ = max(0.0000001, options.L)
 
@@ -1341,7 +1349,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
         ic_list = create_initial_conditions_list(amount, molecule, modes, dummy=dummy, dummy_el=dummy_el)
         # print('Writing output to initconds')
         outfile = open(outfile, 'w')
-        outstring = create_initial_conditions_string(molecule, modes, ic_list)
+        outstring = create_initial_conditions_string(molecule, modes, ic_list, start_index=options.start_index, skip_header=options.skip_header)
         outfile.write(outstring)
         outfile.close()
 
