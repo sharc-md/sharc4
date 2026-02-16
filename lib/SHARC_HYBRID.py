@@ -35,7 +35,7 @@ from time import sleep
 
 from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import InDir
+from utils import InDir, readfile
 
 
 class SHARC_HYBRID(SHARC_INTERFACE):
@@ -54,6 +54,9 @@ class SHARC_HYBRID(SHARC_INTERFACE):
 
         # Dict of child interfaces
         self._kindergarden: dict[str, SHARC_INTERFACE] = {}
+
+        # Persistence
+        self.savedict = {}
 
     @staticmethod
     def run_fast(logger, children_dict: dict[str, SHARC_INTERFACE], *args, **kwargs) -> None:
@@ -244,13 +247,42 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         """
         Clean save directory of all children in kindergarden
         """
-        super().clean_savedir()
+        if self.persistent:
+            retain = self.QMin.requests["retain"]
+            step = self.QMin.save["step"]
+            if retain < 0:
+                return
+            to_be_deleted = set()
+            for istep in self.savedict:
+                if not isinstance(istep, int):
+                    continue
+                if istep < step - retain:
+                    to_be_deleted.add(istep)
+            for istep in to_be_deleted:
+                del self.savedict[istep]
+        else:
+            super().clean_savedir()
         for label, child in self._kindergarden.items():
             self.log.debug(f"Clean savedir from child {label}")
             child.clean_savedir()
 
-    def write_step_file(self):
+    def write_step_file(self) -> None:
         super().write_step_file()
         for label, child in self._kindergarden.items():
             self.log.debug(f"Write step file for child {label}")
             child.write_step_file()
+
+    def set_pccharges(self, charges: list | np.ndarray) -> None:
+        super().set_pccharges(charges)
+
+        for child in self._kindergarden.values():
+            child.set_pccharges(charges)
+
+    def setup_interface(self) -> None:
+        if self.persistent:
+            # set last_step
+            stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
+            last_step = None
+            if os.path.isfile(stepfile):
+                last_step = int(readfile(stepfile)[0])
+            self.savedict["last_step"] = last_step
