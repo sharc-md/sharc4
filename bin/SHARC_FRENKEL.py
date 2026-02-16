@@ -649,6 +649,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         state_cnt = 1
         for site in self._kindergarden.values():
             state_cnt += (n_states := site.QMin.molecule["states"][0] - 1)
+            site_overlaps[0, state_cnt - n_states : state_cnt] = site.QMout.overlap[0, 1:]
+            site_overlaps[state_cnt - n_states : state_cnt, 0] = site.QMout.overlap[1:, 0]
             site_overlaps[state_cnt - n_states : state_cnt, state_cnt - n_states : state_cnt] = site.QMout.overlap[1:, 1:]
         return prev_coeffs.T @ site_overlaps @ coeffs
 
