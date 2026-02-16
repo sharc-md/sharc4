@@ -48,7 +48,7 @@ CHANGELOGSTRING = """
 
 
 def generate_cube_data(
-    kindergarden_values: list[SHARC_INTERFACE], coeffs: np.ndarray, max_states: int
+    kindergarden_values: list[SHARC_INTERFACE], coeffs: np.ndarray, max_states: int, atom_charges: np.ndarray, coords: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Generate per-atom effective transition charges for all exciton states
@@ -56,17 +56,13 @@ def generate_cube_data(
     kindergarden_values:    List of kindergarden instances
     coeffs:                 Exciton wave function
     max_states:             Save states from first excited to max_states
+    atom_charges:           Array of nuclear charges
     """
     atoms_per_frag = [f.QMin.molecule["natom"] for f in kindergarden_values]
     exc_per_frag = [f.QMin.molecule["states"][0] - 1 for f in kindergarden_values]
-    all_coords = np.concatenate([f.QMin.coords["coords"] for f in kindergarden_values])
+    coords = np.concatenate(coords)
 
-    atom_charges = []
-    for frag in kindergarden_values:
-        atom_charges.append([NUMBERS[a] for a in frag.QMin.molecule["elements"]])
-    atom_charges = np.concatenate(atom_charges, axis=0)
-
-    trans_charges_per_atom = np.zeros((coeffs.shape[0], int(np.sum(atoms_per_frag))))
+    trans_charges_per_atom = np.zeros((coeffs.shape[0], coords.shape[0]))
 
     offset_at = 0
     offset_exc = 0
@@ -77,7 +73,7 @@ def generate_cube_data(
         offset_exc += nexc
 
     all_trans_charges = coeffs[:, :max_states].T @ trans_charges_per_atom
-    return all_trans_charges, all_coords, atom_charges
+    return all_trans_charges, coords, atom_charges
 
 
 class SHARC_FRENKEL(SHARC_HYBRID):
@@ -129,6 +125,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         self._atoms = None
         self._states = None
         self.frags = None
+        self.atom_charges = None
 
     @staticmethod
     def description():
@@ -366,7 +363,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             self._embedding_lj.QMin.resources["scratchdir"] = expand_path(
                 os.path.join(self.QMin.resources["scratchdir"], "embedding_lj")
             )
-        # TODO: does it need an embedding child for each fragment?
+        atom_charges = []
+        for frag in self.frags:
+            atom_charges.append([NUMBERS[a] for a in frag.QMin.molecule["elements"]])
+        self.atom_charges = np.concatenate(atom_charges, axis=0)
 
     def set_coords(self, xyz, pc=False):
         super().set_coords(xyz, pc)
@@ -729,8 +729,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             self.QMout.prop1d.extend(self._wfa(coeffs.copy()))
 
         if self.QMin.resources["save_cube"]:
-            cube_data = generate_cube_data(self._kindergarden.values(), coeffs, nstates)
-            with open(os.path.join(self.QMin.save["savedir"], f"cube_data.{self.QMin.save['step']}"), "wb") as f:
+            cube_data = generate_cube_data(self._kindergarden.values(), coeffs, nstates, self.atom_charges, coords)
+            with open(os.path.join(self.QMin.save["savedir"], f"cube_data.{step}"), "wb") as f:
                 pickle.dump(cube_data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
         self.QMout["runtime"] = self.clock.measuretime(False)
