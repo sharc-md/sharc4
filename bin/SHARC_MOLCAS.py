@@ -570,10 +570,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.log.error(f"No analytical gradients for cms-pdft and {self.QMin.template['functional']}.")
             raise ValueError()
 
-        # States must be > 1 for xms-caspt2
-        if self.QMin.template["method"] == "xms-caspt2" and any((i == 1 for i in self.QMin.molecule["states"])):
-            self.log.error("All states in XMS-CASPT2 must be > 1!")
-            raise ValueError()
+        # # States must be > 1 for xms-caspt2
+        # if self.QMin.template["method"] == "xms-caspt2" and any((i == 1 for i in self.QMin.molecule["states"])):
+        #     self.log.error("All states in XMS-CASPT2 must be > 1!")
+        #     raise ValueError()
 
     def setup_interface(self) -> None:
         """
@@ -1006,9 +1006,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             tasks.append(["copy", f"$master_path/MOLCAS.{mult+1}.JobIph", "JOBOLD"])
             if qmin.template["roots"][mult] == 1:
                 tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
-                    self.log.error("Single state gradient with MS/XMS-CASPT2")
-                    raise ValueError()
+                # if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
+                #     self.log.error("Single state gradient with MS/XMS-CASPT2")
+                #     raise ValueError()
                 tasks.append(["alaska"])
             else:
                 match qmin.template["method"]:
@@ -1161,15 +1161,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str += f"IPEASHIFT={qmin.template['ipea'] : 4.2f}\nMAXITER=120\n"
         if qmin.template["frozen"]:
             input_str += f"FROZEN={qmin.template['frozen']}\n"
-        match qmin.template["method"]:
-            case "caspt2":
-                input_str += "NOMULT\n"
-            case "ms-caspt2":
-                input_str += f"MULTISTATE= {task[2]} "
-            case "xms-caspt2":
-                input_str += f"XMULTISTATE= {task[2]} "
-        if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
-            input_str += " ".join(str(i + 1) for i in range(task[2]))
+        if task[2] > 1:
+            match qmin.template["method"]:
+                case "caspt2":
+                    input_str += "NOMULT\n"
+                case "ms-caspt2":
+                    input_str += f"MULTISTATE= {task[2]} "
+                case "xms-caspt2":
+                    input_str += f"XMULTISTATE= {task[2]} "
+            if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
+                input_str += " ".join(str(i + 1) for i in range(task[2]))
         input_str += "\nOUTPUT=BRIEF\nPRWF=0.1\n"
         if qmin.template["pcmset"]:
             input_str += "RFPERT\n"
@@ -1307,12 +1308,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if self.QMin.requests["nacdr"] or self.QMin.requests["grad"]:
             if self.QMin.template["method"] == "caspt2":
-                self.log.error("NACs/Gradients are not possible with caspt2")
-                raise ValueError()
+                for mult, (state, root) in enumerate(zip(self.QMin.molecule["states"], self.QMin.template["roots"]), 1):
+                    if state > 1:
+                        self.log.error("NACs/Gradients are not possible with SS-CASPT2 with more than 1 root")
+                        raise ValueError()
             elif self.QMin.template["method"] in ("xms-caspt2", "ms-caspt2"):
                 for mult, (state, root) in enumerate(zip(self.QMin.molecule["states"], self.QMin.template["roots"]), 1):
                     if state != root:
-                        self.log.error(f"*pt2 with NACs/grad. Number of roots does not equal number of states in mult {mult}.")
+                        self.log.error(f"(X)MS-CASPT2 with NACs/grad. Number of roots must equal number of states in mult {mult}.")
                         raise ValueError
 
         # if (

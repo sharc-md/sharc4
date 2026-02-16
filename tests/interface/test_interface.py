@@ -6,6 +6,8 @@ import pytest
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import expand_path
 from constants import au2a
+from utils import expand_path
+from constants import au2a
 
 SHARC_INTERFACE.__abstractmethods__ = set()
 
@@ -13,9 +15,11 @@ PATH = "$SHARC/../tests/interface"
 
 
 def get_states(path: str):
+def get_states(path: str):
     test_interface = SHARC_INTERFACE()
 
     test_interface.setup_mol(path)
+    return test_interface.QMin.molecule["states"]
     return test_interface.QMin.molecule["states"]
 
 
@@ -55,6 +59,82 @@ def read_resources(path: str, params: dict, whitelist: list):
     for k, v in params.items():
         assert test_interface.QMin.resources[k] == v
 
+
+def test_coords_list():
+    tests = [np.random.rand(3, 3) for _ in range(20)]
+
+    # np.array
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/QM0.in"))
+        test_interface.set_coords(coord)
+        assert np.allclose(test_interface.QMin.coords["coords"], coord/au2a)
+    # list
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/QM0.in"))
+        test_interface.set_coords(coord.tolist())
+        assert np.allclose(test_interface.QMin.coords["coords"], coord/au2a)
+
+    tests = [np.random.rand(97, 3) for _ in range(20)]
+    # np.array
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/molcas/geoms/QM4.in"))
+        test_interface.set_coords(coord)
+        assert np.allclose(test_interface.QMin.coords["coords"], coord)
+    # list
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/molcas/geoms/QM4.in"))
+        test_interface.set_coords(coord.tolist())
+        assert np.allclose(test_interface.QMin.coords["coords"], coord)
+
+def test_coords_fail():
+    tests = [np.random.rand(345,3) for _ in range(20)]
+    # np.array
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/molcas/geoms/QM4.in"))
+        with pytest.raises(AssertionError):
+            test_interface.set_coords(coord)
+        
+    # list
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/molcas/geoms/QM4.in"))
+        with pytest.raises(AssertionError):
+            test_interface.set_coords(coord)
+
+    tests = [np.random.rand(97,6) for _ in range(20)]
+    # np.array
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/molcas/geoms/QM4.in"))
+        with pytest.raises(AssertionError):
+            test_interface.set_coords(coord)
+        
+    # list
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/molcas/geoms/QM4.in"))
+        with pytest.raises(AssertionError):
+            test_interface.set_coords(coord)
+
+    tests = [np.random.rand(97,3,2) for _ in range(20)]
+    # np.array
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/molcas/geoms/QM4.in"))
+        with pytest.raises(AssertionError):
+            test_interface.set_coords(coord)
+        
+    # list
+    for coord in tests:
+        test_interface = SHARC_INTERFACE()
+        test_interface.setup_mol(os.path.join(expand_path(PATH), "inputs/molcas/geoms/QM4.in"))
+        with pytest.raises(AssertionError):
+            test_interface.set_coords(coord)
 
 def test_coords_list():
     tests = [np.random.rand(3, 3) for _ in range(20)]

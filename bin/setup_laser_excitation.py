@@ -1111,7 +1111,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
 
     # Integrator
     INFOS['integrator'] = int(2)    
-    log.info("Integrator: %s " % Integrator[INFOS['integrator']]["name"])
+    # log.info("Integrator: %s " % Integrator[INFOS['integrator']]["name"])
     log.info("")
 
 
@@ -1519,6 +1519,8 @@ def writeSHARCinput(INFOS, initobject, iconddir,istate, laser_tsteps, laser_freq
         Rmat = rot.as_matrix()
         trans_fields = transform_fields(Rmat, Er=Er, Ei=Ei, Br=None, Bi=None, Egradr=None, Egradi=None) 
         write_fields(laserfname, laser_tsteps, laser_freqs, E=trans_fields)
+        rotfile = iconddir + "/Rmat"
+        np.savetxt(rotfile,Rmat)
     else: 
         link(INFOS["laserfile"], laserfname)
    
