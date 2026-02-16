@@ -667,6 +667,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             requests=requests,
         )
         nstates = self.QMin.molecule["states"][0]
+        step = self.QMin.save["step"]
 
         # Create 0->n transition monopole matrices (states x natoms)
         monopoles = [np.stack([f.QMout.multipolar_fit[(f.states[0], k)][:, 0] for k in f.states[1:]]) for f in self.frags]
@@ -676,10 +677,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         energies, coeffs = self._get_exciton_energies(monopoles, square_norms, coords)
         np.einsum("ii->i", self.QMout.h)[:] = energies[:nstates]
-
-        # Save eigenvectors for overlap calculations
-        with open(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']}"), "wb") as f:
-            np.save(f, coeffs)
 
         if self.QMin.requests["grad"] or self.QMin.requests["nacdr"]:
             # dH/dR including site gradients
@@ -716,7 +713,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             self.QMout.dm[:, :nstates, :nstates] = self._get_exciton_dipoles(coeffs, coords, monopoles)[:, :nstates, :nstates]
 
         if self.QMin.requests["overlap"] or self.QMin.requests["phases"]:
-            prev_coeffs = np.load(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']-1}"))
+            if not self.persistent:
+                prev_coeffs = np.load(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{self.QMin.save['step']-1}"))
+            else:
+                prev_coeffs = self.savedict[step - 1]
             overlap = self._get_exciton_overlaps(prev_coeffs, coeffs)[:nstates, :nstates]
             if self.QMin.requests["overlap"]:
                 self.QMout.overlap = overlap
@@ -733,16 +733,37 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             with open(os.path.join(self.QMin.save["savedir"], f"cube_data.{step}"), "wb") as f:
                 pickle.dump(cube_data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+        # Save eigenvectors for overlap calculations
+        if not self.persistent:
+            with open(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{step}"), "wb") as f:
+                np.save(f, coeffs)
+        else:
+            self.savedict[step] = coeffs
+
         self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
     def create_restart_files(self):
-        super().create_restart_files()
+        if self.persistent:
+            super().write_step_file()
+            savedir = self.QMin.save["savedir"]
+            for step, coeffs in self.savedict.items():
+                if step == "last_step":
+                    continue
+                with open(os.path.join(savedir, f"eigenvectors.{step}"), "wb") as f:
+                    np.save(f, coeffs)
+        else:
+            super().create_restart_files()
         for child in self._kindergarden.values():
             child.create_restart_files()
 
     def write_step_file(self):
-        super().write_step_file()
+        if self.persistent:
+            self.savedict["last_step"] = self.QMin.save["step"]
+            for child in self.frags:
+                child.write_step_file()
+        else:
+            super().write_step_file()
         if self._embedding_interface:
             self._embedding_interface.write_step_file()
         if self._embedding_lj:
