@@ -32,7 +32,7 @@ from io import TextIOWrapper
 
 # internal
 from SHARC_INTERFACE import SHARC_INTERFACE
-from utils import expand_path, readfile
+from utils import expand_path, readfile, mkdir
 
 
 class SHARC_FAST(SHARC_INTERFACE):
@@ -50,6 +50,7 @@ class SHARC_FAST(SHARC_INTERFACE):
         return INFOS
 
     def setup_interface(self):
+        mkdir(self.QMin.save["savedir"], force=False)
         if self.persistent:
             # set last_step
             stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
