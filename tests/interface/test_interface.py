@@ -15,11 +15,9 @@ PATH = "$SHARC/../tests/interface"
 
 
 def get_states(path: str):
-def get_states(path: str):
     test_interface = SHARC_INTERFACE()
 
     test_interface.setup_mol(path)
-    return test_interface.QMin.molecule["states"]
     return test_interface.QMin.molecule["states"]
 
 
