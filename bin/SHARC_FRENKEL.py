@@ -758,7 +758,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         if not self.template_file:
             if question("Do you have an FRENKEL.template file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
                 while not os.path.isfile(
-                    (template_file := question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="ORCA.resources"))
+                    (template_file := question("Specify the path:", str, KEYSTROKES=KEYSTROKES, default="FRENKEL.resources"))
                 ):
                     self.log.info(f"file at {template_file} does not exist!")
                 self.template_file = expand_path(template_file)
