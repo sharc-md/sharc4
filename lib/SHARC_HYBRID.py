@@ -67,17 +67,18 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         children_dict:  Dictionary of children that will be executed
         """
 
-        async def _run_async(label, child):
-            logger.info(f"Run child {label} in async queue.")
+        logger.info("Run children in async queue.")
+        async def _run_async(child):
             with InDir(child.QMin.resources["pwd"]):
                 child.run()
                 child.getQMout()
 
         async def _gather():
-            tasks = [_run_async(k, v) for k, v in children_dict.items()]
+            tasks = [_run_async(v) for v in children_dict.values()]
             await asyncio.gather(*tasks)
 
         asyncio.run(_gather())
+        logger.info("Queue finished.")
 
     @staticmethod
     def run_queue(
