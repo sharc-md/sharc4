@@ -44,10 +44,10 @@ clean:
 	rm -f netcdf/*.o
 
 lib/libsharc.so: lib/libsharcnc.so
-	cd ../source; make libsharc
+	cd ../source; $(MAKE) -j libsharc
 
 lib/libsharcnc.so:
-	cd netcdf; make lib
+	cd netcdf; $(MAKE) -j lib
 
 
 

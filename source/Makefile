@@ -61,11 +61,6 @@ SHARCDIR := $(shell cd ..; pwd)
 ifeq ($(USE_PYSHARC),true)
   FPREPROCESSOR := -D__PYSHARC__
   NETCDF_LIB = -L$(ANACONDA)/lib \
-           -lhdf5 \
-           -lhdf5_hl \
-           -lmfhdf \
-           -ldf \
-           -ljpeg \
            -L../pysharc/lib \
            -lsharcnc \
            -lnetcdf 
@@ -327,6 +322,8 @@ test_path:
 # the following lines define the dependencies of the Fortran90 module files
 ifeq ($(USE_PYSHARC),true)
 main.o: output.o qm.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o interface.o
+matrix.o: definitions.o
+input_list.o: string.o
 else
 main.o: integrators.o output.o qm.o bsh.o restart.o misc.o electronic_laser.o input.o decoherence_afssh.o decoherence_dom.o zpe.o tsh_tu.o army_ants.o pointer_basis.o
 endif
@@ -344,13 +341,14 @@ bsh.o: $(TOOLS) electronic.o decoherence_dom.o qm.o
 qm_out.o: $(TOOLS)
 restart.o: $(TOOLS) misc.o decoherence_afssh.o ziggurat.o
 decoherence_afssh.o: $(TOOLS) definitions.o
-decoherence_dom.o: $(TOOLS) definitions.o
+decoherence_dom.o: $(TOOLS) definitions.o decoherence_afssh.o
 zpe.o: $(TOOLS) definitions.o nuclear.o
 tsh_tu.o: $(TOOLS) definitions.o electronic.o nuclear.o army_ants.o
 army_ants.o: $(TOOLS) definitions.o electronic.o 
 pointer_basis.o: $(TOOLS) definitions.o
 
 LASER_input.o: definitions.o 
+LASER_main.o: LASER_input.o
 LASER_calc_fftw.o: definitions.o
 
 data_extractor_NetCDFmodule.o: $(TOOLS) qm_out.o
