@@ -268,6 +268,10 @@ class SHARC_FRENKEL(SHARC_HYBRID):
 
         assert sum(self.QMin.molecule["states"]) == n_singlets, "This interface only supports singlet states!"
 
+        # Load last step if restart
+        if step := self.savedict.get("last_step", None):
+            self.savedict[step] = np.load(os.path.join(self.QMin.save["savedir"], f"eigenvectors.{step}"))
+
         kindergarden = {
             name: (frag["interface"], frag["args"], frag["kwargs"]) for name, frag in self.QMin.template["fragments"].items()
         }
@@ -327,6 +331,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                     "savedir": expand_path(os.path.join(self.QMin.save["savedir"], "embedding")),
                 }
             )
+            # Variable unit, coords passed unprocessed
             self._embedding_interface.QMin.molecule["unit"] = self.QMin.molecule["unit"]
             self._embedding_interface.QMin.molecule["factor"] = self.QMin.molecule["factor"]
 
@@ -363,6 +368,8 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             self._embedding_lj.QMin.resources["scratchdir"] = expand_path(
                 os.path.join(self.QMin.resources["scratchdir"], "embedding_lj")
             )
+
+        # Save list of nuclear charges for cube generation
         atom_charges = []
         for frag in self.frags:
             atom_charges.append([NUMBERS[a] for a in frag.QMin.molecule["elements"]])
@@ -373,6 +380,7 @@ class SHARC_FRENKEL(SHARC_HYBRID):
         # Set coords for fragments
         for atoms, child in zip(self._atoms, self._kindergarden.values()):
             if pc:
+                # TODO: wrong, can be file, need to append to embedding
                 child.set_coords(xyz * self.QMin.molecule["factor"], pc)
                 continue
             child.set_coords(self.QMin.coords["coords"][atoms], pc)
@@ -424,7 +432,6 @@ class SHARC_FRENKEL(SHARC_HYBRID):
                 child.set_pccharges(embedding_charges[~atoms])
                 child.set_coords(self.QMin.coords["coords"][~atoms, :], True)
                 child.QMin.molecule["point_charges"] = True
-                # TODO: add external pc
         if self._embedding_lj and self.QMin.requests["grad"]:
             self._embedding_lj.run()
         self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
