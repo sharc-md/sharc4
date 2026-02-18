@@ -49,7 +49,6 @@ void get_states_(char * string);
 void get_charges_(char * string);
 void get_retain_(char *string);
 void get_dt_(char * string);
-void get_savedir_(char * string);
 void get_tasks_(char * string, int * icall);
 void get_grad_mode_(int *icall, int8_t *mode);
 void fill_grad_mask_(int *nstates, uint64_t *words);
@@ -57,7 +56,6 @@ void get_nacdr_mode_(int *icall, int8_t *mode);
 void fill_nacdr_mask_(int *nstates, uint64_t *words);
 void get_tasks_mask_(int32_t *step, int *icall, uint64_t *mask);
 void get_scalingfactor_(double * scale, double * soc_scale);
-void get_constants_(double * consts);
 // Molecule info
 void get_natoms_(int * natoms);
 void get_nsteps_(int * nsteps);
@@ -95,7 +93,6 @@ void initial_qm_post_(void);
 // SHARC MAIN ROUTINE
 void setup_sharc_(char * input, int * IRestart);
 void initial_step_(int * IRestart);
-void do_initial_step_2(void);
 void verlet_xstep_(int * i_step);
 void verlet_vstep_(int * iredo, int * pysharc);
 void verlet_finalize_(int * IExit, int * iskip);
@@ -104,5 +101,4 @@ void write_restart_(void);
 void error_finalize_sharc_(char * string);
 #ifdef __cplusplus
 }
-#endif
 #endif

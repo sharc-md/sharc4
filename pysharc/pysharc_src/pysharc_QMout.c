@@ -92,11 +92,7 @@ QMout_new(PyTypeObject * type, PyObject *args, PyObject *kwds)
         self->iset_o = 0;
         self->iset_phases = 0;
         self->iset_nacdr = 0;
-#ifdef __OWN_SPACE_QMout__
-        self->imem = 0;
-#else 
         self->imem = 1;
-#endif
     }
 
     return (PyObject *)self;
@@ -122,30 +118,6 @@ QMout_init(QMout *self, PyObject *args, PyObject *kwds)
         Py_XDECREF(tmp);
     }
 
-#ifdef __OWN_SPACE_QMout__
-    /* Allocate memory for the properties ! */
-    self->gradient= (double *)malloc(self->NStates
-             * self->NAtoms * 3 * sizeof(double));
-    /* these are huge data chuncks, keep that in mind! */
-    self->nacdr = (double *)malloc(self->NStates * self->NStates
-             * self->NAtoms * 3 * sizeof(double));
-    self->hamiltonian = (double complex *) malloc(self->NStates
-             * self->NStates * sizeof(double complex));
-    self->dipole_mom= (double complex *) malloc(3 * self->NStates
-             * self->NStates * sizeof(double complex));
-    self->overlap = (double complex *) malloc(self->NStates
-             * self->NStates * sizeof(double complex));
-    self->phases = (double complex *) malloc(self->NStates
-             * sizeof(double complex));
-    /* if fail goto fail */
-    if ( (self->hamiltonian == NULL) ||
-         (self->gradient== NULL)     ||
-         (self->dipole_mom == NULL)  ||
-         (self->overlap == NULL)     ||
-         (self->phases == NULL) ) {
-            goto fail;
-    }
-#else
     double complex ** H_ptr = &self->hamiltonian;
     double complex ** DM_ptr = &self->dipole_mom;
     double complex ** Ov_ptr = &self->overlap;
@@ -158,7 +130,6 @@ QMout_init(QMout *self, PyObject *args, PyObject *kwds)
                  (double complex **)phases_ptr, 
                  (double **)G_ptr, 
                  (double **)NACDR_ptr);
-#endif
 
     //set_phases_();
     return 0;
@@ -175,95 +146,6 @@ static PyMemberDef QMout_members[] = {
     {NULL}  /* Sentinel */
 };
 
-static PyObject *
-QMout_printInfo(QMout * self)
-{
-#if PY_MAJOR_VERSION < 3 
-    printf("QMout file for Interface: '%s'\n", PyString_AsString(self->interface_name));
-    printf("NAtoms = %d\nNStates = %d\n", self->NAtoms, self->NStates);
-#endif
-
-    for (int istate=0; istate < self->NStates; istate++){
-        printf("Gradient of state '%d'\n", istate);
-        for (int iatom=0; iatom <  self->NAtoms; iatom++){
-            printf("Atoms '%d' : ", iatom);
-            for( int ixyz=0; ixyz < 3; ixyz++){
-                printf("%lf  ", *(self->gradient + istate*(self->NAtoms*3) + iatom*3 + ixyz));
-            }
-            printf("\n");
-        }
-    }
-
-
-    Py_RETURN_NONE;
-}
-
-static PyObject *
-QMout_printAll(QMout * self)
-{
-#if PY_MAJOR_VERSION < 3 
-    printf("QMout file for Interface: '%s'\n", PyString_AsString(self->interface_name));
-    printf("NAtoms = %d\nNStates = %d\n", self->NAtoms, self->NStates);
-#endif
-
-    if (self->iset_h == 1) {
-        printf("HAMILTONIAN\n");
-        for (int istate=0; istate < self->NStates; istate++){
-            for (int jstate=0; jstate <  self->NStates; jstate++){
-                    double complex value = *(self->hamiltonian + istate*(self->NStates) + jstate);
-                    printf("%lf + %lf * i    ", creal(value), cimag(value));
-            }
-            printf("\n");
-        }
-    }
-    if (self->iset_g == 1){
-        printf("Gradients\n");
-        for (int istate=0; istate < self->NStates; istate++){
-            printf("Gradient of state '%d'\n", istate);
-            for (int iatom=0; iatom <  self->NAtoms; iatom++){
-                printf("Atoms '%d' : ", iatom);
-                for( int ixyz=0; ixyz < 3; ixyz++){
-                    printf("%lf  ", *(self->gradient + istate*(self->NAtoms*3) + iatom*3 + ixyz));
-                }
-                printf("\n");
-            }
-        }
-    }
-
-    if (self->iset_d == 1) {
-        printf("DM\n");
-        for (int k=0; k < 3; k++){
-            printf("DM xyz = '%d'", k);
-            for (int istate=0; istate < self->NStates; istate++){
-                for (int jstate=0; jstate <  self->NStates; jstate++){
-                        double complex value = *(self->dipole_mom + istate*(self->NStates) + jstate);
-                        printf("%lf + %lf * i    ", creal(value), cimag(value));
-                }
-                printf("\n");
-            }
-        }
-    }
-
-    if (self->iset_o == 1) {
-        printf("OVERLAP\n");
-        for (int istate=0; istate < self->NStates; istate++){
-            for (int jstate=0; jstate <  self->NStates; jstate++){
-                    double complex value = *(self->overlap + istate*(self->NStates) + jstate);
-                    printf("%lf + %lf * i    ", creal(value), cimag(value));
-            }
-            printf("\n");
-        }
-    }
-
-    if (self->iset_phases == 1) {
-        printf("PHASES:\n");
-        for (int i = 0; i < self->NStates; i++) {
-            printf("Phase[%d] = %lf + %lf i\n", i, creal(self->phases[i]), cimag(self->phases[i]));
-        }
-    }
-
-    Py_RETURN_NONE;
-}
 
 static PyObject *
 QMout_set_gradient(QMout * self, PyObject * args)
@@ -306,12 +188,8 @@ QMout_set_gradient(QMout * self, PyObject * args)
             }
         }
         /* set state gradient */
-#ifdef __OWN_SPACE_QMout__
-        set_gradient(self->gradient, self->NAtoms, IState, state_gradient, scale);
-#else
         set_gradient_in_sharc_order(self->gradient, 
                 self->NAtoms, self->NStates, IState, state_gradient, scale);
-#endif
     }
     /* free memory */
     free(state_gradient);
@@ -578,9 +456,6 @@ QMout_set_phases(QMout * self, PyObject * args)
     
     self->iset_phases = 1;
     Py_RETURN_NONE;
-    fail:
-       Py_XDECREF(phases);
-       return NULL;
 }
 
 static PyObject *
@@ -727,10 +602,6 @@ static PyMethodDef QMout_methods[] = {
      "enters dict of dics nacs[istate][jstate] = [NAtoms][3], type: float  "},
     {"set_nacdr_full_array", (PyCFunction)QMout_set_nacdr_full_array, METH_VARARGS,
      "nacdr ndarray [nstates][nstates][NAtoms][3], dtype: float  "},
-    {"printInfos", (PyCFunction)QMout_printInfo, METH_NOARGS,
-        "print info about system" },
-    {"printAll", (PyCFunction)QMout_printAll, METH_NOARGS,
-        "print info about system" },
     {NULL}  /* Sentinel */
 };
 

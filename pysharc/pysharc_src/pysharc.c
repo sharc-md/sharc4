@@ -52,44 +52,7 @@
 #include "libsharc.h"
 #include "python_2_3.h"
 
-// pysharc.h
-PyObject * get_atomid(void);
-//PyObject * get_atom_names(void);
-
 /*********************** GET INFO ********************************************/
-
-/* get constants */
-static char get_constants_docstring[] =
-    "get_contstans()\n\
-    :return: dict";
-
-static PyObject * get_constants(PyObject * self)
-{
-
-    PyObject * dct;
-
-    int NConsts = 6;
-    char * const_names[] =
-        {"au2a", "au2fs", "au2u", "au2rcm", "au2eV", "au2debye"};
-
-    double * consts;
-    consts = (double *)malloc(NConsts * sizeof(double));
-
-    get_constants_(consts);
-
-    dct = PyDict_New();
-
-    for (int i=0; i < NConsts; i++) {
-        PyObject * pyfloat = PyFloat_FromDouble(consts[i]);
-        if (pyfloat == NULL) {
-            return NULL;
-        }
-        PyDict_SetItemString(dct, const_names[i], pyfloat);
-    }
-    free(consts);
-
-    return dct;
-}
 
 /* get current atomid */
 PyObject * get_atomid(void)
@@ -164,11 +127,11 @@ static char get_basic_info_docstring[] =
 
 static PyObject * get_basic_info(PyObject * self)
 {
-    int N_func_str = 5;
+    int N_func_str = 4;
     char * info_names_str [] =
-    { "states", "charge", "dt", "savedir", "retain" } ;
+    { "states", "charge", "dt", "retain" } ;
     void (*get_info_str []) (char *) =
-    { get_states_, get_charges_, get_dt_, get_savedir_, get_retain_ };
+    { get_states_, get_charges_, get_dt_, get_retain_ };
 
     int N_func_int = 3;
     char * info_names_int [] =
@@ -471,7 +434,6 @@ static PyMethodDef SHARC_METHODS[] = {
     /* QMout */
     {"set_qmout", (PyCFunction)set_qmout, METH_VARARGS, set_qmout_docstring},
     /* GET INFO  */
-    {"get_constants", (PyCFunction)get_constants, METH_NOARGS, get_constants_docstring},
     {"get_basic_info", (PyCFunction)get_basic_info, METH_NOARGS, get_basic_info_docstring},
     {"get_all_tasks", (PyCFunction)get_all_tasks, METH_VARARGS, get_all_tasks_docstring},
     {"get_crd", (PyCFunction)get_current_coordinates, METH_VARARGS, get_current_coordinates_docstring},

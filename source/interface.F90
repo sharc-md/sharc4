@@ -268,36 +268,6 @@ end subroutine get_current_velocities
 
 ! ------------------------------------------------------
 
-subroutine get_IPrint(IPrint)
-    use definitions, only: printlevel
-    implicit none
-
-    __INT__, intent(out) :: IPrint
-
-    IPrint = printlevel
-
-    return
-end subroutine get_IPrint
-
-! ------------------------------------------------------
-
-subroutine get_Constants(consts)
-    use definitions, only: au2a, au2fs, au2u, au2rcm, &
-        au2eV, au2debye
-    implicit none
-
-    __REAL__, dimension(6), intent(out) :: consts
-
-    consts(1) = au2a       !< length
-    consts(2) = au2fs      !< time
-    consts(3) = au2u       !< mass
-    consts(4) = au2rcm     !< energy
-    consts(5) = au2eV      !< energy
-    consts(6) = au2debye   !< energy
-    return
-
-end subroutine
-
 !C ****************************************************************************
 !C
 !C  SHARC funtions to getQMin INFOS 
@@ -364,24 +334,6 @@ subroutine get_dt(string)
     string = ""
     write(string,'(a,1x,I7,a)') 'step',traj%step, CHAR(0)
     
-endsubroutine
-
-! ------------------------------------------------------
-
-subroutine get_Savedir(string)
-!C
-!C 
-!C
-    implicit none
-    __C_OUT_STRING_S_ :: string
-    character(len=256) :: cwd
-
-    call getcwd(cwd)
-
-    string = ""
-    write(string,'(A)') trim(cwd)//'/restart' // CHAR(0)
-    
-    return
 endsubroutine
 
 ! ------------------------------------------------------
