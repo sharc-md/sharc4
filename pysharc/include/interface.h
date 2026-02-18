@@ -51,8 +51,11 @@ void get_retain_(char *string);
 void get_dt_(char * string);
 void get_savedir_(char * string);
 void get_tasks_(char * string, int * icall);
-void get_grad_(char * string, int * icall);
-void get_nacdr_(char * string, int * icall);
+void get_grad_mode_(int *icall, int8_t *mode);
+void fill_grad_mask_(int *nstates, uint64_t *words);
+void get_nacdr_mode_(int *icall, int8_t *mode);
+void fill_nacdr_mask_(int *nstates, uint64_t *words);
+void get_tasks_mask_(int32_t *step, int *icall, uint64_t *mask);
 void get_scalingfactor_(double * scale, double * soc_scale);
 void get_constants_(double * consts);
 // Molecule info
