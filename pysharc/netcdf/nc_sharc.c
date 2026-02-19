@@ -28,7 +28,6 @@
 #define INATOMS 1
 #define ISPATIAL 2
 
-// -----NEWLORENZ-----
 #define TRACE_INQ_VAR(ncfile, varname, varidptr) \
     do { \
         int _iret = nc_inq_varid((ncfile), (varname), (varidptr)); \
@@ -39,7 +38,6 @@
             printf("DEBUG: nc_inq_varid('%s') OK -> id=%d\n", (varname), *(varidptr)); \
         } \
     } while (0)
-// -------------ENDLORENZ-----------
 
 void
 write_sharc_ncoutputdat_init_()
@@ -362,23 +360,6 @@ read_sharc_ncoutputdat_istep_(
         TRACE_INQ_VAR(ncdat->id, "state_MCH", &ncdat->state_MCH_id);
         TRACE_INQ_VAR(ncdat->id, "time_step", &ncdat->time_step_id);
 
-        // check_nccall(iret, 
-        //         nc_inq_varid(ncdat->id, "H_MCH", &ncdat->H_MCH_id)
-        // );
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "U", &ncdat->U_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "Ovlap", &ncdat->overlaps_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "DM", &ncdat->DM_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "MDM", &ncdat->MDM_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "EQM", &ncdat->EQM_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "coeff_diag", &ncdat->coeff_diag_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "hopprob", &ncdat->hopprop_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "Energy", &ncdat->e_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "geom", &ncdat->crd_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "veloc", &ncdat->veloc_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "randnum", &ncdat->randnum_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "state_diag", &ncdat->state_diag_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "state_MCH", &ncdat->state_MCH_id));
-        // check_nccall(iret, nc_inq_varid(ncdat->id, "time_step", &ncdat->time_step_id));
     }
 
    size_t start[5] = {*istep, 0, 0, 0, 0};

@@ -151,6 +151,8 @@ QMout_init(QMout *self, PyObject *args, PyObject *kwds)
              * self->NStates * sizeof(double complex));
     self->overlap = (double complex *) malloc(self->NStates
              * self->NStates * sizeof(double complex));
+    self->phases = (double complex *) malloc(self->NStates
+         * sizeof(double complex));
     /* if fail goto fail */
     if ( (self->hamiltonian == NULL) ||
          (self->gradient== NULL)     ||
@@ -252,13 +254,12 @@ QMout_printAll(QMout * self)
 
     if (self->iset_d == 1) {
         printf("DM\n");
-        fprintf(stdout, "STARTED!\n");
         for (int k=0; k < 3; k++){
             printf("DM xyz = '%d'", k);
             for (int istate=0; istate < self->NStates; istate++){
                 for (int jstate=0; jstate <  self->NStates; jstate++){
                         double complex value = *(self->dipole_mom + istate*(self->NStates) + jstate);
-                        printf("%lf + %lf * i    ", creal(value), cimag(value));
+                        /*printf("%lf + %lf * i    ", creal(value), cimag(value));*/
                 }
                 printf("\n");
             }
@@ -272,7 +273,7 @@ QMout_printAll(QMout * self)
             for (int istate=0; istate < self->NStates; istate++){
                 for (int jstate=0; jstate <  self->NStates; jstate++){
                         double complex value = *(self->mag_dip_mom + istate*(self->NStates) + jstate);
-                        printf("%lf + %lf * i    ", creal(value), cimag(value));
+                        /*printf("%lf + %lf * i    ", creal(value), cimag(value));*/
                 }
                 printf("\n");
             }
@@ -288,7 +289,7 @@ QMout_printAll(QMout * self)
                 for (int istate=0; istate < self->NStates; istate++){
                     for (int jstate=0; jstate <  self->NStates; jstate++){
                             double complex value = *(self->el_quad_mom + istate*(self->NStates) + jstate);
-                            printf("%lf + %lf * i    ", creal(value), cimag(value));
+                            /*printf("%lf + %lf * i    ", creal(value), cimag(value));*/
                     }
                     printf("\n");
                 }
@@ -301,7 +302,7 @@ QMout_printAll(QMout * self)
         for (int istate=0; istate < self->NStates; istate++){
             for (int jstate=0; jstate <  self->NStates; jstate++){
                     double complex value = *(self->overlap + istate*(self->NStates) + jstate);
-                    printf("%lf + %lf * i    ", creal(value), cimag(value));
+                    /*printf("%lf + %lf * i    ", creal(value), cimag(value));*/
             }
             printf("\n");
         }

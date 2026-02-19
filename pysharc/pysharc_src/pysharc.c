@@ -86,10 +86,8 @@ static PyObject * get_constants(PyObject * self)
         }
         PyDict_SetItemString(dct, const_names[i], pyfloat);
     }
-    printf("TESTCONSTA");
     free(consts);
 
-    printf("TESTCONSTB");
     return dct;
 }
 
@@ -268,9 +266,11 @@ static PyObject * get_basic_info(PyObject * self)
         free(string);
         Py_XDECREF(dct);
         return NULL;
+
     fail_int:
         Py_XDECREF(dct);
         return NULL;
+
 }
 
 
