@@ -281,7 +281,7 @@ def displaywelcome():
 # ======================================================================= #
 
 
-def run_data_extractor(setupstate_list, INFOS):
+def run_data_extractor(initstate, INFOS):
     """
     Extract output.dat in every TRAJ folder for every setupstate
     """
@@ -627,6 +627,10 @@ def read_coeff(INFOS, setup_statelist, exc_list):
 #             row += [f"{exc_list[k, 0]:.12e}"] 
 #             f.write("".join(s.rjust(20) for s in row) + "\n")
 
+def write_probabilities(rho, initlist, exc_list, INFOS):
+    pmax, pleave_arr = compute_max_prob(INFOS, rho)
+    n_states = sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))
+    n_trajs = len(INFOS["icond_sel"])
 
 def writeoutput(setupstate_initlist, INFOS):
     for idx_setupstate, setupstate in enumerate(setupstate_initlist): 

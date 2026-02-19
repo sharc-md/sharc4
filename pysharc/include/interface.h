@@ -67,6 +67,7 @@ void get_nsteps_(int * nsteps);
 void get_trajstep_(int * nsteps);
 // GET COORDINATES
 void get_current_coordinates_(int * NAtoms,double * Crd, int * Ang);
+void get_current_velocities_(int * Natoms, double * Crd);
 void get_element_name_(int * NAtoms, char * value); 
 void get_ian_(int * NAtoms, int * IAn);
 // set pointer
@@ -79,6 +80,7 @@ void setPointers(double complex ** H, double complex ** dm,
                  double ** nacs 
                  );
 void setQMinPointers(double ** Crd);
+void setQMinPointers_vel(double ** Crd);
 void postprocess_qmout_data_(int * IH, int * IDM,
                              int * IMDM,
                              int * IEQM,

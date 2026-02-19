@@ -174,10 +174,11 @@ module definitions
     real*8,allocatable :: mass_a(:)                        !< atomic mass in a.u. (1 a.u. = rest mass of electron m_e)
 #ifdef __PYSHARC__
     real*8,pointer :: geom_ad(:,:)                         !< Cartesian coordinates of atom in a.u. (bohr)
+    real*8,pointer :: veloc_ad(:,:)                    !< Cartesian velocity in a.u. (bohr/atu)
 #else
     real*8,allocatable :: geom_ad(:,:)                     !< Cartesian coordinates of atom in a.u. (bohr)
-#endif
     real*8,allocatable :: veloc_ad(:,:)                    !< Cartesian velocity in a.u. (bohr/atu)
+#endif
     real*8,allocatable :: veloc_old_ad(:,:)                !< Cartesian velocity in a.u. (bohr/atu) of last timestep
     real*8,allocatable :: veloc_app_ad(:,:)                !< Forward verlet approximated Cartesian velocity in a.u. (bohr/atu)
   
@@ -1200,6 +1201,7 @@ module definitions
       if (associated(traj%grad_MCH_sad))              deallocate(traj%grad_MCH_sad)
       if (associated(traj%NACdR_ssad))                deallocate(traj%NACdR_ssad)
       if (associated(traj%geom_ad))                   deallocate(traj%geom_ad)
+      if (associated(traj%veloc_ad))                   deallocate(traj%veloc_ad)
 #else
       if (allocated(traj%H_MCH_ss))                   deallocate(traj%H_MCH_ss)
       if (allocated(traj%DM_ssd))                     deallocate(traj%DM_ssd)
@@ -1210,12 +1212,12 @@ module definitions
       if (allocated(traj%grad_MCH_sad))               deallocate(traj%grad_MCH_sad)
       if (allocated(traj%NACdR_ssad))                 deallocate(traj%NACdR_ssad)
       if (allocated(traj%geom_ad))                    deallocate(traj%geom_ad)
+      if (allocated(traj%veloc_ad))                   deallocate(traj%veloc_ad)
 #endif
   
       if (allocated(traj%atomicnumber_a))             deallocate(traj%atomicnumber_a)
       if (allocated(traj%element_a))                  deallocate(traj%element_a)
       if (allocated(traj%mass_a))                     deallocate(traj%mass_a)
-      if (allocated(traj%veloc_ad))                   deallocate(traj%veloc_ad)
       if (allocated(traj%veloc_old_ad))               deallocate(traj%veloc_old_ad)
       if (allocated(traj%veloc_app_ad))               deallocate(traj%veloc_app_ad)
       if (allocated(traj%accel_ad))                   deallocate(traj%accel_ad)
@@ -1341,6 +1343,7 @@ module definitions
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    associated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      associated(traj%NACdR_ssad      )
       write(u,'(A20,1X,L1)') 'geom_ad',         associated(traj%geom_ad         )
+      write(u,'(A20,1X,L1)') 'veloc_ad',        associated(traj%veloc_ad        )
 #else
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        allocated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
@@ -1351,13 +1354,13 @@ module definitions
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    allocated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      allocated(traj%NACdR_ssad      )
       write(u,'(A20,1X,L1)') 'geom_ad',         allocated(traj%geom_ad         )
+      write(u,'(A20,1X,L1)') 'veloc_ad',        allocated(traj%veloc_ad        )
 #endif
   
   
       write(u,'(A20,1X,L1)') 'atomicnumber_a',  allocated(traj%atomicnumber_a  )
       write(u,'(A20,1X,L1)') 'element_a',       allocated(traj%element_a       )
       write(u,'(A20,1X,L1)') 'mass_a',          allocated(traj%mass_a          )
-      write(u,'(A20,1X,L1)') 'veloc_ad',        allocated(traj%veloc_ad        )
       write(u,'(A20,1X,L1)') 'veloc_old_ad',    allocated(traj%veloc_old_ad    )
       write(u,'(A20,1X,L1)') 'veloc_app_ad',    allocated(traj%veloc_app_ad    )
       write(u,'(A20,1X,L1)') 'accel_ad',        allocated(traj%accel_ad        )

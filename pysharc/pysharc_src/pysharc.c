@@ -181,6 +181,22 @@ static PyArrayObject * get_current_coordinates(PyObject * self, PyObject * args)
 
     return Crd;
 }
+static char get_current_velocities_docstring[] =
+    "get_current_velocities()\n\
+    :return: lst";
+
+static PyArrayObject * get_current_velocities(PyObject * self, PyObject * args)
+{
+    int Natoms = 0;
+    get_natoms_(&Natoms);
+
+    const npy_intp dims[] = {Natoms, 3};
+    PyArrayObject * Crd = ((PyArrayObject *)PyArray_ZEROS(2, dims, NPY_FLOAT64, 0));
+    double * data = ((double *)PyArray_DATA(Crd));
+    get_current_velocities_(&Natoms, data);
+
+    return Crd;
+}
 
 
 /* get_basic_info */
@@ -283,8 +299,7 @@ static PyObject * get_all_tasks(PyObject * self, PyObject * args)
         return NULL;
 
     dct = PyDict_New();
-
-    string = (char *)malloc(STRING_SIZE_XL_*sizeof(char));
+    string = (char *)malloc((size_t)STRING_SIZE_XL_ + 1);
     for (int i=0; i < N_func; i++) {
         get_task_str[i](string, &icall);
         PyObject * pystring = PyString_FromString(string);
@@ -462,6 +477,7 @@ static PyMethodDef SHARC_METHODS[] = {
     {"get_tasks", (PyCFunction)get_tasks, METH_VARARGS, get_tasks_docstring},
     {"get_all_tasks", (PyCFunction)get_all_tasks, METH_VARARGS, get_all_tasks_docstring},
     {"get_crd", (PyCFunction)get_current_coordinates, METH_VARARGS, get_current_coordinates_docstring},
+    {"get_vel", (PyCFunction)get_current_velocities, METH_VARARGS, get_current_velocities_docstring},
     /* sharc initial qm */
     {"initial_qm_pre", (PyCFunction)initial_qm_pre, METH_NOARGS, initial_qm_pre_docstring},
     {"initial_qm_post", (PyCFunction)initial_qm_post, METH_NOARGS, initial_qm_post_docstring},

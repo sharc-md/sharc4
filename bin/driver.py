@@ -26,9 +26,8 @@
 # IMPORTS
 # EXTERNAL
 import time
-import os
 import numpy as np
-from typing import Any, Union
+from typing import Any
 from optparse import OptionParser
 from importlib import import_module
 import inspect
@@ -45,7 +44,7 @@ except:
 from SHARC_INTERFACE import SHARC_INTERFACE
 from qmout import QMout
 from error import Error
-from utils import list2dict, InDir
+from utils import InDir
 from logger import log, loglevel as loglevel_env
 
 
@@ -66,14 +65,6 @@ class QMOUT:
     def set_dipolemoment(self, dip: list[list[list[Union[complex, float]]]]):
         log.debug(f"{type(dip)}")
         self._QMout.set_dipolemoment(dip)
-
-    def set_mag_dipolemoment(self, mag_dip: list[list[list[Union[complex, float]]]]):
-        log.debug(f"{type(mag_dip)}")
-        self._QMout.set_mag_dipolemoment(mag_dip)
-
-    def set_el_quadrupolemoment(self, el_quad: list[list[list[Union[complex, float]]]]):
-        log.debug(f"{type(el_quad)}")
-        self._QMout.set_el_quadrupolemoment(el_quad)
 
     def set_overlap(self, ovl: list[list[Union[float, complex]]]):
         log.debug(f"{type(ovl)}")
@@ -99,45 +90,26 @@ class QMOUT:
         if icall == 1:
             log.debug("setting h and dm")
             if "h" in data:
-                self._QMout.set_hamiltonian(data["h"])
+                self._QMout.set_hamiltonian(np.asfortranarray(data["h"]))
             if "dm" in data:
-                self._QMout.set_dipolemoment(data["dm"])
+                self._QMout.set_dipolemoment(np.asfortranarraydata(["dm"]))
                 log.debug("setting dm")
             if "mdm" in data:
-                self._QMout.set_mag_dipolemoment(data["mdm"])
+                self._QMout.set_mag_dipolemoment(np.asfortranarraydata(data["mdm"]))
                 log.debug("setting mdm")
             if "eqm" in data:
-                self._QMout.set_el_quadrupolemoment(data["eqm"])
+                self._QMout.set_el_quadrupolemoment(np.asfortranarraydata(data["eqm"]))
                 log.debug("setting eqm")
         if "overlap" in data:
             # assumes type is numpy array
-            self._QMout.set_overlap(data["overlap"])
+            self._QMout.set_overlap(np.asfortranarray(data["overlap"]))
         if "phases" in data:
             # assumes type is numpy array
-            self._QMout.set_phases(data["phases"])
+            self._QMout.set_phases(np.asfortranarray(data["phases"]))
         if "grad" in data:
-            if isinstance(data["grad"], list):
-                self._QMout.set_gradient(list2dict(data["grad"]), icall)
-            elif data["grad"] is None:
-                self._QMout.set_gradient({}, icall)
-            elif isinstance(data["grad"], np.ndarray):
-                self._QMout.set_gradient_full_array(data["grad"])
-            else:
-                raise RuntimeError
+            self._QMout.set_gradient_full_array(np.asfortranarray(data["grad"]))
         if "nacdr" in data:
-            if isinstance(data["nacdr"], dict):
-                self._QMout.set_nacdr(data["nacdr"], icall)
-            elif isinstance(data["nacdr"], list):
-                nacdr = {}
-                for i, ele in enumerate(data["nacdr"]):
-                    nacdr[i] = list2dict(ele)
-                self._QMout.set_nacdr(nacdr, icall)
-            elif isinstance(data["nacdr"], np.ndarray):
-                self._QMout.set_nacdr_full_array(data["nacdr"])
-            else:
-                raise RuntimeError
-
-        return
+            self._QMout.set_nacdr_full_array(np.asfortranarray(data["nacdr"]))
 
 
 def setup_sharc(inp_file: str) -> int:
@@ -172,6 +144,10 @@ def get_all_tasks(icall: int) -> dict:
 def get_crd(unit: int = 0) -> list[list[float]]:
     """returns coordinates in specified unit (0 = Bohr, 1 = Angstrom)"""
     return sharc.get_crd(unit)
+
+def get_vel() -> np.ndarray:
+    """returns velocities"""
+    return sharc.get_vel()
 
 
 def initial_qm_pre():
@@ -216,6 +192,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     i.read_requests(get_all_tasks(icall))
     log.debug(f"\tcoords")
     i.set_coords(get_crd())
+    i.set_veloc(get_vel())
     with InDir("QM"):
         log.debug(f"\trun")
         safe(i.run)

@@ -1636,6 +1636,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             INFOS["thermostat_temp"] = question("Please specify the desired temperature in Kelvin:", float, default=[298.15])[0]
             if INFOS["thermostat"] == "langevin":
                 INFOS["thermostat_rng"] = question("Please enter an rng seed:", int, default=[1234])[0]
+                INFOS["thermostat_rng_obj"] = random.Random(INFOS["thermostat_rng"])
                 INFOS["thermostat_friction"] = question("Please enter the friction coefficient [fs^-1]:", float, default=[0.02])[0]
                 log.debug("regions not implemented")
                 # if question("Do you want to use ", bool, False)
@@ -2197,7 +2198,10 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
         s += f"thermostat {INFOS['thermostat']}\n"
         s += f"temperature {INFOS['thermostat_temp']:.2f}\n"
         if INFOS["thermostat"] == "langevin":
-            s += f"rngseed_thermostat {INFOS['thermostat_rng']}\n"
+            # s += f"rngseed_thermostat {INFOS['thermostat_rng']}\n"
+            tseed = INFOS["thermostat_rng_obj"].getrandbits(32)
+            tseed = tseed if tseed < 2**31 else tseed - 2**32
+            s += f"rngseed_thermostat {tseed}\n"
             s += f"thermostat_const {INFOS['thermostat_friction']}\n"
         s += "\n"
 
@@ -2314,9 +2318,9 @@ def writeRunscript(INFOS, iconddir, interface):
         log.info("IOError during writeRunscript, iconddir=%s" % (iconddir))
         quit(1)
     if "proj" in INFOS:
-        projname = "%4s_%5s" % (INFOS["proj"][0:4], iconddir[-6:-1])
+        projname = "%4s_%5s" % (INFOS["proj"][0:4], iconddir[-5:])
     else:
-        projname = "traj_%5s" % (iconddir[-6:-1])
+        projname = "traj_%5s" % (iconddir[-5:])
 
     # ================================
     intstring = ""

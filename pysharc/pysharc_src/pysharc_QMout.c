@@ -458,7 +458,7 @@ QMout_set_hamiltonian(QMout * self, PyObject * args)
      goto fail;
    }
    if (dim[0] != self->NStates || dim[1] != self->NStates) {
-     PyErr_SetString(PyExc_TypeError, "Input array must be of dim 3 x Nstates x Nstates!");
+     PyErr_SetString(PyExc_TypeError, "Input array must be of dim Nstates x Nstates!");
      goto fail;
    }
 

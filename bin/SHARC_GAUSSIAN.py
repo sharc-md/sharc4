@@ -1765,7 +1765,12 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     pccoords = self.QMin.coords['pccoords']
                     pccharge = self.QMin.coords['pccharge']
                     npc = len(pccharge) 
-                    Eexternal = sum( [ pccharge[a]*pccharge[b]/np.linalg.norm( pccoords[a,:] - pccoords[b,:] ) for a in range(npc) for b in range(a+1,npc) ] )
+                    Eexternal = 0.0
+                    for a in range(npc - 1):
+                        d = pccoords[a+1:] - pccoords[a]
+                        r = np.sqrt(np.einsum('ij,ij->i', d, d))
+                        Eexternal += pccharge[a] * np.dot(pccharge[a+1:], 1.0 / r)
+
                 else:
                     Eexternal = 0.
                 logfile = os.path.join(self.QMin.resources["scratchdir"], "master_%i/GAUSSIAN.log" % (job))
@@ -2546,7 +2551,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 s1, s2, mat = key
                 dens_type = list(self.density_recipes['read'][key][1])
                 # also means mat == 'aa' |'bb'
-                if any( [ k in dens_type for k in [ "Total CI Density", "Total SCF Density", "Spin CI Density", "Spin SCF Density" ] ] ):
+                if any( k in dens_type for k in [ "Total CI Density", "Total SCF Density", "Spin CI Density", "Spin SCF Density" ] ):
                     self.QMout['density_matrices'][key] = parsed_matrices[dens_type[0]]
                     #  print(' parsed rho = ', self.QMout['density_matrices'][key][0,0], id(self))
                 elif "G to E trans densities" in dens_type: 

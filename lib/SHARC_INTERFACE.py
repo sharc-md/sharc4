@@ -30,6 +30,7 @@ import ast
 import os
 import re
 import sys
+import uuid
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from datetime import date
@@ -37,16 +38,15 @@ from io import TextIOWrapper
 from socket import gethostname
 from textwrap import wrap
 from typing import Any
-import uuid
 
 import numpy as np
-
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS, IAn2AName
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
-from utils import batched, clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile
+from utils import (batched, clock, convert_list, electronic_state, expand_path,
+                   itnmstates, parse_xyz, readfile, writefile)
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -129,6 +129,8 @@ class SHARC_INTERFACE(ABC):
         # Define template keys
         self.QMin.template.update({"paddingstates": None})
         self.QMin.template.types.update({"paddingstates": list})
+
+        self._default_requests_data = QMin().requests.data
 
     def sharcprint(self, msg, *args, **kwargs):
         """
@@ -407,6 +409,25 @@ class SHARC_INTERFACE(ABC):
         else:
             raise NotImplementedError("'set_coords' is only implemented for str, list[list[float]] or numpy.ndarray type")
 
+        if not pc:
+            shape = self.QMin.coords["coords"].shape
+            assert shape[0] == self.QMin.molecule["natom"], "Number of coordinates does not match with natom."
+            assert shape[1] == 3 and len(shape) == 2, "Coordinates must be of shape Natom*3"
+
+    def set_veloc(self, xyz: np.ndarray | list) -> None:
+        """
+        Set velocities from array or list
+        xyz: N*3 array or list
+        """
+        self.QMin.coords["veloc"] = np.asarray(xyz)
+        shape = self.QMin.coords["veloc"].shape
+        assert shape[0] == self.QMin.molecule["natom"], "Number of velocities does not match with natom."
+        assert shape[1] == 3 and len(shape) == 2, "Velocities must be of shape Natom*3"
+
+    def set_pccharges(self, charges: list | np.ndarray) -> None:
+        self.QMin.coords["pccharge"] = charges
+        self.QMin.molecule["npc"] = len(charges)
+
     # ----- initialization routine -----
 
     def setup_mol(self, qmin_file: str | dict | QMin) -> None:
@@ -556,19 +577,7 @@ class SHARC_INTERFACE(ABC):
             self.log.warning(f"charge not specified setting default, {self.QMin.molecule['charge']}")
         else:
             # sanity check
-            if len(self.QMin.molecule["charge"]) == 1:
-                charge = int(self.QMin.molecule["charge"][0])
-                if (self.QMin.molecule["Atomcharge"] + charge) % 2 == 1 and len(self.QMin.molecule["states"]) > 1:
-                    self.log.info("HINT: Charge shifted by -1 to be compatible with multiplicities.")
-                    charge -= 1
-                self.QMin.molecule["charge"] = [i % 2 + charge for i in range(len(self.QMin.molecule["states"]))]
-                self.log.info(
-                    f'HINT: total charge per multiplicity automatically assigned, please check ({self.QMin.molecule["charge"]}).'
-                )
-                self.log.info(
-                    'You can set the charge in the QMin or input files manually for each multiplicity ("charge 0 +1 0 ...")'
-                )
-            elif len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
+            if len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
                 self.QMin.molecule["charge"] = [
                     int(self.QMin.molecule["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
                 ]
@@ -908,61 +917,68 @@ class SHARC_INTERFACE(ABC):
         Performs step logic
         """
         self.log.debug("Starting step logic")
-        self.QMin.save["init"] = False
-        self.QMin.save["samestep"] = False
-        self.QMin.save["newstep"] = False
-        # self.QMin.save["restart"] = False
+        save = self.QMin.save
+        save["init"] = False
+        save["samestep"] = False
+        save["newstep"] = False
 
-        # TODO: implement previous_step from driver
-        self.QMin.save.update({"newstep": False, "init": False, "samestep": False})
-        if self.persistent and "savedict" in self.__dict__ and "last_step" in self.savedict:
-            last_step = self.savedict["last_step"]
-        else:
-            last_step = None
-        stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
-        self.log.debug(f"{stepfile =}")
-        if (
-            os.path.isfile(stepfile) and last_step == None
-        ):  # if persistent, we should ignore a STEP file if it exists, because we don't write one every step
-            self.log.debug(f"Found stepfile {stepfile}")
-            last_step = int(readfile(stepfile)[0])
-        self.log.debug(f"{last_step =}, {self.QMin.save['step']=}")
+        last_step = None
+        if self.persistent:
+            sd = getattr(self, "savedict", None)
+            if sd is not None:
+                last_step = sd.get("last_step")
+        # Only consult STEP file if we still don't know last_step AND we are allowed to use it
+        if last_step is None and not self.persistent:
+            # use cached path if available
+            stepfile = getattr(self, "_stepfile", None)
+            if stepfile is None:
+                stepfile = os.path.join(save["savedir"], "STEP")
+                self._stepfile = stepfile
 
-        if self.QMin.save["step"] is None:
+            self.log.debug("stepfile=%s", stepfile)
+
+            # syscall only in this narrow case
+            if os.path.isfile(stepfile):
+                self.log.debug("Found stepfile %s", stepfile)
+                last_step = int(readfile(stepfile)[0])
+
+        self.log.debug(f"{last_step =}, {save['step']=}")
+
+        if save["step"] is None:
             if last_step is not None:
-                self.QMin.save["newstep"] = True
-                self.QMin.save["step"] = last_step + 1
+                save["newstep"] = True
+                save["step"] = last_step + 1
             else:
-                self.QMin.save["init"] = True
-                self.QMin.save["step"] = 0
+                save["init"] = True
+                save["step"] = 0
             return
 
         if last_step is None:
             assert (
-                self.QMin.save["step"] == 0
-            ), f'Specified step ({self.QMin.save["step"]}) could not be restarted from!\nCheck your savedir and "STEP" file in {self.QMin.save["savedir"]}'
-            self.QMin.save["init"] = True
-        elif self.QMin.save["step"] == -1:
-            self.QMin.save["newstep"] = True
-            self.QMin.save["step"] = last_step + 1
-        elif self.QMin.save["step"] == last_step:
-            self.QMin.save["samestep"] = True
-        elif self.QMin.save["step"] == last_step + 1:
-            self.QMin.save["newstep"] = True
+                save["step"] == 0
+            ), f'Specified step ({save["step"]}) could not be restarted from!\nCheck your savedir and "STEP" file in {save["savedir"]}'
+            save["init"] = True
+        elif save["step"] == -1:
+            save["newstep"] = True
+            save["step"] = last_step + 1
+        elif save["step"] == last_step:
+            save["samestep"] = True
+        elif save["step"] == last_step + 1:
+            save["newstep"] = True
         else:
             self.log.error(
-                f"""Determined last step ({last_step}) from savedir and specified step ({self.QMin.save["step"]}) do not fit!
+                f"""Determined last step ({last_step}) from savedir and specified step ({save['step']}) do not fit!
                 Prepare your savedir and "STEP" file accordingly before starting again or choose "step -1" if you want to proceed from last successful step!"""
             )
             raise RuntimeError()
 
     def _set_driver_requests(self, requests: dict) -> None:
-        requests_copy = deepcopy(requests)
+        requests_copy = requests.copy()
         # delete all old requests
         retain = self.QMin.requests["retain"]
-        self.QMin.requests = QMin().requests
+        self.QMin.requests.data = self._default_requests_data.copy()
         self.QMin.requests["retain"] = retain
-        self.log.debug(f"getting requests {requests}")
+        self.log.debug("getting requests %s", requests)
         # logic for raw tasks object from pysharc interface
         if "tasks" in requests_copy and isinstance(requests_copy["tasks"], str):
             # task is 'step n <keywords+space'
@@ -974,14 +990,14 @@ class SHARC_INTERFACE(ABC):
             self.log.debug(f"Setting step: {self.QMin.save['step']}")
             kw_requests = task_list[2:]
             for k in kw_requests:
-                if k.lower() in ["init", "samestep", "newstep", "restart"]:
+                if k.lower() in {"init", "samestep", "newstep", "restart"}:
                     self.log.warning(f"{k.lower()} is deprecated and will be ignored!")
                     continue
                 requests_copy[k.lower()] = True
             del requests_copy["tasks"]
         if "soc" in requests_copy and requests_copy["soc"]:
             requests_copy["h"] = True
-        for task in ["nacdr", "overlap", "grad", "ion"]:
+        for task in {"nacdr", "overlap", "grad", "ion"}:
             if task in requests_copy and isinstance(requests_copy[task], str):
                 if requests_copy[task] == "":  # removes task from dict if {'task': ''}
                     del requests_copy[task]
@@ -1006,9 +1022,9 @@ class SHARC_INTERFACE(ABC):
             for req in ["overlap", "phases"]:
                 if req in requests_copy:
                     requests_copy[req] = False
-        self.log.debug(f"setting requests {requests_copy}")
+        self.log.debug("setting requests %s", requests_copy)
         self.QMin.requests.update(requests_copy)
-        self.log.debug(f"Finished setting requests:\n{self.QMin.requests}")
+        self.log.debug("Finished setting requests:\n%s", self.QMin.requests)
         self._step_logic()
         self._request_logic()
 
@@ -1063,23 +1079,29 @@ class SHARC_INTERFACE(ABC):
         Checks for conflicting options, generates requested maps
         and sets path variables according to requests
         """
+        reqs = self.QMin.requests
+        save = self.QMin.save
         self.log.debug("Starting request logic")
 
-        if not os.path.isdir(self.QMin.save["savedir"]):
-            self.log.debug(f"Creating savedir {self.QMin.save['savedir']}")
-            os.mkdir(self.QMin.save["savedir"])
+        if not getattr(self, "_savedir_checked", False):
+            self._savedir_checked = True
+            self.log.debug(f"Creating savedir {save['savedir']}")
+            os.makedirs(save["savedir"], exist_ok=True)
 
-        self.log.debug(f'{self.name()}: step: {self.QMin.save["step"]}')
-        self.log.debug(
-            f'overlap: {self.QMin.requests["overlap"]}, phases: {self.QMin.requests["phases"]}, init: {self.QMin.save["init"]}'
-        )
+        if self.log.isEnabledFor(logging.DEBUG):
+            self.log.debug(f'{self.name()}: step: {save["step"]}')
+            self.log.debug(f'overlap: {reqs["overlap"]}, phases: {reqs["phases"]}, init: {save["init"]}')
         assert not (
-            (self.QMin.requests["overlap"] or self.QMin.requests["phases"]) and self.QMin.save["init"]
+            (reqs["overlap"] or reqs["phases"]) and save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
-        for req, val in self.QMin.requests.items():
-            if val and req != "retain" and req not in self.get_features():
-                self.log.error(f"Found unsupported request {req}, supported requests are {self.get_features()}")
+        supported = getattr(self, "_supported_features", None)
+        if supported is None:
+            supported = self._supported_features = self.get_features()
+
+        for req, val in reqs.data.items():
+            if val and req != "retain" and req not in supported:
+                self.log.error(f"Found unsupported request {req}, supported requests are {supported}")
                 raise ValueError()
 
     # ----- save routine -----
@@ -1092,16 +1114,6 @@ class SHARC_INTERFACE(ABC):
             return
         stepfile = os.path.join(self.QMin.save["savedir"], "STEP")
         writefile(stepfile, str(self.QMin.save["step"]))
-
-    # def update_step(self, step: int = None) -> None:
-    #     """
-    #     sets the step variable im QMin object or increments the current step by +1
-    #     should be called after a successful step
-    #     """
-    #     if step is None:
-    #         self.QMin.save["step"] += 1
-    #     else:
-    #         self.QMin.save["step"] = step
 
     # ----- print routine -----
 

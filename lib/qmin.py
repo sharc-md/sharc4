@@ -1,5 +1,3 @@
-
-
 # ******************************************
 #
 #    SHARC Program Suite
@@ -146,17 +144,19 @@ class QMinCoords(QMinBase):
 
         "coords": (np.ndarray, list),
         "pccoords": (np.ndarray, list),
-        "pccharge": (np.ndarray, list)
+        "pccharge": (np.ndarray, list),
+        "veloc": (np.ndarray), list
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Set data dictionary and dictionary of default types
-        self.data = {"coords": None, "pccoords": None, "pccharge": None}
+        self.data = {"coords": None, "pccoords": None, "pccharge": None, "veloc": None}
         self.types = {
             "coords": (np.ndarray, list),
             "pccoords": (np.ndarray, list),
             "pccharge": (np.ndarray, list),
+            "veloc": (np.ndarray, list),
         }
 
 
@@ -250,7 +250,7 @@ class QMinRequests(QMinBase):
             "molden": False,
             "savestuff": False,
             "nooverlap": False,
-            "mol": False,                   # does not match self.types!
+            "mol": False,  # does not match self.types!
             "density_matrices": None,
             "dyson_orbitals": None,
         }
