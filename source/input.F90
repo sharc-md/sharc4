@@ -1890,19 +1890,19 @@ module input
           stop 1
         endif
       endif
+       ---------------------
+      if (ctrl%laser_b==.false.) then
+        write(u_log,'(a)') 'Not writing magnetic dipole moments.'
+      else
+        write(u_log,'(a)') 'Writing magnetic dipole moments.'
+      endif
       ! ---------------------
-      !if (ctrl%laser_b==.false.) then
-      !  write(u_log,'(a)') 'Not writing magnetic dipole moments.'
-      !else
-      !  write(u_log,'(a)') 'Writing magnetic dipole moments.'
-      !endif
-      !! ---------------------
-      !if (ctrl%laser_egrad==.false.) then
-      !  write(u_log,'(a)') 'Not writing electric quadrupole moments.'
-      !else
-      !  write(u_log,'(a)') 'Writing electric quadrupole moments.'
-      !endif
-      !! ---------------------
+      if (ctrl%laser_egrad==.false.) then
+        write(u_log,'(a)') 'Not writing electric quadrupole moments.'
+      else
+        write(u_log,'(a)') 'Writing electric quadrupole moments.'
+      endif
+      ! ---------------------
       if (ctrl%write_NACdr==0) then
         write(u_log,'(a)') 'Not writing nonadiabatic couplings.'
       else
@@ -3367,17 +3367,6 @@ module input
               enddo
               read_shift=read_shift+18
             endif
-            ! BFIELD GRAD NOT IMPLEMENTED
-            ! if ((ctrl%laser_bgrad .EQV. .true.) then
-            !    do j=1,3
-            !      do k=1,3
-            !        read(values(6*(j-1)+2*k+read_shift),*) a
-            !        read(values(6*(j-1)+2*k+1+read_shift),*) b
-            !        ctrl%laserfield_bgrad_tpd(i-com_line_number,j,k)=dcmplx(a,b)
-            !      enddo
-            !   enddo
-            !   read_shift=read_shift+18
-            ! endif
             if ( ctrl%nlasers /= n - read_shift - 1) then
                 write(0,*) "Found conflicting number of lasers in line:", i, line
                 stop 1
@@ -3399,40 +3388,6 @@ module input
             ctrl%calc_dipole=1
           endif
         endif
-        !LORENZ: Continue wit reading in frequency file! 
-        !LASER ENERGY
-        ! do i=1, freq_line_number
-        !   read(u_i_laser_freq,'(A)',iostat=io_freq) line
-        !   if (io_freq/=0) then
-        !     write(0,*) 'EOF encountered during read of laser frequency file!'
-        !     stop 1
-        !   endif
-        !   if (i<=freq_com_line_number) then
-        !       cycle
-        !   else
-        !     call split(line,' ',values,n)
-        !     if ((i>=(freq_com_line_number+1)+1) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
-        !       write(0,*) 'Laser frequency file malformatted! Line=',i
-        !       stop 1
-        !     endif
-        !     read(values(1),*) a
-        !     if (i==1) then
-        !       if (dabs(a)>0.001d0) then
-        !         write(0,*) 'Laser frequency file must start at t=0 fs!'
-        !         stop 1
-        !       endif
-        !     endif
-        !     b=ctrl%dtstep/ctrl%nsubsteps
-        !     if ( dabs(a-b*(i-2-freq_com_line_number+1))>0.001d0) then 
-        !       write(0,*) 'Laser frequency spacing does not match substep spacing!'
-        !       stop 1
-        !     endif
-        !     do j=1,ctrl%nlasers
-        !       read(values(1+j),*) a
-        !       ctrl%laserenergy_tl(i-freq_com_line_number,j)=dcmplx(a,0.d0)
-        !     enddo
-        !   endif  
-        ! enddo
       else if (laser_file_version==1.0) then
         read(u_i_laser,'(A)',iostat=io) line 
         if (io/=0) then
@@ -3454,9 +3409,6 @@ module input
             stop 1
           endif
           call split(line,' ',values,n)
-          !if (values(1)=='!') then
-          !  read(values(1),*)
-          !endif
           if ((i>=10) .and. (n<8)) then
             write(0,*) 'Laser file malformatted! Line=',i
             stop 1

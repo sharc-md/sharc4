@@ -233,7 +233,6 @@ QMout_printAll(QMout * self)
         for (int istate=0; istate < self->NStates; istate++){
             for (int jstate=0; jstate <  self->NStates; jstate++){
                     double complex value = *(self->hamiltonian + istate*(self->NStates) + jstate);
-                    printf("%lf + %lf * i    ", creal(value), cimag(value));
             }
             printf("\n");
         }
@@ -683,10 +682,6 @@ QMout_set_overlap(QMout * self, PyObject * args)
 
    if (!PyArg_ParseTuple(args, "O", &overlap)){
         return NULL;
-   }
-
-   if (overlap == NULL) {
-      return NULL;
    }
 
     /* needs to be array */

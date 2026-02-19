@@ -92,7 +92,6 @@ class QMout:
             self.states = states
             self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
             self.nstates = sum(self.states)
-            log.info(f"init_states: {states}")
         if natom is not None:
             self.natom = natom
         if npc is not None:
@@ -165,7 +164,6 @@ class QMout:
                     else:
                         shape = [int(n) for n in re.search(r"\(((\d+x)+\d+)", line).group(1).split('x')]
                         block_length = reduce(lambda agg, x: agg*x, shape[:-1])
-                        #log.debug("TESTFLAG", line, block_length, shape)
                         if len(shape) > 2:
                             # block_length += shape[0] - 1
                             block_length += reduce(lambda agg, x: agg*x, shape[:-2]) - 1
@@ -268,7 +266,6 @@ class QMout:
                         self.runtime, iline = QMout.get_quantity(data, iline, float, ())
                     case 999: # notes
                         self.notes, iline = QMout.get_notes(data, iline)  
-                        break  # as we do not know how many lines the notes are, we are not reading the QM.out file after the notes
                     case _:
                         iline += 1
                         log.warning(f"Warning!: property with flag {flag} not yet implemented in QMout class")
@@ -336,35 +333,13 @@ class QMout:
                 for jblock in range(shape[1]):
                     for irow in range(shape[2]):
                         line = data[iline + irow].split()
-                        # log.info(TEST[iline, irow, shape])
-                        # log.info(TESTline)
                         if type == complex:
                             result[iblock, jblock, irow, :] = np.array(
                                 [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(shape[3])]
                             )
                         elif type == float:
                             result[iblock, jblock, irow, :] = np.array([float(line[i]) for i in range(shape[3])])
-                        #log.info("result")
-                        #log.info(result[iblock, jblock, irow, :])
                     iline += 1 + shape[2]
-        # elif len(targets[t]["dim"]) == 4:
-            # for iblocks in range(targets[t]["dim"][0]):
-                # sblock = []
-                # for jblocks in range(targets[t]["dim"][1]):
-                    # iline += 1
-                    # block = []
-                    # for irow in range(targets[t]["dim"][2]):
-                        # iline += 1
-                        # line = lines[iline].split()
-                        # if targets[t]["type"] == complex:
-                            # row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]["dim"][3])]
-                        # elif targets[t]["type"] == float:
-                            # row = [float(line[i]) for i in range(targets[t]["dim"][3])]
-                        # else:
-                            # row = line
-                        # block.append(row)
-                    # sblock.append(block)
-                # values.append(sblock)
         elif len(shape) == 5:
             iline += 2
             for _ in range(shape[0]):
@@ -700,7 +675,6 @@ class QMout:
             string += "%i %i pol %s\n" % (nmstates, nmstates, IToPol[xyz])
             for i in range(nmstates):
                 for j in range(nmstates):
-                    log.info(["TESTXYZ", xyz, i, j, self.dm[xyz][i][j].real])
                     string += "%s %s " % (
                         eformat(self.dm[xyz][i][j].real, 12, 3),
                         eformat(self.dm[xyz][i][j].imag, 12, 3),
@@ -768,8 +742,6 @@ class QMout:
                             eformat(self.eqm[dxdydz][xyz][i][j].real, 12, 3),
                             eformat(self.eqm[dxdydz][xyz][i][j].imag, 12, 3),
                         )
-                        #log.info("WRITE")
-                        #log.info(self.eqm[dxdydz][xyz][i][j], dxdydz, xyz, i, j)
                     string += "\n"
                 string += ""
         string += "\n"
@@ -1421,8 +1393,6 @@ class QMout:
                 for xyz in range(3):
                     string += "Polarisation %s:\n" % (IToPol[xyz])
                     matrix = self["eqm"][dxdydz][xyz]
-                    log.info([dxdydz, xyz])
-                    log.info(matrix)
                     string += formatcomplexmatrix(matrix, states)
                 string += "\n" 
         # Gradients
