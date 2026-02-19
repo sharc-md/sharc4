@@ -20,3 +20,4 @@ bin/laser_freq
 tests/interface/inputs/molcas/output/second_order_lm
 pysharc/Makefile
 source/Makefile
+source/sharcvars_custom.sh
