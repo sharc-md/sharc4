@@ -33,6 +33,7 @@ from importlib import import_module
 from multiprocessing import Manager, Process
 from time import sleep
 
+import numpy as np
 from pyscf.gto import Mole
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import InDir, readfile
