@@ -349,7 +349,7 @@ class STATE:
         s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
-        s += "% 12.8f % 12.8f %s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited)
+        s += "% 12.8f % 12.8f %s % s % s " % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
         return s
 
     def Excite(self, max_Prob, erange):

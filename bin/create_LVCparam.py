@@ -180,7 +180,6 @@ def read_QMout(path, nstates, natom, request):
 def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
     rnonzero = False
     inonzero = False
-    print(header, mat)
     rstr = header + " R\n"
     istr = header + " I\n"
     for i in range(len(mat)):
@@ -208,7 +207,6 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
         retstr += rstr
     if inonzero:
         retstr += istr
-    print(header, retstr)
     return retstr
 
 
@@ -1131,7 +1129,6 @@ def write_LVC_template(INFOS, template_name):
         else:
             lvc_template_content += LVC_complex_mat("SOC", QMout_eq.h, deldiag=True)
     # Adding electric dipole (DM) contribution
-    print(lvc_template_content)
     lvc_template_content += LVC_complex_mat("DMX", QMout_eq.dm[0])
     lvc_template_content += LVC_complex_mat("DMY", QMout_eq.dm[1])
     lvc_template_content += LVC_complex_mat("DMZ", QMout_eq.dm[2])
@@ -1169,7 +1166,6 @@ def write_LVC_template(INFOS, template_name):
             for atom in range(len(INFOS["atoms"])):  # get mults
                 n_entries += 1
                 nums = "".join(map(lambda x: f"{x: 12.8f}", fit[atom, :]))
-                # print(f"{s_i.S} {s_i.N + 1:2} {s_j.N + 1:2} {atom:3}    {nums}\n")
                 mat_string += f"{s_i.S + 1} {s_i.N:2} {s_j.N:2} {atom:3}    {nums}\n"
         lvc_template_content += f"Multipolar Density Fit {settings}\n{n_entries}\n{mat_string}"
 
@@ -1207,7 +1203,6 @@ def main():
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
     template_name = "LVC.template"
-    #print(len(sys.argv))
     if len(sys.argv) == 3:
         template_name = sys.argv[2]
     if is_other_dir:
