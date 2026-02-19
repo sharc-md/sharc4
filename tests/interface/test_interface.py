@@ -1,4 +1,6 @@
 import pytest
+import numpy as np
+import shutil
 import os
 from utils import expand_path
 from SHARC_INTERFACE import SHARC_INTERFACE
