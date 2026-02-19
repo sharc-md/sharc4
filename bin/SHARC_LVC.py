@@ -273,9 +273,9 @@ class SHARC_LVC(SHARC_FAST):
 
             elif "EQM" in line:
                 self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
+                print(line)
                 k = xyz[line[3]]  # Readout of derivative direction EQMXY -> X
-                j = xyz[line[6]]  # Readout of polarization direction  -> Y
-                print(k, j)
+                j = xyz[line[4]]  # Readout of polarization direction  -> Y
                 if factor != 1:
                     el_quadrupole_real = False
                 line = f.readline()
