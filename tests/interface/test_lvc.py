@@ -673,13 +673,6 @@ def test_lvc_pc():
     # print('nacdr_ref =', np.array2string(lvc.QMout.nacdr, separator=','), file=f)
     # f.close()
 
-#def test_lvc_dipole():
-#    lvc: SHARC_INTERFACE = SHARC_LVC(loglevel=10)
-#    lvc.setup_mol(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
-#    lvc.read_template(os.path.join(expand_path(PATH), "inputs/LVC.template"))
-#    lvc.read_requests(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
-#    lvc.setup_interface()
-#    lvc.set_coords(os.path.join(expand_path(PATH), "inputs/QM_lvc.in"))
 
 if __name__ == "__main__":
     import shutil
@@ -687,5 +680,4 @@ if __name__ == "__main__":
     with InDir(expand_path(PATH)):
         test_lvc()
         test_lvc_pc()
-        #test_lvc_dipole()
         shutil.rmtree("SAVE")

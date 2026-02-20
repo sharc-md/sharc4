@@ -146,10 +146,6 @@ subroutine set_pointers(H, dm, mdm, eqm, overlap, phases, grad, nac) bind(C, nam
         overlap = c_loc(traj%overlaps_ss(1,1))
     endif
 
-    if (associated(traj%overlaps_ss)) then
-        overlap = c_loc(traj%overlaps_ss(1,1))
-    endif
-
     if (associated(traj%phases_s)) then
         phases = c_loc(traj%phases_s(1))
     endif

@@ -75,8 +75,6 @@ else
 endif
 
 
-$(info VAR="$(USE_COMPILER)" )
-
 ifeq ($(USE_COMPILER), )
   USE_COMPILER:=gnu
 endif
@@ -85,8 +83,8 @@ ifeq ($(USE_COMPILER), gnu)
   F90 :=gfortran 
   EXTRAFLAGS := -ffree-line-length-none 
 else ifeq ($(USE_COMPILER), intel)
-  CC := icc -O
-  F90 := ifort
+  CC:=icc
+  F90:=ifx
   EXTRAFLAGS := -DIFORT
 endif
 
@@ -195,7 +193,6 @@ DATA_EXTRACTOR =  qm_out.o \
 		  data_extractor.o
 
 LASER =	definitions.o \
-		vector_operations.o \
 		LASER_calc_fftw.o \
 		LASER_input.o \
 		LASER_main.o 

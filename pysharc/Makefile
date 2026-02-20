@@ -34,10 +34,8 @@ build_ext: lib/libsharc.so
 	python sharc_setup build_ext --build-lib .
 
 install: lib/libsharc.so lib/libsharcnc.so build_ext
-	\cp lib/*.so ../lib
-	\cp bin/*.py ../bin
-	\cp lib/*.so ~/miniconda3/envs/smilei_env/sharc_develop/lib/ 
-	\cp sharc/*.so ~/miniconda3/envs/smilei_env/sharc_develop/lib/sharc.so 
+	cp lib/*.so ../lib
+
 clean:
 	python sharc_setup clean --all
 	rm -f lib/libsharc.so lib/libsharcnc.so
