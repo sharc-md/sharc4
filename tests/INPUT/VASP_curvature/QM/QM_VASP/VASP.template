@@ -4,27 +4,17 @@ system random_test # Name of the calculation/system. SYSTEM keyword in VASP INCA
 
 gga PE # DFT functional. Check VASP wiki for available options
 
-ismear -2 # Smearing parameter for VASP calculations 
-          # (check VASP wiki. Default is -2 here i.e. no smearing if there is not pre-existing WAVECAR)
+ismear 0 # Smearing parameter for VASP calculations 
 
 ispin 1 # Only ispin=1 is accepted -> only singlet multiplicity is computed basically. Triplets are not yet implemented
         # Also, non-collinear calculations may come at some point.
 
 ediff 1e-4 # EDIFF VASP keyword. Treshold for SCF loop break. energy value in eV
 
-ialgo 38 # Algorithm for SCF convergence, check VASP wiki (default 38)
 
-nelm 60 # Maximum number of SCF electronic steps (default 60)
+encut 320 # Energy cutoff in eV for plan waves
 
-time_vasp 0.4 # Time step for some optimization algorithms, depending on IALGO keyword, 
-              # check TIME keyword in VASP wiki for proper usage (default 0.4)
-
-sigma 0.0 # Smearing width in eV, real number
-
-encut 520 # Energy cutoff in eV for plan waves
-
-nbands 0 # N. of KS orbitals (bands) you want to compute. If set to 0 NBANDS in INCAR will be absent 
-         # and so VASP will automatically determine the optimal value. 
+nbands 100 # N. of KS orbitals (bands) you want to compute. If set to 0 NBANDS in INCAR will be absent 
 
 scale_param 1 # Scaling parameter for lattice vectors in POSCAR. 
               # It is the number which comes right before lattice vector coordinates in POSCAR
