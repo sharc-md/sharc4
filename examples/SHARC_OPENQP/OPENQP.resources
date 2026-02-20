@@ -1,0 +1,18 @@
+	## Path of OpenQP executable 
+openqpdir /usr/software/openqp/bin
+
+	## Scratch directory 
+scratchdir /scratch/
+
+	## Number of CPUs for OpenMP and wfoverlap arallelization 
+ncpu 1 
+
+	## Path to wfoverlap
+wfoverlap /usr/software/sharc/bin/wfoverlap.x
+
+	## Threshold for wfoverlap calculation
+wfthres 0.998
+
+	## Memory for wfoverlap calculation in MB
+wfmemory 2000
+
