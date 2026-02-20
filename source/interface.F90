@@ -85,6 +85,23 @@ subroutine set_qmin_pointers(Crd_ptr) bind(C, name='setQMinPointers')
     return 
 end subroutine set_qmin_pointers
 
+subroutine set_qmin_pointers_vel(Crd_ptr) bind(C, name='setQMinPointers_vel')
+    use, intrinsic :: iso_c_binding
+    use memory_module, only: traj, ctrl
+
+    implicit none
+
+    type(c_ptr), intent(inout) :: Crd_ptr
+
+    Crd_ptr = C_NULL_PTR
+
+    if (associated(traj%veloc_ad)) then
+        Crd_ptr = c_loc(traj%veloc_ad(1,1))
+    endif
+
+    return 
+end subroutine set_qmin_pointers_vel
+
 ! ------------------------------------------------------
 
 subroutine set_pointers(H, dm, overlap, phases, grad, nac) bind(C, name='setPointers')
@@ -229,6 +246,25 @@ subroutine get_current_coordinates(NAtoms, Crd, Ang)
 
     return
 end subroutine get_current_coordinates
+
+subroutine get_current_velocities(NAtoms, Crd)
+!C
+!C 
+!C
+    use memory_module
+    implicit none
+    __INT__, intent(in) :: NAtoms
+    __REAL__, dimension(3, NAtoms), intent(out) :: Crd
+    __INT__ :: i,j
+
+    do i=1,NAtoms 
+        do j=1,3
+            Crd(j, i) = traj%veloc_ad(i,j)
+        end do
+    end do
+
+    return
+end subroutine get_current_velocities
 
 ! ------------------------------------------------------
 

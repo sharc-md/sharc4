@@ -255,7 +255,7 @@ def displaywelcome():
 
     print("Script for setup of displacements started...\n")
     printheader(lines)
-    string = "This script automatizes the setup of excited-state calculations for displacements\nfor SHARC dynamics."
+    string = "This script performs EOE initial state selections."
     print(string)
 
 
@@ -270,7 +270,7 @@ def run_data_extractor(initstate, INFOS):
     dirname = INFOS["setupstates_names"][initstate]  # get_iconddir(initstate, INFOS)  # State directory containing trajectories 
     req_files_traj = ["geom", "input", "laser", "run.sh", "veloc"]
     req_folders_traj = ["QM", "restart"]
-    width_bar = 80
+    width_bar = 50
     print('Running data_extractor...')
     sharcpath = os.getenv('SHARC')
     if sharcpath is None:

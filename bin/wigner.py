@@ -41,7 +41,7 @@ from constants import CM_TO_HARTREE, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, NUMBE
 # =========================================================0
 
 # some constants
-DEBUG = True
+DEBUG = False
 
 version = '4.0'
 versiondate = datetime.date(2025, 4, 1)
@@ -530,8 +530,8 @@ The function returns a probability for this set of parameters."""
                     n = 500
     if n == 0:    # vibrational ground state
         return (math.exp(-Q**2) * math.exp(-P**2), 0.)
-        # TODO: see eq (6) of Zobel 10.1039/C8CP03273D for a better way to sample the canonical ensemble of an harmonic oscillator
-        # TODO: alternatively, one could implement a Husimi distirbution inside the current function
+    # TODO: see eq (6) of Zobel 10.1039/C8CP03273D for a better way to sample the canonical ensemble of an harmonic oscillator
+    # TODO: alternatively, one could implement a Husimi distirbution inside the current function
     # TODO: what about n==-1 ??
     else:    # vibrational excited state
         rhosquare = 2.0 * (P**2 + Q**2)
@@ -991,7 +991,7 @@ def sample_initial_condition(molecule, modes):
 # ======================================================================================================================
 
 
-def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0):
+def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0, start_index = 1, skip_header = False):
     """This function converts an list of initial conditions into a string."""
     ninit = len(ic_list)
     natom = ic_list[0].natom
@@ -1000,7 +1000,8 @@ def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0):
     eharm = 0.
     for mode in modes:
         eharm += mode['freq'] * 0.5
-    string = '''SHARC Initial conditions file, version %s
+    if not skip_header:
+        string = '''SHARC Initial conditions file, version %s
 Ninit     %i
 Natom     %i
 Repr      %s
@@ -1010,12 +1011,14 @@ Eharm     %18.10f
 
 Equilibrium
 ''' % (version, ninit, natom, representation, temperature, eref, eharm)
-    for atom in molecule:
-        string += str(atom) + '\n'
-    string += '\n\n'
+        for atom in molecule:
+            string += str(atom) + '\n'
+        string += '\n\n'
+    else:
+        string = ''
 
     for i, ic in enumerate(ic_list):
-        string += 'Index     %i\n%s' % (i + 1, str(ic))
+        string += 'Index     %i\n%s' % (i + start_index, str(ic))
     return string
 
 
@@ -1246,6 +1249,12 @@ as described in [2] (non-fixed energy, independent mode sampling).
     parser.add_option(
         '--single_atom', dest='atom', type=str, nargs=1, default="", help="Ignore molden file and generate initconds with one atom of specified element at origin"
     )
+    parser.add_option(
+        '--start_index', dest='start_index', type=int, nargs=1, default=1, help="Start indexing at this number"
+    )
+    parser.add_option(
+        '--skip_header', dest='skip_header', action='store_true', help="Do not print the file header (useful together with --start_index)"
+    )
 
     (options, args) = parser.parse_args()
 
@@ -1264,7 +1273,6 @@ as described in [2] (non-fixed energy, independent mode sampling).
     vasp_masses = options.VM
     scaling = options.s
     flag = options.f
-    lvc = options.lvc
     global LOW_FREQ
     LOW_FREQ = max(0.0000001, options.L)
 
@@ -1348,7 +1356,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
         ic_list = create_initial_conditions_list(amount, molecule, modes, dummy=dummy, dummy_el=dummy_el)
         # print('Writing output to initconds')
         outfile = open(outfile, 'w')
-        outstring = create_initial_conditions_string(molecule, modes, ic_list)
+        outstring = create_initial_conditions_string(molecule, modes, ic_list, start_index=options.start_index, skip_header=options.skip_header)
         outfile.write(outstring)
         outfile.close()
 
