@@ -253,16 +253,31 @@ def question(question, typefunc, default=None, autocomplete=True, ranges=False):
 
 def env_or_question(varname, setenv=False):
     path = os.getenv(varname)
+    if varname=="VASP":
+        hdf5env=varname+"HDF5"
     if path is not None and path != '':
         path = os.path.expanduser(os.path.expandvars(path))
         sys.stdout.write('\nEnvironment variable $%s detected:\n$%s=%s\n\n' % (varname, varname, path))
         if question('Do you want to use this?', bool, True):
+            if varname=="VASP":
+                path_hdf5=os.getenv(hdf5env)
+                if path_hdf5 is not None and path_hdf5 != '':
+                    path_hdf5=os.path.expanduser(os.path.expandvars(path_hdf5))
+                    sys.stdout.write('\nEnvironment variable for VASP HDF5 lib $%s also detected:\n$%s=%s\n\n' % (hdf5env, hdf5env, path_hdf5))
+                else:
+                    path_hdf5=question('Please specify also the path for the VASP HDF5 lib too $%s:' % (hdf5env), str)
             return path
     path = question('Please enter the path for $%s:' % (varname), str)
     path = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    if varname=="VASP":
+        path_hdf5 = question('Please enter the path for the VASP HDF5 lib too $%s:' % (hdf5env), str)
+        path_hdf5 = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
     if setenv:
         print("\nSetting $%s = %s" % (varname,path)) 
         os.environ[varname] = path
+        if varname=="VASP":
+            print("\nSetting $%s = %s" % (hdf5env,path_hdf5)) 
+            os.environ[hdf5env] = path_hdf5
     return path
 
 # ======================================================================================================================
@@ -340,6 +355,7 @@ def get_infos():
     for interface in INTERFACES:
         if interface in INFOS['interfaces'] and interface not in ['ANALYTICAL', 'scripts', 'LVC', 'PYSCF', 'TEQUILA']:
             INFOS[interface] = env_or_question(interface, setenv=True)
+
     for i in INFOS['otherenvs']:
         INFOS[i] = env_or_question(i, setenv=True)
 
