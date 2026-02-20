@@ -211,96 +211,35 @@ class diagonalizer:
 
 # ======================================================================================================================
 
-
 def transform(H, DM, MDM, EQM, P):
     '''transforms the H, DM, MDM, and EQM matrices in the representation where H is diagonal.'''
-    if NONUMPY:
-        diagon = diagonalizer()
-        H, U = diagon.eigh(H)
-        UDMU = [[[0. for i in range(len(H))] for j in range(len(H))] for k in range(3)]
-        for xyz in range(3):
-            temp = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        temp[a][b] += U[i][a].conjugate() * DM[xyz][i][b]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        UDMU[xyz][a][b] += temp[a][i] * U[i][b]
-        DM = UDMU
-
-        UMDMU = [[[0. for i in range(len(H))] for j in range(len(H))] for k in range(3)]
-        for xyz in range(3):
-            temp = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        temp[a][b] += U[i][a].conjugate() * MDM[xyz][i][b]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        UMDMU[xyz][a][b] += temp[a][i] * U[i][b]
-
-        MDM = UDMU
-
-        UEQMU = [[[0. for i in range(len(H))] for j in range(len(H))] for k in range(3)]
-        for xyz1 in range(3):
-            for xyz2 in range(3):
-                temp = [[0. for i in range(len(H))] for j in range(len(H))]
-                for a in range(len(H)):
-                    for b in range(len(H)):
-                        for i in range(len(H)):
-                            temp[a][b] += U[i][a].conjugate() * EQM[xyz1][xyz2][i][b]
-                for a in range(len(H)):
-                    for b in range(len(H)):
-                        for i in range(len(H)):
-                            UEQMU[xyz1][xyz2][a][b] += temp[a][i] * U[i][b]
-
-        EQM = UEQMU
-
-        if P is not None:
-            UPU = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        UPU[a][b] += U[i][a].conjugate() * P[i][b]
-            P = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        P[a][b] += temp[a][i] * U[i][b]
-
-    else:
-        eig, U = numpy.linalg.eigh(H)
-        Ucon = [[0. for i in range(len(H))] for j in range(len(H))]
-        for ix in range(len(U)):
-            for iy in range(len(U)):
-                Ucon[ix][iy] = U[iy][ix].conjugate()
-                if ix == iy:
-                    H[ix][iy] = complex(eig[ix])
-                else:
-                    H[ix][iy] = complex(0)
+    eig, U = numpy.linalg.eigh(H)
+    Ucon = [[0. for i in range(len(H))] for j in range(len(H))]
+    for ix in range(len(U)):
+        for iy in range(len(U)):
+            Ucon[ix][iy] = U[iy][ix].conjugate()
+            if ix == iy:
+                H[ix][iy] = complex(eig[ix])
+            else:
+                H[ix][iy] = complex(0)
+    if DM:
         UDMU = [0, 0, 0]
         for xyz in range(3):
             UDMU[xyz] = numpy.dot(Ucon, numpy.dot(DM[xyz], U))
         DM = UDMU
-
+    if MDM:
         UMDMU = [0, 0, 0]
         for xyz in range(3):
             UMDMU[xyz] = numpy.dot(Ucon, numpy.dot(MDM[xyz], U))
         MDM = UMDMU
-
+    if EQM:
         UEQMU = 3*[[0, 0, 0]]
         for xyz1 in range(3):
             for xyz2 in range(3):
                 UEQMU[xyz1][xyz2] = numpy.dot(Ucon, numpy.dot(EQM[xyz1][xyz2], U))
         EQM = UEQMU
-        if P is not None:
-            UPU = numpy.dot(Ucon, numpy.dot(P, U))
-            P = UPU
 
-    return H, DM, MDM, EQM, U
+    return H, U, DM, MDM, EQM
 
 # ========================== Main Code =============================== #
 
@@ -324,7 +263,7 @@ excitation energies and oscillator strengths.
     parser.add_option('-n', dest='n', type=int, nargs=1, default=1, help="Number of atoms")
     parser.add_option('-D', dest='D', action='store_true', help="Diagonalize")
     parser.add_option('-S', dest='S', type=int, nargs=1, default=1, help="Initial state (Lowest=1)")
-    parser.add_option('-t', dest='t', type=int, nargs=1, default=0, help="0 (default): for QM.out containing h,dm, mdm, eqm; 1: for QM.out containing only h")
+    parser.add_option('-t', dest='t', type=int, nargs=1, default=1, help="Read the following from QM.out: 0: only h, 1 (default): h,dm, 2: h, dm, mdm, eqm")
     parser.add_option('-L', dest='L', action='store_true', help="Format in a single line")
     parser.add_option('-I', dest='I', action='store_true', default=False, help="Use Dyson norms instead of oscillator strengths")
 
@@ -367,9 +306,11 @@ excitation energies and oscillator strengths.
     QMin['statemap'] = statemap
 
     if target == 0:
-        target_list = ['h', 'dm', 'mdm', 'eqm']
-    elif target == 1:
         target_list = ['h']
+    elif target == 1:
+        target_list = ['h', 'dm']
+    elif target == 2:
+        target_list = ['h', 'dm', 'mdm', 'eqm']
     else:
         print("Target not defined.")
         exit()
@@ -387,21 +328,19 @@ excitation energies and oscillator strengths.
         sys.stderr.write('%5s  %11s %16s %12s %12s   %6s\n' % ('State', 'Label', 'E (E_h)', 'dE (eV)', ['f_osc', 'Dys norm'][options.I], 'Spin'))
 
     if options.D:
-        # print("SHAPE", np.asarray(QMout['dm']).shape, np.real(np.asarray(QMout['dm'])[:, 0, 4])*1E8)
-        # print("SHAPE", np.asarray(QMout['dm']).shape, np.real(np.asarray(QMout['dm'])[:, 0, 5])*1E8)
-        h, dm, mdm, eqm, U = transform(QMout['h'][0], QMout['dm'], QMout['mdm'], QMout['eqm'], None)
-        print(np.asarray(dm).shape)
-        print(np.asarray(dm)[:, 4, 0])
-        print(np.asarray(dm)[:, 5, 0])
-        print(np.asarray(dm)[:, 6, 0])
-        np.savetxt("U_mat", U)
-        # print("SHAPE4", np.asarray(dm).shape, np.real(np.asarray(dm)[:, 0, 4]))
-        # print("SHAPE5", np.asarray(dm).shape, np.real(np.asarray(dm)[:, 0, 5]))
-        # print("SHAPE6", np.asarray(dm).shape, np.real(np.asarray(dm)[:, 0, 6]))
-        QMout['h'] = [h]
-        QMout['dm'] = dm
-        QMout['mdm'] = mdm
-        QMout['eqm'] = eqm
+        if target == 0:
+            h, U, *_ = transform(QMout['h'][0], None, None, None)
+            QMout['h'] = [h]
+        elif target == 1:
+            h, U, dm, *_ = transform(QMout['h'][0], QMout['dm'], None, None)
+            QMout['h'] = [h]
+            QMout['dm'] = dm
+        elif target == 2:
+            h, U, dm, mdm, eqm = transform(QMout['h'][0], QMout['dm'], QMout['mdm'], QMout['eqm'])
+            QMout['h'] = [h]
+            QMout['dm'] = dm
+            QMout['mdm'] = mdm
+            QMout['eqm'] = eqm
 
     # pprint.pprint(QMin)
     # pprint.pprint(QMout)
@@ -469,7 +408,6 @@ excitation energies and oscillator strengths.
             if options.I:
                 f = QMout['ion'][0][istate][initial].real
             else:
-                # print("SHAPE", np.asarray(QMout['dm']).shape, np.real(np.asarray(QMout['dm'])[:, istate, initial])*1E8)
                 dmx = QMout['dm'][0][istate][initial]
                 dmy = QMout['dm'][1][istate][initial]
                 dmz = QMout['dm'][2][istate][initial]
@@ -486,9 +424,6 @@ excitation energies and oscillator strengths.
                 quad_term = np.sum(np.abs(eqm)**2) - 1/3.*np.abs(np.trace(eqm))**2 
                 #f += (1.0/20.0) * const.alpha**2 * (e - energies[initial])**3 * quad_term
             fosc.append(f)
-            # else:
-            # dmx=dmy=dmz=0.
-            # fosc.append(0.)
             if ezero != 0.0 or options.E:
                 de = (e - ezero) * HARTREE_TO_EV
             else:
