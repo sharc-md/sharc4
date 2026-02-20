@@ -1281,15 +1281,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 tot_mass += MASSES[el]
             com_dp = np.array([0., 0., 0.])
             for idx, el in enumerate(el_mol):
-                print(f"MASS {MASSES[el]}")
-                print(f"geom {geom_mol[idx][0]}")
-                print(f"geom {geom_mol[idx][1]}")
-                print(f"geom {geom_mol[idx][2]}")
                 com_dp += MASSES[el]/tot_mass*geom_mol[idx]
             qmin.template["origin_pos"] = list(com_dp)
-            print(f"COM1 {com_dp[0]}")
-            print(f"COM1 {com_dp[1]}")
-            print(f"COM1 {com_dp[2]}")
             center = [f"{el:.15f}" for el in qmin.template["origin_pos"]]
             center =" ".join(center)
             if qmin.requests["soc"] or qmin.requests["mdeqm"]:
@@ -1595,36 +1588,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             for _ in range(m):
                                 self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
                                 s_cnt += s
-                # print("HDF5")
-                # s_cnt = 0
-                # for m, s in enumerate(states, 1):
-                #     if s > 0:
-                #         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as dp:
-                #             origin_dp = dp["MLTPL_ORIG"][1]
-                #             geom_mol = self.QMin.coords["coords"]
-                #             el_mol = self.QMin.molecule["elements"]
-                #             # electronic_charge = self.QMin.molecule["charge"][m] 
-                #             electronic_charge = dp["CENTER_CHARGES"][:].sum()
-                #             com_dp = np.array([0., 0., 0.]) 
-                #             tot_mass = 0. 
-                #             for el in el_mol:
-                #                 tot_mass += MASSES[el]
-                #             for idx, el in enumerate(el_mol):
-                #                 print("geom_mol_idx", geom_mol[idx])
-                #                 print("tot_mass", tot_mass)
-                #                 print("MASSES_el", MASSES[el])
-                #                 com_dp += MASSES[el]/tot_mass*geom_mol[idx]
-                #             print("com_dp", com_dp)
-                #             print("origin_dp", origin_dp)
-                #             disp_vector = com_dp - origin_dp
-                #             print(disp_vector)
-                #             for _ in range(m):
-                #                 # en_diff = np.array(dp["SFS_ENERGIES"])[:, np.newaxis] - np.array(dp["SFS_ENERGIES"])
-                #                 # el_dip_mom = np.einsum("ijk, jk -> ijk", dp["SFS_EDIPMOM"][:], en_diff)
-                #                 self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = dp["SFS_EDIPMOM"][:]
-                #                 # print(electronic_charge, disp_vector, electronic_charge*disp_vector)
-                #                 self.QMout["dm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] -= electronic_charge*np.einsum("i,jk->ijk", disp_vector, np.eye(dp["SFS_ENERGIES"].shape[0]))
-                #                 s_cnt += s
         if self.QMin.requests["mdeqm"]:
             # Full MDM matrix in ascii file, sub matrices of mult in h5 files
             if isinstance(master_out, str):
@@ -1636,9 +1599,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     if s > 0:
                         with h5py.File(os.path.join(scratchdir, f"master/MOLCAS.rassi.{m}.h5"), "r") as mdp:
                             for _ in range(m):
-                                # ao_mltpl = [np.array(mdp["AO_MLTPL_X"]),
-                                #             np.array(mdp["AO_MLTPL_Y"]),
-                                #             np.array(mdp["AO_MLTPL_Z"])]
                                 sum_states = self.QMin.molecule["states"][m-1]
                                 # https://github.com/jautschbach/mcd-molcas/blob/master/read-data-files.f90#L123
                                 self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = 1.j*mdp["SFS_ANGMOM"][:]
@@ -1649,25 +1609,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     for i2, s2, in enumerate(self.states, 0):
                         spin_p, spin_n, spin_m = 0, 0, 0
                         if s1 // s2:  # floor_div defined in utils.py 
-                            print("s1", s1.N, s1.S, s1.M)
-                            print("s2", s2.N, s2.S, s2.M)
-                            print("-----------------------") 
                             if s1.M == s2.M-2:  # <s1, m1| S+ |s2, m2>
                                 spin_p = np.sqrt(s2.S/2*(s2.S/2+1)-s2.M/2.*(s2.M/2.-1))
                             if s1.M == s2.M+2:  # <s1, m1| S- |s2, m2>
                                 spin_m = np.sqrt(s2.S/2*(s2.S/2+1)-s2.M/2.*(s2.M/2.+1))
                             if s1.M == s2.M:  # <s1, m1| Sz |s2, m2>
                                 spin_n = s2.M/2.
-                            print(spin_p, spin_m, spin_n)
-                        # mag_dip_spin_mom[0, i1, i1+i2] *= 1/2.*(spin_p+spin_m)
-                        # mag_dip_spin_mom[1, i1, i1+i2] *= 1/2.j*(spin_p-spin_m)
-                        # mag_dip_spin_mom[2, i1, i1+i2] *= spin_n 
                         mag_dip_spin_mom[0, i1, i2] += 1/2.*(spin_p+spin_m)
                         mag_dip_spin_mom[1, i1, i2] += 1/2.j*(spin_p-spin_m)
                         mag_dip_spin_mom[2, i1, i2] += spin_n
-                # mag_dip_spin_mom[0, :, :] = mag_dip_spin_mom[0, :, :] + mag_dip_spin_mom[0, :, :].T - np.diag(np.diag(mag_dip_spin_mom[0, :, :])) 
-                # mag_dip_spin_mom[1, :, :] = mag_dip_spin_mom[1, :, :] + mag_dip_spin_mom[1, :, :].T - np.diag(np.diag(mag_dip_spin_mom[1, :, :])) 
-                # mag_dip_spin_mom[2, :, :] = mag_dip_spin_mom[2, :, :] + mag_dip_spin_mom[2, :, :].T - np.diag(np.diag(mag_dip_spin_mom[2, :, :])) 
                 self.QMout["mdm"][:, :, :] += mag_dip_spin_mom*lande_g_factor
             self.QMout["mdm"][:, :, :] *= alpha/2.  # Taylor series coefficient in multipole expansion * 1/c 
             # Full EQM matrix in ascii file, sub matrices of mult in h5 files
@@ -1969,24 +1919,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         Extract (transition) dipole moments from outputfile
         """
         dipole_mat = np.zeros((3, self.QMin.molecule["nmstates"], self.QMin.molecule["nmstates"]))
-        self.log.info("PASSED _get_dipoles")
         # Find all occurences of dipole sub matrices
         all_dp = iter(
             re.findall(r"PROPERTY: MLTPL\s+1\d?\D+[1-3]\n[^\n]+\n[^\n]+\n([\s|\d|\.|E|\+|\-|\n]+)", output_file, re.DOTALL)
         )
-        # origin_dp_group = re.search(r"PROPERTY: MLTPL\s+1\s+COMPONENT:\*\s+1\s+ORIGIN\s+:\s+([+-]?\d*\.\d+D[+-]?\d+)\s+([+-]?\d*\.\d+D[+-]?\d+)\s+([+-]?\d*\.\d+D[+-]?\d+)", output_file)
-        # origin_dp = np.array([origin_dp_group.group(1), origin_dp_group.group(2), origin_dp_group.group(3)])
-        # geom_mol = self.QMin.coords["coords"]
-        # el_mol = self.QMin.molecule["elements"]
-        # overlaps = self._get_overlaps(output_file)
-        # electronic_charge = float(re.search(r'Total electronic charge=\s+(\d+\.?\d*)', output_file).group(1))
-        # com_dp = 0. 
-        # tot_mass = 0.
-        # for el in el_mol:
-        #     tot_mass += MASSES[el]
-        # for idx, el in enumerate(el_mol):
-        #     com_dp += MASSES[el]/tot_mass*geom_mol[idx]
-        # disp_vector = com_dp-origin_dp
         s_cnt = 0
         for mult, state in enumerate(self.QMin.molecule["states"], 1):
             dipoles = np.zeros((3, state, state), dtype=float)
