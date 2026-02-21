@@ -54,12 +54,6 @@ class QMOUT:
     def __init__(self, interface: str, natoms: int, nmstates: int):
         self._QMout = sharc.QMout(interface, natoms, nmstates)
 
-    def printInfos(self):
-        self._QMout.printInfos()
-
-    def printAll(self):
-        self._QMout.printAll()
-
     def set_props(self, data: QMout, icall):
         """set QMout"""
         # set hamiltonian, dm only in first call
@@ -86,20 +80,8 @@ def setup_sharc(inp_file: str) -> int:
     """parses input file and returns restart flag as int"""
     return sharc.setup_sharc(inp_file)
 
-
 def set_qmout(qmout: QMOUT, icall: int):
     return sharc.set_qmout(qmout, icall)
-
-
-def get_constants() -> dict:
-    """returns dict with conversion constants"""
-    return sharc.get_constants()
-
-
-def get_tasks() -> str:
-    """returns tasks string"""
-    return sharc.get_tasks()
-
 
 def get_basic_info() -> dict[str, Any]:
     """returns dict {states: str, dt: str, savedir: str, NAtoms: int, NSteps: int, istep: int, IAn: list[int]}"""
