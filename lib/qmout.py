@@ -75,7 +75,6 @@ class QMout:
     density_matrices: dict
     multipolar_fit_settings: str
     mol: pyscf.gto.Mole
-    #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
     def __init__(self, filepath=None, states: list[int] = None, natom: int = None, npc: int = None, charges: list[int] = None,
                  flags='all'):
@@ -163,13 +162,10 @@ class QMout:
                         shape = [int(n) for n in re.search(r"\(((\d+x)+\d+)", line).group(1).split('x')]
                         block_length = reduce(lambda agg, x: agg*x, shape[:-1])
                         if len(shape) > 2:
-                            # block_length += shape[0] - 1
                             block_length += reduce(lambda agg, x: agg*x, shape[:-2]) - 1
                     # skip unwanted flags
                     if flags != "all" and flag not in flags:
-                        # print(f"skipping flag {flag} with {block_length} lines")
                         next(islice(f, block_length, block_length), None)
-                        # (f.readline() for _ in range(block_length))
                         line = f.readline()
                         continue
 
@@ -177,11 +173,9 @@ class QMout:
                 iline = 0
 
                 log.debug(f"Parsing flag: {flag}")
-                # print(f"Parsing flag: {flag}, {shape} {block_length}")
                 match flag:
                     case 0: # basis info
                         while iline < len(data):
-                            # log.trace(data[iline])
                             if not data[iline].strip():
                                 iline += 1
                                 continue
@@ -203,7 +197,6 @@ class QMout:
                         for k in basic_info:
                             if k not in self:
                                 log.warning(f"{k} not read from QMout!")
-                                pass
                         self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
                         self.nstates = sum(self.states)
                         self.point_charges = self.npc > 0
@@ -244,8 +237,6 @@ class QMout:
                         )
                     case 22: # multipolar_fit
                         self.multipolar_fit, iline = QMout.get_multipoles(data, iline, self.charges, shape)
-                        if data[iline].find("settings") != -1:
-                            self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]
                     case 24: # Densities
                         self.density_matrices, iline = QMout.get_densities(data, iline, self.charges, shape)
                     case 23: # prop0d
@@ -334,24 +325,6 @@ class QMout:
                         elif type == float:
                             result[iblock, jblock, irow, :] = np.array([float(line[i]) for i in range(shape[3])])
                     iline += 1 + shape[2]
-        # elif len(targets[t]["dim"]) == 4:
-            # for iblocks in range(targets[t]["dim"][0]):
-                # sblock = []
-                # for jblocks in range(targets[t]["dim"][1]):
-                    # iline += 1
-                    # block = []
-                    # for irow in range(targets[t]["dim"][2]):
-                        # iline += 1
-                        # line = lines[iline].split()
-                        # if targets[t]["type"] == complex:
-                            # row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]["dim"][3])]
-                        # elif targets[t]["type"] == float:
-                            # row = [float(line[i]) for i in range(targets[t]["dim"][3])]
-                        # else:
-                            # row = line
-                        # block.append(row)
-                    # sblock.append(block)
-                # values.append(sblock)
         elif len(shape) == 5:
             iline += 2
             for _ in range(shape[0]):
@@ -435,7 +408,6 @@ class QMout:
     @staticmethod
     def get_multipoles(data, iline, charges, shape):
         res = {}
-        # shape = [int(s) for s in data[iline].split()[-1][1:-1].split("x")]
         iline += 1
         for i in range(shape[0]):
             tmp = data[iline].split()
@@ -911,43 +883,6 @@ class QMout:
             i += 1
         string += "\n"
         return string
-
-    # ======================================================================= #
-
-    # def writeQMoutnacnum(self):
-    #     """Generates a string with the NAC matrix in SHARC format.
-
-    #     The string starts with a ! followed by a flag specifying the type of data.
-    #     In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
-    #     Blocks are separated by a blank line.
-
-    #     Returns:
-    #     1 string: multiline string with the NAC matrix"""
-
-    #     nmstates = self.nmstates
-    #     string = ""
-    #     string += "! %i Non-adiabatic couplings (ddt) (%ix%i, complex)\n" % (
-    #         4,
-    #         nmstates,
-    #         nmstates,
-    #     )
-    #     string += "%i %i\n" % (nmstates, nmstates)
-    #     for i in range(nmstates):
-    #         for j in range(nmstates):
-    #             string += "%s %s " % (
-    #                 eformat(self.nacdt[i][j].real, 12, 3),
-    #                 eformat(self.nacdt[i][j].imag, 12, 3),
-    #             )
-    #         string += "\n"
-    #     string += ""
-    #     # also write wavefunction phases
-    #     string += "! %i Wavefunction phases (%i, complex)\n" % (7, nmstates)
-    #     for i in range(nmstates):
-    #         string += "%s %s\n" % (eformat(self.phases[i], 12, 3), eformat(0.0, 12, 3))
-    #     string += "\n\n"
-    #     return string
-
-    # ======================================================================= #
 
     def writeQMoutnacana(self):
         """Generates a string with the NAC vectors in SHARC format.
