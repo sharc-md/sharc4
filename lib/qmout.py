@@ -1164,13 +1164,14 @@ class QMout:
             for i in range(nao):
                 string += ' '.join(map(lambda j: f"{float(rho[i,j]): 15.12f}", range(nao)))
                 string += "\n"
+        string += "\n"
         return string
 
     def writeQMoutMole(self) -> str:
         string = (
             "! 25 Mole PySCF object (dict, 1 line)\n"
         )
-        string += str(pyscf.gto.Mole.pack(self.mol)) + '\n'
+        string += str(pyscf.gto.Mole.pack(self.mol)) + '\n\n'
         return string
 
     def writeQMoutDysonOrbitals(self) -> str:
