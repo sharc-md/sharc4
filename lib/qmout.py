@@ -679,7 +679,7 @@ class QMout:
             j = 0
             for jmult, jstate, jms in itnmstates(states):
                 for ipol in range(3):
-                    string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n" % (
+                    string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g   pol %i\n" % (
                         natom,
                         3,
                         imult,
@@ -717,7 +717,7 @@ class QMout:
             j = 0
             for jmult, jstate, jms in itnmstates(states):
                 for ipol in range(3):
-                    string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n" % (
+                    string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g   pol %i\n" % (
                         natom,
                         3,
                         imult,
@@ -755,7 +755,7 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g\n" % (
                     natom,
                     3,
                     imult,
@@ -795,7 +795,7 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g\n" % (
                     natom,
                     3,
                     imult,
@@ -841,7 +841,7 @@ class QMout:
         string += "! %i Gradient Vectors (%ix%ix3, real)\n" % (3, nmstates, natom)
         i = 0
         for imult, istate, ims in itnmstates(states):
-            string += "%i %i ! m1 %i s1 %i ms1 %i\n" % (natom, 3, imult, istate, ims)
+            string += "%i %i ! m1 %i s1 %i ms1 %g\n" % (natom, 3, imult, istate, ims)
             for atom in range(natom):
                 for xyz in range(3):
                     string += "%s " % (eformat(self.grad[i][atom][xyz], 12, 3))
@@ -874,7 +874,7 @@ class QMout:
         )
         i = 0
         for imult, istate, ims in itnmstates(states):
-            string += "%i %i ! m1 %i s1 %i ms1 %i\n" % (npc, 3, imult, istate, ims)
+            string += "%i %i ! m1 %i s1 %i ms1 %g\n" % (npc, 3, imult, istate, ims)
             for atom in range(npc):
                 for xyz in range(3):
                     string += "%s " % (eformat(self.grad_pc[i][atom][xyz], 12, 3))
@@ -908,7 +908,7 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g\n" % (
                     natom,
                     3,
                     imult,
@@ -952,7 +952,7 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g\n" % (
                     npc,
                     3,
                     imult,
