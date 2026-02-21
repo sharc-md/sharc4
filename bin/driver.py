@@ -23,30 +23,27 @@
 #
 # ******************************************
 
-# IMPORTS
-# EXTERNAL
-import time
-import numpy as np
-from typing import Any
-from optparse import OptionParser
-from importlib import import_module
-import os
+import argparse
 import inspect
+import os
+import time
+from importlib import import_module
+from typing import Any
 
-# INTERNAL
+import numpy as np
+
 try:
     import sharc.sharc as sharc
 except:
     print("ERROR: sharc.sharc import failed. Do you have the correct Python environment loaded?")
     raise
 
-# import sharc
-# from factory import factory
-from SHARC_INTERFACE import SHARC_INTERFACE
-from qmout import QMout
 from error import Error
+from logger import log
+from logger import loglevel as loglevel_env
+from qmout import QMout
+from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import InDir
-from logger import log, loglevel as loglevel_env
 
 
 class QMOUT:
@@ -81,20 +78,25 @@ def setup_sharc(inp_file: str) -> int:
     """parses input file and returns restart flag as int"""
     return sharc.setup_sharc(inp_file)
 
+
 def set_qmout(qmout: QMOUT, icall: int):
     return sharc.set_qmout(qmout, icall)
+
 
 def get_basic_info() -> dict[str, Any]:
     """returns dict {states: str, dt: str, savedir: str, NAtoms: int, NSteps: int, istep: int, IAn: list[int]}"""
     return sharc.get_basic_info()
 
+
 def get_all_tasks(icall: int, nstates: int) -> dict:
     """returns {tasks: str, grad: str, nacdr: str}"""
     return sharc.get_all_tasks(icall, nstates)
 
+
 def get_crd(unit: int = 0) -> list[list[float]]:
     """returns coordinates in specified unit (0 = Bohr, 1 = Angstrom)"""
     return sharc.get_crd(unit)
+
 
 def get_vel() -> np.ndarray:
     """returns velocities"""
@@ -140,7 +142,7 @@ def safe(func: callable):
 def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT, nstates: int):
     icall = 1
     log.debug("\tset_requ")
-    
+
     i.read_requests(get_all_tasks(icall, nstates))
 
     log.debug("\tcoords")
@@ -152,7 +154,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT, nstates: int):
         log.debug("\twrite Stepfile")
         i.write_step_file()
     log.debug("\tset_props")
-    qmdata=i.getQMout()
+    qmdata = i.getQMout()
     qmout.set_props(qmdata, icall)
     i.clean_savedir()
 
@@ -162,7 +164,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT, nstates: int):
         i.read_requests(get_all_tasks(icall, nstates))
         with InDir("QM"):
             safe(i.run)
-        qmdata=i.getQMout()
+        qmdata = i.getQMout()
         qmout.set_props(qmdata, icall)
         isecond = set_qmout(qmout._QMout, icall)
     return icall
@@ -170,19 +172,27 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT, nstates: int):
 
 def main():
     start = time.time_ns()
-    parser = OptionParser()
+    parser = argparse.ArgumentParser()
 
-    parser.add_option("-i", "--interface", dest="name", help="Name of the Interface you want to use.")
-    parser.add_option("-P", "--nonpersistent", dest="persistent", action="store_false", default=True, help="to turn off interface persistency")
-    parser.add_option(
-        "-v", "--verbose", dest="verbose", action="store_true", default=False, help="sets verbosity, i.e. print and debug option"
+    parser.add_argument("-i", "--interface", dest="name", help="Name of the Interface you want to use.")
+    parser.add_argument(
+        "-P", "--nonpersistent", dest="persistent", action="store_false", default=True, help="to turn off interface persistency"
     )
-    parser.add_option("-s", "--silent", dest="silent", action="store_true", default=False, help="only error and critical output")
-    parser.add_option("-d", "--debug", dest="debug", action="store_true", default=False, help="debug flag for printing")
-    parser.add_option("-p", "--print", dest="print", action="store_true", default=False, help="flag for printing")
-    parser.add_option("-f", "--fast_queue", dest="fast", action="store_true", default=False, help="Enable fast queue for hybrids with fast children.")
+    parser.add_argument("-v", "--verbose", action="store_true", default=False, help="sets verbosity, i.e. print and debug option")
+    parser.add_argument("-s", "--silent", action="store_true", default=False, help="only error and critical output")
+    parser.add_argument("-d", "--debug", action="store_true", default=False, help="debug flag for printing")
+    parser.add_argument("-p", "--print", dest="print", action="store_true", default=False, help="flag for printing")
+    parser.add_argument(
+        "-f",
+        "--fast_queue",
+        dest="fast",
+        action="store_true",
+        default=False,
+        help="Enable fast queue for hybrids with fast children.",
+    )
+    parser.add_argument("input_file", nargs="?", help="Path to input file for SHARC")
 
-    (options, args) = parser.parse_args()
+    options = parser.parse_args()
 
     loglevel = loglevel_env
     if options.silent:
@@ -193,15 +203,13 @@ def main():
         loglevel = log.DEBUG
     if not options.name:
         raise Error('please specifiy the interface with "-i <name>"')
-    if len(args) == 0:
+    if not options.input_file:
         print("call with path to input file for SHARC")
         exit(0)
-    inp_file = args[0]
-    # param = args[0:-1]
 
+    inp_file = options.input_file
 
     # load interface without factory
-    # interface = factory(options.name)
     interface_name = options.name.upper()
     interface_name = interface_name if interface_name.split("_")[0] == "SHARC" else f"SHARC_{interface_name}"
     try:
@@ -220,7 +228,6 @@ def main():
     except AttributeError as exc:
         log.error(f"Class {interface_name} not found in {module}")
         raise AttributeError from exc
-
 
     with InDir("QM"):
         derived_int: SHARC_INTERFACE = interface(persistent=options.persistent, loglevel=loglevel, fast_queue=options.fast)
@@ -241,15 +248,12 @@ def main():
     with InDir("QM"):
         derived_int.read_resources()
         derived_int.read_template()
-        # derived_int.QMin.save['savedir'] = basic_info['savedir']
-        # derived_int.update_step(basic_info["step"])
         derived_int.setup_interface()
     if IRestart == 0:
         initial_qm_pre()
         do_qm_calc(derived_int, QMout, nstates)
         initial_qm_post()
         initial_step(IRestart)
-        # derived_int.update_step()
     lvc_time = 0.0
     all_time = 0.0
     for istep in range(basic_info["istep"] + 1, basic_info["NSteps"] + 1):
@@ -263,7 +267,6 @@ def main():
         count = do_qm_calc(derived_int, QMout, nstates)
         log.debug(f"{istep} done")
         s2 = time.perf_counter_ns()
-        # print(" do_qm_calc: ", (s2 - s1) * 1e-6)
         lvc_time += s2 - s1
         log.debug(f"{istep} done")
         log.debug(f"{istep} verlet_vstep")
@@ -271,7 +274,7 @@ def main():
         log.debug(f"{istep} done")
 
         if IRedo == 2:
-            with(InDir("QM")):
+            with InDir("QM"):
                 derived_int.read_requests(get_all_tasks(count, nstates))
                 safe(derived_int.run)
                 QMout.set_props(derived_int.getQMout(), 3)
@@ -280,13 +283,12 @@ def main():
         all_time += all_s2 - all_s1
         if iexit == 1:
             break
-        # derived_int.update_step()
 
     derived_int.create_restart_files()
     finalize_sharc()
     stop = time.time_ns()
     print(f"Timing per step ({derived_int.__class__.__name__}):", lvc_time / basic_info["NSteps"] * 1e-6, "ms")
-    print(f"Timing per step full", all_time / basic_info["NSteps"] * 1e-6, "ms")
+    print("Timing per step full", all_time / basic_info["NSteps"] * 1e-6, "ms")
     print("Timing:", (all_time) * 1e-6, "ms")
     print("Timing:", (stop - start) * 1e-6, "ms")
 
