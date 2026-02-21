@@ -168,7 +168,9 @@ class SHARC_FRENKEL(SHARC_HYBRID):
             self.instantiate_children(kindergarden)
 
         all_features = set(["h", "grad", "point_charges", "dm", "overlap", "phases", "nacdr"])
-        for child in self._kindergarden.values():
+        for label, child in self._kindergarden.items():
+            if not self._read_template and isinstance(child, SHARC_HYBRID):
+                self.log.info(f"{label}:")
             all_features &= child.get_features(KEYSTROKES=KEYSTROKES)
         self.log.debug(f"Features: {all_features}")
         all_features.add("theodore")
