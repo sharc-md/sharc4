@@ -30,6 +30,7 @@ import numpy as np
 from typing import Any
 from optparse import OptionParser
 from importlib import import_module
+import os
 import inspect
 
 # INTERNAL
@@ -87,11 +88,9 @@ def get_basic_info() -> dict[str, Any]:
     """returns dict {states: str, dt: str, savedir: str, NAtoms: int, NSteps: int, istep: int, IAn: list[int]}"""
     return sharc.get_basic_info()
 
-
-def get_all_tasks(icall: int) -> dict:
+def get_all_tasks(icall: int, nstates: int) -> dict:
     """returns {tasks: str, grad: str, nacdr: str}"""
-    return sharc.get_all_tasks(icall)
-
+    return sharc.get_all_tasks(icall, nstates)
 
 def get_crd(unit: int = 0) -> list[list[float]]:
     """returns coordinates in specified unit (0 = Bohr, 1 = Angstrom)"""
@@ -138,19 +137,21 @@ def safe(func: callable):
         raise
 
 
-def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
+def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT, nstates: int):
     icall = 1
-    log.debug(f"\tset_requ")
-    i.read_requests(get_all_tasks(icall))
-    log.debug(f"\tcoords")
+    log.debug("\tset_requ")
+    
+    i.read_requests(get_all_tasks(icall, nstates))
+
+    log.debug("\tcoords")
     i.set_coords(get_crd())
     i.set_veloc(get_vel())
     with InDir("QM"):
-        log.debug(f"\trun")
+        log.debug("\trun")
         safe(i.run)
-        log.debug(f"\twrite Stepfile")
+        log.debug("\twrite Stepfile")
         i.write_step_file()
-    log.debug(f"\tset_props")
+    log.debug("\tset_props")
     qmdata=i.getQMout()
     qmout.set_props(qmdata, icall)
     i.clean_savedir()
@@ -158,7 +159,7 @@ def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
         icall = 2
-        i.read_requests(get_all_tasks(icall))
+        i.read_requests(get_all_tasks(icall, nstates))
         with InDir("QM"):
             safe(i.run)
         qmdata=i.getQMout()
@@ -231,9 +232,11 @@ def main():
 
     basic_info = get_basic_info()
     basic_info.update(derived_int.parseStates(basic_info["states"]))
+    basic_info["savedir"] = os.path.join(os.getcwd(), "restart")
     QMout = QMOUT(derived_int.__class__.__name__, basic_info["NAtoms"], basic_info["nmstates"])
 
     derived_int.setup_mol(basic_info)
+    nstates = derived_int.QMin.molecule["nstates"]
 
     with InDir("QM"):
         derived_int.read_resources()
@@ -243,7 +246,7 @@ def main():
         derived_int.setup_interface()
     if IRestart == 0:
         initial_qm_pre()
-        do_qm_calc(derived_int, QMout)
+        do_qm_calc(derived_int, QMout, nstates)
         initial_qm_post()
         initial_step(IRestart)
         # derived_int.update_step()
@@ -257,7 +260,7 @@ def main():
         log.debug(f"{istep} done")
         s1 = time.perf_counter_ns()
         log.debug(f"{istep} do_qm_calc")
-        count = do_qm_calc(derived_int, QMout)
+        count = do_qm_calc(derived_int, QMout, nstates)
         log.debug(f"{istep} done")
         s2 = time.perf_counter_ns()
         # print(" do_qm_calc: ", (s2 - s1) * 1e-6)
@@ -269,7 +272,7 @@ def main():
 
         if IRedo == 2:
             with(InDir("QM")):
-                derived_int.read_requests(get_all_tasks(count))
+                derived_int.read_requests(get_all_tasks(count, nstates))
                 safe(derived_int.run)
                 QMout.set_props(derived_int.getQMout(), 3)
         iexit = verlet_finalize(1)
