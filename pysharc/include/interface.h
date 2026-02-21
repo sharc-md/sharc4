@@ -102,3 +102,4 @@ void error_finalize_sharc_(char * string);
 #ifdef __cplusplus
 }
 #endif
+#endif
