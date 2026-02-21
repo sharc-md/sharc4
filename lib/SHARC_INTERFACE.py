@@ -31,7 +31,6 @@ import os
 import re
 import struct
 import sys
-import uuid
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from datetime import date
@@ -41,7 +40,6 @@ from textwrap import wrap
 from typing import Any
 
 import numpy as np
-
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS, IAn2AName
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
@@ -1128,6 +1126,8 @@ class SHARC_INTERFACE(ABC):
         """
         reqs = self.QMin.requests
         save = self.QMin.save
+        reqs = self.QMin.requests
+        save = self.QMin.save
         self.log.debug("Starting request logic")
 
         if not self._savedir_checked:
@@ -1138,7 +1138,11 @@ class SHARC_INTERFACE(ABC):
         if self.log.isEnabledFor(logging.DEBUG):
             self.log.debug(f'{self.name()}: step: {save["step"]}')
             self.log.debug(f'overlap: {reqs["overlap"]}, phases: {reqs["phases"]}, init: {save["init"]}')
+        if self.log.isEnabledFor(logging.DEBUG):
+            self.log.debug(f'{self.name()}: step: {save["step"]}')
+            self.log.debug(f'overlap: {reqs["overlap"]}, phases: {reqs["phases"]}, init: {save["init"]}')
         assert not (
+            (reqs["overlap"] or reqs["phases"]) and save["init"]
             (reqs["overlap"] or reqs["phases"]) and save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
