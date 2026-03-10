@@ -733,6 +733,8 @@ class SHARC_LVC(SHARC_FAST):
             overlap = Uold.T @ self._U
             if self.QMin.requests["phases"]:
                 _, phases = phase_correction(overlap)
+                self.log.debug("Debugging phases:")
+                self.log.debug(phases)
 
         # OVERLAP
         if not self.QMin.save["samestep"]:
