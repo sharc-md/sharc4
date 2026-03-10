@@ -1578,7 +1578,7 @@ module qm
       endif ! if (ctrl%calc_overlap==1) then
     endif
 
-    if (traj%phases_found.eqv..true. .and. printlevel>4) then 
+    if (traj%phases_found .eqv. .true. .and. (printlevel>4)) then 
       write(u_log,*) '==========================================================================='
       write(u_log,*) 'Phases found in QMout. Applying phase correction with the following phases:'
       write(u_log,*) '==========================================================================='
