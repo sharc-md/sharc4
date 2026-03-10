@@ -184,10 +184,10 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
         selected_nmstates = [(im + 1, s + 1) for im, ns in enumerate(states) for s in range((im + 1) * ns)]
         idx = [i for i, (im, s) in enumerate(all) if (im, s) in selected_nmstates]
 
-        print(template_nmstates)
-        print(all)
-        print(selected_nmstates)
-        print(idx)
+        # print(template_nmstates)
+        # print(all)
+        # print(selected_nmstates)
+        # print(idx)
 
         keywords = {'dm', 'soc', 'multi'}
         while line:
