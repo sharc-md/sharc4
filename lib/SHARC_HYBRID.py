@@ -270,7 +270,10 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             child.clean_savedir()
 
     def write_step_file(self) -> None:
-        super().write_step_file()
+        if not self.persistent:
+            super().write_step_file()
+        else:
+            self.savedict["last_step"] = self.QMin.save["step"]
         for label, child in self._kindergarden.items():
             self.log.debug(f"Write step file for child {label}")
             child.write_step_file()
