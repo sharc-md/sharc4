@@ -1480,11 +1480,10 @@ module qm
     logical :: all_unit_norm
 
     ! if phases were not found in the QM output, try to obtain it
-    if (traj%phases_found.eqv..false.) then
+    if (.not. traj%phases_found) then
 
       ! from overlap matrix diagonal
       if (ctrl%calc_overlap==1) then
-
         if (printlevel>4) then 
           write(u_log,*) '============================================================================='
           write(u_log,*) 'Phases not found in QMout. Calculation of phase correction based on overlaps.'
@@ -1576,24 +1575,26 @@ module qm
         traj%phases_s=scalarProd(:,1)
       
       endif ! if (ctrl%calc_overlap==1) then
-    endif
 
-    if (traj%phases_found .eqv. .true. .and. (printlevel>4)) then 
-      write(u_log,*) '==========================================================================='
-      write(u_log,*) 'Phases found in QMout. Applying phase correction with the following phases:'
-      write(u_log,*) '==========================================================================='
-      write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
-      do istate=1,ctrl%nstates
-        write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
-      enddo
-    endif
-    
-    !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 
-    ! See also if-block above  where ctrl%calc_overlap==1 and ...traj%phases_s=traj%phases_old_s ...
-    if (traj%phases_found.eqv..true. .and. ctrl%calc_overlap==1) then
+    else 
+    !when traj%phases_found is true
+      if (printlevel>4) then 
+        write(u_log,*) '==========================================================================='
+        write(u_log,*) 'Phases found in QMout. Applying phase correction with the following phases:'
+        write(u_log,*) '==========================================================================='
+        write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
+        do istate=1,ctrl%nstates
+          write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
+        enddo
+      endif
+      !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 
+      ! See also if-block above  where ctrl%calc_overlap==1 and ...traj%phases_s=traj%phases_old_s ...
+      if (ctrl%calc_overlap==1) then
         do istate=1,ctrl%nstates
             traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
         enddo
+      endif
+      
     endif
     
     ! check if phases have all norm 1

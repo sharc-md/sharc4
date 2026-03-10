@@ -688,7 +688,11 @@ subroutine postprocess_qmout_data(IH, IDM, IGrad, IOverlap, IPhases, INac)
 
     if (IPhases .eq. 1) then
       if (printlevel>3) write(u_log,'(A31,A2)') 'Phases:                        ','OK'
-      if (ctrl%calc_phases .eq. 1) traj%phases_found= .true. !Necessary for printing out phases when print_qm is called 
+      if (ctrl%calc_phases .eq. 1) then 
+          traj%phases_found= .true. !Necessary for printing out phases when print_qm is called
+      else 
+          traj%phases_found= .false. 
+      endif
       IPhases = 0
     endif
 
@@ -777,6 +781,8 @@ subroutine set_phases(N,phases)
             traj%phases_s(i) = phases(i)
         end do
         traj%phases_found=.true. !Probably this is gonna be ignored, has to be added somewhere else
+    else
+         traj%phases_found=.false. !Probably this is gonna be ignored, has to be added somewhere else
     endif
 
 
