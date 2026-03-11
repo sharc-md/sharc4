@@ -117,8 +117,8 @@ class SHARC_CPA(SHARC_HYBRID):
             self._kindergarden["child"].read_template()
             self._kindergarden["child"].QMin.save["savedir"] = os.path.join(self.QMin.save["savedir"], "QM_"+self.QMin.template["interface"]["name"])
             self._kindergarden["child"].QMin.resources["scratchdir"] = os.path.join(self.QMin.resources["scratchdir"], "QM_"+self.QMin.template["interface"]["name"])
-            self._kindergarden["child"].QMin.resources["pwd"] = os.path.join(self.QMin.resources["pwd"], "QM")
-            self._kindergarden["child"].QMin.resources["cwd"] = os.path.join(self.QMin.resources["cwd"], "QM")
+            self._kindergarden["child"].QMin.resources["pwd"] = os.path.join(self.QMin.resources["pwd"], "QM_"+self.QMin.template["interface"]["name"])
+            self._kindergarden["child"].QMin.resources["cwd"] = os.path.join(self.QMin.resources["cwd"], "QM_"+self.QMin.template["interface"]["name"])
             self._kindergarden["child"].setup_interface()
             #Debugging
             self.log.debug("maps debugging of child")
@@ -234,8 +234,8 @@ class SHARC_CPA(SHARC_HYBRID):
         self.log.info("\n")
 
         self.log.info(f"\n{' Setting up child interface ':=^80s}\n")
-        self._kindergarden["reference"].QMin.molecule["states"] = INFOS["states"]
-        self._kindergarden["reference"].get_infos(INFOS, KEYSTROKES=KEYSTROKES)
+        self._kindergarden["child"].QMin.molecule["states"] = INFOS["states"]
+        self._kindergarden["child"].get_infos(INFOS, KEYSTROKES=KEYSTROKES)
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str) -> None:
@@ -251,7 +251,7 @@ class SHARC_CPA(SHARC_HYBRID):
         # folder setup and savedir
         self._kindergarden["child"].QMin.save["savedir"] = self.QMin.save["savedir"]
         self._kindergarden["child"].QMin.resources["scratchdir"] = self.QMin.resources["scratchdir"]
-        mkdir(child_path := os.path.join(dir_path, "QM"), force=False)
+        mkdir(child_path := os.path.join(dir_path, "QM_"+self.QMin.template["interface"]["name"]), force=False)
         self._kindergarden["child"].prepare(INFOS, child_path)
 
 

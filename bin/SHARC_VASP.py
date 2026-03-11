@@ -1264,7 +1264,8 @@ class SHARC_VASP(SHARC_ABINITIO):
         else:
             input_path = os.path.join(self.QMin.save["savedir"], f"TRANSITIONS.{step}")
         input_str = f"VASP states and info for step n.{step}\n"
-        input_str += f"Bangap: {ks_es['H->L']:<10.5f} eV\n"
+        value = ks_es.get('H->L', min(ks_es.values()))  # use min value if key missing
+        input_str += f"Bangap: {value:<10.5f} eV\n"
         input_str += f"{'Excited state n.':<20}{'orbitals(vasp band indexes)':<30}{'Energy(eV)':<20}\n"
         for n,(i,j) in enumerate(ks_es.items()):
             tmp=i.split('->')
