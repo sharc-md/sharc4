@@ -369,7 +369,7 @@ endsubroutine
 ! =================================================================== !
 
 subroutine zintruder(n,A_ss)
-  use definitions, only: u_log
+  use definitions, only: u_log, printlevel
   implicit none
   integer, intent(in) :: n
   complex*16, intent(inout) :: A_ss(n,n)
@@ -389,9 +389,14 @@ subroutine zintruder(n,A_ss)
       if (sums < intr_thrs) then
         write(u_log,'(A)') '! ======== INTRUDER STATE PROBLEM ======== !'
         write(u_log,'(A,I4)') 'State: ',i
-        !do k=1,n
-        !  write(u_log,'(1000(F8.5,1X))') (A_ss(k,j),j=1,n)
-        !enddo
+        if (printlevel > 4) then
+          ! Print row i
+          write(u_log,'(A,I0,A)') 'Row ', i, ' of overlap matrix'
+          write(u_log,'(1000(F12.6,1X))') (A_ss(i,j), j=1,n)
+          ! Print column i
+          write(u_log,'(A,I0,A)') 'Column ', i, ' of overlap matrix'
+          write(u_log,'(1000(F12.6,1X))') (A_ss(j,i), j=1,n)
+        endif
 
         A_ss(i,:)=dcmplx(0.d0,0.d0)
         A_ss(:,i)=dcmplx(0.d0,0.d0)
