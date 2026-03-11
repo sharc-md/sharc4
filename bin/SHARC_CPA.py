@@ -121,6 +121,8 @@ class SHARC_CPA(SHARC_HYBRID):
             self._kindergarden["reference"].read_resources()
             self._kindergarden["reference"].read_template()
             self._kindergarden["reference"].setup_interface()
+            # self._kindergarden["reference"].QMin.resources["scratchdir"] = os.path.join(self.QMin.resources["scratchdir"], "reference")
+            # self._kindergarden["reference"].QMin.save["savedir"] = os.path.join(self.QMin.save["savedir"], "reference")
             self.log.debug("maps debugging of child")
             self.log.debug(self._kindergarden["reference"].QMin.maps)
             self.log.debug("debugging child scratchdir and savedir")
@@ -129,6 +131,13 @@ class SHARC_CPA(SHARC_HYBRID):
 
     def create_restart_files(self):
         self._kindergarden["reference"].create_restart_files()
+
+    def write_step_file(self):
+        if not self.persistent:
+            super().write_step_file()
+        else:
+            self.savedict["last_step"] = self.QMin.save["step"]
+        self._kindergarden["reference"].write_step_file()
 
     def run(self):
         with InDir("QM_"+self.QMin.template["reference"]["interface"]):
