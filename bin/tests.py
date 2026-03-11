@@ -265,13 +265,13 @@ def env_or_question(varname, setenv=False):
                     path_hdf5=os.path.expanduser(os.path.expandvars(path_hdf5))
                     sys.stdout.write('\nEnvironment variable for VASP HDF5 lib $%s also detected:\n$%s=%s\n\n' % (hdf5env, hdf5env, path_hdf5))
                 else:
-                    path_hdf5=question('Please specify also the path for the VASP HDF5 lib too $%s:' % (hdf5env), str)
+                    path_hdf5=question('Please specify also the path for the VASP HDF5 lib too, $%s:' % (hdf5env), str)
             return path
     path = question('Please enter the path for $%s:' % (varname), str)
     path = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
     if varname=="VASP":
-        path_hdf5 = question('Please enter the path for the VASP HDF5 lib too $%s:' % (hdf5env), str)
-        path_hdf5 = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+        path_hdf5 = question('Please enter the path for the VASP HDF5 lib too, $%s:' % (hdf5env), str)
+        path_hdf5 = os.path.abspath(os.path.expanduser(os.path.expandvars(path_hdf5)))
     if setenv:
         print("\nSetting $%s = %s" % (varname,path)) 
         os.environ[varname] = path
