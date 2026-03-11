@@ -399,9 +399,9 @@ class SHARC_VASP(SHARC_ABINITIO):
                 savedir_check=re.search(r"\s*savedir",resources_file) 
                 scratchdir_check=re.search(r"\s*scratchdir",resources_file) 
                 if savedir_check is None:
-                    self.log.warning("You have not specified savedir in the resource file. Please do it, this may cause issues.")
+                    self.log.warning("You have not specified savedir in the resource file. Default will be used.")
                 if scratchdir_check is None:
-                    self.log.warning("You have not specified scratchdir in the resource file. Please do it, this may cause issues.")
+                    self.log.warning("You have not specified scratchdir in the resource file. Default will be used.")
         else:
             self.log.info("Specify the number of CPUs to be used.")
             self.setupINFOS["ncpu"] = question("Number of CPUs (at least 2):", int, default=[2], KEYSTROKES=KEYSTROKES)[0]

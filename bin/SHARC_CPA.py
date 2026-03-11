@@ -74,7 +74,7 @@ class SHARC_CPA(SHARC_HYBRID):
     def read_resources(self, resources_file: str = "CPA.resources", kw_whitelist: list[str] | None = None) -> None:
         if os.path.isfile(resources_file):
             return super().read_resources(resources_file, kw_whitelist)
-        self.log.info("No resource file found. Loading defaults.")
+        self.log.info("No CPA.resources file found. Loading defaults.")
         self._read_resources = True
 
     def read_template(self, template_file: str = "CPA.template", kw_whitelist: list[str] | None = None) -> None:
@@ -216,6 +216,10 @@ class SHARC_CPA(SHARC_HYBRID):
             child = self.QMin.template["interface"]
             kindergarden = {"child": (child["name"], child["args"], child["kwargs"])}
             self.instantiate_children(kindergarden)
+            #In case resources is provided by the user, but not mandatory here.
+            if os.path.isfile("CPA.resources"):
+                self.resources_file=os.path.join(os.getcwd(),"CPA.resources")
+                self.log.info("Found CPA.resources in current directory. I will use it")
 
         features = set({"overlap", "phases"}) | self._kindergarden["child"].get_features()
         if features.isdisjoint({"h", "grad"}):
@@ -241,8 +245,13 @@ class SHARC_CPA(SHARC_HYBRID):
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         if "link_files" in INFOS:
             os.symlink(expand_path(self.template_file), os.path.join(dir_path, self.name() + ".template"))
+            if self.resources_file is not None:
+                os.symlink(expand_path(self.resources_file), os.path.join(dir_path, self.name() + ".resources"))
+
         else:
             shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
+            if self.resources_file is not None:
+                shutil.copy(self.resources_file, os.path.join(dir_path, self.name() + ".resources"))
 
         if not self.QMin.save["savedir"]:
             self.log.warning("savedir not specified, setting savedir to current directory!")
