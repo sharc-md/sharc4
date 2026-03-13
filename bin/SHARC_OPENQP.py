@@ -69,6 +69,7 @@ class SHARC_OPENQP(SHARC_ABINITIO):
         self.QMin.resources.update(
             {
                 "openqpdir": "",  
+                "openqpexe": "",  
                 "ncpu": 1,          # with 0, OpenQP uses all available CPUs
                 "scratchdir": "/scratch/",
                 "wfoverlap": "", 
@@ -79,6 +80,7 @@ class SHARC_OPENQP(SHARC_ABINITIO):
         self.QMin.resources.types.update(
             {
                 "openqpdir": str,
+                "openqpexe": str,
                 "ncpu": int,
                 "scratchdir": str,
                 "wfoverlap": str,
@@ -167,12 +169,21 @@ class SHARC_OPENQP(SHARC_ABINITIO):
         
         if not self.QMin.resources["openqpdir"]:
             raise ValueError("openqpdir has to be set in resource file!")
-
+        if not self.QMin.resources["openqpexe"]:
+            raise ValueError("openqpexe has to be set in resource file!")
+        self.QMin.resources["openqpdir"] = expand_path(self.QMin.resources["openqpdir"])
+        self.QMin.resources["openqpexe"] = expand_path(self.QMin.resources["openqpexe"])
 
     def setup_interface(self) -> None:
         super().setup_interface()
         if self.QMin.resources["ncpu"] > 0:
             os.environ["OMP_NUM_THREADS"] = str(self.QMin.resources["ncpu"])
+        os.environ["OPENQP_ROOT"] = self.QMin.resources["openqpdir"]
+        os.environ['LD_LIBRARY_PATH'] = self.QMin.resources["openqpdir"] + '/lib' + ':%s' %  (os.environ['LD_LIBRARY_PATH'])
+
+        if (any(num > 0 for num in self.QMin.molecule["states"][1:]) or self.QMin.molecule["states"][0] == 0):
+            self.log.error("OpenQP can only calculate singlets!!")
+            raise ValueError()
 
 
 
@@ -208,6 +219,7 @@ class SHARC_OPENQP(SHARC_ABINITIO):
             shutil.copy(fromfile, tofile)
 
         if self.QMin.requests["overlap"]:
+            nmstates = self.QMin.molecule["nmstates"]
             self._run_wfoverlap()
             if self.QMin.requests["phases"]:
                 for i in range(nmstates):
@@ -313,7 +325,7 @@ class SHARC_OPENQP(SHARC_ABINITIO):
         mkdir(workdir)
         step = self.QMin.save["step"]
         savedir = self.QMin.save["savedir"]
-        openqpdir = self.QMin.resources["openqpdir"]
+        openqpexe = self.QMin.resources["openqpexe"]
 
         ### copy stuff: old json from savedir to workdir for built-in overlap, and also as (potential) initial guess ###
 
@@ -332,10 +344,10 @@ class SHARC_OPENQP(SHARC_ABINITIO):
 
         # Run QC Program
         starttime = datetime.datetime.now()
-        exec_str = f"{os.path.join(openqpdir,'openqp')} OPENQP.inp > out.log"
+        exec_str = f"{openqpexe} OPENQP.inp"
         print(f"Executing {exec_str}")
         exit_code = self.run_program(
-            workdir, exec_str, os.path.join(workdir, "OPENQP.log"), os.path.join(workdir, "OPENQP.err")
+            workdir, exec_str, os.path.join(workdir, "OPENQP.out"), os.path.join(workdir, "OPENQP.err")
         )
         endtime = datetime.datetime.now()
         return exit_code, endtime - starttime
@@ -474,8 +486,11 @@ class SHARC_OPENQP(SHARC_ABINITIO):
             self.files.append(self.resource_file)
         else:
             self.make_resources = True
-            self.log.info("Specify path to OpenQP directory (shell variables and ~ can be used, will be expanded when interface is started).\n")
-            self.setupINFOS["openqpdir"] = question("Path to OpenQP:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("Specify path to OpenQP directory containing folders like lib, pyoqp, etc. (shell variables and ~ can be used, will be expanded when interface is started).\n")
+            self.setupINFOS["openqpdir"] = question("Path to OpenQP folder:", str, KEYSTROKES=KEYSTROKES)
+            self.log.info("")
+            self.log.info("Specify path to the OpenQP executable (shell variables and ~ can be used, will be expanded when interface is started).\n")
+            self.setupINFOS["openqpexe"] = question("Path to OpenQP executable:", str, KEYSTROKES=KEYSTROKES)
             self.log.info("")
             self.log.info(f"{'Scratch directory':-^60}\n")
             self.log.info(

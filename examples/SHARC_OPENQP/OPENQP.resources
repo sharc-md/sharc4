@@ -1,5 +1,6 @@
 	## Path of OpenQP executable 
-openqpdir /usr/software/openqp/bin
+openqpdir /global/mai/SHARC_4.0_beta_tests/OpenQP/OpenQP/openqp/
+openqpexe /user/mai/.local/share/mamba/envs/sharc_with_openqp/bin/openqp
 
 	## Scratch directory 
 scratchdir /scratch/
