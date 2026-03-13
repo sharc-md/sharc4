@@ -66,13 +66,13 @@ class QMOUT:
             if "h" in data:
                 self._QMout.set_hamiltonian(np.asfortranarray(data["h"]))
             if "dm" in data:
-                self._QMout.set_dipolemoment(np.asfortranarraydata(["dm"]))
+                self._QMout.set_dipolemoment(np.asfortranarray(data["dm"]))
                 log.debug("setting dm")
             if "mdm" in data:
-                self._QMout.set_mag_dipolemoment(np.asfortranarraydata(data["mdm"]))
+                self._QMout.set_mag_dipolemoment(np.asfortranarray(data["mdm"]))
                 log.debug("setting mdm")
             if "eqm" in data:
-                self._QMout.set_el_quadrupolemoment(np.asfortranarraydata(data["eqm"]))
+                self._QMout.set_el_quadrupolemoment(np.asfortranarray(data["eqm"]))
                 log.debug("setting eqm")
         if "overlap" in data:
             # assumes type is numpy array
