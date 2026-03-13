@@ -67,6 +67,7 @@ real*8, save :: diagonalize_degeneracy_diff=1.d-12
 
 ! this routines can't be called from outside
 
+private didentity,zidentity
 private dnormalize,znormalize
 private dlowdin,zlowdin
 private dtransform,ztransform
@@ -91,6 +92,7 @@ private zdeterminant
 
 ! this routines can be called from outside
 
+public identity
 public normalize
 public lowdin
 public transform
@@ -122,6 +124,10 @@ public determinant
 ! =================================================================== !
 
 ! Overloading all procedures for use with real*8 and complex*16 matrices
+
+interface identity
+  module procedure didentity,zidentity
+endinterface
 
 interface normalize
   module procedure dnormalize,znormalize
@@ -323,6 +329,63 @@ subroutine deallocate_lapack
   deallocate( lapack_work_z, lapack_rwork_z )
 
 endsubroutine
+
+! ChatGPT suggestion of check a matrix in Fortran
+pure logical function didentity(A, n, tol) result(ok)
+  implicit none
+  integer,  intent(in) :: n
+  real(8),  intent(in) :: A(n,n)
+  real(8),  intent(in) :: tol
+  integer :: i, j
+
+  ! Default: assume false until proven otherwise
+  ok = .false.
+
+  ! Scan columns (j), inner loop over rows (i): unit-stride access
+  do j = 1, n
+    do i = 1, n
+      if (i == j) then
+        ! diagonal should be 1
+        if (abs(A(i,j) - 1.0d0) > tol) return
+      else
+        ! off-diagonal should be 0
+        if (abs(A(i,j)) > tol) return
+      end if
+    end do
+  end do
+
+  ok = .true.
+end function didentity
+
+pure logical function zidentity(A, n, tol) result(ok)
+  implicit none
+  integer,  intent(in) :: n
+  complex(8), intent(in) :: A(n,n)
+  real(8), intent(in) :: tol
+  integer :: i, j
+  real(8) :: a_re, a_im
+
+  ! Default: assume false until proven otherwise
+  ok = .false.
+
+  ! Scan columns (j), inner loop over rows (i): unit-stride access
+  do j = 1, n
+    do i = 1, n
+      a_re = dble(A(i,j))
+      a_im = dimag(A(i,j))
+
+      if (i == j) then
+        ! diagonal should be 1 + 0i
+        if (abs(a_re - 1.0d0) > tol .or. abs(a_im) > tol) return
+      else
+        ! off-diagonal should be 0 + 0i
+        if (abs(a_re) > tol .or. abs(a_im) > tol) return
+      end if
+    end do
+  end do
+
+  ok = .true.
+end function zidentity
 
 ! =================================================================== !
 ! =================================================================== !

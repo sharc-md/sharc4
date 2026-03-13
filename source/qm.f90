@@ -59,37 +59,6 @@
 module qm
   contains
 
-  ! ChatGPT suggestion of check a matrix in Fortran
-  pure logical function is_identity_z(A, n, tol) result(ok)
-    implicit none
-    integer,  intent(in) :: n
-    complex(8), intent(in) :: A(n,n)
-    real(8), intent(in) :: tol
-    integer :: i, j
-    real(8) :: a_re, a_im
-
-    ! Default: assume false until proven otherwise
-    ok = .false.
-
-    ! Scan columns (j), inner loop over rows (i): unit-stride access
-    do j = 1, n
-      do i = 1, n
-        a_re = dble(A(i,j))
-        a_im = dimag(A(i,j))
-
-        if (i == j) then
-          ! diagonal should be 1 + 0i
-          if (abs(a_re - 1.0d0) > tol .or. abs(a_im) > tol) return
-        else
-          ! off-diagonal should be 0 + 0i
-          if (abs(a_re) > tol .or. abs(a_im) > tol) return
-        end if
-      end do
-    end do
-
-    ok = .true.
-  end function is_identity_z
-
   !> Calls the QM calculation for the zero-th timestep and
   !> then performs the remaining initialization:
   !> calculation of initial coefficients and state in diagonal basis
@@ -1225,7 +1194,7 @@ module qm
       U_temp=traj%U_ss
     endif
 
-    skip_transform = is_identity_z(U_temp,ctrl%nstates, 1d-12)
+    skip_transform = identity(U_temp,ctrl%nstates, 1d-12)
 
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
 
@@ -2609,7 +2578,7 @@ end subroutine phase_correction_zhou
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
 
     ! Check if U is unit matrix
-    skip_transform = is_identity_z(U_temp, ctrl%nstates, 1d-12)
+    skip_transform = identity(U_temp, ctrl%nstates, 1d-12)
 
     ! ===============================
     ! 1. Compute time derivative Hamiltonian matrix (Kmatrix, TDH matrix)
