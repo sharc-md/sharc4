@@ -55,12 +55,12 @@ installation.
 
 To compile SHARC, first download or clone it from GitHub.
 
-This should create a new directory called sharc which contains all
+This should create a new directory called sharc4 which contains all
 the necessary subdirectories and files. 
 
 Now go to the source directory
 
-cd sharc/source
+cd sharc4/source
 
 and edit the Makefile by adjusting the 
 USE_PYSHARC
@@ -74,7 +74,7 @@ Issuing the command:
 make install
 
 will compile the source, create all the binaries, and copy them into the 
-sharc/bin/ directory of the SHARC distribution, which already contains 
+sharc4/bin/ directory of the SHARC distribution, which already contains 
 all the python scripts which come with SHARC.
 
 To set up your environment and run any command from the SHARC package, 
@@ -90,13 +90,13 @@ For fast, I/O-free SHARC simulations with model potentials, you can use PySHARC.
 You also need to use the PySHARC code if you want to use NetCDF output files.
 To install SHARC in this way, the conda environment mentioned above is mandatory.
 
-To install PySHARC, modify sharc/source/Makefile and sharc/pysharc/Makefile
+To install PySHARC, modify sharc4/source/Makefile and sharc4/pysharc/Makefile
 as needed. Then, execute 
 
 make install
 
 first in the pysharc/ folder and second in the source/ folder.
-Note that in sharc/source/Makefile, the USE_PYSHARC option needs to set to "true".
+Note that in sharc4/source/Makefile, the USE_PYSHARC option needs to set to "true".
 
 
 
@@ -104,7 +104,7 @@ Note that in sharc/source/Makefile, the USE_PYSHARC option needs to set to "true
 
 In order to install the wfoverlap program, which is necessary for many functionalities in SHARC, go to the respective source directory
 
-cd sharc/wfoverlap/source
+cd sharc4/wfoverlap/source
 
 edit the Makefile appropriately, and issue the command:
 

@@ -600,7 +600,7 @@ def detect_event(Tarray, Xarray, threshold, options):
 def do_calc(INFOS):
 
     options = {"mode": "simple"}
-    options = {"mode": "persistence", "persistence_time": 20.0}
+    # options = {"mode": "persistence", "persistence_time": 20.0}
 
     # initialize results
     results = []
