@@ -201,7 +201,6 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
         rstr += "\n"
         istr += "\n"
 
-    print(rnonzero, inonzero)
     retstr = ""
     if rnonzero:
         retstr += rstr
