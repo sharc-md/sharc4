@@ -161,6 +161,8 @@ module qm
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
     integer :: stat,i,j,imult,istate,jstate,iatom,idir
+    integer :: jdir
+    complex*16 :: sum 
 
     if (printlevel>3) then
       write(u_log,*) '============================================================='
@@ -219,15 +221,32 @@ module qm
     enddo
     if (printlevel>3) write(u_log,'(A31,A2)') 'Hamiltonian:                   ','OK'
 
-    ! get Dipole moments
-    if (ctrl%calc_dipole==1) then
+    ! get electric Dipole moments
+    if (ctrl%calc_dipole>=1) then
       call get_dipoles(ctrl%nstates, traj%DM_ssd)
-      if (printlevel>3) write(u_log,'(A31,A2)') 'Dipole Moments:                ','OK'
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Dipole Moments:                ','OK'
       traj%DM_print_ssd=traj%DM_ssd
       ! apply frozen-state mask 
       do i=1,ctrl%nstates
         do j=1,ctrl%nstates
           if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%DM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
+        enddo
+      enddo
+    endif
+
+    ! get electric Dipole moments (DM), magnetic DM, electric QM
+    if (ctrl%calc_dipole>=2) then
+      call get_magnetic_dipoles(ctrl%nstates, traj%MDM_ssd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic Dipole Moments:                ','OK' 
+      call get_electric_quadrupoles(ctrl%nstates, traj%EQM_ssdd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Quadrupole Moments:                ','OK' 
+      traj%MDM_print_ssd=traj%MDM_ssd
+      traj%EQM_print_ssdd=traj%EQM_ssdd
+      ! apply frozen-state mask 
+      do i=1,ctrl%nstates
+        do j=1,ctrl%nstates
+          if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%MDM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
+          if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%EQM_ssdd(i,j,:,:)=dcmplx(0.d0,0.d0)
         enddo
       enddo
     endif
@@ -332,12 +351,27 @@ module qm
     ! here we need to diagonalize only for selection of gradients/couplings/...
     traj%H_diag_ss=traj%H_MCH_ss
     ! if laser field, add it here, without imaginary part
+    
     if (ctrl%laser==2) then
-      do i=1,3
-        traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,i))
-      enddo
+      if (ctrl%laser_e) then
+        do i=1,3
+          traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
+        enddo
+      endif
+      if (ctrl%laser_b) then 
+        do i=1,3
+          traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,i)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,i))
+        enddo
+      endif
+      if (ctrl%laser_egrad) then
+        do i=1,3
+          do j=1,3
+            traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,i,j)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,i,j))
+          enddo
+        enddo
+      endif
     endif
-
+    
     ! diagonalize, if SHARC dynamics
     if (ctrl%surf==0) then
       call diagonalize(ctrl%nstates,traj%H_diag_ss,traj%U_ss)
@@ -347,8 +381,6 @@ module qm
         traj%U_ss(i,i)=dcmplx(1.d0,0.d0)
       enddo
     endif
-
-!     call check_allocation(u_log,ctrl,traj)
 
     ! get state in all representations
     if ((traj%step==0).and.(ctrl%staterep==1)) then
@@ -604,6 +636,9 @@ module qm
     endif
     if (ctrl%calc_dipole==1) then
       write(u_qm_qmin,'(A)') 'DM'
+    else if (ctrl%calc_dipole==2) then
+      write(u_qm_qmin,'(A)') 'DM'
+      write(u_qm_qmin,'(A)') 'MDEQM'
     endif
 
     select case (ctrl%calc_grad)
@@ -1010,6 +1045,17 @@ module qm
       call matwrite(ctrl%nstates,traj%DM_ssd(:,:,i),u,'Dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
     enddo
     write(u,*)
+    do i=1,3
+      call matwrite(ctrl%nstates,traj%MDM_ssd(:,:,i),u,'Magnetic dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
+    enddo 
+    write(u,*)
+    do i=1,3
+      do j=1,3
+        call matwrite(ctrl%nstates,traj%EQM_ssdd(:,:,i,j),u,'Electric quadrupole matrix (MCH basis) '//xyz(i)//''//xyz(j)//' direction','F9.4')
+      enddo
+      write(u,*)
+    enddo  
+    write(u,*)
     do i=1,ctrl%nstates
       write(string,'(A27,I3)') 'Gradient (MCH basis) state ',i
       call vec3write(ctrl%natom,traj%grad_MCH_sad(i,:,:),u,trim(string),'F9.4')
@@ -1081,6 +1127,8 @@ module qm
     traj%H_diag_old_ss=traj%H_diag_ss
  
     traj%DM_old_ssd=traj%DM_ssd
+    traj%MDM_old_ssd=traj%MDM_ssd
+    traj%EQM_old_ssdd=traj%EQM_ssdd
     traj%U_old_ss=traj%U_ss
     traj%NACdt_old_ss=traj%NACdt_ss
     traj%NACdr_old_ssad=traj%NACdr_ssad
@@ -1104,11 +1152,11 @@ module qm
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
-    integer :: i, iatom, idir, istate, jstate, ipol
+    integer :: i, iatom, idir, istate, jdir, jstate, ipol
     complex*16 :: U_temp(ctrl%nstates,ctrl%nstates), H_temp(ctrl%nstates,ctrl%nstates)
     complex*16 :: NACdR_diag_ss(ctrl%nstates,ctrl%nstates), pNACdR_diag_ss(ctrl%nstates,ctrl%nstates)
     character(255) :: string
-
+    complex*16 :: sum
     if (printlevel>3) then
       write(u_log,*) '============================================================='
       write(u_log,*) '             Current Rotational Matrix U'
@@ -1121,15 +1169,28 @@ module qm
         U_temp=traj%U_ss
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
-        do idir=1,3
-          H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,idir))
-        enddo
+        if (ctrl%laser_e) then
+          do idir=1,3
+            H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_b) then
+          do idir=1,3
+            H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_egrad) then
+          do idir=1,3
+            do jdir=1,3
+              H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+            enddo
+          enddo
+        endif
         call diagonalize(ctrl%nstates,H_temp,U_temp)
       endif
     elseif (ctrl%surf==1) then
       U_temp=traj%U_ss
     endif
-
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
 
     if (printlevel>3) then
@@ -1156,7 +1217,7 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 NACdR_diag_ss(istate,jstate)=NACdR_diag_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
@@ -1202,7 +1263,7 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 pNACdR_diag_ss(istate,jstate)=pNACdR_diag_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
@@ -1274,7 +1335,6 @@ module qm
     ! =============================
     if (ctrl%method==0) then !TSH
       traj%grad_ad(:,:)=real(traj%Gmatrix_ssad(traj%state_diag,traj%state_diag,:,:))
-      ! write(u_log,*) 'GRAAAAD0',(traj%grad_ad(1,1:3))
       if (printlevel>3) then
         write(u_log,*) ''
         write(u_log,*) 'Gradient of diagonal state',traj%state_diag,'picked.'
@@ -1557,6 +1617,8 @@ end subroutine phase_correction_zhou
     integer :: istate, jstate, ixyz
     complex*16:: scalarProd(ctrl%nstates,ctrl%nstates),correction, correction_s(ctrl%nstates)
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
+    complex*16 :: sum
+    integer :: idir, jdir
     logical :: all_unit_norm
 
     ! if phases were not found in the QM output, try to obtain it
@@ -1699,16 +1761,20 @@ end subroutine phase_correction_zhou
       endif
     enddo
 
-
-
-
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
     ! Bra
-    ! CONJG because phases could be complex if plan wave basis sets are used (Marco Romanelli 30/06/2025)
     do istate=1,ctrl%nstates
       traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*CONJG(traj%phases_s(istate))
       traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
       traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+      if (ctrl%laser_b) then 
+        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+      endif
+      if (ctrl%laser_egrad) then
+        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
+        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
+      endif  
       !this if is taken off because we add QM processing subroutine
       if (ctrl%calc_nacdt==1) then
         traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*CONJG(traj%phases_s(istate))
@@ -1726,6 +1792,14 @@ end subroutine phase_correction_zhou
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)
       traj%DM_print_ssd(:,istate,:)=traj%DM_print_ssd(:,istate,:)*traj%phases_s(istate)
+      if (ctrl%laser_b) then 
+        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*traj%phases_s(istate)
+        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*traj%phases_s(istate)
+      endif
+      if (ctrl%laser_egrad) then
+        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*traj%phases_s(istate)
+        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*traj%phases_s(istate)
+      endif 
       if (ctrl%calc_nacdt==1) then
         traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
       endif
@@ -1752,9 +1826,23 @@ end subroutine phase_correction_zhou
 
       traj%H_diag_ss=traj%H_MCH_ss
       if (ctrl%laser==2) then
-        do ixyz=1,3
-          traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ixyz))
-        enddo
+         if (ctrl%laser_e) then
+           do ixyz=1,3
+             traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ixyz))
+           enddo
+         endif
+         if (ctrl%laser_b) then
+           do ixyz=1,3
+             traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,ixyz)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,ixyz))
+           enddo
+         endif
+         if (ctrl%laser_egrad) then
+           do ixyz=1,3
+             do jxyz=1,3
+               traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,ixyz,jxyz)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,ixyz,jxyz))
+             enddo
+           enddo
+         endif
       endif
       if (ctrl%surf==0) then
         ! obtain the diagonal Hamiltonian
@@ -2384,7 +2472,7 @@ end subroutine phase_correction_zhou
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
-    integer :: stat,i,j,istate,jstate,kstate,iatom,idir,ipol
+    integer :: stat,i,j,istate,jstate,kstate,iatom,idir,jdir,ipol
     integer :: imult
 
     ! TODO: these allocations can still lead to crashes, should be checked again what can be removed
@@ -2455,9 +2543,23 @@ end subroutine phase_correction_zhou
         U_temp=traj%U_ss
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
-        do idir=1,3
-          H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,idir))
-        enddo
+        if (ctrl%laser_e) then
+          do idir=1,3
+            H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_b) then
+          do idir=1,3 
+            H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_egrad) then
+          do idir=1,3
+            do jdir=1,3
+              H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+            enddo
+          enddo 
+        endif
         call diagonalize(ctrl%nstates,H_temp,U_temp)
       endif
     elseif (ctrl%surf==1) then
@@ -2585,9 +2687,9 @@ end subroutine phase_correction_zhou
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 G1matrix_ss(istate,jstate)=G1matrix_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
                 G2matrix_ss(istate,jstate)=G2matrix_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
@@ -2911,7 +3013,7 @@ end subroutine phase_correction_zhou
               do jstate=1,ctrl%nstates
                 do ipol=1,3
                   Gmatrix_ss(istate,jstate)=Gmatrix_ss(istate,jstate)-&
-                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
                 enddo
               enddo
             enddo
@@ -2967,7 +3069,7 @@ end subroutine phase_correction_zhou
               do jstate=1,ctrl%nstates
                 do ipol=1,3
                   Gmatrix_ss(istate,jstate)=Gmatrix_ss(istate,jstate)-&
-                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
                 enddo
               enddo
             enddo

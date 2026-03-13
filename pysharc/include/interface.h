@@ -32,6 +32,12 @@
  * @date: 28/07/2025
  * Added routine for reading in phases from QMout
  *
+ *
+ *
+ * modified by Lorenz Grünewald
+ * @date: 07/01/2026
+ * Added routine for reading magnetic dipole and electric quadrupole moments
+ *
  * Python Wrapper for the SHARC LIBRARY
  *
  * header for interface.f90
@@ -67,13 +73,17 @@ void get_ian_(int * NAtoms, int * IAn);
 // set pointer
 void setPointers(double complex ** H, double complex ** dm, 
                  double complex ** overlap, 
-                 double complex ** phases, 
+                 double complex ** mdm,
+                 double complex ** eqm,
+		 double complex ** phases, 
                  double ** grad,
                  double ** nacs 
                  );
 void setQMinPointers(double ** Crd);
 void setQMinPointers_vel(double ** Crd);
 void postprocess_qmout_data_(int * IH, int * IDM,
+                             int * IMDM,
+                             int * IEQM,
                              int * IGrad, 
                              int * IOverlap,
                              int * IPhases,
@@ -82,6 +92,8 @@ void postprocess_qmout_data_(int * IH, int * IDM,
 void set_phases_(int * N, double complex * phases);
 void set_hamiltonian_(int * N, double complex * H);
 void set_dipolemoments_(int * N, double complex * DM);
+void set_mag_dipolemoments_(int * N, double complex * MDM);
+void set_el_quadrupolemoments_(int * N, double complex * EQM);
 void set_overlap_(int * N, double complex * overlap);
 void set_gradients_(int * N, int * NAtoms, double * grad);
 void set_nacs_(int * NStates, int * NAtoms, double * nacs);

@@ -180,7 +180,6 @@ def read_QMout(path, nstates, natom, request):
 def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
     rnonzero = False
     inonzero = False
-
     rstr = header + " R\n"
     istr = header + " I\n"
     for i in range(len(mat)):
@@ -207,7 +206,6 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
         retstr += rstr
     if inonzero:
         retstr += istr
-
     return retstr
 
 
@@ -427,6 +425,9 @@ def write_LVC_template(INFOS, template_name):
         flags.add(5)
     if INFOS["multipolar_fit"]:
         flags.add(22)
+    if INFOS["beyond_ed"]:
+        flags.add(41)  # 41=MDM 
+        flags.add(42)  # 42=EQM
     QMout_eq = QMout(path, INFOS["states"], len(INFOS["atoms"]), npc=0, flags=flags)
     lvc_template_content += "charge " + " ".join(map(str, QMout_eq.charges)) + "\n"
     print(", ".join(requests))
@@ -1128,9 +1129,28 @@ def write_LVC_template(INFOS, template_name):
             lvc_template_content += LVC_complex_mat("SOC", QMout_soc.h, deldiag=True)
         else:
             lvc_template_content += LVC_complex_mat("SOC", QMout_eq.h, deldiag=True)
+    # Adding electric dipole (DM) contribution
     lvc_template_content += LVC_complex_mat("DMX", QMout_eq.dm[0])
     lvc_template_content += LVC_complex_mat("DMY", QMout_eq.dm[1])
     lvc_template_content += LVC_complex_mat("DMZ", QMout_eq.dm[2])
+    if INFOS["beyond_ed"]:
+        # Adding magnetic dipole (MDM) contribution
+        lvc_template_content += LVC_complex_mat("MDMX", QMout_eq.mdm[0])
+        lvc_template_content += LVC_complex_mat("MDMY", QMout_eq.mdm[1])
+        lvc_template_content += LVC_complex_mat("MDMZ", QMout_eq.mdm[2])
+        # Adding electric quadrupole (EQM) contribution
+        # x-polarized
+        lvc_template_content += LVC_complex_mat("EQMX_dX", QMout_eq.eqm[0][0])
+        lvc_template_content += LVC_complex_mat("EQMX_dY", QMout_eq.eqm[0][1])
+        lvc_template_content += LVC_complex_mat("EQMX_dZ", QMout_eq.eqm[0][2])
+        # y-polarized
+        lvc_template_content += LVC_complex_mat("EQMY_dX", QMout_eq.eqm[1][0])
+        lvc_template_content += LVC_complex_mat("EQMY_dY", QMout_eq.eqm[1][1])
+        lvc_template_content += LVC_complex_mat("EQMY_dZ", QMout_eq.eqm[1][2])
+        # z-polarized 
+        lvc_template_content += LVC_complex_mat("EQMZ_dX", QMout_eq.eqm[2][0])
+        lvc_template_content += LVC_complex_mat("EQMZ_dY", QMout_eq.eqm[2][1])
+        lvc_template_content += LVC_complex_mat("EQMZ_dZ", QMout_eq.eqm[2][2])
 
     # --------------------- multipolar fit ---------------------------
     if "multipolar_fit" in QMout_eq:
@@ -1147,7 +1167,6 @@ def write_LVC_template(INFOS, template_name):
             for atom in range(len(INFOS["atoms"])):  # get mults
                 n_entries += 1
                 nums = "".join(map(lambda x: f"{x: 12.8f}", fit[atom, :]))
-                # print(f"{s_i.S} {s_i.N + 1:2} {s_j.N + 1:2} {atom:3}    {nums}\n")
                 mat_string += f"{s_i.S + 1} {s_i.N:2} {s_j.N:2} {atom:3}    {nums}\n"
         lvc_template_content += f"Multipolar Density Fit {settings}\n{n_entries}\n{mat_string}"
 
@@ -1185,7 +1204,6 @@ def main():
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
     template_name = "LVC.template"
-    #print(len(sys.argv))
     if len(sys.argv) == 3:
         template_name = sys.argv[2]
     if is_other_dir:

@@ -54,6 +54,30 @@ class QMOUT:
     def __init__(self, interface: str, natoms: int, nmstates: int):
         self._QMout = sharc.QMout(interface, natoms, nmstates)
 
+    def set_hamiltonian(self, h: list[list[Union[float, complex]]]):
+        log.debug(f"{type(h)}")
+        self._QMout.set_hamiltonian(h)
+
+    def set_gradient(self, grad: dict[list[list[float], list[float], list[float]]], icall: int):
+        log.debug(f"{type(grad)}")
+        self._QMout.set_gradient(grad, icall)
+
+    def set_dipolemoment(self, dip: list[list[list[Union[complex, float]]]]):
+        log.debug(f"{type(dip)}")
+        self._QMout.set_dipolemoment(dip)
+
+    def set_overlap(self, ovl: list[list[Union[float, complex]]]):
+        log.debug(f"{type(ovl)}")
+        self._QMout.set_overlap(ovl)
+
+    def set_phases(self, phases: list[Union[float, complex]]):
+        log.debug(f"{type(phases)}")
+        self._QMout.set_phases(phases)
+
+    def set_nacdr(self, nac: dict[int, dict[int, list[float, float, float]]], icall: int):
+        log.debug(f"{type(nac)}")
+        self._QMout.set_nacdr(nac, icall)
+
     def printInfos(self):
         self._QMout.printInfos()
 
@@ -68,8 +92,14 @@ class QMOUT:
             if "h" in data:
                 self._QMout.set_hamiltonian(np.asfortranarray(data["h"]))
             if "dm" in data:
-                self._QMout.set_dipolemoment(np.asfortranarray(data["dm"]))
-
+                self._QMout.set_dipolemoment(np.asfortranarraydata(["dm"]))
+                log.debug("setting dm")
+            if "mdm" in data:
+                self._QMout.set_mag_dipolemoment(np.asfortranarraydata(data["mdm"]))
+                log.debug("setting mdm")
+            if "eqm" in data:
+                self._QMout.set_el_quadrupolemoment(np.asfortranarraydata(data["eqm"]))
+                log.debug("setting eqm")
         if "overlap" in data:
             # assumes type is numpy array
             self._QMout.set_overlap(np.asfortranarray(data["overlap"]))

@@ -193,6 +193,7 @@ DATA_EXTRACTOR =  qm_out.o \
 		  data_extractor.o
 
 LASER =	definitions.o \
+		vector_operations.o \
 		LASER_calc_fftw.o \
 		LASER_input.o \
 		LASER_main.o 

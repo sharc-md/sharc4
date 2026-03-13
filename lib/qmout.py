@@ -58,6 +58,8 @@ class QMout:
     charges: list[int]
     h: ndarray[complex, 2]
     dm: ndarray[complex, 3]
+    mdm: ndarray[complex, 3]
+    eqm: ndarray[complex, 4]
     grad: ndarray[float, 3]
     grad_pc: ndarray[float, 3]
     nacdr: ndarray[float, 4]
@@ -84,7 +86,7 @@ class QMout:
         self.notes = {}
         self.runtime = 0
         if flags == 'all':
-            flags = {k for k in range(30)}
+            flags = {k for k in range(50)}
         if states is not None:
             self.states = states
             self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
@@ -205,6 +207,10 @@ class QMout:
                         self.h, iline = QMout.get_quantity(data, iline, complex, (self.nmstates, self.nmstates))
                     case 2: # dm
                         self.dm, iline = QMout.get_quantity(data, iline, complex, (3, self.nmstates, self.nmstates))
+                    case 41: # mdm
+                        self.mdm, iline = QMout.get_quantity(data, iline, complex, (3, self.nmstates, self.nmstates))
+                    case 42: # eqm
+                        self.eqm, iline = QMout.get_quantity(data, iline, complex, (3, 3, self.nmstates, self.nmstates))
                     case 3: # grad
                         self.grad, iline = QMout.get_quantity(data, iline, float, (self.nmstates, self.natom, 3))
                     case 30 if self.point_charges: # grad_pc
@@ -476,6 +482,9 @@ class QMout:
             self.h = np.zeros((self.nmstates, self.nmstates), dtype=complex)
         if "dm" in requests:
             self.dm = np.zeros((3, self.nmstates, self.nmstates), dtype=float)
+        if "mdeqm" in requests:
+            self.mdm = np.zeros((3, self.nmstates, self.nmstates), dtype=complex) 
+            self.eqm = np.zeros((3, 3, self.nmstates, self.nmstates), dtype=complex) 
         if "grad" in requests:
             self.grad = np.zeros((self.nmstates, natom, 3), dtype=float)
             if self.point_charges:
@@ -565,6 +574,9 @@ class QMout:
             string += self.writeQMoutsoc()
         if requests["dm"]:
             string += self.writeQMoutdm()
+        if requests["mdeqm"]:
+            string += self.writeQMoutmdm() 
+            string += self.writeQMouteqm() 
         if requests["grad"]:
             string += self.writeQMoutgrad()
             if self.point_charges:
@@ -651,7 +663,7 @@ class QMout:
             nmstates,
         )
         for xyz in range(3):
-            string += "%i %i\n" % (nmstates, nmstates)
+            string += "%i %i pol %s\n" % (nmstates, nmstates, IToPol[xyz])
             for i in range(nmstates):
                 for j in range(nmstates):
                     string += "%s %s " % (
@@ -664,6 +676,70 @@ class QMout:
         return string
 
     # ======================================================================= #
+
+    def writeQMoutmdm(self):
+        """Generates a string with the Magnetic Dipole moment matrices in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line. The string contains three such matrices.
+
+        Returns:
+        1 string: multiline string with the MDM matrices"""
+        nmstates = self.nmstates
+        string = ""
+        string += "! %i Magnetic Dipole Moment Matrices (3x%ix%i, complex)\n" % (
+            41,
+            nmstates,
+            nmstates,
+        )
+        for xyz in range(3):
+            string += "%i %i pol %s\n" % (nmstates, nmstates, IToPol[xyz])
+            for i in range(nmstates):
+                for j in range(nmstates):
+                    string += "%s %s " % (
+                        eformat(self.mdm[xyz][i][j].real, 12, 3),
+                        eformat(self.mdm[xyz][i][j].imag, 12, 3),
+                    )
+                string += "\n"
+            string += ""
+        string += "\n"
+        return string
+
+    # ======================================================================= #
+
+    def writeQMouteqm(self):
+        """Generates a string with the Electric quadrupole moment matrices in SHARC format.
+
+        The string starts with a ! followed by a flag specifying the type of data.
+        In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
+        Blocks are separated by a blank line. The string contains nine such matrices.
+
+        Returns:
+        1 string: multiline string with the EQM matrices"""
+        nmstates = self.nmstates
+        string = ""
+        string += "! %i Electric Quadrupole Moment Matrices (9x%ix%i, complex)\n" % (
+            42,
+            nmstates,
+            nmstates,
+        )
+        for dxdydz in range(3):
+            for xyz in range(3):
+                string += "%i %i der %s pol %s\n" % (nmstates, nmstates, IToPol[dxdydz], IToPol[xyz])
+                for i in range(nmstates):
+                    for j in range(nmstates):
+                        string += "%s %s " % (
+                            eformat(self.eqm[dxdydz][xyz][i][j].real, 12, 3),
+                            eformat(self.eqm[dxdydz][xyz][i][j].imag, 12, 3),
+                        )
+                    string += "\n"
+                string += ""
+        string += "\n"
+        return string
+
+    # ======================================================================= #
+
     def writeQMoutdmdr(self):
         states = self.states
         nmstates = self.nmstates
@@ -1259,6 +1335,22 @@ class QMout:
                 matrix = self["dm"][xyz]
                 string += formatcomplexmatrix(matrix, states)
             string += "\n"
+        # Magnetic Dipole and Electric Quadrupole moment matrices
+        if QMin.requests["mdeqm"]:
+            string += "=> Magnetic Dipole Moment Matrices:\n\n"
+            for xyz in range(3):
+                string += "Polarisation %s:\n" % (IToPol[xyz])
+                matrix = self["mdm"][xyz]
+                string += formatcomplexmatrix(matrix, states)
+            string += "\n" 
+            string += "=> Electric Quadrupole Moment Matrices:\n\n"
+            for dxdydz in range(3):
+                string += "Derivative %s:\n" % (IToPol[dxdydz])
+                for xyz in range(3):
+                    string += "Polarisation %s:\n" % (IToPol[xyz])
+                    matrix = self["eqm"][dxdydz][xyz]
+                    string += formatcomplexmatrix(matrix, states)
+                string += "\n" 
         # Gradients
         if QMin.requests["grad"]:
             string += "=> Gradient Vectors:\n\n"

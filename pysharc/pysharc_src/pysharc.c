@@ -266,9 +266,11 @@ static PyObject * get_basic_info(PyObject * self)
         free(string);
         Py_XDECREF(dct);
         return NULL;
+
     fail_int:
         Py_XDECREF(dct);
         return NULL;
+
 }
 
 
@@ -369,12 +371,10 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
     int icall = 0;
     if (!PyArg_ParseTuple(args, "Oi", &qmout, &icall))
         return NULL;
-
     if (!PyObject_TypeCheck(qmout, &QMoutType)){
         PyErr_SetString(PyExc_TypeError, "arg #1 needs to be of type QMout! ");
         return NULL;
     }
-
     const int iset_g = qmout->iset_g;
     const int iset_nacdr = qmout->iset_nacdr;
 
@@ -392,6 +392,18 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
         printf("sharc.c: set dm\n");
         set_dipolemoments_(&qmout->NStates, qmout->dipole_mom);
         qmout->iset_d = 0;
+    }
+    ///* MAGNETIC DIPOLE MOMENT */
+    if (qmout->iset_mdm == 1){
+        printf("sharc.c: set mdm\n");
+        set_mag_dipolemoments_(&qmout->NStates, qmout->mag_dipole_mom);
+        qmout->iset_mdm = 0;
+    }
+     /* ELECTRIC QUADRUPOLE MOMENT */
+    if (qmout->iset_eqm == 1){
+        printf("sharc.c: set eqm\n");
+        set_el_quadrupolemoments_(&qmout->NStates, qmout->el_quadrupole_mom);
+        qmout->iset_eqm = 0;
     }
     /* Gradient */
     if (qmout->iset_g == 1){
@@ -422,6 +434,8 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
     // only properties that need to be changed, are done here
     postprocess_qmout_data_(&qmout->iset_h,
                               &qmout->iset_d,
+                              &qmout->iset_mdm,
+                              &qmout->iset_eqm,
                               &qmout->iset_g,
                               &qmout->iset_o,
                               &qmout->iset_phases,
@@ -453,7 +467,6 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
 }
 
 // -----------------------------------------------------------------
-
 /* SHARC METHODS */
 static PyMethodDef SHARC_METHODS[] = {
     /* QMout */

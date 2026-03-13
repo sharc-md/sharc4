@@ -527,11 +527,15 @@ There are two representations:
             qmout = QMout(filepath=qmfilename)
             H = qmout.h
             DM = qmout.dm
+            MDM = qmout.mdm
+            EQM = qmout.eqm
             if H is not None:
                 if INFOS["diag"]:
                     eig, U = np.linalg.eigh(H)
                     Ucon = np.conjugate(U)
                     DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
+                    MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
+                    EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
                     if INFOS["ion"]:
                         P = qmout.ion
                         P = np.einsum("kij,in,jm->knm", P, Ucon, U)
@@ -757,11 +761,15 @@ def get_QMout(INFOS, initlist):
         qmout = QMout(filepath=qmfilename)
         H = qmout.h
         DM = qmout.dm
+        MDM = qmout.mdm
+        EQM = qmout.eqm
         if INFOS["diag"]:
             eig, U = np.linalg.eigh(H)
             H = np.diag(eig)
             Ucon = np.conjugate(U)
             DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
+            MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
+            EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
             if INFOS["ion"]:
                 P = qmout.ion
                 P = np.einsum("kij,in,jm->knm", P, Ucon, U)

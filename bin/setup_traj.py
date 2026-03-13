@@ -58,6 +58,8 @@ versiondate = datetime.date(2025, 4, 1)
 
 global KEYSTROKES
 old_question = question
+
+
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     return old_question(
         question=question, typefunc=typefunc, KEYSTROKES=KEYSTROKES, default=default, autocomplete=autocomplete, ranges=ranges
@@ -347,7 +349,7 @@ class STATE:
         s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
-        s += "% 12.8f % 12.8f %s % s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
+        s += "% 12.8f % 12.8f %s % s % s " % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
         return s
 
     def Excite(self, max_Prob, erange):
@@ -662,6 +664,75 @@ def get_initconds(INFOS):
 # ======================================================================================================================
 
 
+def check_laserfileversion(filename):
+    if filename is None:
+        raise IOError
+        return None 
+    try:
+        f = open(filename)
+        data = f.readlines()
+        f.close()
+    except IOError:
+        print('Could not open laser file %s' % (filename))
+        return False 
+    laserfile_version=1.0
+    for line in data:
+        split_line = line.split()
+        if len(split_line):
+            if split_line[0]=="!":
+                if split_line[1]=="file_version":
+                    try:
+                        laserfile_version=float(split_line[2])
+                    except ValueError:
+                        print('No valid version detected %s' % (laserfile_version))
+                        return False  
+    return laserfile_version
+
+# ======================================================================================================================
+
+
+def check_laserfields(filename):
+    posresponse = ['y', 'yes', 'true', 't', 'ja', 'si', 'yea', 'yeah', 'aye', 'sure', 'definitely']
+    negresponse = ['n', 'no', 'false', 'f', 'nein', 'nope'] 
+    set_efield, set_bfield, set_egrad, set_bgrad = [int(0)]*4
+    try:
+        f = open(filename)
+        data = f.readlines()
+        f.close()
+    except IOError:
+        print('Could not open laser file %s' % (filename))
+        return False 
+    for line in data:
+        split_line = line.split()
+        if len(split_line)>0:
+            match split_line[0]:
+                case "!":
+                    match split_line[1]:
+                        case "e-field":
+                            if split_line[2] in posresponse:
+                                set_efield=1
+                            elif split_line[2] in negresponse:
+                                set_efield=0
+                        case "b-field":
+                            if split_line[2] in posresponse:
+                                set_bfield=1
+                            elif split_line[2] in negresponse:
+                                set_bfield=0
+                        case "e-field_gradients":
+                            if split_line[2] in posresponse:
+                                set_egrad=1
+                            elif split_line[2] in negresponse:
+                                set_egrad=0
+                        case "b-field_gradients":
+                            if split_line[2] in posresponse:
+                                set_bgrad=1
+                            elif split_line[2] in negresponse:
+                                set_bgrad=0
+    return set_efield, set_bfield, set_egrad, set_bgrad        
+
+# ======================================================================================================================
+
+
 def check_laserfile(filename, nsteps, dt):
     log.info('Laser file must have %i steps and a time step of %f fs.' % (nsteps,dt))
     try:
@@ -671,20 +742,33 @@ def check_laserfile(filename, nsteps, dt):
     except IOError:
         log.info("Could not open laser file %s" % (filename))
         return False
-    n = 0
-    for line in data:
-        if len(line.split()) >= 8:
-            n += 1
-        else:
-            break 
-    if n < nsteps:
-        log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
-        return False
-    for i in range(int(nsteps) - 1):
-        t0 = float(data[i].split()[0])
-        t1 = float(data[i + 1].split()[0])
-        if abs(abs(t1 - t0) - dt) > 1e-6:
-            log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
+    # n = 0
+    # for line in data:
+    #     log.info(line)
+    #     if len(line.split()) >= 8:  # time, Ex_r, Ex_i, Ey_r, Ey_i, Ez_r, Ez_i, Bx_r, Bx_i , By_r, By_i, Bz_r, Bz_i
+    #         n += 1
+    #     else:
+    #         break
+    # if n < nsteps:
+    #     log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
+    #     return False
+    # for i in range(int(nsteps) - 1):
+    #     t0 = float(data[i].split()[0])
+    #     t1 = float(data[i + 1].split()[0])
+    #     if abs(abs(t1 - t0) - dt) > 1e-6:
+    #         log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
+    #         return False
+    # return True
+
+    if check_laserfileversion(filename)==1.0:
+        n = 0
+        for line in data:
+            if len(line.split()) >= 8:  # time, Ex_r, Ex_i, Ey_r, Ey_i, Ez_r, Ez_i, Bx_r, Bx_i , By_r, By_i, Bz_r, Bz_i
+                n += 1
+            else:
+                break
+        if n < nsteps:
+            print('File %s (version=1.0) has only %i timesteps, %i steps needed!' % (filename, n, nsteps))
             return False
     return True
 
@@ -1636,6 +1720,7 @@ Laser files can be created using $SHARC/laser.x
                     INFOS["laserfile"] = "laser"
         if "laserfile" not in INFOS:
             while True:
+                log.info('Laser file must have %i steps and a time step of %f fs.' % ((INFOS["tmax"] / INFOS["dtstep"] * INFOS["nsubstep"] + 1), INFOS["dtstep"] / INFOS["nsubstep"]))
                 filename = question("Laser filename:", str)
                 if not os.path.isfile(filename):
                     log.info("File %s does not exist!" % (filename))
@@ -1645,17 +1730,32 @@ Laser files can be created using $SHARC/laser.x
                 ):
                     break
             INFOS["laserfile"] = filename
+            set_fields = check_laserfields(filename)
+            if any(set_fields)!=0:
+                INFOS['e-field'] = bool(set_fields[0])
+                INFOS['b-field'] = bool(set_fields[1])
+                INFOS['e-field gradients'] = bool(set_fields[2])
+                INFOS['b-field gradients'] = bool(set_fields[3])
+            else:
+                INFOS['e-field'] = True  # for laserfileversion 1.0
         # only the analytical interface can do dipole gradients
         if "dipolegrad" in int_features:
             INFOS["dipolegrad"] = question("Do you want to use dipole moment gradients?", bool, False)
         else:
             INFOS["dipolegrad"] = False
+        # 2nd order LM-interaction can only be described, if B-field and E-field gradients are present in laser file
+        if "mdeqm" in int_features:
+            INFOS["mdeqm"] = True
+        else:
+            INFOS["mdeqm"] = False
         log.info("")
     else:
         INFOS["dipolegrad"] = False
+        INFOS["mdeqm"] = False
     if INFOS["dipolegrad"]:
         INFOS["needed_requests"].add("dmdr")
-
+    if INFOS["mdeqm"]:
+        INFOS["needed_requests"].add("mdeqm")
 
     # Setup Dyson computation
     INFOS["ion"] = False

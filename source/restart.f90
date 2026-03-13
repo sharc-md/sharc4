@@ -69,7 +69,7 @@ module restart
      integer :: u
      type(ctrl_type) :: ctrl
  
-     integer :: imult, istate, ilaser, iatom, iconstr, ipair
+     integer :: imult, istate, ilaser, iatom, iconstr, ipair, idir
  
      ! the ctrl restart file is only written once at the beginning to avoid writing the laser field
      ! each timestep
@@ -115,7 +115,7 @@ module restart
      if (ctrl%output_format == 2) then
        write(u,*) (ctrl%output_steps_stride_nuc(istate),istate=1,3)
        write(u,*) (ctrl%output_steps_limits_nuc(istate),istate=1,3)
-     endif
+    endif
      write(u,*) ctrl%restart
      !  write(u,*) ctrl%restart_rerun_last_qm_step
      write(u,*) ctrl%retain_restart_files
@@ -125,6 +125,10 @@ module restart
      write(u,*) ctrl%staterep
      write(u,*) ctrl%initcoeff
      write(u,*) ctrl%laser, '! laser'
+     write(u,*) ctrl%laser_e, '! laser_efield'
+     write(u,*) ctrl%laser_b, '! laser_bfield'
+     write(u,*) ctrl%laser_egrad, '! laser_efield_grad'
+     write(u,*) ctrl%laser_freq_path, '! laser frequency file path'
      write(u,*) ctrl%coupling
      write(u,*) ctrl%ktdc_method
      write(u,*) ctrl%kmatrix_method
@@ -206,15 +210,25 @@ module restart
        enddo
      endif
  
-     ! write the laser field
-     if (ctrl%laser==2) then
-       write(u,*) ctrl%laser_bandwidth
-       write(u,*) ctrl%nlasers
-       call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, 'Laser field','ES24.16E3')
-       do ilaser=1,ctrl%nlasers
-         call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','ES24.16E3')
-       enddo
-     endif
+    ! write the laser field
+    if (ctrl%laser==2) then
+      write(u,*) ctrl%laser_bandwidth
+      write(u,*) ctrl%nlasers
+      if (ctrl%laser_e) then
+        call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, 'Laser E-field','ES24.16E3')
+      endif
+      if (ctrl%laser_b) then 
+        call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, 'Laser B-field','ES24.16E3')
+      endif
+      if (ctrl%laser_egrad) then
+        do idir=1,3 
+          call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u, 'Laser E-field gradient','ES24.16E3')
+        enddo
+      endif
+      do ilaser=1,ctrl%nlasers
+        call vecwrite(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u, 'Laser Energy','ES24.16E3')
+      enddo
+    endif
      
      write(u,*) ctrl%write_soc
      write(u,*) ctrl%write_overlap
@@ -368,7 +382,47 @@ module restart
      call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u, 'DM_print_ssd(x)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u, 'DM_print_ssd(y)','ES24.16E3')
      call matwrite(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u, 'DM_print_ssd(z)','ES24.16E3')
- !     call matwrite(ctrl%nstates, traj%Property_ss,  u, 'Property_ss','ES24.16E3')
+     if (ctrl%laser_b) then 
+       call matwrite(ctrl%nstates, traj%MDM_ssd(:,:,1),  u, 'MDM_ssd(x)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%MDM_ssd(:,:,2),  u, 'MDM_ssd(y)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%MDM_ssd(:,:,3),  u, 'MDM_ssd(z)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%MDM_old_ssd(:,:,1),  u, 'MDM_old_ssd(x)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%MDM_old_ssd(:,:,2),  u, 'MDM_old_ssd(y)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%MDM_old_ssd(:,:,3),  u, 'MDM_old_ssd(z)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,1),  u, 'MDM_print_ssd(x)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,2),  u, 'MDM_print_ssd(y)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%MDM_print_ssd(:,:,3),  u, 'MDM_print_ssd(z)','ES24.16E3')
+     endif
+     if (ctrl%laser_egrad) then
+       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,1,1),  u, 'EQM_ssdd(xx)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,1,2),  u, 'EQM_ssdd(xy)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,1,3),  u, 'EQM_ssdd(xz)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,2,1),  u, 'EQM_ssdd(yx)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,2,2),  u, 'EQM_ssdd(yy)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,2,3),  u, 'EQM_ssdd(yz)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,3,1),  u, 'EQM_ssdd(zx)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,3,2),  u, 'EQM_ssdd(zy)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_ssdd(:,:,3,3),  u, 'EQM_ssdd(zz)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_old_ssdd(:,:,1,1),  u, 'EQM_old_ssdd(xx)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_old_ssdd(:,:,1,2),  u, 'EQM_old_ssdd(xy)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_old_ssdd(:,:,1,3),  u, 'EQM_old_ssdd(xz)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_old_ssdd(:,:,2,1),  u, 'EQM_old_ssdd(yx)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_old_ssdd(:,:,2,2),  u, 'EQM_old_ssdd(yy)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_old_ssdd(:,:,2,3),  u, 'EQM_old_ssdd(yz)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_old_ssdd(:,:,3,1),  u, 'EQM_old_ssdd(zx)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_old_ssdd(:,:,3,2),  u, 'EQM_old_ssdd(zy)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_old_ssdd(:,:,3,3),  u, 'EQM_old_ssdd(zz)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_print_ssdd(:,:,1,1),  u, 'EQM_print_ssdd(xx)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_print_ssdd(:,:,1,2),  u, 'EQM_print_ssdd(xy)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_print_ssdd(:,:,1,3),  u, 'EQM_print_ssdd(xz)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_print_ssdd(:,:,2,1),  u, 'EQM_print_ssdd(yx)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_print_ssdd(:,:,2,2),  u, 'EQM_print_ssdd(yy)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_print_ssdd(:,:,2,3),  u, 'EQM_print_ssdd(yz)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_print_ssdd(:,:,3,1),  u, 'EQM_print_ssdd(zx)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_print_ssdd(:,:,3,2),  u, 'EQM_print_ssdd(zy)','ES24.16E3')
+       call matwrite(ctrl%nstates, traj%EQM_print_ssdd(:,:,3,3),  u, 'EQM_print_ssdd(zz)','ES24.16E3')
+     endif
+!     call matwrite(ctrl%nstates, traj%Property_ss,  u, 'Property_ss','ES24.16E3')
      call matwrite(ctrl%nstates, traj%Rtotal_ss,    u, 'Rtotal_ss','ES24.16E3')
      call matwrite(ctrl%nstates, traj%RDtotal_ss,    u, 'RDtotal_ss','ES24.16E3')
      call matwrite(ctrl%nstates, traj%Dtotal_ss,    u, 'Dtotal_ss','ES24.16E3')
@@ -651,7 +705,7 @@ module restart
      use misc
      use decoherence_afssh
      implicit none
-     integer :: iconstr
+     integer :: iconstr, idir
      integer :: u_ctrl,u_traj
      type(trajectory_type) :: traj
      type(ctrl_type) :: ctrl
@@ -729,7 +783,10 @@ module restart
      read(u_ctrl,*) ctrl%write_restart_files
      read(u_ctrl,*) ctrl%staterep
      read(u_ctrl,*) ctrl%initcoeff
-     read(u_ctrl,*) ctrl%laser
+     read(u_ctrl,*) ctrl%laser_e
+     read(u_ctrl,*) ctrl%laser_b
+     read(u_ctrl,*) ctrl%laser_egrad
+     read(u_ctrl,*) ctrl%laser_freq_path
      read(u_ctrl,*) ctrl%coupling
      read(u_ctrl,*) ctrl%ktdc_method
      read(u_ctrl,*) ctrl%kmatrix_method
@@ -835,11 +892,23 @@ module restart
      if (ctrl%laser==2) then
        read(u_ctrl,*) ctrl%laser_bandwidth
        read(u_ctrl,*) ctrl%nlasers
-       allocate( ctrl%laserfield_td(ctrl%nsteps*ctrl%nsubsteps+1,3) )
+       if (ctrl%laser_e) then
+           allocate( ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
+           call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u_ctrl, line)
+       endif
+       if (ctrl%laser_b) then 
+         allocate( ctrl%laserfield_b_tp(ctrl%nsteps*ctrl%nsubsteps+1,3) )
+         call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u_ctrl, line)
+       endif
+       if (ctrl%laser_egrad) then
+         allocate( ctrl%laserfield_egrad_tpd(ctrl%nsteps*ctrl%nsubsteps+1,3,3) )
+         do idir=1,3
+           call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,:,idir), u_ctrl, line)
+         enddo
+       endif
        allocate( ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers) )
-      call vec3read(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u_ctrl, line)
        do ilaser=1,ctrl%nlasers
-        call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, line)
+         call vecread(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserenergy_tl(:,ilaser), u_ctrl, line)
        enddo
      endif
  
@@ -1022,6 +1091,46 @@ module restart
    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,1),  u_traj, string)
    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,2),  u_traj, string)
    call matread(ctrl%nstates, traj%DM_print_ssd(:,:,3),  u_traj, string)
+   if (ctrl%laser_b) then 
+     call matread(ctrl%nstates, traj%MDM_ssd(:,:,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%MDM_ssd(:,:,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%MDM_ssd(:,:,3),  u_traj, string)
+     call matread(ctrl%nstates, traj%MDM_old_ssd(:,:,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%MDM_old_ssd(:,:,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%MDM_old_ssd(:,:,3),  u_traj, string)
+     call matread(ctrl%nstates, traj%MDM_print_ssd(:,:,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%MDM_print_ssd(:,:,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%MDM_print_ssd(:,:,3),  u_traj, string)
+   endif
+   if (ctrl%laser_egrad) then
+     call matread(ctrl%nstates, traj%EQM_ssdd(:,:,1,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_ssdd(:,:,1,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_ssdd(:,:,1,3),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_ssdd(:,:,2,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_ssdd(:,:,2,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_ssdd(:,:,2,3),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_ssdd(:,:,3,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_ssdd(:,:,3,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_ssdd(:,:,3,3),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_old_ssdd(:,:,1,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_old_ssdd(:,:,1,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_old_ssdd(:,:,1,3),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_old_ssdd(:,:,2,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_old_ssdd(:,:,2,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_old_ssdd(:,:,2,3),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_old_ssdd(:,:,3,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_old_ssdd(:,:,3,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_old_ssdd(:,:,3,3),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_print_ssdd(:,:,1,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_print_ssdd(:,:,1,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_print_ssdd(:,:,1,3),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_print_ssdd(:,:,2,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_print_ssdd(:,:,2,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_print_ssdd(:,:,2,3),  u_traj, string)       
+     call matread(ctrl%nstates, traj%EQM_print_ssdd(:,:,3,1),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_print_ssdd(:,:,3,2),  u_traj, string)
+     call matread(ctrl%nstates, traj%EQM_print_ssdd(:,:,3,3),  u_traj, string)           
+   endif
  !     call matread(ctrl%nstates, traj%Property_ss,  u_traj,   string)
    call matread(ctrl%nstates, traj%Rtotal_ss,    u_traj,   string)
    call matread(ctrl%nstates, traj%RDtotal_ss,    u_traj,   string)

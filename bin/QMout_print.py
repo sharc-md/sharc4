@@ -29,6 +29,8 @@
 
 import math
 import sys
+import numpy as np
+import scipy.constants as const
 import os
 from optparse import OptionParser
 from constants import HARTREE_TO_EV, IToMult 
@@ -79,6 +81,12 @@ def read_QMout(path, nstates, natom, request):
                'dm': {'flag': 2,
                       'type': complex,
                       'dim': (3, nstates, nstates)},
+               'mdm': {'flag': 41,
+                       'type': complex,
+                       'dim': (3, nstates, nstates)},
+               'eqm': {'flag': 42,
+                       'type': complex,
+                       'dim': (3, 3, nstates, nstates)},
                'grad': {'flag': 3,
                         'type': float,
                         'dim': (nstates, natom, 3)},
@@ -110,28 +118,37 @@ def read_QMout(path, nstates, natom, request):
                 iline += 3 + nprop + (nstates+1)*(targets[t]['property']-1)
             for iblocks in range(targets[t]['dim'][0]):
                 iline += 1
-                block = []
-                for irow in range(targets[t]['dim'][1]):
-                    iline += 1
-                    line = lines[iline].split()
-                    if targets[t]['type'] == complex:
-                        row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]['dim'][2])]
-                    elif targets[t]['type'] == float:
-                        row = [float(line[i]) for i in range(targets[t]['dim'][2])]
-                    block.append(row)
-                values.append(block)
-            QMout[t] = values
-        else:
-            values = []
-            for iblocks in range(targets[t]['dim'][0]):
-                block = []
-                for irow in range(targets[t]['dim'][1]):
-                    if targets[t]['type'] == complex:
-                        row = [complex(0., 0.) for i in range(targets[t]['dim'][2])]
-                    elif targets[t]['type'] == float:
-                        row = [float(0.) for i in range(targets[t]['dim'][2])]
-                    block.append(row)
-                values.append(block)
+                if len(targets[t]['dim']) == 3:
+                    # e.g. dm, mdm: (3, nstates, nstates)
+                    block = []
+                    for irow in range(targets[t]['dim'][1]):
+                        iline += 1
+                        line = lines[iline].split()
+                        if targets[t]['type'] == complex:
+                            row = [complex(float(line[2 * i]), float(line[2 * i + 1]))
+                                   for i in range(targets[t]['dim'][2])]
+                        else:
+                            row = [float(line[i]) for i in range(targets[t]['dim'][2])]
+                        block.append(row)
+                    values.append(block)
+
+                elif len(targets[t]['dim']) == 4:
+                    # e.g. eqm: (3, 3, nstates, nstates)
+                    superblock = []
+                    for jblock in range(targets[t]['dim'][1]):
+                        block = []
+                        iline += 1
+                        for irow in range(targets[t]['dim'][2]):
+                            line = lines[iline].split()
+                            if targets[t]['type'] == complex:
+                                row = [complex(float(line[2 * i]), float(line[2 * i + 1]))
+                                       for i in range(targets[t]['dim'][3])]
+                            else:
+                                row = [float(line[i]) for i in range(targets[t]['dim'][3])]
+                            block.append(row)
+                        iline += 1
+                        superblock.append(block)
+                    values.append(superblock)
             QMout[t] = values
 
     # pprint.pprint(QMout)
@@ -194,58 +211,35 @@ class diagonalizer:
 
 # ======================================================================================================================
 
-
-def transform(H, DM, P):
-    '''transforms the H and DM matrices in the representation where H is diagonal.'''
-
-    if NONUMPY:
-        diagon = diagonalizer()
-        H, U = diagon.eigh(H)
-        UDMU = [[[0. for i in range(len(H))] for j in range(len(H))] for k in range(3)]
-        for xyz in range(3):
-            temp = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        temp[a][b] += U[i][a].conjugate() * DM[xyz][i][b]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        UDMU[xyz][a][b] += temp[a][i] * U[i][b]
-        DM = UDMU
-
-        if P is not None:
-            UPU = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        UPU[a][b] += U[i][a].conjugate() * P[i][b]
-            P = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        P[a][b] += temp[a][i] * U[i][b]
-
-    else:
-        eig, U = numpy.linalg.eigh(H)
-        Ucon = [[0. for i in range(len(H))] for j in range(len(H))]
-        for ix in range(len(U)):
-            for iy in range(len(U)):
-                Ucon[ix][iy] = U[iy][ix].conjugate()
-                if ix == iy:
-                    H[ix][iy] = complex(eig[ix])
-                else:
-                    H[ix][iy] = complex(0)
+def transform(H, DM, MDM, EQM, P):
+    '''transforms the H, DM, MDM, and EQM matrices in the representation where H is diagonal.'''
+    eig, U = numpy.linalg.eigh(H)
+    Ucon = [[0. for i in range(len(H))] for j in range(len(H))]
+    for ix in range(len(U)):
+        for iy in range(len(U)):
+            Ucon[ix][iy] = U[iy][ix].conjugate()
+            if ix == iy:
+                H[ix][iy] = complex(eig[ix])
+            else:
+                H[ix][iy] = complex(0)
+    if DM:
         UDMU = [0, 0, 0]
         for xyz in range(3):
             UDMU[xyz] = numpy.dot(Ucon, numpy.dot(DM[xyz], U))
         DM = UDMU
+    if MDM:
+        UMDMU = [0, 0, 0]
+        for xyz in range(3):
+            UMDMU[xyz] = numpy.dot(Ucon, numpy.dot(MDM[xyz], U))
+        MDM = UMDMU
+    if EQM:
+        UEQMU = 3*[[0, 0, 0]]
+        for xyz1 in range(3):
+            for xyz2 in range(3):
+                UEQMU[xyz1][xyz2] = numpy.dot(Ucon, numpy.dot(EQM[xyz1][xyz2], U))
+        EQM = UEQMU
 
-        if P is not None:
-            UPU = numpy.dot(Ucon, numpy.dot(P, U))
-            P = UPU
-
-    return H, DM, U
+    return H, U, DM, MDM, EQM
 
 # ========================== Main Code =============================== #
 
@@ -269,7 +263,7 @@ excitation energies and oscillator strengths.
     parser.add_option('-n', dest='n', type=int, nargs=1, default=1, help="Number of atoms")
     parser.add_option('-D', dest='D', action='store_true', help="Diagonalize")
     parser.add_option('-S', dest='S', type=int, nargs=1, default=1, help="Initial state (Lowest=1)")
-    parser.add_option('-t', dest='t', type=int, nargs=1, default=0, help="0 (default): for QM.out containing h,dm; 1: for QM.out containing only h")
+    parser.add_option('-t', dest='t', type=int, nargs=1, default=1, help="Read the following from QM.out: 0: only h, 1 (default): h,dm, 2: h, dm, mdm, eqm")
     parser.add_option('-L', dest='L', action='store_true', help="Format in a single line")
     parser.add_option('-I', dest='I', action='store_true', default=False, help="Use Dyson norms instead of oscillator strengths")
 
@@ -312,9 +306,11 @@ excitation energies and oscillator strengths.
     QMin['statemap'] = statemap
 
     if target == 0:
-        target_list = ['h', 'dm']
-    elif target == 1:
         target_list = ['h']
+    elif target == 1:
+        target_list = ['h', 'dm']
+    elif target == 2:
+        target_list = ['h', 'dm', 'mdm', 'eqm']
     else:
         print("Target not defined.")
         exit()
@@ -329,12 +325,22 @@ excitation energies and oscillator strengths.
 
     if not options.L:
         sys.stderr.write('Number of states: %s\n' % (states))
-        sys.stderr.write('%5s  %11s %16s %12s %12s   %6s\n' % ('State', 'Label', 'E (E_h)', 'dE (eV)', ['f_osc','Dys norm'][options.I], 'Spin'))
+        sys.stderr.write('%5s  %11s %16s %12s %12s   %6s\n' % ('State', 'Label', 'E (E_h)', 'dE (eV)', ['f_osc', 'Dys norm'][options.I], 'Spin'))
 
     if options.D:
-        h, dm, U = transform(QMout['h'][0], QMout['dm'], None)
-        QMout['h'] = [h]
-        QMout['dm'] = dm
+        if target == 0:
+            h, U, *_ = transform(QMout['h'][0], None, None, None)
+            QMout['h'] = [h]
+        elif target == 1:
+            h, U, dm, *_ = transform(QMout['h'][0], QMout['dm'], None, None)
+            QMout['h'] = [h]
+            QMout['dm'] = dm
+        elif target == 2:
+            h, U, dm, mdm, eqm = transform(QMout['h'][0], QMout['dm'], QMout['mdm'], QMout['eqm'])
+            QMout['h'] = [h]
+            QMout['dm'] = dm
+            QMout['mdm'] = mdm
+            QMout['eqm'] = eqm
 
     # pprint.pprint(QMin)
     # pprint.pprint(QMout)
@@ -360,11 +366,23 @@ excitation energies and oscillator strengths.
                     ist = (m, s)
                     imax = c
             # fosc
-            dmx = QMout['dm'][0][istate][initial].real
-            dmy = QMout['dm'][1][istate][initial].real
-            dmz = QMout['dm'][2][istate][initial].real
-            f = 2. / 3. * (e - energies[initial]) * (dmx**2 + dmy**2 + dmz**2)
+            dmx = QMout['dm'][0][istate][initial]
+            dmy = QMout['dm'][1][istate][initial]
+            dmz = QMout['dm'][2][istate][initial]
+            # print("DM", istate, initial, e, energies[initial], dmx, dmy, dmz)
+            # print(istate)
+            f = 2. / 3. * (e - energies[initial]) * (np.abs(dmx)**2 + np.abs(dmy)**2 + np.abs(dmz)**2)
+            mdmx = QMout['mdm'][0][istate][initial]
+            mdmy = QMout['mdm'][1][istate][initial]
+            mdmz = QMout['mdm'][2][istate][initial]
+            f += 2. / 3. * (e - energies[initial]) * (np.imag(mdmx)**2 + np.imag(mdmy)**2 + np.imag(mdmz)**2)
             fosc.append(f)
+            eqm = np.zeros((3, 3), dtype=complex)
+            for i in range(3):
+                for j in range(3):
+                    eqm[i][j] = QMout['eqm'][i][j][istate][initial]
+            quad_term = np.sum(np.abs(eqm)**2) - 1/3.*np.abs(np.trace(eqm))**2 
+            f += (1.0/20.0) * const.alpha**2 * (e - energies[initial])**3 * quad_term
             # else:
             # dmx=dmy=dmz=0.
             # fosc.append(0.)
@@ -372,7 +390,7 @@ excitation energies and oscillator strengths.
                 de = (e - ezero) * HARTREE_TO_EV
             else:
                 de = (e - energies[0]) * HARTREE_TO_EV
-            string = '%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate + 1, IToMult[ist[0]][0], ist[1] - (ist[0] <= 2), e, de, fosc[-1], spin)
+            string = '%5i %10s%02i %16.10f % 12.8f % 1.9e   %6.4f' % (istate + 1, IToMult[ist[0]][0], ist[1] - (ist[0] <= 2), e, de, fosc[-1], spin)
             if istate == initial:
                 string += ' #initial state'
             if not options.L:
@@ -390,19 +408,27 @@ excitation energies and oscillator strengths.
             if options.I:
                 f = QMout['ion'][0][istate][initial].real
             else:
-                dmx = QMout['dm'][0][istate][initial].real
-                dmy = QMout['dm'][1][istate][initial].real
-                dmz = QMout['dm'][2][istate][initial].real
-                f = 2. / 3. * (e - energies[initial]) * (dmx**2 + dmy**2 + dmz**2)
+                dmx = QMout['dm'][0][istate][initial]
+                dmy = QMout['dm'][1][istate][initial]
+                dmz = QMout['dm'][2][istate][initial]
+                f = 2. / 3. * (e - energies[initial]) * (np.abs(dmx)**2 + np.abs(dmy)**2 + np.abs(dmz)**2)
+                mdmx = QMout['mdm'][0][istate][initial]
+                mdmy = QMout['mdm'][1][istate][initial]
+                mdmz = QMout['mdm'][2][istate][initial]
+                # f = 2. / 3. * (e - energies[initial]) * (np.abs(mdmx)**2* + np.abs(mdmy)**2 + np.abs(mdmz)**2)
+                fosc.append(f)
+                eqm = np.zeros((3, 3), dtype=complex)
+                for i in range(3):
+                    for j in range(3):
+                        eqm[i][j] = QMout['eqm'][i][j][istate][initial]
+                quad_term = np.sum(np.abs(eqm)**2) - 1/3.*np.abs(np.trace(eqm))**2 
+                #f += (1.0/20.0) * const.alpha**2 * (e - energies[initial])**3 * quad_term
             fosc.append(f)
-            # else:
-            # dmx=dmy=dmz=0.
-            # fosc.append(0.)
             if ezero != 0.0 or options.E:
                 de = (e - ezero) * HARTREE_TO_EV
             else:
                 de = (e - energies[initial]) * HARTREE_TO_EV
-            string = '%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate + 1, IToMult[m][0], s - (m <= 2), e, de, fosc[-1], m)
+            string = '%5i %10s%02i %16.10f %12.8f %12.10f   %6.4f' % (istate + 1, IToMult[m][0], s - (m <= 2), e, de, fosc[-1], m)
             if istate == initial:
                 string += ' #initial state'
             if not options.L:

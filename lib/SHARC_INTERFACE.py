@@ -53,6 +53,7 @@ all_features = {
     "h",
     "soc",
     "dm",
+    "mdeqm",
     "grad",
     "nacdr",
     "overlap",
@@ -1032,7 +1033,6 @@ class SHARC_INTERFACE(ABC):
         """
         req = request[0]
         if req in self.QMin.requests.keys():
-            self.log.debug(f"{request}")
             match request:
                 case ["grad", None | "all"]:
                     self.QMin.requests[req] = list(range(1, self.QMin.molecule["nmstates"] + 1))

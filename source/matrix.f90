@@ -1268,9 +1268,9 @@ subroutine zwrite(n,A,wrunit,title,precstring)
   ! internal variables
   character*100 :: fmtstring
   integer :: i,j
-
+  
   write(wrunit,'(A)') trim(title)
-
+  
   write(fmtstring,'(I10)') n
   fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X,'//trim(adjustl(precstring))//',4X))'
   do i=1,n
@@ -1443,6 +1443,68 @@ endsubroutine
 
 ! =================================================================== !
 
+!> writes vector c of dimension 3x3xn to unit wrunit
+!> writes the title before the vector
+!> uses precstring as format string
+subroutine d33vecwrite(n,c,wrunit,title,precstring)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  real*8,intent(in) :: c(n,3,3)
+  integer, intent(in) :: wrunit
+  character(len=*), intent(in) :: title
+  character(len=*), intent(in) :: precstring
+  ! internal variables
+  integer :: i,j,k
+  character*255 :: fmtstring
+
+  write(wrunit,'(A)') trim(title)
+
+  write(fmtstring,'(I10)') 9
+  fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X))'
+  do i=1,n
+    do j=1,3
+      do k=1,3
+        write(wrunit,fmtstring) c(i,j,k)
+      enddo 
+    enddo
+  enddo
+
+endsubroutine
+
+! =================================================================== !
+
+!> writes vector c of dimension 3x3xn to unit wrunit
+!> writes the title before the vector
+!> uses precstring as format string
+subroutine z33vecwrite(n,c,wrunit,title,precstring)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  complex*16,intent(in) :: c(n,3,3)
+  integer, intent(in) :: wrunit
+  character(len=*), intent(in) :: title
+  character(len=*), intent(in) :: precstring
+  ! internal variables
+  integer :: i,j,k
+  character*255 :: fmtstring
+
+  write(wrunit,'(A)') trim(title)
+
+  write(fmtstring,'(I10)') 9
+  fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X,'//trim(adjustl(precstring))//',4X))'
+  do i=1,n
+     do j=1,3
+       do k=1,3
+         write(wrunit,fmtstring) c(i,j,k)
+       enddo 
+     enddo
+   enddo 
+
+endsubroutine
+
+! =================================================================== !
+
 !> writes vector c of dimension 2xn to unit wrunit
 !> writes the title before the vector
 !> uses precstring as format string
@@ -1547,9 +1609,9 @@ subroutine zread(n,A,runit,title)
 !   real*8 :: re, im
 
   read(runit,'(A)', iostat=io) title
-
   do i=1,n
     read(runit,*,iostat=io) (line(j),j=1,2*n)
+
     if (io/=0) then
       write(*,*) 'Could not read matrix'
       write(*,*) 'routine=zread(), n=',n,', unit=',runit
@@ -1557,7 +1619,7 @@ subroutine zread(n,A,runit,title)
       stop 1
     endif
     do j=1,n
-      A(i,j)=dcmplx(line(2*j-1),line(2*j))
+       A(i,j)=dcmplx(line(2*j-1),line(2*j))
     enddo
   enddo
 
@@ -1578,7 +1640,6 @@ subroutine iread(n,A,runit,title)
   integer :: i,j, io
 
   read(runit,'(A)', iostat=io) title
-
   do i=1,n
     read(runit,*, iostat=io) (A(i,j),j=1,n)
     if (io/=0) then
@@ -1729,6 +1790,69 @@ subroutine z3vecread(n,c,runit,title)
     enddo
   enddo
 
+endsubroutine
+
+! =================================================================== !! =================================================================== !
+
+!> reads a 3x3-vector c from unit runit
+!> also reads the title, THIS MEANS THAT the current line of runit has to be the title line
+subroutine d33vecread(n,c,runit,title)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  real*8,intent(out) :: c(n,3,3)
+  integer, intent(in) :: runit
+  character(len=8000), intent(out) :: title
+  ! internal variables
+  integer :: i,j,k, io
+
+  read(runit,'(A)', iostat=io) title
+
+  do i=1,n
+    do j=1,3
+      do k=1,3
+        read(runit,*, iostat=io) c(i,j,k)
+        if (io/=0) then
+          write(*,*) 'Could not read 3x3-matrix'
+          write(*,*) 'routine=d33vecread(), n=',n,', unit=',runit
+          write(*,*) 'title=',trim(title)
+       endif
+      enddo
+    enddo
+  enddo
+endsubroutine
+
+! =================================================================== !
+
+!> reads a 3x3-vector c from unit runit
+!> also reads the title, THIS MEANS THAT the current line of runit has to be the title line
+subroutine z33vecread(n,c,runit,title)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  complex*16,intent(out) :: c(n,3,3)
+  integer, intent(in) :: runit
+  character(len=8000), intent(out) :: title
+  ! internal variables
+  integer :: i,j,k, io
+  real*8 :: re_im(18)
+
+  read(runit,'(A)', iostat=io) title
+
+  do i=1,n 
+    read(runit,*) (re_im(j),j=1,18)
+    if (io/=0) then
+      write(*,*) 'Could not read 3x3-vector'
+      write(*,*) 'routine=d3vecread(), n=',n,', unit=',runit
+      write(*,*) 'title=',trim(title)
+    endif
+    do j=1,3
+      do k=1,3
+        c(i,j,k)=dcmplx(re_im(6*j+2*k-7),re_im(6*j+2*k-6))
+      enddo
+    enddo
+  enddo
+    
 endsubroutine
 
 ! =================================================================== !

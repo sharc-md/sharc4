@@ -22,12 +22,16 @@
 !******************************************
 
 module LASER_input
+  use vector_operations
+
   integer :: Nlasers
   integer :: Nt
+  integer :: export_field_settings
   integer,allocatable :: type_envelope(:)
   real(kind=8) :: t0
   real(kind=8) :: dt
-  real(kind=8),allocatable :: polarization(:,:)
+  real(kind=8),allocatable :: polarization_b(:,:)
+  real(kind=8),allocatable :: polarization_e(:,:)
   real(kind=8),allocatable :: field_strength(:)
   real(kind=8),allocatable :: fwhm(:)
   real(kind=8),allocatable :: pulse_begin(:)
@@ -42,7 +46,7 @@ module LASER_input
   real(kind=8),allocatable :: b_4(:)
   real(kind=8),allocatable :: threshold(:)
   logical :: realvalued
-  
+  logical :: same_polarization 
   contains
 subroutine read_params
   
@@ -55,7 +59,8 @@ subroutine read_params
   integer :: unit_case
   
   real(kind=8) :: tEnd
-  real(kind=8) :: polarization_norm
+  real(kind=8) :: polarization_b_norm
+  real(kind=8) :: polarization_e_norm
 
   character*255 :: line
 
@@ -67,6 +72,13 @@ subroutine read_params
   write(42,'(A,A)') trim(line),' ! Number of lasers'
   read(line,*)  Nlasers
   write(6,*) Nlasers
+
+  write(6,*) 'Export E-field and B-field (0) or E-field only (1) or B-field only (2):'
+  read(5,*) line
+  call removecomment(line)
+  write(42,'(A,A)') trim(line),' ! E-field and B-field (0) or E-field only (1) or B-field only (2)'
+  read(line,*) export_field_settings 
+  write(6,*) export_field_settings
 
   write(6,*) 'Real-valued field (T) or not (F):'
   read(5,*) line
@@ -93,8 +105,16 @@ subroutine read_params
   read(line,*) debug
   write(6,*) debug
 
-  
-  allocate (polarization(3,Nlasers))
+  select case (export_field_settings)
+    case (0)
+      allocate (polarization_e(3,Nlasers))
+      allocate (polarization_b(3,Nlasers))
+    case (1)
+      allocate (polarization_e(3,Nlasers))
+    case (2)
+      allocate (polarization_b(3,Nlasers))
+  end select
+
   allocate (type_envelope(Nlasers))
   allocate (field_strength(Nlasers))
   allocate (fwhm(Nlasers))
@@ -116,18 +136,49 @@ subroutine read_params
     write(42,'(255A)')
     write(6,*)
     
-    write(6,*) 'Choose polarization vector (e.g. 2.,0.,0. will be normalized):'
-    read(5,'(A)') line
-    call removecomment(line)
-    write(42,'(255A)') trim(line),' ! Choose polarization vector (e.g. 2.,0.,0. will be normalized)'
-    read(line,*)  (polarization(ixyz,ilasers),ixyz=1,3)
-    polarization_norm = 0.
-    do ixyz = 1,3
-      polarization_norm = polarization_norm + (polarization(ixyz,ilasers))**2
-    enddo
-    polarization(:,ilasers) = polarization(:,ilasers) / sqrt(polarization_norm)
-    write(6,*) (polarization(ixyz,ilasers),ixyz=1,3)
-     
+    if ((export_field_settings==0) .OR. (export_field_settings==1)) then
+      write(6,*) 'Choose polarization_e vector (e.g. 0.,2.,0. will be normalized):'
+      read(5,'(A)') line
+      call removecomment(line)
+      write(42,'(255A)') trim(line),' ! Choose polarization_e vector (e.g. 0.,0.,0. will be normalized)'
+      read(line,*)  (polarization_e(ixyz,ilasers),ixyz=1,3)
+      polarization_e_norm = 0.
+      do ixyz = 1,3
+        polarization_e_norm = polarization_e_norm + (polarization_e(ixyz,ilasers))**2
+      enddo
+      polarization_e(:,ilasers) = polarization_e(:,ilasers) / sqrt(polarization_e_norm)
+      write(6,*) (polarization_e(ixyz,ilasers),ixyz=1,3)
+    endif
+
+    if ((export_field_settings==0) .OR. (export_field_settings==2)) then    
+      write(6,*) 'Choose polarization_b vector (e.g. 2.,0.,0. will be normalized):'
+      read(5,'(A)') line
+      call removecomment(line)
+      write(42,'(255A)') trim(line),' ! Choose polarization_b vector (e.g. 2.,0.,0. will be normalized)'
+      read(line,*)  (polarization_b(ixyz,ilasers),ixyz=1,3)
+      polarization_b_norm = 0.
+      do ixyz = 1,3
+        polarization_b_norm = polarization_b_norm + (polarization_b(ixyz,ilasers))**2
+      enddo
+      polarization_b(:,ilasers) = polarization_b(:,ilasers) / sqrt(polarization_b_norm)
+      write(6,*) (polarization_b(ixyz,ilasers),ixyz=1,3)
+    endif
+
+    if (export_field_settings==0) then
+      !Calculate cross product to check if E-field is (anti-)parallel to B-field
+      same_polarization = all(cross_product(polarization_e(:, ilasers) , polarization_b(:, ilasers)) == 0)
+
+      if (same_polarization) then
+          write(6,*) 'Error! E-field is (anti-)parallel to B-field. Choose different orientations!'
+          stop
+      end if
+      
+      !Orthonormalize E-field and B-field, whereby the E-field polarization is only normalized
+      polarization_b(:, ilasers) = z3gram_schmidt_vec1_on_vec2(polarization_b(:, ilasers), polarization_e(:, ilasers))
+      write(6,*) 'Gram-Schmidt orthonormalized E-field polarisation:', polarization_e(:, ilasers)
+      write(6,*) 'Gram-Schmidt orthonormalized B-field polarisation:', polarization_b(:, ilasers)
+    endif
+
     write(6,*) 'Choose type of envelope (1=Gaussian,2=Sinusoidal):'
     read(5,'(A)') line
     call removecomment(line)
@@ -135,7 +186,7 @@ subroutine read_params
     read(line,*)  type_envelope(ilasers)
     write(6,*) type_envelope(ilasers)
            
-    write(6,*) 'Choose field strength in (1) [GV/m] (2) [TW/cm^2] (3) [a.u.]:'
+    write(6,*) 'Choose field strength of E-field (or B-field *c) in (1) [GV/m] (2) [TW/cm^2] (3) [a.u.]:'
     read(5,'(A)') line
     call removecomment(line)
     write(42,'(255A)') trim(line),' ! Choose field strength in (1) [GV/m] (2) [TW/cm^2] (3) [a.u.]'

@@ -516,6 +516,22 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     if INFOS["soc"]:
         INFOS["needed_requests"].add("soc")
 
+    ## -------------------- Magnetic and Electric multipoles -------------------- ##
+    print("{:-^60}".format("Magnetic Dipole and Electric Quadrupole interaction") + "\n")
+    beyond_ed = False
+    if "mdeqm" in features:
+        print("Do you want to compute magnetic dipole moments and electric quadrupole moments?\n")
+        beyond_ed = question("Magnetic dipoles and electric quadrupoles?", bool, False)
+    else:
+        print("Interface cannot provide multipole moments beyond the electric dipoles: not calculating magnetic dipole and electric quadrupole contribution.")
+        beyond_ed = False
+    print("")
+
+    # save input
+    INFOS["beyond_ed"] = beyond_ed
+    if INFOS["beyond_ed"]:
+        INFOS["needed_requests"].add("MDEQM")
+
     ## -------------------- whether to do gradients or numerical -------------------- ##
     print("{:-^60}".format("Analytical gradients") + "\n")
 
@@ -960,6 +976,10 @@ def write_QM_in(INFOS, displacement_key, displacement_value, displacement_dir):
 
     # dipole moment
     string += "DM\n"
+    if INFOS["beyond_ed"]:
+        # magnetic dipole  and electric quadrupuole moment
+        string += "MDEQM\n"
+
 
     # gradient
     if displacement_key == "000_eq" and INFOS["ana_grad"]:
