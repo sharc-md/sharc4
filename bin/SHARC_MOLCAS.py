@@ -1577,7 +1577,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         self.QMout["nacdr_pc"][jstate, istate] *= -1
 
         if self.QMin.requests["dm"]:
-            self.log.debug("REQUEST DM")
             # Full DM matrix in ascii file, sub matrices of mult in h5 files
             if isinstance(master_out, str):
                 self.QMout["dm"] = self._get_dipoles(master_out)
@@ -1604,8 +1603,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                                 # https://github.com/jautschbach/mcd-molcas/blob/master/read-data-files.f90#L123
                                 self.QMout["mdm"][:, s_cnt : s_cnt + s, s_cnt : s_cnt + s] = 1.j*mdp["SFS_ANGMOM"][:]
                                 s_cnt += s
-                self.log.info("STATES")
-                self.log.info(self.states)
                 for i1, s1 in enumerate(self.states, 0):
                     for i2, s2, in enumerate(self.states, 0):
                         spin_p, spin_n, spin_m = 0, 0, 0
