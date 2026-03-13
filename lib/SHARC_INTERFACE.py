@@ -1041,6 +1041,7 @@ class SHARC_INTERFACE(ABC):
             req["overlap"] = bool(m & (1 << 4))
             req["ion"] = bool(m & (1 << 5))
             req["theodore"] = bool(m & (1 << 6))
+            req["mdeqm"] = bool(m & (1 << 7))
             if requests["grad_mode"] == 1:
                 req["grad"] = self._all_grad_cache()
             elif requests["grad_mode"] == 2:
