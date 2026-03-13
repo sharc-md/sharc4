@@ -3287,7 +3287,6 @@ module input
       endif
 
       ! READING FREQUENCIES
-      write(*,*) "TEST0"
       if (laser_file_version==2.0 .and. ctrl%laser_freq_path /= "None") then
         do i=1, freq_line_number
           write(*,*) freq_line_number
@@ -3299,14 +3298,12 @@ module input
           if (i<=freq_com_line_number) then
               cycle
           else
-            write(*,*) "TEST1", values
             if (allocated(values)) deallocate(values)
             call split(line,' ',values,n)
             if ((i>=(freq_com_line_number+1)+1) .and. ((values(1)=='!') .or. (values(1)=='#'))) then
               write(0,*) 'Laser frequency file malformatted (laser file version 2.0)! Line=',i
               stop 1
             endif
-            write(*,*) "TEST2"
             read(values(1),*) a
             if (i==1) then
               if (dabs(a)>0.001d0) then
