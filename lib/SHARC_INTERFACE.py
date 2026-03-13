@@ -29,6 +29,7 @@
 import ast
 import os
 import re
+import struct
 import sys
 import uuid
 from abc import ABC, abstractmethod
@@ -40,13 +41,15 @@ from textwrap import wrap
 from typing import Any
 
 import numpy as np
+
 # internal
 from constants import ATOMCHARGE, BOHR_TO_ANG, FROZENS, IAn2AName
 from logger import SHARCPRINT, TRACE, CustomFormatter, logging, loglevel
 from qmin import QMin
 from qmout import QMout
-from utils import (batched, clock, convert_list, electronic_state, expand_path,
-                   itnmstates, parse_xyz, readfile, writefile)
+from utils import clock, convert_list, electronic_state, expand_path, itnmstates, parse_xyz, readfile, writefile
+
+__all__ = ["SHARC_INTERFACE"]
 
 np.set_printoptions(linewidth=400, formatter={"float": lambda x: f"{x: 9.7}"})
 all_features = {
@@ -69,6 +72,33 @@ all_features = {
     "wave_functions",
     "density_matrices",
 }
+
+
+def nacdr_pairs(nacdr_mask: bytes, nstates: int):
+    nbits = nstates * nstates
+    nwords = (nbits + 63) // 64
+    words = struct.unpack("<" + "Q" * nwords, nacdr_mask[: 8 * nwords])
+
+    out = []
+    for i in range(nstates):
+        base = i * nstates
+        for j in range(nstates):
+            idx = base + j
+            if (words[idx // 64] >> (idx % 64)) & 1:
+                out.append((i + 1, j + 1))
+    return out
+
+
+def decode_grad(grad_mask: bytes, nstates: int):
+    x = int.from_bytes(grad_mask, "little")
+    out = []
+    while x:
+        lsb = x & -x
+        idx = lsb.bit_length() - 1
+        if idx < nstates:
+            out.append(idx + 1)
+        x ^= lsb
+    return out
 
 
 class SHARC_INTERFACE(ABC):
@@ -130,7 +160,13 @@ class SHARC_INTERFACE(ABC):
         self.QMin.template.update({"paddingstates": None})
         self.QMin.template.types.update({"paddingstates": list})
 
+        # Cached data
         self._default_requests_data = QMin().requests.data
+        self._savedir_checked = False
+        self._supported_features = None
+        self._stepfile = None
+        self._all_grad = None
+        self._all_nacdr = None
 
     def sharcprint(self, msg, *args, **kwargs):
         """
@@ -425,6 +461,10 @@ class SHARC_INTERFACE(ABC):
         assert shape[1] == 3 and len(shape) == 2, "Velocities must be of shape Natom*3"
 
     def set_pccharges(self, charges: list | np.ndarray) -> None:
+        """
+        Set point charges from array or list
+        charges: N*1 array or list
+        """
         self.QMin.coords["pccharge"] = charges
         self.QMin.molecule["npc"] = len(charges)
 
@@ -923,13 +963,10 @@ class SHARC_INTERFACE(ABC):
 
         last_step = None
         if self.persistent:
-            sd = getattr(self, "savedict", None)
-            if sd is not None:
-                last_step = sd.get("last_step")
-        # Only consult STEP file if we still don't know last_step AND we are allowed to use it
+            last_step = self.savedict.get("last_step", None)
         if last_step is None and not self.persistent:
             # use cached path if available
-            stepfile = getattr(self, "_stepfile", None)
+            stepfile = self._stepfile
             if stepfile is None:
                 stepfile = os.path.join(save["savedir"], "STEP")
                 self._stepfile = stepfile
@@ -971,59 +1008,70 @@ class SHARC_INTERFACE(ABC):
             )
             raise RuntimeError()
 
+    def _all_grad_cache(self):
+        cache = self._all_grad
+        if cache is None:
+            cache = list(range(1, self.QMin.molecule["nstates"] + 1))
+            self._all_grad = cache
+        return cache
+
+    def _all_nacdr_cache(self):
+        cache = self._all_nacdr
+        nmstates = self.QMin.molecule["nmstates"]
+        if cache is None:
+            pairs = [(i + 1, j + 1) for i in range(nmstates) for j in range(nmstates)]
+            cache = (nmstates, pairs)
+            self._all_nacdr = cache
+        return cache[1]
+
     def _set_driver_requests(self, requests: dict) -> None:
-        requests_copy = requests.copy()
-        # delete all old requests
         retain = self.QMin.requests["retain"]
         self.QMin.requests.data = self._default_requests_data.copy()
-        self.QMin.requests["retain"] = retain
-        self.log.debug("getting requests %s", requests)
-        # logic for raw tasks object from pysharc interface
-        if "tasks" in requests_copy and isinstance(requests_copy["tasks"], str):
-            # task is 'step n <keywords+space'
-            task_list = requests_copy["tasks"].split()
-            if task_list[0] != "step" or not task_list[1].isdigit():
-                self.log.error(f"task string does not contain steps! {requests_copy['tasks']}")
-                raise ValueError(f"task string does not contain steps! {requests_copy['tasks']}")
-            self.QMin.save["step"] = int(task_list[1])
-            self.log.debug(f"Setting step: {self.QMin.save['step']}")
-            kw_requests = task_list[2:]
-            for k in kw_requests:
-                if k.lower() in {"init", "samestep", "newstep", "restart"}:
-                    self.log.warning(f"{k.lower()} is deprecated and will be ignored!")
-                    continue
-                requests_copy[k.lower()] = True
-            del requests_copy["tasks"]
-        if "soc" in requests_copy and requests_copy["soc"]:
-            requests_copy["h"] = True
-        for task in {"nacdr", "overlap", "grad", "ion"}:
-            if task in requests_copy and isinstance(requests_copy[task], str):
-                if requests_copy[task] == "":  # removes task from dict if {'task': ''}
-                    del requests_copy[task]
-                elif task == requests_copy[task].lower() or requests_copy[task] == "all":
-                    if task == "nacdr":
-                        requests_copy[task] = [
-                            (i + 1, j + 1)
-                            for i in range(self.QMin.molecule["nmstates"])
-                            for j in range(self.QMin.molecule["nmstates"])
-                        ]
-                    else:
-                        requests_copy[task] = [i + 1 for i in range(self.QMin.molecule["nstates"])]
-                else:
-                    if task == "nacdr":
-                        requests_copy[task] = [(int(i[0]), int(i[1])) for i in batched(requests_copy[task].split())]
-                    else:
-                        requests_copy[task] = [int(i) for i in requests_copy[task].split()]
-        if "step" in requests_copy:
-            self.QMin.save["step"] = requests_copy["step"]
-            del requests_copy["step"]
-        if self.QMin.save["step"] == 0:
-            for req in ["overlap", "phases"]:
-                if req in requests_copy:
-                    requests_copy[req] = False
-        self.log.debug("setting requests %s", requests_copy)
-        self.QMin.requests.update(requests_copy)
-        self.log.debug("Finished setting requests:\n%s", self.QMin.requests)
+        req = self.QMin.requests
+        req["retain"] = retain
+        if self.log.isEnabledFor(logging.DEBUG):
+            self.log.debug(f"getting requests {requests}")
+        self.QMin.requests["h"] = True
+        if "mask" in requests:
+            m = requests["mask"]
+            req["soc"] = bool(m & (1 << 0))
+            req["dm"] = bool(m & (1 << 1))
+            req["phases"] = bool(m & (1 << 2))
+            req["nacdt"] = bool(m & (1 << 3))
+            req["overlap"] = bool(m & (1 << 4))
+            req["ion"] = bool(m & (1 << 5))
+            req["theodore"] = bool(m & (1 << 6))
+            if requests["grad_mode"] == 1:
+                req["grad"] = self._all_grad_cache()
+            elif requests["grad_mode"] == 2:
+                req["grad"] = decode_grad(requests["grad_mask"], self.QMin.molecule["nstates"])
+            if requests["nacdr_mode"] == 1:
+                req["nacdr"] = self._all_nacdr_cache()
+            elif requests["nacdr_mode"] == 2:
+                req["nacdr"] = nacdr_pairs(requests["nacdr_mask"], self.QMin.molecule["nstates"])
+        else:
+            for k, v in requests.items():
+                kl = k.lower()
+                match kl:
+                    case "grad":
+                        if isinstance(requests["grad"], str):
+                            req["grad"] = self._all_grad_cache()
+                        else:
+                            req["grad"] = v
+                    case "nacdr":
+                        if isinstance(requests["nacdr"], str):
+                            req["nacdr"] = self._all_nacdr_cache()
+                        else:
+                            self.QMin.requests["nacdr"] = v
+                    case "step":
+                        pass
+                    case _:
+                        req[kl] = v
+        if "step" in requests:
+            self.QMin.save["step"] = requests["step"]
+        if self.log.isEnabledFor(logging.DEBUG):
+            self.log.debug(f"Finished setting requests:\n{req}")
+
         self._step_logic()
         self._request_logic()
 
@@ -1080,9 +1128,11 @@ class SHARC_INTERFACE(ABC):
         """
         reqs = self.QMin.requests
         save = self.QMin.save
+        reqs = self.QMin.requests
+        save = self.QMin.save
         self.log.debug("Starting request logic")
 
-        if not getattr(self, "_savedir_checked", False):
+        if not self._savedir_checked:
             self._savedir_checked = True
             self.log.debug(f"Creating savedir {save['savedir']}")
             os.makedirs(save["savedir"], exist_ok=True)
@@ -1094,14 +1144,14 @@ class SHARC_INTERFACE(ABC):
             (reqs["overlap"] or reqs["phases"]) and save["init"]
         ), '"overlap" and "phases" cannot be calculated in the first timestep!'
 
-        supported = getattr(self, "_supported_features", None)
+        supported = self._supported_features
         if supported is None:
             supported = self._supported_features = self.get_features()
 
-        for req, val in reqs.data.items():
-            if val and req != "retain" and req not in supported:
-                self.log.error(f"Found unsupported request {req}, supported requests are {supported}")
-                raise ValueError()
+        unsupported = {k for k, v in reqs.data.items() if v and k != "retain"} - supported
+        if unsupported:
+            self.log.error(f"Found unsupported request {unsupported}, supported requests are {supported}")
+            raise ValueError()
 
     # ----- save routine -----
 

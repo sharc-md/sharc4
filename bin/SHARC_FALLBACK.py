@@ -175,7 +175,7 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     # ----------------------------------------------------------------------------------------------
 
     def read_resources(self, resources_file="FALLBACK.resources", kw_whitelist=None):
-        self._read_resources = True
+        super().read_resources(resources_file)
 
     def read_template(self, template_file="FALLBACK.template", kw_whitelist=None):
         self.log.debug(f"Parsing template file {template_file}")
@@ -312,6 +312,11 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         super().set_coords(xyz, pc)
         self._trial_interface.set_coords(xyz, pc)
         self._fallback_interface.set_coords(xyz, pc)
+
+    def set_pccharges(self, charges):
+        super().set_pccharges(charges)
+        self._trial_interface.set_pccharges(charges)
+        self._fallback_interface.set_pccharges(charges)
 
     def getQMout(self):
         self.QMout["runtime"] = self.clock.measuretime(False)
