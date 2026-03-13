@@ -982,7 +982,7 @@ module input
         case ('npi')
           ctrl%eeom=3
         case default
-          write(0,*) 'Unknown keyword ',trim(line),' to "neom"!'
+          write(0,*) 'Unknown keyword ',trim(line),' to "eeom"!'
           stop 1
       endselect
     else ! set the default nuclear propagators

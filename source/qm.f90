@@ -194,8 +194,6 @@ module qm
 
     ! get Hamiltonian
     call get_hamiltonian(ctrl%nstates, traj%H_MCH_ss)
-        
-    call matwrite(ctrl%nstates,traj%H_MCH_ss,u_log,'qm.f90 after ham','F12.9')
     ! apply reference energy shift
     do i=1,ctrl%nstates
       traj%H_MCH_ss(i,i)=traj%H_MCH_ss(i,i)-ctrl%ezero
@@ -204,7 +202,6 @@ module qm
     if (ctrl%scalingfactor/=1.d0) then
       traj%H_MCH_ss=traj%H_MCH_ss*ctrl%scalingfactor
     endif
-    call matwrite(ctrl%nstates,traj%H_MCH_ss,u_log,'qm.f90 before soc_scaling','F12.9')
     ! apply SOC scaling factor
     if (ctrl%soc_scaling/=1.d0) then
       do istate=1, ctrl%nstates
@@ -215,7 +212,6 @@ module qm
         enddo
       enddo
     endif
-    call matwrite(ctrl%nstates,traj%H_MCH_ss,u_log,'qm.f90 after soc_scaling','F12.9')
     ! apply frozen-state mask
     do i=1,ctrl%nstates
       do j=1,ctrl%nstates
@@ -227,7 +223,6 @@ module qm
 
     ! get electric Dipole moments
     if (ctrl%calc_dipole>=1) then
-      write(*,*) "CALC_DIPOLE=1 - GET DM"
       call get_dipoles(ctrl%nstates, traj%DM_ssd)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Dipole Moments:                ','OK'
       traj%DM_print_ssd=traj%DM_ssd
@@ -241,7 +236,6 @@ module qm
 
     ! get electric Dipole moments (DM), magnetic DM, electric QM
     if (ctrl%calc_dipole>=2) then
-      write(*,*) "CALC_DIPOLE=2 - GET MDM, EQM"
       call get_magnetic_dipoles(ctrl%nstates, traj%MDM_ssd)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic Dipole Moments:                ','OK' 
       call get_electric_quadrupoles(ctrl%nstates, traj%EQM_ssdd)
@@ -358,7 +352,6 @@ module qm
     traj%H_diag_ss=traj%H_MCH_ss
     ! if laser field, add it here, without imaginary part
     
-    write(0,*) "QMf90", ctrl%surf, ctrl%laser, ctrl%laser_b, ctrl%laser_e, ctrl%Laser_egrad
     if (ctrl%laser==2) then
       if (ctrl%laser_e) then
         do i=1,3
@@ -379,7 +372,6 @@ module qm
       endif
     endif
     
-    call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'qm.f90 before diag','F12.9')
     ! diagonalize, if SHARC dynamics
     if (ctrl%surf==0) then
       call diagonalize(ctrl%nstates,traj%H_diag_ss,traj%U_ss)
@@ -389,19 +381,6 @@ module qm
         traj%U_ss(i,i)=dcmplx(1.d0,0.d0)
       enddo
     endif
-
-    call matwrite(ctrl%nstates,traj%H_diag_ss,u_log,'qm.f90 after diag','F12.9')
-    sum = (0.0,0.)
-    do idir=1,ctrl%nstates
-        do jdir=1,ctrl%nstates
-            if (idir /= jdir) then
-                ! write(*,*) "qm.f90", traj%H_diag_ss(idir, jdir), idir, jdir
-                sum = sum + traj%H_diag_ss(idir, jdir)
-            endif
-        enddo
-    enddo 
-    write(u_log,*) "SUM", sum
-!     call check_allocation(u_log,ctrl,traj)
 
     ! get state in all representations
     if ((traj%step==0).and.(ctrl%staterep==1)) then
@@ -1190,41 +1169,28 @@ module qm
         U_temp=traj%U_ss
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
-	write(u_log,*) "REACHEDqmf90"
-    if (ctrl%laser_e) then
-      do idir=1,3
-        H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
-      enddo
-    endif
-    if (ctrl%laser_b) then
-      do idir=1,3
-        H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
-      enddo
-    endif
-    if (ctrl%laser_egrad) then
-      do idir=1,3
-        do jdir=1,3
-          H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
-        enddo
-      enddo
-    endif
-
-
+        if (ctrl%laser_e) then
+          do idir=1,3
+            H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_b) then
+          do idir=1,3
+            H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_egrad) then
+          do idir=1,3
+            do jdir=1,3
+              H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+            enddo
+          enddo
+        endif
         call diagonalize(ctrl%nstates,H_temp,U_temp)
       endif
     elseif (ctrl%surf==1) then
       U_temp=traj%U_ss
     endif
-    call matwrite(ctrl%nstates,U_temp,u_log,'H_temp_NAC diagonal(TEST)','F12.9')
-    !sum = (0.0,0.)
-    !do idir=1,ctrl%nstates
-    !    do jdir=1,ctrl%nstates
-    !        if (idir /= jdir) then
-    !            sum = sum + traj%H_diag_ss(idir, jdir)
-    !        endif
-    !    enddo
-    !enddo 
-    !write(u_log,*) "SUMNAC", sum
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
 
     if (printlevel>3) then
