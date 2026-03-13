@@ -1908,7 +1908,7 @@ module input
           stop 1
         endif
       endif
-       ---------------------
+      !  ---------------------
       if (ctrl%laser_b==.false.) then
         write(u_log,'(a)') 'Not writing magnetic dipole moments.'
       else

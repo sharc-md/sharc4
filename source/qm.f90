@@ -1614,7 +1614,7 @@ end subroutine phase_correction_zhou
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
-    integer :: istate, jstate, ixyz
+    integer :: istate, jstate, ixyz, jxyz
     complex*16:: scalarProd(ctrl%nstates,ctrl%nstates),correction, correction_s(ctrl%nstates)
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
     complex*16 :: sum
