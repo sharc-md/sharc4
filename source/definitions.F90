@@ -449,6 +449,7 @@ module definitions
     integer :: zpe_correction                 !< method to control ZPE correction in nonadiabatic dynamics, 0=no correction, 1=pumping, 2=lp
     integer :: pointer_basis                  !< compute pointer basis, 0=adiabatic/diagonal basis, 1=mch basis, 2=optimized pointer basis
     integer :: pointer_maxiter                !< maximum iterations allowed in pointer state optimization
+    integer :: phase_correction_algo          !< 0=Akimov (default), 1=Zhou real
     
     integer :: thermostat                     !< 0=none, 1=Langevin thermostat
     logical :: restart_thermostat_random      !< F=no, T=yes (default) to use same random number sequence if restarted

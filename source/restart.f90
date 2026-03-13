@@ -170,6 +170,7 @@ module restart
      write(u,*) ctrl%theodore
      write(u,*) ctrl%track_phase
      write(u,*) ctrl%track_phase_at_zero
+     write(u,*) ctrl%phase_correction_algo
      write(u,*) ctrl%hopping_procedure
      write(u,*) ctrl%boltzmann_hop
      write(u,*) ctrl%boltzmann_temperature
@@ -778,6 +779,7 @@ module restart
      read(u_ctrl,*) ctrl%theodore
      read(u_ctrl,*) ctrl%track_phase
      read(u_ctrl,*) ctrl%track_phase_at_zero
+     read(u_ctrl,*) ctrl%phase_correction_algo
      read(u_ctrl,*) ctrl%hopping_procedure
      read(u_ctrl,*) ctrl%boltzmann_hop
      read(u_ctrl,*) ctrl%boltzmann_temperature

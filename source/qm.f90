@@ -1466,6 +1466,86 @@ module qm
 
   endsubroutine
 
+
+
+
+subroutine phase_correction_zhou(n, A_ss, phases_s)
+! from Zhou et al, JCTC 16, 835-846 (2020)
+! https://pubs.acs.org/doi/10.1021/acs.jctc.9b00952
+use matrix
+implicit none
+
+integer, intent(in) :: n
+complex*16, intent(in) :: A_ss(n,n)
+complex*16, intent(out) :: phases_s(n)
+
+real*8 :: U(n,n)
+real*8 :: U_sq(n,n)
+real*8 :: delta
+real*8 :: colnorm_j, colnorm_k
+real*8 :: detU
+real*8, parameter :: num_zero_thres = -1.d-15
+integer :: i,j,k
+integer :: sweeps
+logical :: done
+
+! initialize phases
+phases_s = dcmplx(1.d0,0.d0)
+
+! copy real part
+do i=1,n
+  do j=1,n
+    U(i,j) = real(A_ss(i,j))
+  enddo
+enddo
+
+! determinant of U
+call determinant(n,U,detU)
+if (detU < 0.d0) then
+  phases_s(1) = -phases_s(1)
+  U(:,1) = -U(:,1)
+endif
+
+! initialize
+U_sq = U*U
+sweeps = 0
+done = .false.
+
+do while (.not.done)
+  done = .true.
+  do j=1,n
+    do k=j+1,n
+
+      ! compute delta
+      colnorm_j = 0.d0
+      colnorm_k = 0.d0
+      do i=1,n
+        colnorm_j = colnorm_j + U(i,j)*U(i,j)
+        colnorm_k = colnorm_k + U(i,k)*U(i,k)
+      enddo
+      delta = 3.d0*(U_sq(j,j) + U_sq(k,k))
+      delta = delta + 6.d0*U(j,k)*U(k,j)
+      delta = delta + 8.d0*(U(k,k) + U(j,j))
+      delta = delta - 3.d0*(colnorm_j + colnorm_k)
+
+      ! swap phases
+      if (delta < num_zero_thres) then
+        U(:,j) = -U(:,j)
+        U(:,k) = -U(:,k)
+        phases_s(j) = -phases_s(j)
+        phases_s(k) = -phases_s(k)
+        done = .false.
+      endif
+    enddo
+  enddo
+  sweeps = sweeps + 1
+enddo
+
+end subroutine phase_correction_zhou
+
+
+
+
 ! ===========================================================
 
   subroutine Adjust_phases(traj,ctrl)
@@ -1475,39 +1555,52 @@ module qm
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
     integer :: istate, jstate, ixyz
-    complex*16:: scalarProd(ctrl%nstates,ctrl%nstates),correction
+    complex*16:: scalarProd(ctrl%nstates,ctrl%nstates),correction, correction_s(ctrl%nstates)
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
     logical :: all_unit_norm
 
     ! if phases were not found in the QM output, try to obtain it
-    if (traj%phases_found.eqv..false.) then
+    if (.not.(traj%phases_found)) then
 
       ! from overlap matrix diagonal
       if (ctrl%calc_overlap==1) then
 
         if (printlevel>4) then 
           write(u_log,*) '============================================================================='
-          write(u_log,*) 'Phases not found in QMout. Calculation of phase correction based on overlaps.'
+          write(u_log,*) '          Calculation of phase correction based on overlaps.'
           write(u_log,*) '============================================================================='
-          write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
         endif 
-        traj%phases_s=traj%phases_old_s
-        do istate=1,ctrl%nstates
-          correction=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
-          ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 -> more robust for plan wave basis sets 
-          ! where overlap matrix is not real
-          if (printlevel>4) then 
-            write(u_log,'(E14.6,1X,E14.6)') real(correction),aimag(correction)
-          endif
-          traj%phases_s(istate)=traj%phases_s(istate)*correction !Applying phase correction with accumulation of previous steps
-        enddo
+
+        select case (ctrl%phase_correction_algo)
+          case (0)
+            ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 -> more robust for plan wave basis sets 
+            ! where overlap matrix is not real
+            do istate=1,ctrl%nstates
+              correction=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+              traj%phases_s(istate)=traj%phases_old_s(istate)*correction 
+            enddo
+          case (1)
+            ! Zhou 2020
+            call phase_correction_zhou(ctrl%nstates, traj%overlaps_ss, correction_s)
+            traj%phases_s = traj%phases_old_s * correction_s
+        endselect
+
+        if (printlevel>4) then 
+          write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
+          do istate=1,ctrl%nstates
+              write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
+          enddo
+        endif
+
 
       ! from scalar products of old and new NAC vectors
       else if (ctrl%calc_overlap==0 .and. ctrl%calc_nacdr>=0) then
 
         if (printlevel>4) then
-          write(u_log,*) 'phase correction based on NACs'
-        endif
+          write(u_log,*) '============================================================================='
+          write(u_log,*) '          Calculation of phase correction based on NACs.'
+          write(u_log,*) '============================================================================='
+        endif 
 
         scalarProd=dcmplx(0.d0,0.d0)
 
@@ -1517,9 +1610,6 @@ module qm
             &traj%nacdr_ssad(istate,jstate,:,:),traj%nacdr_old_ssad(istate,jstate,:,:) )
           enddo
         enddo
-
-        ! case of ddt couplings
-        ! TODO
 
         ! phase from SOC
         if (traj%step>1) then
@@ -1544,11 +1634,14 @@ module qm
       else if (ctrl%calc_overlap==0 .and. ctrl%calc_nacdr<0) then
 
         if (printlevel>4) then
-          write(u_log,*) 'phase correction based on TDCs'
-        endif
+          write(u_log,*) '============================================================================='
+          write(u_log,*) '          Calculation of phase correction based on TDC and SOC.'
+          write(u_log,*) '============================================================================='
+        endif 
 
         scalarProd=dcmplx(0.d0,0.d0)
 
+        ! phase from TDC
         do istate=1,ctrl%nstates
           do jstate=1,ctrl%nstates
             scalarProd(istate,jstate)=phase_from_TDC(ctrl%natom, &
@@ -1562,10 +1655,8 @@ module qm
             do jstate=1,ctrl%nstates
               if (istate==jstate) cycle
               if (scalarProd(istate,jstate)==dcmplx(0.d0,0.d0) ) then
-
                 scalarProd(istate,jstate)=phase_from_SOC(&
                 &traj%H_MCH_ss(istate,jstate),traj%H_MCH_old_ss(istate,jstate), traj%dH_MCH_ss(istate,jstate))
-
               endif
             enddo
           enddo
@@ -1573,39 +1664,43 @@ module qm
 
         call fill_phase_matrix(ctrl%nstates,scalarProd)
         if (printlevel>4) call matwrite(ctrl%nstates,scalarProd,u_log,'scalarProd matrix','F4.1')
+        ! TODO: check if this should be accumulated instead
         traj%phases_s=scalarProd(:,1)
       
       endif ! if (ctrl%calc_overlap==1) then
-    endif
 
-    if (traj%phases_found.eqv..true. .and. printlevel>4) then 
-      write(u_log,*) '==========================================================================='
-      write(u_log,*) 'Phases found in QMout. Applying phase correction with the following phases:'
-      write(u_log,*) '==========================================================================='
-      write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
-      do istate=1,ctrl%nstates
-        write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
-      enddo
-    endif
+
+    else ! phases_found is true
+
+      if (printlevel>4) then 
+        write(u_log,*) '==========================================================================='
+        write(u_log,*) '                   Applying phase correction from QMout:'
+        write(u_log,*) '==========================================================================='
+        write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
+        do istate=1,ctrl%nstates
+          write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
+        enddo
+      endif
     
     !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 
     ! See also if-block above  where ctrl%calc_overlap==1 and ...traj%phases_s=traj%phases_old_s ...
-    if (traj%phases_found.eqv..true. .and. ctrl%calc_overlap==1) then
-        do istate=1,ctrl%nstates
-            traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
-        enddo
+    ! if (traj%phases_found .and. (ctrl%calc_overlap==1)) then
+      do istate=1,ctrl%nstates
+          traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
+      enddo
     endif
     
     ! check if phases have all norm 1
     ! all_unit_norm = .true.
     do istate=1,ctrl%nstates
-      if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+      if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) then
+        write(u_log,'(A,1X,I4)') 'Phase was not unity',istate
+        traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+      endif
     enddo
 
-    ! if (.not.all_unit_norm) then
-    !   write(u_log,*) 'Not all phases have unit norm. Abort.'
-    !   stop 1
-    ! endif
+
+
 
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
     ! Bra
@@ -1615,11 +1710,11 @@ module qm
       traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
       traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
       !this if is taken off because we add QM processing subroutine
-      !if (ctrl%calc_nacdt==1) then
-        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
-      !endif
+      if (ctrl%calc_nacdt==1) then
+        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*CONJG(traj%phases_s(istate))
+      endif
       if (ctrl%calc_nacdr>=0) then      ! calc_nacdr=0 computes all nacs
-        traj%NACdr_ssad(istate,:,:,:)=traj%NACdr_ssad(istate,:,:,:)*real(traj%phases_s(istate))
+        traj%NACdr_ssad(istate,:,:,:)=traj%NACdr_ssad(istate,:,:,:)*CONJG(traj%phases_s(istate))
       endif
       !this if is taken off because we add QM processing subroutine
       if (ctrl%calc_overlap==1) then
@@ -1631,15 +1726,15 @@ module qm
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)
       traj%DM_print_ssd(:,istate,:)=traj%DM_print_ssd(:,istate,:)*traj%phases_s(istate)
-      !if (ctrl%calc_nacdt==1) then
+      if (ctrl%calc_nacdt==1) then
         traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
-      !endif
-      if (ctrl%calc_nacdr>=0) then
-        traj%NACdr_ssad(:,istate,:,:)=traj%NACdr_ssad(:,istate,:,:)*real(traj%phases_s(istate))
       endif
-      !if (ctrl%calc_overlap==1) then
+      if (ctrl%calc_nacdr>=0) then
+        traj%NACdr_ssad(:,istate,:,:)=traj%NACdr_ssad(:,istate,:,:)*traj%phases_s(istate)
+      endif
+      if (ctrl%calc_overlap==1) then
         traj%overlaps_ss(:,istate)=traj%overlaps_ss(:,istate)*traj%phases_s(istate)
-      !endif
+      endif
     enddo
 
     ! electronic structure phase patching finished
@@ -1936,6 +2031,8 @@ module qm
         enddo
       case(2) ! coupling using overlap, NACdt is computed by NPI
         if (printlevel>3) write(u_log,*) 'Computing time derivative coupling by Norm-Perserving Interpolation'
+        ! TODO: the sin/cos method will only work correctly for effective two-state problems. 
+        ! Otherwise, we should interpolate with S(tau)=exp( (tau-t)/\Delta t  log(S))
         traj%NACdt_ss=dcmplx(0.d0,0.d0)
         if (traj%step>=1) then
           do istate=1,ctrl%nstates
@@ -2140,12 +2237,12 @@ module qm
         enddo
       endif
       call fill_phase_matrix(ctrl%nstates,scalarProd)
-      do istate=1,ctrl%nstates
-        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
-      enddo
-      do istate=1,ctrl%nstates
-        traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
-      enddo
+      ! do istate=1,ctrl%nstates
+      !   traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
+      ! enddo
+      ! do istate=1,ctrl%nstates
+      !   traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
+      ! enddo
 
       if (printlevel>3)  call matwrite(ctrl%nstates,traj%NACdt_ss,u_log,'Time Derivative Coupling in MCH basis after phase consistency...','F12.9')
 
@@ -2329,7 +2426,7 @@ module qm
       write(u_log,*) '    basis:'
       write(u_log,*) '    Y. Shu, L. Zhang, D. Wu, X. Chen, S. Sun, D. G. Truhlar'
       write(u_log,*) '    Submitted to J. Chem. Theory Comput. 2022'
-      write(u_log,*) '[2].Compute nulcear gradient Hamiltonian matrix and NAC and effective'
+      write(u_log,*) '[2].Compute nuclear gradient Hamiltonian matrix and NAC and effective'
       write(u_log,*) '    NAC in diagonal basis'
       write(u_log,*) '[3].Compute projected NAC and effective NAC in MCH and diagonal basis'
       write(u_log,*) '    Y. Shu, L. Zhang, Z. Varga, K. A. Parker, S. Kanchanakungwankul,'
