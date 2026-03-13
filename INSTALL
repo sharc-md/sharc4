@@ -2,7 +2,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2019 University of Vienna
+#    Copyright (c) 2026 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -25,21 +25,35 @@
 Installation Instructions
 *************************
 
+General Note
+============
+
+PLEASE SEE THE SHARC MANUAL (CHAPTER 2) FOR THE MOST UP-TO-DATE 
+INSTALLATION DESCRIPTION!
+
+
 Basic Installation
 ==================
 
 1. SHARC binaries
 
-All you need to install sharc on a Linux system is a Fortran90 compatible 
-compiler (this release is tested against gfortran 4.4.7 and ifort 15.0)
-as well as working blas, lapack and fftw3 libraries. The versions which come
-with your Linux distribution should be sufficient. IF you want to use your
-own numerical libraries (like MKL etc), please change the corresponding
-LD variable within the Makefile.
+To install SHARC4 on a Linux system, formally you only need a Fortran90 
+compatible  compiler (this release is tested against gfortran 4.4.7 and 
+ifort 15.0) as well as working BLAS and LAPACK libraries. The versions 
+which come with your Linux distribution should be sufficient. 
 
-To compile the fortran source code, just unzip the distribution
+However, for smooth integration of the Python code that is part of SHARC4
+(especially the PySHARC extension described below), we recommend to 
+setup a conda/mamba environment including the Fortran (and C) compilers:
 
-unzip sharc.zip
+conda create -n sharc4.0 -c conda-forge python=3.11 numpy scipy h5py 
+matplotlib pyparsing netcdf4 gfortran_linux-64 pyscf openmm numba 
+sympy pyyaml pytorch pytest ase opt_einsum threadpoolctl
+
+This environment needs to be activated before proceeding with the 
+installation.
+
+To compile SHARC, first download or clone it from GitHub.
 
 This should create a new directory called sharc which contains all
 the necessary subdirectories and files. 
@@ -57,55 +71,32 @@ variables. It might also be necessary to modify other parts of the Makefile,
 e.g., the F90 and CC variables.
 Issuing the command:
 
-make
-
-will compile the source and create all the binaries.
-
 make install
 
-will copy the binary files into the sharc/bin/ directory of the 
-Sharc distribution, which already contains all the python scripts which
-come with sharc.
+will compile the source, create all the binaries, and copy them into the 
+sharc/bin/ directory of the SHARC distribution, which already contains 
+all the python scripts which come with SHARC.
 
-In oder to use the binaries together with the python scripts,
-set the $SHARC environment variable to the bin directory of the
-sharc distribution, e.g. if you have unpacked sharc into your $HOME directory, 
-just set: 
+To set up your environment and run any command from the SHARC package, 
+source the corresponding file, e.g., in Bash:
 
-export SHARC=~/sharc/bin (for bourne shell users)
-
-or
-
-setenv SHARC $HOME/sharc/bin (for c-shell type users)
-
-Note that it is advisable to put this line into your shell's login
-scripts.
-Alternatively, the sharcvars.sh/sharcvars.csh files can be used to set the SHARC 
-environment variable.
-
-
-It is also advisable to check whether all files in bin/ are flagged as executable. Otherwise, say
-
-chmod +x * 
-
-to make them executable.
+source sharcvars.sh
 
 
 
 2. PySHARC installation
 
-For fast, I/O-free SHARC simulations with model potentials, you can use pysharc.
-To install this, modify the sharc/source/Makefile, then go to sharc/pysharc,
-modify sharc/pysharc/Makefile and sharc/pysharc/netcdf/Makefile,
-and then issue the command inside sharc/pysharc:
+For fast, I/O-free SHARC simulations with model potentials, you can use PySHARC.
+You also need to use the PySHARC code if you want to use NetCDF output files.
+To install SHARC in this way, the conda environment mentioned above is mandatory.
 
-make
+To install PySHARC, modify sharc/source/Makefile and sharc/pysharc/Makefile
+as needed. Then, execute 
 
-in this directory.
-Again, "make install" places all binaries in the appropriate places.
+make install
+
+first in the pysharc/ folder and second in the source/ folder.
 Note that in sharc/source/Makefile, the USE_PYSHARC option needs to set to "true".
-Also note that to compile PySHARC requires an ANACONDA installation with several 
-libraries, as noted in the manual.
 
 
 
@@ -134,8 +125,11 @@ Now you are ready to run your first surface hopping trajectory including
 arbitrary couplings!
 
 Maybe at this stage it is a good idea to take a look at the test suite.
-The easiest way to run some basic tests is to execute $SHARC/tests.py, 
-which will test the fundamental functionality of SHARC.
+The easiest way to run some basic tests is to execute 
+
+$SHARC/tests.py, 
+
+in an empty directory, which will test the fundamental functionality of SHARC.
 
 To test the wfoverlap installation, go to sharc/wfoverlap/source and say
 
@@ -143,8 +137,8 @@ make test
 
 
 
-Installation for the experts
-============================
+Linking libraries
+=================
 
 Although the time consuming part of any ab initio molecular dynamics
 simulation are the necessary quantum chemical calculations and thus
