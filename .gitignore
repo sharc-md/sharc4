@@ -10,12 +10,7 @@ sharcvars.*
 build_info.inc
 *.tmp
 bin/pysharc_*.py
-wfoverlap/
 *.swp
 bin/__pycache__/*
 lib/__pycache__/*
-bin/KEYSTROKES.extract_laser_fields
-bin/laser
-bin/laser_freq
-tests/interface/inputs/molcas/output/second_order_lm
-source/sharcvars_custom.sh
+
