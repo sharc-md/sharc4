@@ -43,7 +43,7 @@ from pyscf import tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from sympy.physics.wigner import wigner_3j
-from utils import convert_list, expand_path, link, mkdir, question, writefile
+from utils import convert_list, expand_path, link, mkdir, question, writefile, phase_correction
 
 __all__ = ["SHARC_MOLCAS"]
 
@@ -570,10 +570,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.log.error(f"No analytical gradients for cms-pdft and {self.QMin.template['functional']}.")
             raise ValueError()
 
-        # States must be > 1 for xms-caspt2
-        if self.QMin.template["method"] == "xms-caspt2" and any((i == 1 for i in self.QMin.molecule["states"])):
-            self.log.error("All states in XMS-CASPT2 must be > 1!")
-            raise ValueError()
+        # # States must be > 1 for xms-caspt2
+        # if self.QMin.template["method"] == "xms-caspt2" and any((i == 1 for i in self.QMin.molecule["states"])):
+        #     self.log.error("All states in XMS-CASPT2 must be > 1!")
+        #     raise ValueError()
 
     def setup_interface(self) -> None:
         """
@@ -616,15 +616,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             self.runjobs(self.QMin.scheduling["schedule"])
 
             # Save Jobiphs and/or molden files
-            re_jobiph = re.compile(r"^MOLCAS\.\d+\.JobIph")
-            re_molden = re.compile(r"^MOLCAS\.\d+\.molden")
-            for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
-                if re_jobiph.match(file) or (self.QMin.requests["molden"] and re_molden.match(file)):
-                    self.log.debug(f"Copy {file} from scratch to savedir")
-                    shutil.copy(
-                        os.path.join(self.QMin.resources["scratchdir"], "master", file),
-                        os.path.join(self.QMin.save["savedir"], f"{file}.{self.QMin.save['step']}"),
-                    )
+            if not self.QMin.save["samestep"]:
+                re_jobiph = re.compile(r"^MOLCAS\.\d+\.JobIph")
+                re_molden = re.compile(r"^MOLCAS\.\d+\.molden")
+                for file in os.listdir(os.path.join(self.QMin.resources["scratchdir"], "master")):
+                    if re_jobiph.match(file) or (self.QMin.requests["molden"] and re_molden.match(file)):
+                        self.log.debug(f"Copy {file} from scratch to savedir")
+                        shutil.copy(
+                            os.path.join(self.QMin.resources["scratchdir"], "master", file),
+                            os.path.join(self.QMin.save["savedir"], f"{file}.{self.QMin.save['step']}"),
+                        )
             self.log.debug("All jobs finished successful")
 
     def _generate_schedule(self) -> list[dict[str, QMin]]:
@@ -661,7 +662,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.requests["grad"]:
             for grad in self.QMin.maps["gradmap"]:
                 gradjob = deepcopy(self.QMin)
-                gradjob.save.update({"init": False, "always_guess": False, "always_orb_init": False, "samestep": True})
+                gradjob.save.update({"init": False, "always_guess": False, "always_orb_init": False, "samestep_grad": True})
                 gradjob.requests.update({"h": False, "soc": False, "dm": False, "overlap": False, "ion": False})
                 gradjob.resources["ncpu"] = cpu_per_run
                 gradjob.maps["gradmap"] = {(grad)}
@@ -672,7 +673,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if self.QMin.requests["nacdr"]:
             for nac in self.QMin.maps["nacmap"]:
                 nacjob = deepcopy(self.QMin)
-                nacjob.save.update({"init": False, "always_guess": False, "always_orb_init": False, "samestep": True})
+                nacjob.save.update({"init": False, "always_guess": False, "always_orb_init": False, "samestep_grad": True})
                 nacjob.requests.update({"h": False, "soc": False, "dm": False, "overlap": True, "ion": False})
                 nacjob.resources["ncpu"] = cpu_per_run
                 nacjob.maps["gradmap"] = set()
@@ -911,9 +912,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["mcpdft", keys])
                     tasks.append(["copy", "MOLCAS.JobIph", f"MOLCAS.{mult+1}.JobIph"])
                 case _:  # PT2 methods
-                    if not qmin.save["samestep"]:
-                        tasks.append(["caspt2", mult + 1, states, qmin.template["method"]])
-                        tasks.append(["copy", "MOLCAS.JobMix", f"MOLCAS.{mult+1}.JobIph"])
+                    # if not "samestep_grad" in qmin.save:
+                    tasks.append(["caspt2", mult + 1, states, qmin.template["method"]])
+                    tasks.append(["copy", "MOLCAS.JobMix", f"MOLCAS.{mult+1}.JobIph"])
 
         # Do first dp then overlap tasks
         for mult, states in list_to_do:
@@ -1006,9 +1007,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             tasks.append(["copy", f"$master_path/MOLCAS.{mult+1}.JobIph", "JOBOLD"])
             if qmin.template["roots"][mult] == 1:
                 tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
-                if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
-                    self.log.error("Single state gradient with MS/XMS-CASPT2")
-                    raise ValueError()
+                # if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
+                #     self.log.error("Single state gradient with MS/XMS-CASPT2")
+                #     raise ValueError()
                 tasks.append(["alaska"])
             else:
                 match qmin.template["method"]:
@@ -1030,13 +1031,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         tasks.append(["mclr", qmin.template["gradaccudefault"], f"sala={grad[1]}"])
                         tasks.append(["alaska"])
                     case "ms-caspt2" | "xms-caspt2" | "caspt2":
-                        tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
+                        tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False,[f"RLXROOT={grad[1]}"],])
                         if qmin.template['ipea'] != 0:
                             cort_or_dort = qmin.template["cort_or_dort"] + "\n"
                         else:
                             cort_or_dort = ""
                         tasks.append(["caspt2", mult + 1, states, qmin.template["method"], f"GRDT\n{cort_or_dort}rlxroot = {grad[1]}"])
-                        tasks.append(["mclr", qmin.template["gradaccudefault"]])
+                        # tasks.append(["mclr", qmin.template["gradaccudefault"]])
                         tasks.append(["alaska"])
 
         if qmin.maps["nacmap"]:
@@ -1161,15 +1162,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str += f"IPEASHIFT={qmin.template['ipea'] : 4.2f}\nMAXITER=120\n"
         if qmin.template["frozen"]:
             input_str += f"FROZEN={qmin.template['frozen']}\n"
-        match qmin.template["method"]:
-            case "caspt2":
-                input_str += "NOMULT\n"
-            case "ms-caspt2":
-                input_str += f"MULTISTATE= {task[2]} "
-            case "xms-caspt2":
-                input_str += f"XMULTISTATE= {task[2]} "
-        if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
-            input_str += " ".join(str(i + 1) for i in range(task[2]))
+        if task[2] > 1:
+            match qmin.template["method"]:
+                case "caspt2":
+                    input_str += "NOMULT\n"
+                case "ms-caspt2":
+                    input_str += f"MULTISTATE= {task[2]} "
+                case "xms-caspt2":
+                    input_str += f"XMULTISTATE= {task[2]} "
+            if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
+                input_str += " ".join(str(i + 1) for i in range(task[2]))
         input_str += "\nOUTPUT=BRIEF\nPRWF=0.1\n"
         if qmin.template["pcmset"]:
             input_str += "RFPERT\n"
@@ -1302,12 +1304,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if self.QMin.requests["nacdr"] or self.QMin.requests["grad"]:
             if self.QMin.template["method"] == "caspt2":
-                self.log.error("NACs/Gradients are not possible with caspt2")
-                raise ValueError()
+                for mult, (state, root) in enumerate(zip(self.QMin.molecule["states"], self.QMin.template["roots"]), 1):
+                    if state > 1:
+                        self.log.error("NACs/Gradients are not possible with SS-CASPT2 with more than 1 root")
+                        raise ValueError()
             elif self.QMin.template["method"] in ("xms-caspt2", "ms-caspt2"):
                 for mult, (state, root) in enumerate(zip(self.QMin.molecule["states"], self.QMin.template["roots"]), 1):
                     if state != root:
-                        self.log.error(f"*pt2 with NACs/grad. Number of roots does not equal number of states in mult {mult}.")
+                        self.log.error(f"(X)MS-CASPT2 with NACs/grad. Number of roots must equal number of states in mult {mult}.")
                         raise ValueError
 
         # if (
@@ -1512,10 +1516,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                             ]
                             s_cnt += s
                         o_cnt += s
+            self.QMout["overlap"] = self.QMout["overlap"].T   # This is the correct convention for SHARC, leads to better LVC models and consistent phases
             if self.QMin.requests["phases"]:
-                self.QMout["phases"] = deepcopy(np.einsum("ii->i", self.QMout["overlap"]))
-                self.QMout["phases"][self.QMout["phases"] > 0] = 1
-                self.QMout["phases"][self.QMout["phases"] < 0] = -1
+                _, self.QMout["phases"] = phase_correction(self.QMout["overlap"])
 
         if self.QMin.requests["mol"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
             # Parse basis
