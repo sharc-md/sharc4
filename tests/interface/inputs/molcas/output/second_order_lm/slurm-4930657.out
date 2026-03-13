@@ -1,9 +1,0 @@
-Loading intel/latest
-  Loading requirement: tbb/2021.11 compiler-rt/2024.0.0 oclfpga/2024.0.0
-    compiler/latest mkl/latest
-Loading impi/2021
-  Loading requirement: mpi/latest
-cp: cannot stat '/user/lorenz/bin/sharc/dipole/recalc/Singlet*': No such file or directory
-cp: cannot stat '/user/lorenz/bin/sharc/dipole/recalc/*JOBOLD': No such file or directory
-cp: cannot stat '/user/lorenz/bin/sharc/dipole/recalc/Triplet*': No such file or directory
-cp: cannot stat '/public/tellurium11/scratch/tmp/lorenz.2337756/WORK/MOLCAS//*JOBOLD': No such file or directory
