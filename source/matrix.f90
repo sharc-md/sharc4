@@ -86,6 +86,8 @@ private disunitary,zisunitary
 private z_project_recursive
 private d3project_a_on_b, z3project_a_on_b
 private zintruder
+private ddeterminant
+private zdeterminant
 
 ! this routines can be called from outside
 
@@ -115,6 +117,7 @@ public project_recursive
 public project_a_on_b
 public intruder
 public mat3invert
+public determinant
 
 ! =================================================================== !
 
@@ -212,6 +215,10 @@ interface intruder
   module procedure zintruder
 endinterface
 
+interface determinant
+  module procedure ddeterminant, zdeterminant
+endinterface
+
 ! =================================================================== !
 ! interfaces to lapack routines
 
@@ -242,6 +249,18 @@ interface
     INTEGER            M, N, K, LDA, LDB, LDC
     COMPLEX*16         ALPHA, BETA
     COMPLEX*16         A( LDA, * ), B( LDB, * ), C( LDC, * )
+  endsubroutine
+
+  subroutine DGETRF(M,N,A,LDA,IPIV,INFO)
+    integer :: M,N,LDA,INFO
+    integer :: IPIV(*)
+    double precision :: A(LDA,*)
+  endsubroutine
+
+  subroutine ZGETRF(M,N,A,LDA,IPIV,INFO)
+    integer :: M,N,LDA,INFO
+    integer :: IPIV(*)
+    complex*16 :: A(LDA,*)
   endsubroutine
 
 endinterface
@@ -2097,5 +2116,76 @@ subroutine mat3invert(a,b)
  b(3,3) = +detinv * (a(1,1)*a(2,2) - a(1,2)*a(2,1))
 
 endsubroutine
+
+! =================================================================== !
+
+subroutine ddeterminant(n,A_ss,detA)
+  implicit none
+
+  integer, intent(in) :: n
+  real*8, intent(in) :: A_ss(n,n)
+  real*8, intent(out) :: detA
+
+  real*8 :: LU(n,n)
+  integer :: ipiv(n)
+  integer :: i,info
+  integer :: swaps
+
+  LU = A_ss
+
+  call dgetrf(n,n,LU,n,ipiv,info)
+
+  if (info /= 0) then
+     write(0,*) 'Error in ddeterminant: dgetrf failed, info=',info
+     stop
+  endif
+
+  detA = 1.d0
+  swaps = 0
+
+  do i=1,n
+     detA = detA * LU(i,i)
+     if (ipiv(i) /= i) swaps = swaps + 1
+  enddo
+
+  if (mod(swaps,2) /= 0) detA = -detA
+
+end subroutine ddeterminant
+
+! =================================================================== !
+
+subroutine zdeterminant(n,A_ss,detA)
+  implicit none
+
+  integer, intent(in) :: n
+  complex*16, intent(in) :: A_ss(n,n)
+  complex*16, intent(out) :: detA
+
+  complex*16 :: LU(n,n)
+  integer :: ipiv(n)
+  integer :: i,info
+  integer :: swaps
+
+  LU = A_ss
+
+  call zgetrf(n,n,LU,n,ipiv,info)
+
+  if (info /= 0) then
+     write(0,*) 'Error in zdeterminant: zgetrf failed, info=',info
+     stop
+  endif
+
+  detA = dcmplx(1.d0,0.d0)
+  swaps = 0
+
+  do i=1,n
+     detA = detA * LU(i,i)
+     if (ipiv(i) /= i) swaps = swaps + 1
+  enddo
+
+  if (mod(swaps,2) /= 0) detA = -detA
+
+end subroutine zdeterminant
+
 
 endmodule matrix

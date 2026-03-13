@@ -1,0 +1,31 @@
+	## Basis set
+basis 6-31G*
+
+	## Functional
+functional BHHLYP
+
+	## Maximum number of SCF iterations
+scfiter 150
+
+	## In case on non-convergence of the ROHF, force a restart of OpenQP 
+forced_attempt 2
+
+	## Dispersion with D4 
+d4dispersion False
+
+	## Use PySCF with MOkit for ROHF guess
+pyscf_guess False
+
+	## input advanced scf settings, will be pasted to [SCF] in OpenQP input
+scf_keys pfon=True 
+
+	## input advanced grid settings, will be pasted to [DFTGRID] in OpenQP input
+grid_keys rad_npts=50   ang_npts=194
+
+	## specify basis sets per element
+basis_per_element H STO-3G 
+basis_per_element C 6-31G*
+
+	## specify basis sets per atom index, starting at index 1
+basis_per_atom 1 STO-3G 
+basis_per_atom 5 6-311G*

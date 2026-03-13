@@ -846,6 +846,8 @@ from the initconds.excited files as provided by excite.py.
     # get guess for number of states
     line = initf.readline()
     # Turn on, once implemented
+    INFOS["exctime_bool"] = False
+    INFOS["coeff_bool"] = False
     if "excitation_times" in line.lower():
     #     if line.split()[1].strip().lower() == "true":
     #         INFOS["exctime_bool"] = True
