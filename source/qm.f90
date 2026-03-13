@@ -1615,14 +1615,13 @@ module qm
       traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*CONJG(traj%phases_s(istate))
       traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
       traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
-      !this if is taken off because we add QM processing subroutine
+      !this 'if' statement is commented out because we added it to QM processing subroutine
       !if (ctrl%calc_nacdt==1) then
-        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
+      !  traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
       !endif
       if (ctrl%calc_nacdr>=0) then      ! calc_nacdr=0 computes all nacs
-        traj%NACdr_ssad(istate,:,:,:)=traj%NACdr_ssad(istate,:,:,:)*real(traj%phases_s(istate))
+        traj%NACdr_ssad(istate,:,:,:)=traj%NACdr_ssad(istate,:,:,:)*CONJG(traj%phases_s(istate))
       endif
-      !this if is taken off because we add QM processing subroutine
       if (ctrl%calc_overlap==1) then
         traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*CONJG(traj%phases_old_s(istate))
       endif
@@ -1633,14 +1632,14 @@ module qm
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)
       traj%DM_print_ssd(:,istate,:)=traj%DM_print_ssd(:,istate,:)*traj%phases_s(istate)
       !if (ctrl%calc_nacdt==1) then
-        traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
+      !  traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
       !endif
       if (ctrl%calc_nacdr>=0) then
-        traj%NACdr_ssad(:,istate,:,:)=traj%NACdr_ssad(:,istate,:,:)*real(traj%phases_s(istate))
+        traj%NACdr_ssad(:,istate,:,:)=traj%NACdr_ssad(:,istate,:,:)*(traj%phases_s(istate))
       endif
-      !if (ctrl%calc_overlap==1) then
+      if (ctrl%calc_overlap==1) then
         traj%overlaps_ss(:,istate)=traj%overlaps_ss(:,istate)*traj%phases_s(istate)
-      !endif
+      endif
     enddo
 
     ! electronic structure phase patching finished
@@ -2142,7 +2141,7 @@ module qm
       endif
       call fill_phase_matrix(ctrl%nstates,scalarProd)
       do istate=1,ctrl%nstates
-        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
+        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*CONJG(traj%phases_s(istate))
       enddo
       do istate=1,ctrl%nstates
         traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
