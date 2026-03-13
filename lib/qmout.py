@@ -77,7 +77,6 @@ class QMout:
     density_matrices: dict
     multipolar_fit_settings: str
     mol: pyscf.gto.Mole
-    #dyson_orbitals: dict[tuple(electronic_state,electronic_state,str), ndarray[float,1] ]
 
     def __init__(self, filepath=None, states: list[int] = None, natom: int = None, npc: int = None, charges: list[int] = None,
                  flags='all'):
@@ -165,13 +164,10 @@ class QMout:
                         shape = [int(n) for n in re.search(r"\(((\d+x)+\d+)", line).group(1).split('x')]
                         block_length = reduce(lambda agg, x: agg*x, shape[:-1])
                         if len(shape) > 2:
-                            # block_length += shape[0] - 1
                             block_length += reduce(lambda agg, x: agg*x, shape[:-2]) - 1
                     # skip unwanted flags
                     if flags != "all" and flag not in flags:
-                        # print(f"skipping flag {flag} with {block_length} lines")
                         next(islice(f, block_length, block_length), None)
-                        # (f.readline() for _ in range(block_length))
                         line = f.readline()
                         continue
 
@@ -179,11 +175,9 @@ class QMout:
                 iline = 0
 
                 log.debug(f"Parsing flag: {flag}")
-                # print(f"Parsing flag: {flag}, {shape} {block_length}")
                 match flag:
                     case 0: # basis info
                         while iline < len(data):
-                            # log.trace(data[iline])
                             if not data[iline].strip():
                                 iline += 1
                                 continue
@@ -205,7 +199,6 @@ class QMout:
                         for k in basic_info:
                             if k not in self:
                                 log.warning(f"{k} not read from QMout!")
-                                pass
                         self.nmstates = sum((i + 1) * n for i, n in enumerate(self.states))
                         self.nstates = sum(self.states)
                         self.point_charges = self.npc > 0
@@ -250,8 +243,6 @@ class QMout:
                         )
                     case 22: # multipolar_fit
                         self.multipolar_fit, iline = QMout.get_multipoles(data, iline, self.charges, shape)
-                        if data[iline].find("settings") != -1:
-                            self.notes["multipolar_fit"] = data[iline][data[iline].find("settings"):-1]
                     case 24: # Densities
                         self.density_matrices, iline = QMout.get_densities(data, iline, self.charges, shape)
                     case 23: # prop0d
@@ -423,7 +414,6 @@ class QMout:
     @staticmethod
     def get_multipoles(data, iline, charges, shape):
         res = {}
-        # shape = [int(s) for s in data[iline].split()[-1][1:-1].split("x")]
         iline += 1
         for i in range(shape[0]):
             tmp = data[iline].split()
@@ -625,8 +615,9 @@ class QMout:
         if self.notes:
             string += self.writeQMoutnotes()
         string += self.writeQMouttime()
-        writefile(filename, string)
-        return
+        if filename is not None:
+            return writefile(filename, string)
+        return string
 
     # ======================================================================= #
 
@@ -765,7 +756,7 @@ class QMout:
             j = 0
             for jmult, jstate, jms in itnmstates(states):
                 for ipol in range(3):
-                    string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n" % (
+                    string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g   pol %i\n" % (
                         natom,
                         3,
                         imult,
@@ -803,7 +794,7 @@ class QMout:
             j = 0
             for jmult, jstate, jms in itnmstates(states):
                 for ipol in range(3):
-                    string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i   pol %i\n" % (
+                    string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g   pol %i\n" % (
                         natom,
                         3,
                         imult,
@@ -841,7 +832,7 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g\n" % (
                     natom,
                     3,
                     imult,
@@ -881,7 +872,7 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g\n" % (
                     natom,
                     3,
                     imult,
@@ -927,7 +918,7 @@ class QMout:
         string += "! %i Gradient Vectors (%ix%ix3, real)\n" % (3, nmstates, natom)
         i = 0
         for imult, istate, ims in itnmstates(states):
-            string += "%i %i ! m1 %i s1 %i ms1 %i\n" % (natom, 3, imult, istate, ims)
+            string += "%i %i ! m1 %i s1 %i ms1 %g\n" % (natom, 3, imult, istate, ims)
             for atom in range(natom):
                 for xyz in range(3):
                     string += "%s " % (eformat(self.grad[i][atom][xyz], 12, 3))
@@ -960,7 +951,7 @@ class QMout:
         )
         i = 0
         for imult, istate, ims in itnmstates(states):
-            string += "%i %i ! m1 %i s1 %i ms1 %i\n" % (npc, 3, imult, istate, ims)
+            string += "%i %i ! m1 %i s1 %i ms1 %g\n" % (npc, 3, imult, istate, ims)
             for atom in range(npc):
                 for xyz in range(3):
                     string += "%s " % (eformat(self.grad_pc[i][atom][xyz], 12, 3))
@@ -969,43 +960,6 @@ class QMout:
             i += 1
         string += "\n"
         return string
-
-    # ======================================================================= #
-
-    # def writeQMoutnacnum(self):
-    #     """Generates a string with the NAC matrix in SHARC format.
-
-    #     The string starts with a ! followed by a flag specifying the type of data.
-    #     In the next line, the dimensions of the matrix are given, followed by nmstates blocks of nmstates elements.
-    #     Blocks are separated by a blank line.
-
-    #     Returns:
-    #     1 string: multiline string with the NAC matrix"""
-
-    #     nmstates = self.nmstates
-    #     string = ""
-    #     string += "! %i Non-adiabatic couplings (ddt) (%ix%i, complex)\n" % (
-    #         4,
-    #         nmstates,
-    #         nmstates,
-    #     )
-    #     string += "%i %i\n" % (nmstates, nmstates)
-    #     for i in range(nmstates):
-    #         for j in range(nmstates):
-    #             string += "%s %s " % (
-    #                 eformat(self.nacdt[i][j].real, 12, 3),
-    #                 eformat(self.nacdt[i][j].imag, 12, 3),
-    #             )
-    #         string += "\n"
-    #     string += ""
-    #     # also write wavefunction phases
-    #     string += "! %i Wavefunction phases (%i, complex)\n" % (7, nmstates)
-    #     for i in range(nmstates):
-    #         string += "%s %s\n" % (eformat(self.phases[i], 12, 3), eformat(0.0, 12, 3))
-    #     string += "\n\n"
-    #     return string
-
-    # ======================================================================= #
 
     def writeQMoutnacana(self):
         """Generates a string with the NAC vectors in SHARC format.
@@ -1031,7 +985,7 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g\n" % (
                     natom,
                     3,
                     imult,
@@ -1075,7 +1029,7 @@ class QMout:
         for imult, istate, ims in itnmstates(states):
             j = 0
             for jmult, jstate, jms in itnmstates(states):
-                string += "%i %i ! m1 %i s1 %i ms1 %i   m2 %i s2 %i ms2 %i\n" % (
+                string += "%i %i ! m1 %i s1 %i ms1 %g   m2 %i s2 %i ms2 %g\n" % (
                     npc,
                     3,
                     imult,
@@ -1286,13 +1240,14 @@ class QMout:
             for i in range(nao):
                 string += ' '.join(map(lambda j: f"{float(rho[i,j]): 15.12f}", range(nao)))
                 string += "\n"
+        string += "\n"
         return string
 
     def writeQMoutMole(self) -> str:
         string = (
             "! 25 Mole PySCF object (dict, 1 line)\n"
         )
-        string += str(pyscf.gto.Mole.pack(self.mol)) + '\n'
+        string += str(pyscf.gto.Mole.pack(self.mol)) + '\n\n'
         return string
 
     def writeQMoutDysonOrbitals(self) -> str:
@@ -1326,8 +1281,9 @@ class QMout:
         natom = self.natom
         sorted_states = sorted(self.multipolar_fit.keys(), key=lambda x: (x[0].S, x[0].N, x[0].M, x[1].S, x[1].N, x[1].M))
         fit_order = self.multipolar_fit[sorted_states[0]].shape[1]
+        settings = getattr(self, "multipolar_fit_settings", "")
         string = (
-            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x{fit_order}) {self.multipolar_fit_settings}\n"
+            f"! 22 Atomwise multipolar density representation fits for states ({len(sorted_states)}x{natom}x{fit_order}) {settings}\n"
         )
         for (s1, s2) in sorted_states:
             val = self.multipolar_fit[(s1, s2)]

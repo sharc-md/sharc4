@@ -570,6 +570,7 @@ def write_LVC_template(INFOS, template_name):
 
             # Loop over multiplicities to get kappas and lambdas
             # Loop over multiplicities
+            # TODO: could be that we need to remove the nondiagonal entries here!
             start = 0
             for imult, nsi in enumerate(INFOS["states"]):
                 if nsi == 0:
@@ -681,6 +682,7 @@ def write_LVC_template(INFOS, template_name):
 
             # Loop over multiplicities to get kappas and lambdas
             # Loop over multiplicities
+            # TODO: block handling is not correct: actually, we could just remove the diagonal
             start = 0
             for imult, nsi in enumerate(INFOS["states"]):
                 if nsi != 0:

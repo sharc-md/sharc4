@@ -69,6 +69,7 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         """
 
         logger.info("Run children in async queue.")
+
         async def _run_async(child):
             with InDir(child.QMin.resources["pwd"]):
                 child.run()
@@ -269,7 +270,10 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             child.clean_savedir()
 
     def write_step_file(self) -> None:
-        super().write_step_file()
+        if not self.persistent:
+            super().write_step_file()
+        else:
+            self.savedict["last_step"] = self.QMin.save["step"]
         for label, child in self._kindergarden.items():
             self.log.debug(f"Write step file for child {label}")
             child.write_step_file()
@@ -288,3 +292,11 @@ class SHARC_HYBRID(SHARC_INTERFACE):
             if os.path.isfile(stepfile):
                 last_step = int(readfile(stepfile)[0])
             self.savedict["last_step"] = last_step
+
+    def create_restart_files(self) -> None:
+        if self.persistent:
+            super().write_step_file()
+        else:
+            super().create_restart_files()
+        for child in self._kindergarden.values():
+            self._kindergarden[child].create_restart_files()

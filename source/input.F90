@@ -1237,6 +1237,24 @@ module input
       ctrl%calc_phases=1
     endif
 
+    ! phase correction algorithm
+    if ((ctrl%calc_phases==0).and.(ctrl%calc_overlap==1)) then
+      line=get_value_from_key('phase_correction_algo',io)
+      if (io==0) then
+        select case (trim(line))
+          case ('akimov2018')
+            ctrl%phase_correction_algo=0
+          case ('zhou2020')
+            ctrl%phase_correction_algo=1
+          case default
+            write(0,*) 'Unknown keyword ',trim(line),' to "phase_correction_algo"!'
+            stop 1
+        endselect
+      else
+        ctrl%phase_correction_algo=0
+      endif
+    endif
+
     ! request phase corrections from interface at time step zero (only works if something is in savedir)
     ctrl%track_phase_at_zero=0
     line=get_value_from_key('phases_at_zero',io)

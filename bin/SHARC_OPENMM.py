@@ -142,6 +142,7 @@ class SHARC_OPENMM(SHARC_FAST):
             self.QMout["grad"] = gradients._value[np.newaxis, ...]
 
         if self.QMin.requests["multipolar_fit"]:
+            self.QMout.multipolar_fit_settings = f" order: 0, grid: default, firstlayer: default, density: default, layers: default"
             self.QMout["multipolar_fit"] = {}
             self.QMout["multipolar_fit"][(self.states[0], self.states[0])] = self._charges.reshape(-1,1)
         if self.QMin.requests["dm"]:

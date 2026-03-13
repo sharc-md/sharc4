@@ -2362,14 +2362,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
         fchk_master = os.path.join(masterdir, "GAUSSIAN.fchk")
 
         # collect properties to read
-        keywords_from_master = set()
-        get_basis = (
-            self.QMin.requests["mol"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
-        )
-        get_ecp = self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]
-
-        keywords_from_master.update(
-                {
+        keywords_from_master = {
                     "Atomic numbers",
                     "Number of basis functions",
                     "Pure/Cartesian d shells",
@@ -2380,12 +2373,7 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     "Primitive exponents",
                     "Contraction coefficients",
                     "P(S=P) Contraction coefficients",
-                }
-            )
-        keywords_from_master.update(
-                {
                     "Number of atoms",
-                    "Atomic numbers",
                     "ECP-MaxLECP",
                     "ECP-KFirst",
                     "ECP-KLast",
@@ -2395,23 +2383,20 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     "ECP-NLP",
                     "ECP-CLP1",
                     "ECP-ZLP",
-                }
-            )
+        }
 
         raw_properties_from_master = SHARC_GAUSSIAN.parse_fchk(fchk_master, keywords_from_master)
 
-        #if get_basis:
-        basis, n_bf, cartesian_d, cartesian_f, p_eq_s_shell = SHARC_GAUSSIAN.prepare_basis(raw_properties_from_master)
+        basis, _, cartesian_d, cartesian_f, p_eq_s_shell = SHARC_GAUSSIAN.prepare_basis(raw_properties_from_master)
         self.log.debug(f"{basis}")
         self.log.debug(f"basis information: P(S=P):{p_eq_s_shell} cartesian d:{cartesian_d}, cartesian_f {cartesian_f}")
-        self.log.warning("***Basis set with equal S and P shells detected. Please carefully check your wave function overlaps!***")
-        #if get_ecp:
+        if p_eq_s_shell:
+            self.log.warning("***Basis set with equal S and P shells detected. Please carefully check your wave function overlaps!***")
+
         ECPs = SHARC_GAUSSIAN.prepare_ecp(raw_properties_from_master)
         self.log.debug(f"{'ECP:':=^80}\n{ECPs}")
         if len(ECPs) == 0:
             self.log.debug("No ECPs found")
-        #gsmult = self.QMin.maps["statemap"][1][0]
-        #charge = self.QMin.maps["chargemap"][gsmult]
         atoms = [
             [f"{s.upper()}{j+1}", c.tolist()]
             for j, s, c in zip(range(self.QMin.molecule["natom"]), self.QMin.molecule["elements"], self.QMin.coords["coords"])

@@ -607,7 +607,7 @@ def do_calc(INFOS):
                 sys.exit(1)
             else:
                 cwd = os.getcwd()
-                for idir in INFOS['paths']:
+                for idir in sorted(INFOS['paths']):
                     ls = os.listdir(idir)
                     for itraj in ls:
                         if 'TRAJ_' not in itraj:
@@ -653,7 +653,7 @@ def do_calc(INFOS):
                 if os.path.exists(path+'/output_start_time.lis'):
                     pathfile = path + '/output_start_time.lis'
                     print("Detected time shift")
-                    initstate.append(int(np.genfromtxt(path+"/start.time")[1])-1)
+                    initstate.append(int(np.genfromtxt(path+"/start.time")[1])-1)   # TODO: this should be done independent of the presence of output_start_time
                 else:
                     pathfile = path + '/output.lis'
             elif INFOS['mode'] in [6]:

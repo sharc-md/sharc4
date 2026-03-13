@@ -399,7 +399,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         if (self.QMin.requests["ion"] or self.QMin.requests["overlap"]) and self.QMin.resources["wfoverlap"] != "":
             self.log.debug(self.QMin.resources["wfoverlap"])
-            assert is_exec(self.QMin.resources["wfoverlap"])
+            if not is_exec(self.QMin.resources["wfoverlap"]):
+                raise RuntimeError(
+                        f"Could not find executable {self.QMin.resources['wfoverlap']}!"
+                    )
 
     def get_mole(self):
         raise NotImplementedError("This interface does not support the density request!")

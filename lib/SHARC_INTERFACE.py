@@ -903,7 +903,7 @@ class SHARC_INTERFACE(ABC):
                     self.log.warning(
                         f"{line.lower().split(maxsplit=1)[0]} request is deprecated and will be ignored! Calculation control via STEP file and 'step' keyword."
                     )
-                case ["unit" | "states" | "charge" | "savedir", _]:
+                case ["unit" | "states" | "charge" | "savedir" | "point_charges", _]:
                     pass
                 case _:
                     self.log.warning(f"request '{line}' not specified! Will not be applied!")
