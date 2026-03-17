@@ -1480,7 +1480,7 @@ module qm
     logical :: all_unit_norm
 
     ! if phases were not found in the QM output, try to obtain it
-    if (.not. traj%phases_found) then
+    if (.not.(traj%phases_found)) then
 
       ! from overlap matrix diagonal
       if (ctrl%calc_overlap==1) then
@@ -1576,11 +1576,11 @@ module qm
       
       endif ! if (ctrl%calc_overlap==1) then
 
-    else 
-    !when traj%phases_found is true
+    else ! phases_found is true
+
       if (printlevel>4) then 
         write(u_log,*) '==========================================================================='
-        write(u_log,*) 'Phases found in QMout. Applying phase correction with the following phases:'
+        write(u_log,*) '                   Applying phase correction from QMout:'
         write(u_log,*) '==========================================================================='
         write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
         do istate=1,ctrl%nstates
@@ -1589,11 +1589,10 @@ module qm
       endif
       !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 
       ! See also if-block above  where ctrl%calc_overlap==1 and ...traj%phases_s=traj%phases_old_s ...
-      if (ctrl%calc_overlap==1) then
-        do istate=1,ctrl%nstates
-            traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
-        enddo
-      endif
+      ! if ((ctrl%calc_overlap==1)) then
+      do istate=1,ctrl%nstates
+          traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
+      enddo
       
     endif
     
@@ -1615,10 +1614,17 @@ module qm
       traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*CONJG(traj%phases_s(istate))
       traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
       traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
-      !this 'if' statement is commented out because we added it to QM processing subroutine
-      !if (ctrl%calc_nacdt==1) then
-      !  traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
-      !endif
+      if (ctrl%laser_b) then 
+        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+      endif
+      if (ctrl%laser_egrad) then
+        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
+        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
+      endif  
+      if (ctrl%calc_nacdt==1) then
+        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*CONJG(traj%phases_s(istate))
+      endif
       if (ctrl%calc_nacdr>=0) then      ! calc_nacdr=0 computes all nacs
         traj%NACdr_ssad(istate,:,:,:)=traj%NACdr_ssad(istate,:,:,:)*CONJG(traj%phases_s(istate))
       endif
@@ -1631,11 +1637,19 @@ module qm
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)
       traj%DM_print_ssd(:,istate,:)=traj%DM_print_ssd(:,istate,:)*traj%phases_s(istate)
-      !if (ctrl%calc_nacdt==1) then
-      !  traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
-      !endif
+      if (ctrl%laser_b) then 
+        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*traj%phases_s(istate)
+        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*traj%phases_s(istate)
+      endif
+      if (ctrl%laser_egrad) then
+        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*traj%phases_s(istate)
+        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*traj%phases_s(istate)
+      endif 
+      if (ctrl%calc_nacdt==1) then
+        traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
+      endif
       if (ctrl%calc_nacdr>=0) then
-        traj%NACdr_ssad(:,istate,:,:)=traj%NACdr_ssad(:,istate,:,:)*(traj%phases_s(istate))
+        traj%NACdr_ssad(:,istate,:,:)=traj%NACdr_ssad(:,istate,:,:)*traj%phases_s(istate)
       endif
       if (ctrl%calc_overlap==1) then
         traj%overlaps_ss(:,istate)=traj%overlaps_ss(:,istate)*traj%phases_s(istate)
