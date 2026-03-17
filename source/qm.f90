@@ -1576,6 +1576,7 @@ module qm
       
       endif ! if (ctrl%calc_overlap==1) then
 
+
     else ! phases_found is true
 
       if (printlevel>4) then 
@@ -1587,29 +1588,26 @@ module qm
           write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
         enddo
       endif
-      !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 
-      ! See also if-block above  where ctrl%calc_overlap==1 and ...traj%phases_s=traj%phases_old_s ...
-      ! if ((ctrl%calc_overlap==1)) then
+
+    !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 
+    ! See also if-block above  where ctrl%calc_overlap==1 and ...traj%phases_s=traj%phases_old_s ...
+    ! if (traj%phases_found .and. (ctrl%calc_overlap==1)) then
       do istate=1,ctrl%nstates
           traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
       enddo
-      
     endif
     
     ! check if phases have all norm 1
     ! all_unit_norm = .true.
     do istate=1,ctrl%nstates
-      if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+      if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) then
+        write(u_log,'(A,1X,I4)') 'Phase was not unity',istate
+        traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+      endif
     enddo
-
-    ! if (.not.all_unit_norm) then
-    !   write(u_log,*) 'Not all phases have unit norm. Abort.'
-    !   stop 1
-    ! endif
 
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
     ! Bra
-    ! CONJG because phases could be complex if plan wave basis sets are used (Marco Romanelli 30/06/2025)
     do istate=1,ctrl%nstates
       traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*CONJG(traj%phases_s(istate))
       traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
@@ -1622,6 +1620,7 @@ module qm
         traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
         traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
       endif  
+      !this if is taken off because we add QM processing subroutine
       if (ctrl%calc_nacdt==1) then
         traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*CONJG(traj%phases_s(istate))
       endif
@@ -2154,12 +2153,12 @@ module qm
         enddo
       endif
       call fill_phase_matrix(ctrl%nstates,scalarProd)
-      do istate=1,ctrl%nstates
-        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*CONJG(traj%phases_s(istate))
-      enddo
-      do istate=1,ctrl%nstates
-        traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
-      enddo
+      ! do istate=1,ctrl%nstates
+      !   traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*CONJG(traj%phases_s(istate))
+      ! enddo
+      ! do istate=1,ctrl%nstates
+      !   traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
+      ! enddo
 
       if (printlevel>3)  call matwrite(ctrl%nstates,traj%NACdt_ss,u_log,'Time Derivative Coupling in MCH basis after phase consistency...','F12.9')
 
