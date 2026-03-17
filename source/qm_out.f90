@@ -54,6 +54,8 @@ public open_qmout
 public close_qmout
 public get_hamiltonian
 public get_dipoles
+public get_magnetic_dipoles
+public get_electric_quadrupoles
 public get_gradients
 public get_phases
 public get_nonadiabatic_ddt
@@ -250,7 +252,7 @@ subroutine get_dipoles(n, DM_ssd)
   implicit none
   integer,intent(in) :: n       ! size of the matrix
   complex*16,intent(out) :: DM_ssd(n,n,3)
-  integer :: icol,irow,idir
+  integer :: icol,irow,idir, jdir, kdir
   character(len=8000) title
 
   call check_qmout_unit('get_dipoles')
@@ -270,6 +272,63 @@ subroutine get_dipoles(n, DM_ssd)
 
 endsubroutine
 
+! =================================================================== !
+
+!> reads the magnetic Dipole moment matrix from the already opened QMout file
+subroutine get_magnetic_dipoles(n, MDM_ssd)
+  use matrix
+  implicit none
+  integer,intent(in) :: n       ! size of the matrix
+  complex*16,intent(out) :: MDM_ssd(n,n,3)
+  integer :: icol,irow,idir
+  character(len=8000) title
+
+  call check_qmout_unit('get_magnetic_dipoles')
+
+  call goto_flag(41,'get_magnetic_dipoles')
+
+  do idir=1,3
+    call matread(n, MDM_ssd(:,:,idir), qmout_unit, title)
+    read(title,*) irow,icol
+    if ( (irow==n).and.(icol==n) ) then
+      continue
+    else
+      write(0,*) 'Magnetic Dipole matrix has wrong format! nrow=',irow,'ncol=',icol
+      stop 1
+    endif
+  enddo
+
+endsubroutine
+
+! =================================================================== !
+!> reads the electric Quadrupole moment matrix from the already opened QMout file
+subroutine get_electric_quadrupoles(n, EQM_ssdd)
+  use matrix
+  implicit none
+  integer,intent(in) :: n       ! size of the matrix
+  complex*16,intent(out) :: EQM_ssdd(n,n,3,3)
+  complex*16 :: tmp_ss(n,n)
+  integer :: icol,irow,idir,jdir
+  character(len=8000) title
+
+  call check_qmout_unit('get_electric_quadrupoles')
+
+  call goto_flag(42,'get_electric_quadrupoles')
+
+  do idir=1,3
+    do jdir=1,3
+      call matread(n, EQM_ssdd(:,:,idir,jdir), qmout_unit, title)
+      read(title,*) irow,icol
+      if ( (irow==n).and.(icol==n) ) then
+        continue
+      else
+        write(0,*) 'Electric Quadrupole matrix has wrong format! nrow=',irow,'ncol=',icol
+        stop 1
+      endif 
+    enddo
+  enddo
+
+endsubroutine
 ! =================================================================== !
 
 !> reads the gradients from the already opened QMout file
@@ -541,11 +600,11 @@ endsubroutine
 ! =================================================================== !
 
 !> reads the dipole moment derivatives from QMout
-subroutine get_dipolegrad(nstates, natom, DMDR_ssdad)
+subroutine get_dipolegrad(nstates, natom, DR_ssdad)
   use matrix
   implicit none
   integer,intent(in) :: nstates,natom
-  real*8,intent(out) :: DMDR_ssdad(nstates,nstates,3,natom,3)
+  real*8,intent(out) :: DR_ssdad(nstates,nstates,3,natom,3)
   integer :: icol,irow,iatom,idir,ipol
   character(len=8000) title
 
@@ -556,7 +615,7 @@ subroutine get_dipolegrad(nstates, natom, DMDR_ssdad)
   do icol=1,nstates
     do irow=1,nstates
       do ipol=1,3
-        call vec3read(natom, DMDR_ssdad(icol,irow,ipol,:,:), qmout_unit, title)
+        call vec3read(natom, DR_ssdad(icol,irow,ipol,:,:), qmout_unit, title)
         read(title,*) iatom,idir
         if ( (iatom==natom).and.(idir==3) ) then
           continue

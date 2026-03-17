@@ -32,6 +32,12 @@
  * @date: 28/07/2025
  * Added routine for reading in phases from QMout
  *
+ *
+ *
+ * modified by Lorenz Grünewald
+ * @date: 07/01/2026
+ * Added routine for reading magnetic dipole and electric quadrupole moments
+ *
  * Python Wrapper for the SHARC LIBRARY
  *
  * header for interface.f90
@@ -49,12 +55,13 @@ void get_states_(char * string);
 void get_charges_(char * string);
 void get_retain_(char *string);
 void get_dt_(char * string);
-void get_savedir_(char * string);
 void get_tasks_(char * string, int * icall);
-void get_grad_(char * string, int * icall);
-void get_nacdr_(char * string, int * icall);
+void get_grad_mode_(int *icall, int8_t *mode);
+void fill_grad_mask_(int *nstates, uint64_t *words);
+void get_nacdr_mode_(int *icall, int8_t *mode);
+void fill_nacdr_mask_(int *nstates, uint64_t *words);
+void get_tasks_mask_(int32_t *step, int *icall, uint64_t *mask);
 void get_scalingfactor_(double * scale, double * soc_scale);
-void get_constants_(double * consts);
 // Molecule info
 void get_natoms_(int * natoms);
 void get_nsteps_(int * nsteps);
@@ -67,13 +74,17 @@ void get_ian_(int * NAtoms, int * IAn);
 // set pointer
 void setPointers(double complex ** H, double complex ** dm, 
                  double complex ** overlap, 
-                 double complex ** phases, 
+                 double complex ** mdm,
+                 double complex ** eqm,
+		 double complex ** phases, 
                  double ** grad,
                  double ** nacs 
                  );
 void setQMinPointers(double ** Crd);
 void setQMinPointers_vel(double ** Crd);
 void postprocess_qmout_data_(int * IH, int * IDM,
+                             int * IMDM,
+                             int * IEQM,
                              int * IGrad, 
                              int * IOverlap,
                              int * IPhases,
@@ -82,6 +93,8 @@ void postprocess_qmout_data_(int * IH, int * IDM,
 void set_phases_(int * N, double complex * phases);
 void set_hamiltonian_(int * N, double complex * H);
 void set_dipolemoments_(int * N, double complex * DM);
+void set_mag_dipolemoments_(int * N, double complex * MDM);
+void set_el_quadrupolemoments_(int * N, double complex * EQM);
 void set_overlap_(int * N, double complex * overlap);
 void set_gradients_(int * N, int * NAtoms, double * grad);
 void set_nacs_(int * NStates, int * NAtoms, double * nacs);
@@ -92,7 +105,6 @@ void initial_qm_post_(void);
 // SHARC MAIN ROUTINE
 void setup_sharc_(char * input, int * IRestart);
 void initial_step_(int * IRestart);
-void do_initial_step_2(void);
 void verlet_xstep_(int * i_step);
 void verlet_vstep_(int * iredo, int * pysharc);
 void verlet_finalize_(int * IExit, int * iskip);

@@ -1102,6 +1102,7 @@ class globalfunction():
 
         # initialize Runge-Kutta
         RK = spint.RK45(self.fun, 0., self.y, self.tmax + 0.1)
+        # RK = spint.solve_ivp(self.fun, [0, self.tmax], self.y, method='BDF', t_eval=T)
 
         # perform initial step
         RK.step()
@@ -1222,6 +1223,51 @@ def create_bootstrap_data(Tdata1, RNGarray, INFOS):
             Yerr[i] = 0.001
 
     return Tdata, Ydata, Yerr
+
+# TODO: Verify this numpy rewrite
+# def create_bootstrap_data(Tdata1, RNGarray, INFOS):
+#     # Extract parameters
+#     nsteps = len(Tdata1) - 1
+#     ngroups = INFOS['ngroups']
+#     ntraj = INFOS['ntraj']
+#     maxtime = INFOS['maxtime']
+#     columns_groups = INFOS['columns_groups']
+
+#     # Make sure data is a NumPy array: (n_trajectories, nsteps, ncols)
+#     data = np.array(INFOS['data'])  
+#     rng_trajs = np.array(RNGarray)
+
+#     # Prepare output arrays
+#     Tdata = np.zeros(nsteps * ngroups)
+#     Ydata = np.zeros(nsteps * ngroups)
+#     Yerr = np.zeros(nsteps * ngroups)
+
+#     # Process each group
+#     for igroup in range(ngroups):
+#         # Convert to 0-based indexing
+#         cols = np.array(columns_groups[igroup]) - 1
+
+#         # Extract relevant data: shape → (n_selected_traj, nsteps, len(cols))
+#         selected_data = data[rng_trajs, :nsteps, :][:, :, cols]
+
+#         # Sum over selected columns → shape: (n_selected_traj, nsteps)
+#         group_values = selected_data.sum(axis=2)
+
+#         # Compute mean and std for each step
+#         mean_vals = np.mean(group_values, axis=0)  # shape: (nsteps,)
+#         std_vals = np.std(group_values, axis=0, ddof=0)  # population std
+
+#         # Fill results
+#         start = igroup * nsteps
+#         end = start + nsteps
+#         Ydata[start:end] = mean_vals
+#         Yerr[start:end] = std_vals
+#         Tdata[start:end] = np.array(Tdata1[:nsteps]) + igroup * maxtime
+
+#     # Handle zero error case
+#     Yerr[Yerr == 0] = 0.001
+
+#     return Tdata.tolist(), Ydata.tolist(), Yerr.tolist()
 
 # ======================================================================================================================
 # ======================================================================================================================

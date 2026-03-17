@@ -52,6 +52,7 @@ all_features = set(
         "h",
         "soc",
         "dm",
+        "mdeqm",
         "grad",
         "nacdr",
         "overlap",
@@ -182,6 +183,10 @@ class SHARC_QMOUT(SHARC_FAST):
 
         if self.QMin.requests["phases"]:
             self.QMout["phases"] = [complex(1.0, 0.0) for i in range(self.QMout.nmstates)]
+
+        if self.QMin.requests["mdeqm"]:
+            self.QMout["mdm"] = self.QMout2["mdm"]
+            self.QMout["eqm"] = self.QMout2["eqm"]
 
         # if self.QMin.requests["ion"]:
         # self.QMout["prop2d"] = self.QMout2["prop2d"]

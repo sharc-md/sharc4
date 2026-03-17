@@ -52,44 +52,7 @@
 #include "libsharc.h"
 #include "python_2_3.h"
 
-// pysharc.h
-PyObject * get_atomid(void);
-//PyObject * get_atom_names(void);
-
 /*********************** GET INFO ********************************************/
-
-/* get constants */
-static char get_constants_docstring[] =
-    "get_contstans()\n\
-    :return: dict";
-
-static PyObject * get_constants(PyObject * self)
-{
-
-    PyObject * dct;
-
-    int NConsts = 6;
-    char * const_names[] =
-        {"au2a", "au2fs", "au2u", "au2rcm", "au2eV", "au2debye"};
-
-    double * consts;
-    consts = (double *)malloc(NConsts * sizeof(double));
-
-    get_constants_(consts);
-
-    dct = PyDict_New();
-
-    for (int i=0; i < NConsts; i++) {
-        PyObject * pyfloat = PyFloat_FromDouble(consts[i]);
-        if (pyfloat == NULL) {
-            return NULL;
-        }
-        PyDict_SetItemString(dct, const_names[i], pyfloat);
-    }
-    free(consts);
-
-    return dct;
-}
 
 /* get current atomid */
 PyObject * get_atomid(void)
@@ -114,37 +77,6 @@ PyObject * get_atomid(void)
 
     return lst;
 }
-/* get atom names */
-/* Function does not work! */
-/*
-PyObject * get_atom_names(void)
-{
-
-    PyObject * lst;
-
-    int NAtoms = 0;
-    get_natoms_(&NAtoms);
-
-    char * atom_names;
-
-    atom_names = (char *)malloc(4*NAtoms*sizeof(char));
-
-    get_element_name_(&NAtoms, atom_names);
-
-    lst = PyList_New(NAtoms);
-    for (int i=0; i<NAtoms; i++){
-        PyObject * pystring = PyString_FromString( *(atom_names+i*3) );
-        PyList_SetItem(lst, i, pystring);
-    }
-    free(atom_names);
-
-    return lst;
-
-}
-
-*/
-
-
 
 /* get current coordinates */
 static char get_current_coordinates_docstring[] =
@@ -167,15 +99,6 @@ static PyArrayObject * get_current_coordinates(PyObject * self, PyObject * args)
         return NULL;
 
     get_current_coordinates_(&NAtoms, data, &ang);
-
-    /*lst = PyList_New(NAtoms);*/
-    /*for (int i=0; i<NAtoms; i++){*/
-        /*PyObject * pylst = PyList_New(3);*/
-        /*for (int j =0; j<3; j++){*/
-            /*PyList_SetItem(pylst, j, PyFloat_FromDouble( *(Crd+i*3+j)));*/
-        /*}*/
-        /*PyList_SetItem(lst, i, pylst);*/
-    /*}*/
 
     return Crd;
 }
@@ -204,11 +127,11 @@ static char get_basic_info_docstring[] =
 
 static PyObject * get_basic_info(PyObject * self)
 {
-    int N_func_str = 5;
+    int N_func_str = 4;
     char * info_names_str [] =
-    { "states", "charge", "dt", "savedir", "retain" } ;
+    { "states", "charge", "dt", "retain" } ;
     void (*get_info_str []) (char *) =
-    { get_states_, get_charges_, get_dt_, get_savedir_, get_retain_ };
+    { get_states_, get_charges_, get_dt_, get_retain_ };
 
     int N_func_int = 3;
     char * info_names_int [] =
@@ -266,9 +189,128 @@ static PyObject * get_basic_info(PyObject * self)
         free(string);
         Py_XDECREF(dct);
         return NULL;
+
     fail_int:
         Py_XDECREF(dct);
         return NULL;
+}
+
+static int add_grad_compact(PyObject *dct, int icall, int nstates)
+{
+    if (nstates <= 0) {
+        PyErr_SetString(PyExc_ValueError, "nstates must be > 0");
+        return -1;
+    }
+
+    int8_t mode = 0;
+    get_grad_mode_(&icall, &mode);
+
+    PyObject *py_mode = PyLong_FromLong((long)mode);
+    if (!py_mode)
+        return -1;
+
+    PyObject *py_mask = NULL;
+
+    if (mode == 2) {  // SUBSET => allocate and fill mask
+        size_t nwords = (size_t)((nstates + 63) / 64);
+        uint64_t *words = (uint64_t*)malloc(nwords * sizeof(uint64_t));
+        if (!words) {
+            Py_DECREF(py_mode);
+            PyErr_NoMemory();
+            return -1;
+        }
+
+        fill_grad_mask_(&nstates, words);
+
+        py_mask = PyBytes_FromStringAndSize(
+            (const char*)words,
+            (Py_ssize_t)(nwords * sizeof(uint64_t))
+        );
+        free(words);
+
+        if (!py_mask) {
+            Py_DECREF(py_mode);
+            return -1;
+        }
+    } else {
+        // NONE or ALL => empty mask
+        py_mask = PyBytes_FromStringAndSize(NULL, 0);
+        if (!py_mask) {
+            Py_DECREF(py_mode);
+            return -1;
+        }
+    }
+
+    if (PyDict_SetItemString(dct, "grad_mode", py_mode) < 0 ||
+        PyDict_SetItemString(dct, "grad_mask", py_mask) < 0) {
+        Py_DECREF(py_mode);
+        Py_DECREF(py_mask);
+        return -1;
+    }
+
+    Py_DECREF(py_mode);
+    Py_DECREF(py_mask);
+    return 0;
+}
+
+static int add_nacdr_compact(PyObject *dct, int icall, int nstates)
+{
+    int8_t mode = 0;
+    get_nacdr_mode_(&icall, &mode);
+
+    PyObject *py_mode = PyLong_FromLong((long)mode);
+    if (!py_mode)
+        return -1;
+
+    PyObject *py_mask = NULL;
+
+    if (mode == 2)  // subset only
+    {
+        size_t nbits  = (size_t)nstates * (size_t)nstates;
+        size_t nwords = (nbits + 63u) / 64u;
+
+        uint64_t *words = malloc(nwords * sizeof(uint64_t));
+        if (!words) {
+            Py_DECREF(py_mode);
+            PyErr_NoMemory();
+            return -1;
+        }
+
+        fill_nacdr_mask_(&nstates, words);
+
+        py_mask = PyBytes_FromStringAndSize(
+            (const char*)words,
+            (Py_ssize_t)(nwords * sizeof(uint64_t))
+        );
+
+        free(words);
+
+        if (!py_mask) {
+            Py_DECREF(py_mode);
+            return -1;
+        }
+    }
+    else
+    {
+        // EMPTY mask when mode != subset
+        py_mask = PyBytes_FromStringAndSize(NULL, 0);
+        if (!py_mask) {
+            Py_DECREF(py_mode);
+            return -1;
+        }
+    }
+
+    if (PyDict_SetItemString(dct, "nacdr_mode", py_mode) < 0 ||
+        PyDict_SetItemString(dct, "nacdr_mask", py_mask) < 0)
+    {
+        Py_DECREF(py_mode);
+        Py_DECREF(py_mask);
+        return -1;
+    }
+
+    Py_DECREF(py_mode);
+    Py_DECREF(py_mask);
+    return 0;
 }
 
 
@@ -279,73 +321,49 @@ static char get_all_tasks_docstring[] =
 
 static PyObject * get_all_tasks(PyObject * self, PyObject * args)
 {
-
-    int N_func = 3;
-    char * task_names_str [] =
-    { "tasks", "grad", "nacdr" } ;
-    void (*get_task_str []) (char *, int *) =
-    { get_tasks_, get_grad_, get_nacdr_ };
-
-    char * string;
-
     int icall = 0;
-
-    PyObject * dct;
-
-
-    if (!PyArg_ParseTuple(args, "i", &icall))
+    int nstates = 0;
+    if (!PyArg_ParseTuple(args, "ii", &icall, &nstates))
         return NULL;
 
-    dct = PyDict_New();
-    string = (char *)malloc((size_t)STRING_SIZE_XL_ + 1);
-    for (int i=0; i < N_func; i++) {
-        get_task_str[i](string, &icall);
-        PyObject * pystring = PyString_FromString(string);
-        if (pystring == NULL) {
-            goto fail_string;
-        }
-        PyDict_SetItemString(dct, task_names_str[i], pystring);
-    }
-    free(string);
-    return dct;
+    PyObject *dct = PyDict_New();
+    if (!dct) return NULL;
 
-    fail_string:
-        free(string);
+    int32_t step = 0;
+    uint64_t mask = 0;
+    get_tasks_mask_(&step, &icall, &mask);
+
+    PyObject *py_step = PyLong_FromLong((long)step);
+    PyObject *py_mask = PyLong_FromUnsignedLongLong((unsigned long long)mask);
+    if (!py_step || !py_mask) {
+        Py_XDECREF(py_step);
+        Py_XDECREF(py_mask);
         Py_DECREF(dct);
         return NULL;
-}
-
-
-/* get_tasks */
-static char get_tasks_docstring[] =
-    "setup_sharc(fileName)\n\
-    :return: int ";
-
-static PyObject * get_tasks(PyObject * self, PyObject * args)
-{
-
-    char * string;
-    int icall = 0;
-
-    if (!PyArg_ParseTuple(args, "i", &icall))
-        return NULL;
-    // get tasks
-    string = (char *)malloc(STRING_SIZE_L_*sizeof(char));
-    get_tasks_(string, &icall);
-    // create pystring from c string
-    PyObject * pystring = PyString_FromString(string);
-    if (pystring == NULL) {
-        goto fail_string;
     }
-    // free memory
-    free(string);
-    // return pystring
-    return pystring;
 
-    fail_string:
-        free(string);
-        Py_DECREF(pystring);
+    if (PyDict_SetItemString(dct, "step", py_step) < 0 ||
+        PyDict_SetItemString(dct, "mask", py_mask) < 0) {
+        Py_DECREF(py_step);
+        Py_DECREF(py_mask);
+        Py_DECREF(dct);
         return NULL;
+    }
+    Py_DECREF(py_step);
+    Py_DECREF(py_mask);
+
+    // grad
+    if (add_grad_compact(dct, icall, nstates) < 0) {
+        Py_DECREF(dct);
+        return NULL;
+    }
+
+    // nacdr
+    if (add_nacdr_compact(dct, icall, nstates) < 0) {
+        Py_DECREF(dct);
+        return NULL;
+    }
+    return dct;
 }
 
 /* include sharc main */
@@ -369,65 +387,23 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
     int icall = 0;
     if (!PyArg_ParseTuple(args, "Oi", &qmout, &icall))
         return NULL;
-
     if (!PyObject_TypeCheck(qmout, &QMoutType)){
         PyErr_SetString(PyExc_TypeError, "arg #1 needs to be of type QMout! ");
         return NULL;
     }
-
     const int iset_g = qmout->iset_g;
     const int iset_nacdr = qmout->iset_nacdr;
 
-#ifdef __OWN_SPACE_QMout__
-    // qmout are not pointers to the traj object anymore
-    // but are seperate memory
-    /* Hamiltonian */
-    if (qmout->iset_h == 1){
-        printf("sharc.c: set h\n");
-        set_hamiltonian_(&qmout->NStates, qmout->hamiltonian);
-        qmout->iset_h = 0;
-    }
-    /* DIPOLE MOMENT */
-    if (qmout->iset_d == 1){
-        printf("sharc.c: set dm\n");
-        set_dipolemoments_(&qmout->NStates, qmout->dipole_mom);
-        qmout->iset_d = 0;
-    }
-    /* Gradient */
-    if (qmout->iset_g == 1){
-        printf("sharc.c: set g\n");
-        set_gradients_(&qmout->NStates, &qmout->NAtoms, qmout->gradient);
-        qmout->iset_g = 0;
-    }
-    /* OVERLAP */
-    if (qmout->iset_o == 1){
-        printf("sharc.c: set o\n");
-        set_overlap_(&qmout->NStates, qmout->overlap);
-        qmout->iset_o = 0;
-    }
-    /* PHASES*/
-    if (qmout->iset_phases == 1) {
-        printf("sharc.c: set phases\n");
-        set_phases_(&qmout->NStates, qmout->phases);
-        qmout->iset_phases = 0;
-    }
-
-    /* Non-adiabatic couplings */
-    if (qmout->iset_nacdr == 1) {
-        printf("sharc.c: set nacs\n");
-        set_nacs_(&qmout->NStates, &qmout->NAtoms, qmout->nac);
-        qmout->iset_nacdr = 0;
-    }
-#else
     // only properties that need to be changed, are done here
     postprocess_qmout_data_(&qmout->iset_h,
                               &qmout->iset_d,
+                              &qmout->iset_mdm,
+                              &qmout->iset_eqm,
                               &qmout->iset_g,
                               &qmout->iset_o,
                               &qmout->iset_phases,
                               &qmout->iset_nacdr
                             );
-#endif
     /* set phases */
     //set_phases_(); Now proper phases reading routine is implemented and the call is in driver.py
     // Post process data after setting it
@@ -453,15 +429,12 @@ static PyObject * set_qmout(PyObject * self, PyObject * args)
 }
 
 // -----------------------------------------------------------------
-
 /* SHARC METHODS */
 static PyMethodDef SHARC_METHODS[] = {
     /* QMout */
     {"set_qmout", (PyCFunction)set_qmout, METH_VARARGS, set_qmout_docstring},
     /* GET INFO  */
-    {"get_constants", (PyCFunction)get_constants, METH_NOARGS, get_constants_docstring},
     {"get_basic_info", (PyCFunction)get_basic_info, METH_NOARGS, get_basic_info_docstring},
-    {"get_tasks", (PyCFunction)get_tasks, METH_VARARGS, get_tasks_docstring},
     {"get_all_tasks", (PyCFunction)get_all_tasks, METH_VARARGS, get_all_tasks_docstring},
     {"get_crd", (PyCFunction)get_current_coordinates, METH_VARARGS, get_current_coordinates_docstring},
     {"get_vel", (PyCFunction)get_current_velocities, METH_VARARGS, get_current_velocities_docstring},

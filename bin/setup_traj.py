@@ -35,17 +35,14 @@ import stat
 import shutil
 import datetime
 import random
-from optparse import OptionParser
 from socket import gethostname
 import numpy as np
 from logger import log
 import factory
 from utils import question, itnmstates, expand_path
-from constants import IToMult, U_TO_AMU, HARTREE_TO_EV, n_avogadro, au2a, au2newton
+from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
 from SHARC_INTERFACE import SHARC_INTERFACE
-# from SHARC_FAST import SHARC_FAST
-# from SHARC_ABINITIO import SHARC_ABINITIO
-# from SHARC_HYBRID import SHARC_HYBRID
+from SHARC_HYBRID import SHARC_HYBRID
 
 # =========================================================0
 PI = math.pi
@@ -58,6 +55,8 @@ versiondate = datetime.date(2025, 4, 1)
 
 global KEYSTROKES
 old_question = question
+
+
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     return old_question(
         question=question, typefunc=typefunc, KEYSTROKES=KEYSTROKES, default=default, autocomplete=autocomplete, ranges=ranges
@@ -347,7 +346,7 @@ class STATE:
         s = "%03i % 18.10f % 18.10f " % (self.i, self.e, self.eref)
         for i in range(3):
             s += "% 12.8f % 12.8f " % (self.dip[i].real, self.dip[i].imag)
-        s += "% 12.8f % 12.8f %s % s % s" % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
+        s += "% 12.8f % 12.8f %s % s % s " % (self.Eexc * HARTREE_TO_EV, self.Fosc, self.Excited, self.IState, self.ExcTime)
         return s
 
     def Excite(self, max_Prob, erange):
@@ -662,6 +661,75 @@ def get_initconds(INFOS):
 # ======================================================================================================================
 
 
+def check_laserfileversion(filename):
+    if filename is None:
+        raise IOError
+        return None 
+    try:
+        f = open(filename)
+        data = f.readlines()
+        f.close()
+    except IOError:
+        print('Could not open laser file %s' % (filename))
+        return False 
+    laserfile_version=1.0
+    for line in data:
+        split_line = line.split()
+        if len(split_line):
+            if split_line[0]=="!":
+                if split_line[1]=="file_version":
+                    try:
+                        laserfile_version=float(split_line[2])
+                    except ValueError:
+                        print('No valid version detected %s' % (laserfile_version))
+                        return False  
+    return laserfile_version
+
+# ======================================================================================================================
+
+
+def check_laserfields(filename):
+    posresponse = ['y', 'yes', 'true', 't', 'ja', 'si', 'yea', 'yeah', 'aye', 'sure', 'definitely']
+    negresponse = ['n', 'no', 'false', 'f', 'nein', 'nope'] 
+    set_efield, set_bfield, set_egrad, set_bgrad = [int(0)]*4
+    try:
+        f = open(filename)
+        data = f.readlines()
+        f.close()
+    except IOError:
+        print('Could not open laser file %s' % (filename))
+        return False 
+    for line in data:
+        split_line = line.split()
+        if len(split_line)>0:
+            match split_line[0]:
+                case "!":
+                    match split_line[1]:
+                        case "e-field":
+                            if split_line[2] in posresponse:
+                                set_efield=1
+                            elif split_line[2] in negresponse:
+                                set_efield=0
+                        case "b-field":
+                            if split_line[2] in posresponse:
+                                set_bfield=1
+                            elif split_line[2] in negresponse:
+                                set_bfield=0
+                        case "e-field_gradients":
+                            if split_line[2] in posresponse:
+                                set_egrad=1
+                            elif split_line[2] in negresponse:
+                                set_egrad=0
+                        case "b-field_gradients":
+                            if split_line[2] in posresponse:
+                                set_bgrad=1
+                            elif split_line[2] in negresponse:
+                                set_bgrad=0
+    return set_efield, set_bfield, set_egrad, set_bgrad        
+
+# ======================================================================================================================
+
+
 def check_laserfile(filename, nsteps, dt):
     log.info('Laser file must have %i steps and a time step of %f fs.' % (nsteps,dt))
     try:
@@ -671,20 +739,33 @@ def check_laserfile(filename, nsteps, dt):
     except IOError:
         log.info("Could not open laser file %s" % (filename))
         return False
-    n = 0
-    for line in data:
-        if len(line.split()) >= 8:
-            n += 1
-        else:
-            break 
-    if n < nsteps:
-        log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
-        return False
-    for i in range(int(nsteps) - 1):
-        t0 = float(data[i].split()[0])
-        t1 = float(data[i + 1].split()[0])
-        if abs(abs(t1 - t0) - dt) > 1e-6:
-            log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
+    # n = 0
+    # for line in data:
+    #     log.info(line)
+    #     if len(line.split()) >= 8:  # time, Ex_r, Ex_i, Ey_r, Ey_i, Ez_r, Ez_i, Bx_r, Bx_i , By_r, By_i, Bz_r, Bz_i
+    #         n += 1
+    #     else:
+    #         break
+    # if n < nsteps:
+    #     log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
+    #     return False
+    # for i in range(int(nsteps) - 1):
+    #     t0 = float(data[i].split()[0])
+    #     t1 = float(data[i + 1].split()[0])
+    #     if abs(abs(t1 - t0) - dt) > 1e-6:
+    #         log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
+    #         return False
+    # return True
+
+    if check_laserfileversion(filename)==1.0:
+        n = 0
+        for line in data:
+            if len(line.split()) >= 8:  # time, Ex_r, Ex_i, Ey_r, Ey_i, Ez_r, Ez_i, Bx_r, Bx_i , By_r, By_i, Bz_r, Bz_i
+                n += 1
+            else:
+                break
+        if n < nsteps:
+            print('File %s (version=1.0) has only %i timesteps, %i steps needed!' % (filename, n, nsteps))
             return False
     return True
 
@@ -762,6 +843,8 @@ from the initconds.excited files as provided by excite.py.
     # get guess for number of states
     line = initf.readline()
     # Turn on, once implemented
+    INFOS["exctime_bool"] = False
+    INFOS["coeff_bool"] = False
     if "excitation_times" in line.lower():
     #     if line.split()[1].strip().lower() == "true":
     #         INFOS["exctime_bool"] = True
@@ -1197,6 +1280,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         if Couplings[INFOS["coupling"]]["name"] != "overlap":
             INFOS["phases_from_interface"] = True
         INFOS["phases_from_interface"] = question("Do you want to track wavefunction phases through overlaps?", bool, INFOS["phases_from_interface"])
+        log.info("")
         if INFOS["phases_from_interface"]:
             INFOS["needed_requests"].add("phases")
 
@@ -1634,6 +1718,7 @@ Laser files can be created using $SHARC/laser.x
                     INFOS["laserfile"] = "laser"
         if "laserfile" not in INFOS:
             while True:
+                log.info('Laser file must have %i steps and a time step of %f fs.' % ((INFOS["tmax"] / INFOS["dtstep"] * INFOS["nsubstep"] + 1), INFOS["dtstep"] / INFOS["nsubstep"]))
                 filename = question("Laser filename:", str)
                 if not os.path.isfile(filename):
                     log.info("File %s does not exist!" % (filename))
@@ -1643,17 +1728,32 @@ Laser files can be created using $SHARC/laser.x
                 ):
                     break
             INFOS["laserfile"] = filename
+            set_fields = check_laserfields(filename)
+            if any(set_fields)!=0:
+                INFOS['e-field'] = bool(set_fields[0])
+                INFOS['b-field'] = bool(set_fields[1])
+                INFOS['e-field gradients'] = bool(set_fields[2])
+                INFOS['b-field gradients'] = bool(set_fields[3])
+            else:
+                INFOS['e-field'] = True  # for laserfileversion 1.0
         # only the analytical interface can do dipole gradients
         if "dipolegrad" in int_features:
             INFOS["dipolegrad"] = question("Do you want to use dipole moment gradients?", bool, False)
         else:
             INFOS["dipolegrad"] = False
+        # 2nd order LM-interaction can only be described, if B-field and E-field gradients are present in laser file
+        if "mdeqm" in int_features:
+            INFOS["mdeqm"] = True
+        else:
+            INFOS["mdeqm"] = False
         log.info("")
     else:
         INFOS["dipolegrad"] = False
+        INFOS["mdeqm"] = False
     if INFOS["dipolegrad"]:
         INFOS["needed_requests"].add("dmdr")
-
+    if INFOS["mdeqm"]:
+        INFOS["needed_requests"].add("mdeqm")
 
     # Setup Dyson computation
     INFOS["ion"] = False
@@ -1698,6 +1798,7 @@ def get_trajectory_info(INFOS, interface: SHARC_INTERFACE) -> dict:
     # fast_child = isinstance(interface, (SHARC_FAST, SHARC_HYBRID)) 
     fast_child = interface._use_with_pysharc
     # adaptive integrator is incompatible with PySHARC
+    INFOS["pysharc_fast"] = False
     if Integrator[INFOS['integrator']]["name"] == 'avv':
         log.info("Pysharc not possible with adaptive time step integrator.")
         pysharc_possible = False
@@ -1711,6 +1812,10 @@ def get_trajectory_info(INFOS, interface: SHARC_INTERFACE) -> dict:
         log.info("PYSHARC runs the SHARC dynamics directly within Python (with C and Fortran extension)")
         log.info("with minimal file I/O for maximum performance.")
         INFOS["pysharc"] = question("Setup for PYSHARC?", bool, default)
+        if isinstance(interface, SHARC_HYBRID):
+            log.info(f"{interface.name()} is a HYBRID interface.")
+            log.info("If multiple FAST children are used, it is recommended to use fast_queue.")
+            INFOS["pysharc_fast"] = question("Enable fast_queue?", bool, False)
     else:
         INFOS["pysharc"] = False
 
@@ -2230,7 +2335,10 @@ def writeRunscript(INFOS, iconddir, interface):
     # ================================
     if INFOS["pysharc"]:
         driver = ("_".join(interface.__class__.__name__.split("_")[1:])).lower()
-        exestring = ". $SHARC/sharcvars.sh\n$SHARC/driver.py -i %s input &> driver.log" % driver
+        if INFOS["pysharc_fast"]:
+            exestring = ". $SHARC/sharcvars.sh\n$SHARC/driver.py -f -i %s input" % driver
+        else:
+            exestring = ". $SHARC/sharcvars.sh\n$SHARC/driver.py -i %s input &> driver.log" % driver
     else:
         exestring = "$SHARC/sharc.x input"
 
@@ -2239,6 +2347,7 @@ def writeRunscript(INFOS, iconddir, interface):
         string = """#!/usr/bin/env bash
 
 echo "%s"
+echo $(hostname)
 
 %s
 
@@ -2468,16 +2577,6 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
 
 def main():
     """Main routine"""
-
-    usage = """
-python setup_traj.py
-
-This interactive program prepares SHARC dynamics calculations.
-"""
-
-    description = ""
-    parser = OptionParser(usage=usage, description=description)
-
     displaywelcome()
     open_keystrokes()
     INFOS = {"select_directly": True, "coeff_bool": 0}  # deactivate in get_infos within interface!, no starting coefficients

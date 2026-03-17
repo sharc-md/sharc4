@@ -321,7 +321,7 @@ def import_from_molden(filename, scaling, flag, lvc=False):
     iline += 1
     natom = 0
     molecule = []
-    while '[' not in data[iline]:
+    while '[' not in data[iline] and data[iline].strip() != '':
         f = data[iline].split()
         symb = f[0].lower().title()
         num = NUMBERS[symb]
@@ -835,14 +835,14 @@ def determine_normal_modes_format(modes, molecule, nmodes, flag):
                 result[i][i] -= 1
             diagonalcheck[0].append(trace)
             
-            ## print all matrices
-            #if DEBUG:
-            #    for row in result:
-            #        string = ''
-            #        for entry in row:
-            #            string += "%4.1f" % (float(entry))
-            #        print(string)
-            #    print()
+            # print all matrices
+            if DEBUG:
+               for row in result:
+                   string = ''
+                   for entry in row:
+                       string += "%5.2f" % (float(entry))
+                   print(string)
+               print()
             
             if any([abs(i) > thresh for j in result for i in j]):
                 diagonalcheck[1].append(0)

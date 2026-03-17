@@ -641,6 +641,7 @@ def setup_input(INFOS):
             s += '%s%i % 16.9f % 16.9f % 16.9f\n' % (atom[0], iatom + 1, atom[1], atom[2], atom[3])
         s += '}\n\n'
     if INFOS['freq']:
+        # TODO: format and unit must be updated for MOLPRO 2025!!!!
         s += 'mass,isotope\n'
         for iatom, atom in enumerate(INFOS['geom']):
             s += 'mass,init,%s%i=%f\n' % (atom[0], iatom + 1, INFOS['masslist'][iatom][1])
