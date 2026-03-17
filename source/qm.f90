@@ -1157,6 +1157,8 @@ module qm
     complex*16 :: NACdR_diag_ss(ctrl%nstates,ctrl%nstates), pNACdR_diag_ss(ctrl%nstates,ctrl%nstates)
     character(255) :: string
     complex*16 :: sum
+    logical :: skip_transform
+
     if (printlevel>3) then
       write(u_log,*) '============================================================='
       write(u_log,*) '             Current Rotational Matrix U'
@@ -1191,6 +1193,9 @@ module qm
     elseif (ctrl%surf==1) then
       U_temp=traj%U_ss
     endif
+
+    skip_transform = identity(U_temp,ctrl%nstates, 1d-12)
+
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
 
     if (printlevel>3) then
@@ -1223,7 +1228,9 @@ module qm
           enddo
         endif
         ! transform NACdR_ss to diagonal basis
-        call transform(ctrl%nstates,NACdR_diag_ss,U_temp,'utau')
+        if (.not. skip_transform) then
+          call transform(ctrl%nstates,NACdR_diag_ss,U_temp,'utau')
+        end if
         ! save full NACdR_diag_ss matrix
         do istate=1,ctrl%nstates
           do jstate=1,ctrl%nstates
@@ -1269,7 +1276,9 @@ module qm
           enddo
         endif
         ! transform pNACdR_diag_ss to diagonal basis
-        call transform(ctrl%nstates,pNACdR_diag_ss,U_temp,'utau')
+        if (.not. skip_transform) then
+          call transform(ctrl%nstates,pNACdR_diag_ss,U_temp,'utau')
+        end if
         ! save full pNACdR_diag_ss matrix
         do istate=1,ctrl%nstates
           do jstate=1,ctrl%nstates
@@ -2498,6 +2507,7 @@ end subroutine phase_correction_zhou
     real*8 :: hopping_tmp(3*ctrl%natom), phopping_tmp(3*ctrl%natom)
 
     character(255) :: string
+    logical :: skip_transform
 
     ! allocate only if needed for projection
     if (allocated(traj%trans_rot_P)) then 
@@ -2567,6 +2577,8 @@ end subroutine phase_correction_zhou
     endif
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
 
+    ! Check if U is unit matrix
+    skip_transform = identity(U_temp, ctrl%nstates, 1d-12)
 
     ! ===============================
     ! 1. Compute time derivative Hamiltonian matrix (Kmatrix, TDH matrix)
@@ -2601,7 +2613,9 @@ end subroutine phase_correction_zhou
     enddo
     ! transform K matrix to diagonal basis
     K1matrix_diag_ss=K1matrix_MCH_ss
-    call transform(ctrl%nstates,K1matrix_diag_ss,U_temp,'utau')
+    if (.not. skip_transform) then
+      call transform(ctrl%nstates,K1matrix_diag_ss,U_temp,'utau')
+    end if
 
     if (printlevel>4) then
       call matwrite(ctrl%nstates,K1matrix_MCH_ss,u_log,'MCH time derivative Hamiltonian matrix','F12.9')
@@ -2703,8 +2717,10 @@ end subroutine phase_correction_zhou
         endif
 
         ! transform G matrix to diagonal basis
-        call transform(ctrl%nstates,G1matrix_ss,U_temp,'utau')
-        call transform(ctrl%nstates,G2matrix_ss,U_temp,'utau')
+        if (.not. skip_transform) then
+          call transform(ctrl%nstates,G1matrix_ss,U_temp,'utau')
+          call transform(ctrl%nstates,G2matrix_ss,U_temp,'utau')
+        end if
 
         ! save full G matrix
         G1matrix_ssad(:,:,iatom,idir)=G1matrix_ss
@@ -3025,7 +3041,9 @@ end subroutine phase_correction_zhou
           endif
 
           ! transform G matrix to diagonal basis
-          call transform(ctrl%nstates,Gmatrix_ss,U_temp,'utau')
+          if (.not. skip_transform) then
+            call transform(ctrl%nstates,Gmatrix_ss,U_temp,'utau')
+          end if
           ! save full G matrix in traj
           traj%Gmatrix_ssad(:,:,iatom,idir)=Gmatrix_ss
 
@@ -3074,7 +3092,9 @@ end subroutine phase_correction_zhou
               enddo
             enddo
             ! transform dipole gradient matrix to diagonal basis
-            call transform(ctrl%nstates,Gmatrix_ss,U_temp,'utau')
+            if (.not. skip_transform) then
+              call transform(ctrl%nstates,Gmatrix_ss,U_temp,'utau')
+            end if
             ! add dipole gradient part to final Gmatrix
             traj%Gmatrix_ssad(:,:,iatom,idir)=traj%Gmatrix_ssad(:,:,iatom,idir)+Gmatrix_ss(:,:)
           enddo
