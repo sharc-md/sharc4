@@ -300,8 +300,9 @@ usage: python3 {sys.argv[0]} -s='<states>' -m='<modes>' LVC.template > LVC_mod.t
     )
 
     (options, args) = parser.parse_args()
-    if len(args) == 0:
+    if len(args) < 1:
         parser.print_usage()
+        exit(0)
     main(
         args[0],
         options.states,
