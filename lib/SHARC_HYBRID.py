@@ -299,4 +299,4 @@ class SHARC_HYBRID(SHARC_INTERFACE):
         else:
             super().create_restart_files()
         for child in self._kindergarden.values():
-            self._kindergarden[child].create_restart_files()
+            child.create_restart_files()
