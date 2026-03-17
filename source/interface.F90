@@ -1041,7 +1041,13 @@ subroutine initial_qm_post()
     use output
     implicit none
     integer :: i, iatom, idir
-
+    
+    ! Initialization of phases at t=0
+    if (traj%step==0) then
+      traj%phases_s=dcmplx(1.d0,0.d0)
+      traj%phases_old_s=dcmplx(1.d0,0.d0)
+    endif
+      
     ! correct phases if required
     if (ctrl%track_phase_at_zero==1) then
       call Adjust_phases(traj,ctrl)
