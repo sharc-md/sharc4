@@ -346,7 +346,6 @@ def get_infos():
     for interface in INTERFACES:
         if interface in INFOS['interfaces'] and interface not in ['ANALYTICAL', 'scripts', 'LVC', 'PYSCF', 'TEQUILA']:
             INFOS[interface] = env_or_question(interface, setenv=True)
-
     for i in INFOS['otherenvs']:
         INFOS[i] = env_or_question(i, setenv=True)
 
@@ -503,68 +502,24 @@ def compare_trajectories(INFOS, index):
             b = reftext[i]
         except IndexError:
             break
-
-        # normalize lines (remove whitespace + newline)
-        a = a.strip()
-        b = b.strip()
-
-        # handle empty lines
-        if not a and not b:
-            continue
-        if not a or not b:
-            return -1
-
-        # handle flag lines
-        if a.startswith('!'):
-            if not b.startswith('!'):
+        if a[0] == '!':
+            if not b[0] == '!':
                 return -1
-            parts = a.split()
             try:
-                flag = int(parts[1])
-            except (ValueError, IndexError):
+                # print a.split()
+                flag = int(a.split()[1])
+            except ValueError:
                 flag = -1
             continue
-
-        # split safely
-        parts_a = a.split()
-        parts_b = b.split()
-
-        if not parts_a or not parts_b:
-            continue
-
-        # parse depending on flag
         if flag == -1:
             try:
-                a1 = [float(parts_a[-1])]
-                b1 = [float(parts_b[-1])]
+                a1 = [float(a.split()[-1])]
+                b1 = [float(b.split()[-1])]
             except ValueError:
                 continue
         else:
-            try:
-                a1 = [float(x) for x in parts_a]
-                b1 = [float(x) for x in parts_b]
-            except ValueError:
-                continue
-            
-        #Previous version, not correctly handling empty lines in case they appear 
-        # if a[0] == '!':
-        #     if not b[0] == '!':
-        #         return -1
-        #     try:
-        #         # print a.split()
-        #         flag = int(a.split()[1])
-        #     except ValueError:
-        #         flag = -1
-        #     continue
-        # if flag == -1:
-        #     try:
-        #         a1 = [float(a.split()[-1])]
-        #         b1 = [float(b.split()[-1])]
-        #     except ValueError:
-        #         continue
-        # else:
-        #     a1 = [float(j) for j in a.split()]
-        #     b1 = [float(j) for j in b.split()]
+            a1 = [float(j) for j in a.split()]
+            b1 = [float(j) for j in b.split()]
 
         for j, ja in enumerate(a1):
             jb = b1[j]
