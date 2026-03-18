@@ -457,12 +457,11 @@ subroutine get_grad_mode_(icall, mode) bind(C)
   end if
 end subroutine
 
-subroutine fill_grad_mask_(nstates_in, words) bind(C)
-  use, intrinsic :: iso_c_binding, only: c_int, c_int64_t
+subroutine fill_grad_mask_(words) bind(C)
+  use, intrinsic :: iso_c_binding, only: c_int64_t
     use memory_module, only: traj, ctrl
     implicit none
 
-  integer(c_int),     intent(in)  :: nstates_in
   integer(c_int64_t), intent(out) :: words(*)   ! size = ceil(nstates/64)
 
   integer :: i, w, b, nstates
@@ -519,12 +518,11 @@ subroutine get_nacdr_mode_(icall, mode) bind(C)
   end if
 end subroutine
 
-subroutine fill_nacdr_mask_(nstates_in, words) bind(C)
-  use iso_c_binding, only: c_int, c_int64_t
+subroutine fill_nacdr_mask_(words) bind(C)
+  use iso_c_binding, only: c_int64_t
   use memory_module, only: traj, ctrl
   implicit none
 
-  integer(c_int),    intent(in)  :: nstates_in
   integer(c_int64_t),intent(out) :: words(*)
 
   integer :: i, j, idx, w, b, nstates
