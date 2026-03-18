@@ -1645,10 +1645,14 @@ end subroutine phase_correction_zhou
 
         select case (ctrl%phase_correction_algo)
           case (0)
-            ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 -> more robust for plan wave basis sets 
-            ! where overlap matrix is not real
+            ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 
+            ! -> more robust for plan wave basis sets where overlap matrix is not real
             do istate=1,ctrl%nstates
-              correction=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+              if (abs(traj%overlaps_ss(istate,istate))>1.d-12) then
+                correction=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+              else
+                correction=dcmplx(1.d0,0.d0)
+              endif
               traj%phases_s(istate)=traj%phases_old_s(istate)*correction 
             enddo
           case (1)
@@ -1760,14 +1764,22 @@ end subroutine phase_correction_zhou
       do istate=1,ctrl%nstates
           traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
       enddo
-    endif
+    endif ! phases_found
     
-    ! check if phases have all norm 1
+    ! all the various ways to update the phases are finished now, so we have the 
+    ! old and new phases and can check them and then apply them to all matrices
+
+
+    ! check if phases have all norm 1 and are not NaN
     ! all_unit_norm = .true.
     do istate=1,ctrl%nstates
       tmp=abs(abs(traj%phases_s(istate)) - 1.d0)
       if ( tmp > 1.d-6  ) then
         write(u_log,'(A,1X,I4,1X,E14.6)') 'Phase was not unity',istate,tmp
+        traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+      endif
+      if (tmp /= tmp) then
+        write(u_log,'(A,1X,I4,1X,E14.6)') 'Phase was NaN',istate,tmp
         traj%phases_s(istate) = dcmplx(1.d0,0.d0)
       endif
     enddo
