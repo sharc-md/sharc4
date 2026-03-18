@@ -220,7 +220,7 @@ static int add_grad_compact(PyObject *dct, int icall, int nstates)
             return -1;
         }
 
-        fill_grad_mask_(words);
+        fill_grad_mask_(&nstates, words);
 
         py_mask = PyBytes_FromStringAndSize(
             (const char*)words,
@@ -276,7 +276,7 @@ static int add_nacdr_compact(PyObject *dct, int icall, int nstates)
             return -1;
         }
 
-        fill_nacdr_mask_(words);
+        fill_nacdr_mask_(&nstates, words);
 
         py_mask = PyBytes_FromStringAndSize(
             (const char*)words,
