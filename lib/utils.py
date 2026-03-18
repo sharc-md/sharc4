@@ -30,6 +30,7 @@ import os
 import shutil
 import readline
 import numpy as np
+from scipy import optimize
 from dataclasses import dataclass
 from error import Error, exception_hook
 import subprocess as sp
@@ -1004,8 +1005,6 @@ def phase_correction_cmplx(overlap,flag="simple"):
 
     Return: phases for corrections 
     """
-    from scipy import linalg as LA
-    from scipy import optimize
     
     if flag=="simple": #This does not require the matrix to be exactly unitary
         phases=[]
@@ -1024,21 +1023,21 @@ def phase_correction_cmplx(overlap,flag="simple"):
             return delta
         #Function to compute Tr(|log(matrix)|**2) for debugging algorithm below
         def trace_log(U):
-            eig=LA.eigvals(U)
+            eig=np.linalg.eigvals(U)
             out=np.sum(np.abs(np.log(eig))**2)
             return out
         
         ##### start of actual algorithm ####
         
         #First we need to make the matrix unitary -> Löwdin's orthogonalization
-        λ,V = LA.eigh(overlap.T.conjugate() @ overlap)
+        λ,V = np.linealg.eigh(overlap.T.conjugate() @ overlap)
         S=overlap @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
         U = S.copy()
         for i in range(U.shape[0]):
             tmp=np.argmax(np.abs(U[:,i]))
             max_el=U[tmp,i]
             U[:,i]=U[:,i]*max_el.conjugate()/np.abs(max_el)
-        det = LA.det(U)
+        det = np.linalg.det(U)
         #logging.debug(f"debugging phase fixing algorithm. Initial determinant {det}") #Only for debugs, requires extra computations
         #logging.debug(f"Initial Tr(|log(U)|^2) {trace_log(U)}")
         if isinstance(det,complex):
@@ -1081,3 +1080,16 @@ def phase_correction_cmplx(overlap,flag="simple"):
                 #logging.debug(f"Final Tr(|log(U)|^2) {trace_log(U)}")
                 break
         return phases
+
+def det_slog(matrix):
+    '''
+    Compute determinant of a square (complex or real) matrix by using np.linalg.slogdet(),  which is significantly faster than
+    np.linalg.det(), especially for small matrix size < 1000x1000
+    '''
+    sign, logdet = np.linalg.slogdet(matrix)
+    det = sign * np.exp(logdet)
+    return det
+
+
+
+

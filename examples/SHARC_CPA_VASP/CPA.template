@@ -1,1 +1,1 @@
-reference: {"interface": "VASP", "args": [], "kwargs": {}}
+interface: {"name": "VASP", "args": [], "kwargs": {}}

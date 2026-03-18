@@ -13,7 +13,7 @@ def vibration_from_outcar(file_outcar,file_poscar,file_out,remove_rotations):
     #Getting n. of modes, nmodes
     with open(file_outcar,"r") as f:
         outcar=f.read()
-    pattern=rf"\s+Degree of freedom:\s+\d+\/(.*?)\n"
+    pattern=rf"\s+Degrees\s+of\s+freedom\s+DOF\s+=\s+(.*?)\n"
     nmodes=int(re.search(pattern,outcar).group(1))
     
     #Getting modes frequency and displacement
@@ -34,8 +34,8 @@ def vibration_from_outcar(file_outcar,file_poscar,file_out,remove_rotations):
     modes=[]
     counter=0
     for n,i in enumerate(index):
-        pattern1=r"\s+"+str(n+1)+r"\s+f"
-        pattern2=r"\s+"+str(n+1)+r"\s+f/i"
+        pattern1=r"\s*"+str(n+1)+r"\s+f"
+        pattern2=r"\s*"+str(n+1)+r"\s+f/i"
         if re.search(pattern1,data[i]) is not None:
             match=r".*2PiTHz (.*?) cm-1"
             freqs.append(float(re.search(match,data[i]).group(1)))
@@ -46,7 +46,7 @@ def vibration_from_outcar(file_outcar,file_poscar,file_out,remove_rotations):
             freqs.append(float(re.search(match,data[i]).group(1)))
             modes.append(data[i+2:i+chunk])
         else:
-            print("Something went wrong with your VASP freq calculation. Check OUTCAR")
+            print(f"Something went wrong with frequency mode n.{n}. Please check your VASP freq calculation. Check OUTCAR")
             sys.exit()
     if counter > 3:
         print("You have more than 3 imaginary frequencies in your VASP output." \

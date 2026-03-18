@@ -99,6 +99,8 @@ versiondate = datetime.date(2025, 4, 1)
 
 OTHERENVS = set(['THEODORE', 'orca', 'molcas'])
 
+REQUIREDENVS = {"VASP": ("VASPHDF5",)}
+
 INTERFACES = {'MOLPRO': 'MOLPRO',
               'MOLCAS': 'MOLCAS',
               'COLUMBUS': 'COLUMBUS',
@@ -331,6 +333,10 @@ def get_infos():
         for i in OTHERENVS:
             if i in testlist[j - 1][0]:
                 INFOS['otherenvs'].add(i)
+    for j in jobs:
+        for i in REQUIREDENVS:
+            if i in testlist[j - 1][0]:
+                INFOS['otherenvs'].update(REQUIREDENVS[i])
 
     # collect environment variables
     string = '\n  ' + '=' * 80 + '\n'
