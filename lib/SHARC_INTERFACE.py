@@ -1011,7 +1011,7 @@ class SHARC_INTERFACE(ABC):
     def _all_grad_cache(self):
         cache = self._all_grad
         if cache is None:
-            cache = list(range(1, self.QMin.molecule["nstates"] + 1))
+            cache = list(range(1, self.QMin.molecule["nmstates"] + 1))
             self._all_grad = cache
         return cache
 
@@ -1045,11 +1045,11 @@ class SHARC_INTERFACE(ABC):
             if requests["grad_mode"] == 1:
                 req["grad"] = self._all_grad_cache()
             elif requests["grad_mode"] == 2:
-                req["grad"] = decode_grad(requests["grad_mask"], self.QMin.molecule["nstates"])
+                req["grad"] = decode_grad(requests["grad_mask"], self.QMin.molecule["nmstates"])
             if requests["nacdr_mode"] == 1:
                 req["nacdr"] = self._all_nacdr_cache()
             elif requests["nacdr_mode"] == 2:
-                req["nacdr"] = nacdr_pairs(requests["nacdr_mask"], self.QMin.molecule["nstates"])
+                req["nacdr"] = nacdr_pairs(requests["nacdr_mask"], self.QMin.molecule["nmstates"])
         else:
             for k, v in requests.items():
                 kl = k.lower()
