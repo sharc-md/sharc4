@@ -20,5 +20,7 @@ nogradcorrect
 ekincorrect  parallel_vel
 decoherence_scheme edc
 
+phase_correction_algo zhou2020
+
 select_directly
 output_format ascii
