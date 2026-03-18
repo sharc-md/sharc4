@@ -457,24 +457,23 @@ subroutine get_grad_mode_(icall, mode) bind(C)
   end if
 end subroutine
 
-subroutine fill_grad_mask_(nstates_in, words) bind(C)
+subroutine fill_grad_mask_(words) bind(C)
   use, intrinsic :: iso_c_binding, only: c_int, c_int64_t
     use memory_module, only: traj, ctrl
     implicit none
 
-  integer(c_int),     intent(in)  :: nstates_in
   integer(c_int64_t), intent(out) :: words(*)   ! size = ceil(nstates/64)
 
-  integer :: i, w, b, nstates
+  integer :: i, w, b
   integer :: nwords
 
-  nwords = (nstates + 63) / 64
+  nwords = (ctrl%nstates + 63) / 64
 
   do w = 1, nwords
     words(w) = 0_c_int64_t
   end do
 
-  do i = 1, nstates
+  do i = 1, ctrl%nstates
     if (traj%selg_s(i)) then
       w = (i-1)/64 + 1
       b = mod(i-1, 64)
@@ -518,28 +517,27 @@ subroutine get_nacdr_mode_(icall, mode) bind(C)
   end if
 end subroutine
 
-subroutine fill_nacdr_mask_(nstates_in, words) bind(C)
+subroutine fill_nacdr_mask_(words) bind(C)
   use iso_c_binding, only: c_int, c_int64_t
   use memory_module, only: traj, ctrl
   implicit none
 
-  integer(c_int),    intent(in)  :: nstates_in
   integer(c_int64_t),intent(out) :: words(*)
 
-  integer :: i, j, idx, w, b, nstates
+  integer :: i, j, idx, w, b
   integer :: nbits, nwords
 
-  nbits  = nstates * nstates
+  nbits  = ctrl%nstates * ctrl%nstates
   nwords = (nbits + 63) / 64
 
   do w = 1, nwords
     words(w) = 0_c_int64_t
   end do
 
-  do i = 1, nstates
-    do j = 1, nstates
+  do i = 1, ctrl%nstates
+    do j = 1, ctrl%nstates
       if (traj%selt_ss(j,i)) then
-        idx = (i-1)*nstates + (j-1)
+        idx = (i-1)*ctrl%nstates + (j-1)
         w = idx/64 + 1
         b = mod(idx, 64)
         words(w) = ibset(words(w), b)
@@ -1653,7 +1651,7 @@ subroutine Verlet_finalize(IExit, iskip)
       call write_geom(u_geo,traj,ctrl)
     endif
 
-    call allflush()
+    !call allflush()
     ! kill trajectory 
     call kill_after_relaxation(traj, ctrl)
     if ((ctrl%killafter >= 0).and.(traj%steps_in_gs > ctrl%killafter)) then
