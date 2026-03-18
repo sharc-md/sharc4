@@ -99,7 +99,7 @@ versiondate = datetime.date(2025, 4, 1)
 
 OTHERENVS = set(['THEODORE', 'orca', 'molcas'])
 
-REQUIREDENVS = {"VASP": ("HDF5VASP")}
+REQUIREDENVS = {"VASP": ("VASPHDF5",)}
 
 INTERFACES = {'MOLPRO': 'MOLPRO',
               'MOLCAS': 'MOLCAS',
