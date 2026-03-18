@@ -234,7 +234,7 @@ module qm
       enddo
     endif
 
-    ! get electric Dipole moments (DM), magnetic DM, electric QM
+    ! get magnetic DM, electric QM
     if (ctrl%calc_dipole>=2) then
       call get_magnetic_dipoles(ctrl%nstates, traj%MDM_ssd)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic Dipole Moments:                ','OK' 
@@ -1046,17 +1046,19 @@ module qm
       call matwrite(ctrl%nstates,traj%DM_ssd(:,:,i),u,'Dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
     enddo
     write(u,*)
-    do i=1,3
-      call matwrite(ctrl%nstates,traj%MDM_ssd(:,:,i),u,'Magnetic dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
-    enddo 
-    write(u,*)
-    do i=1,3
-      do j=1,3
-        call matwrite(ctrl%nstates,traj%EQM_ssdd(:,:,i,j),u,'Electric quadrupole matrix (MCH basis) '//xyz(i)//''//xyz(j)//' direction','F9.4')
-      enddo
+    if (ctrl%calc_dipole>=2) then
+      do i=1,3
+        call matwrite(ctrl%nstates,traj%MDM_ssd(:,:,i),u,'Magnetic dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
+      enddo 
       write(u,*)
-    enddo  
-    write(u,*)
+      do i=1,3
+        do j=1,3
+          call matwrite(ctrl%nstates,traj%EQM_ssdd(:,:,i,j),u,'Electric quadrupole matrix (MCH basis) '//xyz(i)//''//xyz(j)//' direction','F9.4')
+        enddo
+        write(u,*)
+      enddo  
+      write(u,*)
+    endif 
     do i=1,ctrl%nstates
       write(string,'(A27,I3)') 'Gradient (MCH basis) state ',i
       call vec3write(ctrl%natom,traj%grad_MCH_sad(i,:,:),u,trim(string),'F9.4')
@@ -1128,8 +1130,10 @@ module qm
     traj%H_diag_old_ss=traj%H_diag_ss
  
     traj%DM_old_ssd=traj%DM_ssd
-    traj%MDM_old_ssd=traj%MDM_ssd
-    traj%EQM_old_ssdd=traj%EQM_ssdd
+    if (ctrl%calc_dipole>=2) then
+      traj%MDM_old_ssd=traj%MDM_ssd
+      traj%EQM_old_ssdd=traj%EQM_ssdd
+    endif 
     traj%U_old_ss=traj%U_ss
     traj%NACdt_old_ss=traj%NACdt_ss
     traj%NACdr_old_ssad=traj%NACdr_ssad
