@@ -1651,7 +1651,7 @@ subroutine Verlet_finalize(IExit, iskip)
       call write_geom(u_geo,traj,ctrl)
     endif
 
-    !call allflush()
+    call allflush()
     ! kill trajectory 
     call kill_after_relaxation(traj, ctrl)
     if ((ctrl%killafter >= 0).and.(traj%steps_in_gs > ctrl%killafter)) then
