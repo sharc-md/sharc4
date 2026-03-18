@@ -392,13 +392,13 @@ subroutine get_tasks_mask_(step, icall, tasks_mask) bind(C)
     if (ctrl%calc_dipole==2) tasks_mask = ibset(tasks_mask, 7)
     if ((traj%step==0).and.(ctrl%track_phase_at_zero==1)) tasks_mask = ibset(tasks_mask, 2)
 
-        if (traj%step>=1) then
+    if (traj%step>=1) then
       if (ctrl%calc_nacdt==1)    tasks_mask = ibset(tasks_mask, 3)
       if (ctrl%calc_overlap==1)  tasks_mask = ibset(tasks_mask, 4)
       if (ctrl%calc_phases==1)   tasks_mask = ibset(tasks_mask, 2)
     end if
 
-        if (ctrl%ionization>0) then
+    if (ctrl%ionization>0) then
       if (mod(traj%step, ctrl%ionization)==0) tasks_mask = ibset(tasks_mask, 5)
     end if
 
@@ -409,7 +409,7 @@ subroutine get_tasks_mask_(step, icall, tasks_mask) bind(C)
   else if (icall == 2) then
     if (ctrl%calc_grad==2)       call select_grad(traj,ctrl)
     if (ctrl%calc_nacdr==2)      call select_nacdr(traj,ctrl)
-        if (ctrl%calc_dipolegrad==2) call select_dipolegrad(traj,ctrl)
+    if (ctrl%calc_dipolegrad==2) call select_dipolegrad(traj,ctrl)
 
   else if (icall == 3) then
         call select_grad(traj,ctrl)
