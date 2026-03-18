@@ -539,10 +539,14 @@ class SHARC_VASP(SHARC_ABINITIO):
         This only modify the local environment of the subprocess where VASP is executed.
         """
         vasp_env = deepcopy(os.environ)
+
         #Prepending path for VASP execution
         self.log.debug(self.QMin.resources["hdf5vaspdir"])
-        vasp_env["LD_LIBRARY_PATH"]=f"{self.QMin.resources["hdf5vaspdir"]}:{vasp_env["LD_LIBRARY_PATH"]}"
+        hdf5_dir = self.QMin.resources["hdf5vaspdir"]
+        old = vasp_env.get("LD_LIBRARY_PATH", "")
+        vasp_env["LD_LIBRARY_PATH"] = os.pathsep.join([hdf5_dir, old]) if old else hdf5_dir
         self.log.debug(vasp_env["LD_LIBRARY_PATH"])
+        
         # Preventing VASP step to use OpenMP
         self.log.debug("Setting OMP_NUM_THREADS to 1 for the VASP run only. No OpenMP allowed in VASP here.")
         vasp_env["OMP_NUM_THREADS"]="1"
