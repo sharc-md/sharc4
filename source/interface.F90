@@ -415,6 +415,7 @@ subroutine get_tasks_mask_(step, icall, tasks_mask) bind(C)
         call select_grad(traj,ctrl)
 
   else
+    write(0,*) "In get_tasks_mask_, icall was not in [1,2,3]"
         call Exit(100)
   end if
 end subroutine
@@ -451,6 +452,7 @@ subroutine get_grad_mode_(icall, mode) bind(C)
     mode = 2_c_int8_t     ! SUBSET (selg_s used)
 
   else
+    write(0,*) "In get_grad_mode_, icall was not in [1,2,3]"
     call Exit(100)
   end if
 end subroutine
@@ -465,9 +467,6 @@ subroutine fill_grad_mask_(nstates_in, words) bind(C)
 
   integer :: i, w, b, nstates
   integer :: nwords
-
-  nstates = ctrl%nstates
-  if (nstates /= nstates_in) call Exit(100)
 
   nwords = (nstates + 63) / 64
 
@@ -529,9 +528,6 @@ subroutine fill_nacdr_mask_(nstates_in, words) bind(C)
 
   integer :: i, j, idx, w, b, nstates
   integer :: nbits, nwords
-
-  nstates = ctrl%nstates
-  if (nstates /= nstates_in) call Exit(100)
 
   nbits  = nstates * nstates
   nwords = (nbits + 63) / 64

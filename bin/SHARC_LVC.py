@@ -127,6 +127,8 @@ class SHARC_LVC(SHARC_FAST):
         self._G = {im: np.zeros((n, n, r3N, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
         self._h = {im: np.zeros((n, n), dtype=float) for im, n in enumerate(states) if n != 0}
         self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
+        self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
+        self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
         self._soc = np.zeros((nmstates, nmstates), dtype=complex)
         self._U = np.zeros((nmstates, nmstates), dtype=float)
         self._Q = np.zeros(r3N, float)
@@ -511,9 +513,7 @@ class SHARC_LVC(SHARC_FAST):
         # sanity check for coordinates - check if centre of mass is conserved
         elif self.QMin.save["step"] == 0:
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
-            if not np.allclose(self._com_ref, self._com_coords, rtol=1e-3) or not np.allclose(
-                np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5
-            ):
+            if not np.allclose(self._com_ref, self._com_coords, atol=1e-6) or not np.allclose(self._Trot, np.eye(3), atol=1e-6):
                 raise RuntimeError(
                     "Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch"
                 )

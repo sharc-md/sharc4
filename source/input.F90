@@ -1859,12 +1859,14 @@ module input
             write(u_log,'(a,1x,f8.3,1x,a)') 'Non-adiabatic coupling vectors are included for Delta E < ',ctrl%eselect_nac,'eV.'
             write(u_log,'(a)') 'Non-adiabatic coupling vectors are calculated in the second QM calculation.'
         endselect
-        select case (ctrl%nac_projection)
-          case (0)
-            write(u_log,'(a)') 'Not doing NAC projection.'
-          case (1)
-            write(u_log,'(a)') 'Doing NAC projection'
-        endselect
+        if (ctrl%calc_nacdr >= 0) then
+          select case (ctrl%nac_projection)
+            case (0)
+              write(u_log,'(a)') 'Not doing NAC projection.'
+            case (1)
+              write(u_log,'(a)') 'Doing NAC projection'
+          endselect
+        endif
         if (ctrl%calc_second==1) then
           write(u_log,'(a)') 'Doing two QM calculations per step for selection.'
         endif
