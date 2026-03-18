@@ -4,6 +4,8 @@
 
 vaspdir $VASP   #vasp executable folder. On manganese is recommendable to load the vasp module
 
+hdf5vaspdir $VASPHDF5
+
 potcardir  ./ #Path to directory containing POTCAR, pseudopotential file.
                                     # Ensure POTCAR complies with proper VASP format and the geometry format that will be written in the POSCAR. Check VASP wiki  
 

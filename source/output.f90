@@ -550,7 +550,7 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'laser_e',                    ctrl%laser_e
     write(u,*) 'laser_b',                    ctrl%laser_b
     write(u,*) 'laser_egrad',                ctrl%laser_egrad
-    write(u,*) 'laser_freq_path',            ctrl%laser_freq_path
+    write(u,*) 'laser_freq_path ',           trim(ctrl%laser_freq_path)
     write(u,'(a)') '************************************* End of settings *************************************'
     call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
     call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )

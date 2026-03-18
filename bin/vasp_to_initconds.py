@@ -33,7 +33,7 @@ import sys
 import datetime
 import re
 from optparse import OptionParser
-from constants import au2fs, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, MASSES, NUMBERS
+from constants import au2fs, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, MASSES_VASP, NUMBERS
 import os
 import numpy as np
 import random
@@ -371,12 +371,59 @@ def remove_rotations(ic):
 
 # ======================================================================================================================
 
-def get_mass(symb):
-    try:
-        return MASSES[symb]
-    except KeyError:
-        print('No default mass for atom %s' % (symb))
-        sys.exit(1)
+def ask_for_masses():
+    print('''
+Option -m used, please enter non-default masses:
++ number mass           add non-default mass <mass> for atom <number> (counting starts at 1)
+- number                remove non-default mass for atom <number> (default mass will be used)
+show                    show non-default atom masses
+end                     finish input for non-default masses
+''')
+    MASS_LIST = {}
+    while True:
+        line = input()
+        if 'end' in line:
+            break
+        if 'show' in line:
+            s = '-----------------------\nAtom               Mass\n'
+            for i in MASS_LIST:
+                s += '% 4i %18.12f\n' % (i, MASS_LIST[i])
+            s += '-----------------------'
+            print(s)
+            continue
+        if '+' in line:
+            f = line.split()
+            if len(f) < 3:
+                continue
+            try:
+                num = int(f[1])
+                mass = float(f[2])
+            except ValueError:
+                continue
+            MASS_LIST[num] = mass * U_TO_AMU
+            continue
+        if '-' in line:
+            f = line.split()
+            if len(f) < 2:
+                continue
+            try:
+                num = int(f[1])
+            except ValueError:
+                continue
+            del MASS_LIST[num]
+            continue
+    return MASS_LIST
+
+# ======================================================================================================================
+def get_mass(symb, number, MASSLIST):
+    if number in MASSLIST:
+        return MASSLIST[number]
+    else:
+        try:
+            return MASSES_VASP[symb]
+        except KeyError:
+            print('No default mass for atom %s' % (symb))
+            sys.exit(1)
 
 # ======================================================================================================================
 
@@ -388,7 +435,25 @@ def random_initcond(INFOS):
     index=[0]+random.sample(range(0, len(INFOS["xyz"])), INFOS["NINIT"]) 
     INFOS["veloc"]=INFOS["veloc"][index] #Sampled velocities
     INFOS["xyz"]=INFOS["xyz"][index] #Sampled coordinates
+    print("Random sampling performed")
     
+    return
+
+def every_initcond(INFOS):
+    '''
+    Generating initial conditions for SHARC by sampling one initial condition every NFRAMES/n frame.
+    In total n initial conditions out of the processed frames are generated.
+    '''
+   
+    print(f"Sampling one snapshot every {len(INFOS["xyz"])//INFOS["NINIT"]}")
+    # Compute equally spaced indices +0 ensures the first frame is always included as reference.
+    index = [0] + [int(round(i)) for i in np.linspace(1,  len(INFOS["xyz"])- 1, INFOS["NINIT"])]
+    # Use the indices to slice your arrays
+    INFOS["veloc"] = INFOS["veloc"][index]  # Sampled velocities
+    INFOS["xyz"]   = INFOS["xyz"][index]    # Sampled coordinates
+
+
+
     return
 
 def cluster_initcond(INFOS):
@@ -428,7 +493,8 @@ def cluster_initcond(INFOS):
     index=np.insert(rep_indices,0,0) #Adding at first index the reference geometry -> frame[0] 
     INFOS["veloc"]=INFOS["veloc"][index] #Sampled velocities
     INFOS["xyz"]=INFOS["xyz"][index] #Sampled coordinates
-    
+    print(f"Cluster analysis sampling performed.")
+
     return
 
 def get_coords(INFOS):
@@ -445,7 +511,7 @@ def get_coords(INFOS):
             symb = ATOMS[iatom]
             num = NUMBERS[symb]
             vel = [0., 0., 0.]
-            mass = get_mass(symb)
+            mass = get_mass(symb,iatom+1,INFOS["masslist"])
             atomlist.append(ATOM(symb, num, xyz[iatom], mass, vel))
         for iatom in range(natom):
             atomlist[iatom].veloc = velocity[iatom]
@@ -522,22 +588,26 @@ def main():
     MD_folder -> Path to directory that contains VASP MD.
 
     This script generate a set of initial conditions (initconds file) for SHARC-VASP dynamics reading a MD trajectory computed with VASP.
-    It analyzes the last user-specified FRAMES of your trajectory where equilibration etc. is achieved.
+    It analyzes the last N frames specified by the user with the flag -f.
     py4vasp, mdtraj and scikit-learn python packages have to be installed in the user's python environment. 
     Two options are supported for generating initial conditions:
-    1) Random sampling of n initial conditions from the last N frames specified by the user (--random).
-    2) Sampling of n initial conditions from most populated clusters upon cluster analysis (--cluster).
+    1) Random sampling of n initial conditions from the last N frames processed (--random).
+    2) Sampling of n initial conditions from the last N frames by diving the total number of processed frames by n. 
+       One snapshot is taken for each subgroup, so every NFRAMES/n. (--every).
+    3) Sampling of n initial conditions from most populated clusters upon cluster analysis (--cluster).
     '''
     description = ''
     parser = OptionParser(usage=usage, description=description)
-    parser.add_option('-f', dest='frames', type=int, nargs=1, default=100, help="N. of last frames to read from trajectory. (Default 100)")
+    parser.add_option('-f', dest='frames', type=int, nargs=1, default=None, help="N. of last frames to read from trajectory. (Default all)")
     parser.add_option('-n', dest='init', type=int, nargs=1, default=10, help="N. of initial conditions to generate (Default 10)")
     parser.add_option('--random', dest='random', action='store_true', help="Select n random initial conditions from the input frames")
+    parser.add_option('--every', dest='every', action='store_true', help="Select one initial condition every NFRAMES/n")
     parser.add_option('--cluster', dest='cluster', action='store_true', help="Select n initial conditions from the specified frames upon cluster analysis.")
     parser.add_option('--thold', dest='thold', type=float,nargs=1,default=1, help="RMSD threshold value for clustering. (Default 1 Ang.)")
 
     parser.add_option('-o', dest='o', type=str, nargs=1, default='initconds', help="Output filename (string, default=""initconds"")")
     parser.add_option('-x', dest='X', action='store_true', help="Generate a xyz file with the sampled geometries in addition to the initconds file")
+    parser.add_option('-m', dest='m', action='store_true', help="Enter non-default atom masses")
     parser.add_option('--keep_trans_rot', dest='KTR', action='store_true', help="Keep translational and rotational components")
 
     # arg processing
@@ -561,34 +631,45 @@ def main():
     
     INFOS['outfile'] = options.o
     INFOS['masslist'] = {}
+    if options.m:
+        INFOS['masslist'] = ask_for_masses()
     INFOS['KTR'] = options.KTR
     INFOS['NFRAMES']=options.frames
     INFOS['NINIT']=options.init
     INFOS['cluster']=options.cluster
     INFOS['thold']=options.thold
     INFOS['random']=options.random
+    INFOS['every']=options.every
+
+    #Reading of initial VASP MD trajectroy
+    NM_TO_BOHR=ANG_TO_BOHR*10
+    calc=Calculation.from_path(INFOS['VASPDIR'])
+    if INFOS['NFRAMES'] is None:
+        traj=calc.structure[:].to_mdtraj()
+        data=calc.velocity[:].read()
+    else:
+        traj=calc.structure[-INFOS['NFRAMES']:].to_mdtraj()
+        data=calc.velocity[-INFOS['NFRAMES']:].read()
+    traj.superpose(traj[0])  # align to first frame
+
+    #Updating dictionary with trajectory information
+    INFOS["veloc"]=data["velocities"]*ANG_TO_BOHR*au2fs #Because VASP velocities are in Ang./fs. We need atomic units.
+    INFOS["lattice_vectors"]=data["structure"]["lattice_vectors"] #Lattice vectors. Do not change with NVT simulations.
+    INFOS["elements"]=data["structure"]["elements"] #List of atom labels
+    INFOS["xyz"]=traj.xyz*NM_TO_BOHR #Coordinates in Bohr upon MDTraj reading. MDTraj works with nm.
+    INFOS["MDTRAJ"]=traj 
 
     print('''Initial condition generation started...
 VASPDIR with MD data         = "%s"
 OUTPUT file                  = "%s"
 Number of initial conditions to generate         = %i
-Number of last MD frames to analyze              = %i''' % (INFOS['VASPDIR'],INFOS['outfile'],INFOS["NINIT"],INFOS["NFRAMES"]))
+Number of MD frames read              = %i''' % (INFOS['VASPDIR'],INFOS['outfile'],INFOS["NINIT"],len(INFOS["veloc"])))
 
-    #Reading of initial VASP MD trajectroy
-    NM_TO_BOHR=ANG_TO_BOHR*10
-    calc=Calculation.from_path(INFOS['VASPDIR'])
-    traj=calc.structure[-INFOS['NFRAMES']:].to_mdtraj()
-    traj.superpose(traj[0])  # align to first frame 
-    data=calc.velocity[-INFOS['NFRAMES']:].read()
-    #Updating dictionary with trajectory information
-    INFOS["veloc"]=data["velocities"]*ANG_TO_BOHR*au2fs #Because VASP velocities are in Ang./fs. We need atomic units.
-    INFOS["lattice_vectors"]=data["structure"]["lattice_vectors"] #Lattice vectors. Do not change with NVT simulations.
-    INFOS["elements"]=data["structure"]["elements"] #List of atom labels
-    INFOS["xyz"]=traj.xyz*NM_TO_BOHR #Coordinates in Bohr upon MDTraj reading.MDTraj works with nm.
-    INFOS["MDTRAJ"]=traj 
     #Either clustering or random sampling below
     if INFOS['random']:
         random_initcond(INFOS)
+    elif INFOS['every']:
+        every_initcond(INFOS)
     elif INFOS['cluster']:
         cluster_initcond(INFOS)
     # Initial conditions writing

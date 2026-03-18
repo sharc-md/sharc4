@@ -4,6 +4,8 @@
 
 vaspdir /usr/license/vasp/vasp.6.5.0/bin/   #vasp executable folder. On manganese is recommendable to load the vasp module
 
+hdf5vaspdir  /usr/license/vasp/vasp.6.5.0/libs/lib/   #Path to installation folder of HDF5 library used for VASP compilation.  
+
 potcardir /user/marcor/vasp_potcar  #Path to directory containing POTCAR, pseudopotential file.
                                     # Ensure POTCAR complies with proper VASP format and the geometry format that will be written in the POSCAR. Check VASP wiki  
 

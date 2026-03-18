@@ -1,1 +1,1 @@
-/gpfs/data/marcor/sharc_vasp/testing_setup_scripts_and_dynamics/SHARC_tests/init/CPA.template
+interface: {"name": "VASP", "args": [], "kwargs": {}}

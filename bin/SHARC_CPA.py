@@ -65,77 +65,81 @@ class SHARC_CPA(SHARC_HYBRID):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Define template
-        self.QMin.template.update(
-            {"reference": None }
-        )
-        self.QMin.template.types.update(
-            {"reference": dict }
-        )
-
-        # Template interface structure
-        self._interface_templ = {
-            "interface": str,  # Name of SHARC interface
-            "args": list,  # Init arguments for child
-            "kwargs": dict,  # Keyword args for child
-        }
-
+        # Update template keys
+        self.QMin.template.update({"interface": None})
+        self.QMin.template.types.update({"interface": dict})
         self.template_file = None
+        self.resources_file = None
 
-    def read_resources(self, resources_file="CPA.resources", kw_whitelist=None):
+    def read_resources(self, resources_file: str = "CPA.resources", kw_whitelist: list[str] | None = None) -> None:
+        if os.path.isfile(resources_file):
+            return super().read_resources(resources_file, kw_whitelist)
+        self.log.info("No CPA.resources file found. Loading defaults.")
         self._read_resources = True
 
-    def read_template(self, template_file="CPA.template", kw_whitelist=None):
+    def read_template(self, template_file: str = "CPA.template", kw_whitelist: list[str] | None = None) -> None:
         self.log.debug(f"Parsing template file {template_file}")
 
-        # TODO: sanity checks
-        # Open template_file file and parse yaml
+        # Open template_file and parse yaml
         with open(template_file, "r", encoding="utf-8") as tmpl_file:
             tmpl_dict = yaml.safe_load(tmpl_file)
             self.log.debug(f"Parsing yaml file:\n{tmpl_dict}")
 
-        if "reference" not in tmpl_dict:
-            self.log.error("Reference interface has to be defined!")
+        #Some sanity checks of template file
+        if "name" not in tmpl_dict["interface"]:
+            self.log.error("No name defined in interface!")
+            raise ValueError
+        if not isinstance(tmpl_dict["interface"]["name"], str):
+            self.log.error("Name must be defined as string!")
+            raise ValueError
+        if "args" not in tmpl_dict["interface"]:
+            tmpl_dict["interface"]["args"] = []
+        if not isinstance(tmpl_dict["interface"]["args"], list):
+            self.log.error("Args must be a list!")
+            raise ValueError
+        if "kwargs" not in tmpl_dict["interface"]:
+            tmpl_dict["interface"]["kwargs"] = {}
+        if not isinstance(tmpl_dict["interface"]["kwargs"], dict):
+            self.log.error("Kwargs must be a dictionary!")
             raise ValueError
 
-        for k, v in self._interface_templ.items():
-            if k not in tmpl_dict["reference"]:
-                self.log.error(f"Key {k} not found.")
-                raise ValueError
-            if not isinstance(tmpl_dict["reference"][k], v):
-                self.log.error(f"Value of key {k} must be of type {v}")
-                raise ValueError
-        
-        self.QMin.template["reference"] = tmpl_dict["reference"]
-
-        # Instantiate reference
-        child = self.QMin.template["reference"]
-        self.instantiate_children({"reference": (child["interface"], child["args"], child["kwargs"])})
-
+        self.QMin.template["interface"] = tmpl_dict["interface"]
         self._read_template = True
 
     def setup_interface(self):
         super().setup_interface()
-        with InDir("QM_"+self.QMin.template["reference"]["interface"]):
-            self._kindergarden["reference"].setup_mol(self.QMin)
-            self._kindergarden["reference"].read_resources()
-            self._kindergarden["reference"].read_template()
-            self._kindergarden["reference"].setup_interface()
+
+        with InDir("QM_"+self.QMin.template["interface"]["name"]):
+            child = self.QMin.template["interface"]
+            self.instantiate_children({"child": (child["name"], child["args"], child["kwargs"])})
+            self._kindergarden["child"].setup_mol(self.QMin)
+            self._kindergarden["child"].read_resources()
+            self._kindergarden["child"].read_template()
+            self._kindergarden["child"].QMin.save["savedir"] = os.path.join(self.QMin.save["savedir"], "QM_"+self.QMin.template["interface"]["name"])
+            self._kindergarden["child"].QMin.resources["scratchdir"] = os.path.join(self.QMin.resources["scratchdir"], "QM_"+self.QMin.template["interface"]["name"])
+            self._kindergarden["child"].QMin.resources["pwd"] = os.path.join(self.QMin.resources["pwd"], "QM_"+self.QMin.template["interface"]["name"])
+            self._kindergarden["child"].QMin.resources["cwd"] = os.path.join(self.QMin.resources["cwd"], "QM_"+self.QMin.template["interface"]["name"])
+            self._kindergarden["child"].setup_interface()
+            #Debugging
             self.log.debug("maps debugging of child")
-            self.log.debug(self._kindergarden["reference"].QMin.maps)
-            self.log.debug("debugging child scratchdir and savedir")
-            self.log.debug(self._kindergarden["reference"].QMin.resources["scratchdir"])
-            self.log.debug(self._kindergarden["reference"].QMin.save["savedir"])
+            self.log.debug(self._kindergarden["child"].QMin.maps)
 
-    def create_restart_files(self):
-        self._kindergarden["reference"].create_restart_files()
+    def create_restart_files(self) -> None:
+        self._kindergarden["child"].create_restart_files()
 
-    def run(self):
-        with InDir("QM_"+self.QMin.template["reference"]["interface"]):
-            self._kindergarden["reference"].run()
+    def write_step_file(self):
+        if not self.persistent:
+            super().write_step_file()
+        else:
+            self.savedict["last_step"] = self.QMin.save["step"]
+        self._kindergarden["child"].write_step_file()
+
+    def run(self) -> None:
+        with InDir("QM_"+self.QMin.template["interface"]["name"]):
+            self._kindergarden["child"].run()
 
     def getQMout(self):
-        self.QMout = self._kindergarden["reference"].getQMout() #QMout from child is takes as in, only gradients are adjusted below -> CPA
+        self.QMout = self._kindergarden["child"].getQMout() #QMout from child is takes as in, only gradients are adjusted below -> CPA
         self.log.debug("nmstates requested to SHARC_CPA.py")
         self.log.debug(self.QMin.molecule["nmstates"])
         if self.QMin.requests["grad"] is not None:
@@ -147,20 +151,20 @@ class SHARC_CPA(SHARC_HYBRID):
 
     def read_requests(self, requests_file="QM.in"):
         super().read_requests(requests_file)
-        requests = {"step": self.QMin.save["step"]}
-        for k,v in self.QMin.requests.items():  #to modify requests for child interfaces, only GS gradient can be requested from childs
-            if v:
-                if k == "grad":
-                    requests[k]=[1]
-                    continue
-                requests[k]=v
+        requests = dict(filter(lambda item: item[1] is not None, self.QMin.requests.items()))
+        requests.update(
+            {
+                "grad": [1], #CPA only requests GS gradient from child.
+                "step": self.QMin.save["step"],
+            }
+        )
         self.log.debug("Requests after handling of CPA interface")
         self.log.debug(requests)
-        self._kindergarden["reference"].read_requests(requests)
+        self._kindergarden["child"].read_requests(requests)
 
-    def set_coords(self, xyz, pc=False):
+    def set_coords(self, xyz: np.ndarray | list | str, pc: bool = False) -> None:
         super().set_coords(xyz, pc)
-        self._kindergarden["reference"].set_coords(xyz, pc)
+        self._kindergarden["child"].set_coords(xyz, pc)
 
     @staticmethod
     def authors() -> str:
@@ -206,12 +210,25 @@ class SHARC_CPA(SHARC_HYBRID):
                     self.log.info(f"File {self.template_file} does not exist!")
                     self.template_file = question(
                         "Please specify the path to your CPA.template file", str, KEYSTROKES=KEYSTROKES, default="CPA.template",autocomplete=True)
+            
             self.read_template(self.template_file)
+            #Instantiate child
+            child = self.QMin.template["interface"]
+            kindergarden = {"child": (child["name"], child["args"], child["kwargs"])}
+            self.instantiate_children(kindergarden)
+            #In case resources is provided by the user, but not mandatory here.
+            if os.path.isfile("CPA.resources"):
+                self.resources_file=os.path.join(os.getcwd(),"CPA.resources")
+                self.log.info("Found CPA.resources in current directory. I will use it")
 
-        child_features = self._kindergarden["reference"].get_features(KEYSTROKES=KEYSTROKES)
+        features = set({"overlap", "phases"}) | self._kindergarden["child"].get_features()
+        if features.isdisjoint({"h", "grad"}):
+            self.log.error("Child interface must support at least h, and grad request!")
+            raise ValueError
         self.log.debug("debugging child features")
-        self.log.debug(child_features)
-        return set(child_features)
+        self.log.debug(features)
+
+        return features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
         self.log.info("=" * 80)
@@ -221,25 +238,32 @@ class SHARC_CPA(SHARC_HYBRID):
         self.log.info("\n")
 
         self.log.info(f"\n{' Setting up child interface ':=^80s}\n")
-        self._kindergarden["reference"].QMin.molecule["states"] = INFOS["states"]
-        self._kindergarden["reference"].get_infos(INFOS, KEYSTROKES=KEYSTROKES)
+        self._kindergarden["child"].QMin.molecule["states"] = INFOS["states"]
+        self._kindergarden["child"].get_infos(INFOS, KEYSTROKES=KEYSTROKES)
         return INFOS
 
-    def prepare(self, INFOS: dict, dir_path: str):
+    def prepare(self, INFOS: dict, dir_path: str) -> None:
         if "link_files" in INFOS:
             os.symlink(expand_path(self.template_file), os.path.join(dir_path, self.name() + ".template"))
+            if self.resources_file is not None:
+                os.symlink(expand_path(self.resources_file), os.path.join(dir_path, self.name() + ".resources"))
+
         else:
             shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
+            if self.resources_file is not None:
+                shutil.copy(self.resources_file, os.path.join(dir_path, self.name() + ".resources"))
 
         if not self.QMin.save["savedir"]:
             self.log.warning("savedir not specified, setting savedir to current directory!")
-            self.QMin.save["savedir"] = os.getcwd() #Nothing is gonna save anyway from the SHARC_CPA,py call
+            self.QMin.save["savedir"] = os.getcwd()
 
-        # Calling child prepare routine. Important to specify correct directory where SHARC_VASP.py is gonna be called
-        # We don't care about child's scratchdir and savedir here because those are gonna be read in through child.resources otherwise warning will be raised.
-        qmdir=os.path.join(dir_path,"QM_"+self.QMin.template["reference"]["interface"])
-        mkdir(qmdir) 
-        self._kindergarden["reference"].prepare(INFOS, qmdir)
+        # folder setup and savedir
+        self._kindergarden["child"].QMin.save["savedir"] = self.QMin.save["savedir"]
+        self._kindergarden["child"].QMin.resources["scratchdir"] = self.QMin.resources["scratchdir"]
+        mkdir(child_path := os.path.join(dir_path, "QM_"+self.QMin.template["interface"]["name"]), force=False)
+        self._kindergarden["child"].prepare(INFOS, child_path)
+
+
 
 
 if __name__ == "__main__":

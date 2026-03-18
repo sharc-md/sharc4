@@ -1,1 +1,1 @@
-reference: {"interface": "ORCA", "args": [], "kwargs": {}}
+interface: {"name": "ORCA", "args": [], "kwargs": {}}

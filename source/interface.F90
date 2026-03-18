@@ -693,7 +693,11 @@ subroutine postprocess_qmout_data(IH, IDM, IMDM, IEQM, IGrad, IOverlap, IPhases,
 
     if (IPhases .eq. 1) then
       if (printlevel>3) write(u_log,'(A31,A2)') 'Phases:                        ','OK'
-      if (ctrl%calc_phases .eq. 1) traj%phases_found= .true. !Necessary for printing out phases when print_qm is called 
+      if (ctrl%calc_phases .eq. 1) then 
+          traj%phases_found= .true. !Necessary for printing out phases when print_qm is called
+      else 
+          traj%phases_found= .false. 
+      endif
       IPhases = 0
     endif
 
@@ -782,6 +786,8 @@ subroutine set_phases(N,phases)
             traj%phases_s(i) = phases(i)
         end do
         traj%phases_found=.true. !Probably this is gonna be ignored, has to be added somewhere else
+    else
+         traj%phases_found=.false. !Probably this is gonna be ignored, has to be added somewhere else
     endif
 
 
@@ -1035,7 +1041,13 @@ subroutine initial_qm_post()
     use output
     implicit none
     integer :: i, iatom, idir
-
+    
+    ! Initialization of phases at t=0
+    if (traj%step==0) then
+      traj%phases_s=dcmplx(1.d0,0.d0)
+      traj%phases_old_s=dcmplx(1.d0,0.d0)
+    endif
+      
     ! correct phases if required
     if (ctrl%track_phase_at_zero==1) then
       call Adjust_phases(traj,ctrl)

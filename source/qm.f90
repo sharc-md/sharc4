@@ -311,6 +311,7 @@ module qm
     endif
     if (traj%step==0) then
       traj%phases_s=dcmplx(1.d0,0.d0)
+      traj%phases_old_s=dcmplx(1.d0,0.d0)
       if (ctrl%track_phase_at_zero==1) then
         call get_phases(ctrl%nstates,traj%phases_s,stat)
         if (stat==0) then
@@ -1628,6 +1629,7 @@ end subroutine phase_correction_zhou
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
     complex*16 :: sum
     integer :: idir, jdir
+    real*8 :: tmp
     logical :: all_unit_norm
 
     ! if phases were not found in the QM output, try to obtain it
@@ -1635,7 +1637,6 @@ end subroutine phase_correction_zhou
 
       ! from overlap matrix diagonal
       if (ctrl%calc_overlap==1) then
-
         if (printlevel>4) then 
           write(u_log,*) '============================================================================='
           write(u_log,*) '          Calculation of phase correction based on overlaps.'
@@ -1764,8 +1765,9 @@ end subroutine phase_correction_zhou
     ! check if phases have all norm 1
     ! all_unit_norm = .true.
     do istate=1,ctrl%nstates
-      if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) then
-        write(u_log,'(A,1X,I4)') 'Phase was not unity',istate
+      tmp=abs(abs(traj%phases_s(istate)) - 1.d0)
+      if ( tmp > 1.d-6  ) then
+        write(u_log,'(A,1X,I4,1X,E14.6)') 'Phase was not unity',istate,tmp
         traj%phases_s(istate) = dcmplx(1.d0,0.d0)
       endif
     enddo
@@ -1791,7 +1793,6 @@ end subroutine phase_correction_zhou
       if (ctrl%calc_nacdr>=0) then      ! calc_nacdr=0 computes all nacs
         traj%NACdr_ssad(istate,:,:,:)=traj%NACdr_ssad(istate,:,:,:)*CONJG(traj%phases_s(istate))
       endif
-      !this if is taken off because we add QM processing subroutine
       if (ctrl%calc_overlap==1) then
         traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*CONJG(traj%phases_old_s(istate))
       endif
