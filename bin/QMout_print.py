@@ -75,7 +75,7 @@ excitation energies and oscillator strengths.
     parser.add_argument("-S", type=int, default=1, help="Initial state (Lowest=1)")
     parser.add_argument("-L", action="store_true", help="Format in a single line")
     parser.add_argument("-I", action="store_true", default=False, help="Use Dyson norms instead of oscillator strengths")
-    parser.add_argument("-M", action="store_true", default=False, help="Use MDM end EQM")
+    parser.add_argument("-M", action="store_true", default=False, help="Use MDM and EQM")
 
     options = parser.parse_args()
     ezero = options.e
@@ -89,7 +89,7 @@ excitation energies and oscillator strengths.
         target_list.add(20)  # prop2d
 
     if options.M:
-        target_list.add({41, 42})
+        target_list.update({41, 42})
 
     qmout = QMout(options.inputfile, flags=target_list)
     nmstates = qmout.nmstates
@@ -117,8 +117,15 @@ excitation energies and oscillator strengths.
             f"{'dE (eV)':>12s} {(['f_osc', 'Dys norm'][options.I]):>12s}   {'Spin':>6s}\n"
         )
 
+    qmout.mdm = getattr(qmout, "mdm", None)
+    qmout.edm = getattr(qmout, "eqm", None)
+    if options.M:
+        if not qmout.mdm or not qmout.edm:
+            sys.stderr.write("WARNING: -M request but no MDM or EQM results in QM.out file\n")
+            options.M = False
+
     if options.D:
-        h, dm, mdm, eqm, U = transform(qmout.h, qmout.dm, qmout.mdm, qmout.eqm)
+        h, dm, mdm, eqm, U = transform(qmout.h, qmout.dm, qmout.mdm, qmout.edm)
     else:
         h = qmout.h
         try:
@@ -126,63 +133,81 @@ excitation energies and oscillator strengths.
         except AttributeError:
             dm = np.zeros((3, nmstates, nmstates), dtype=complex)
 
-    fosc = []
-    energies = np.real(np.diag(h))
     m = np.array([statemap[i + 1][0] for i in range(nmstates)], dtype=int)
     s = np.array([statemap[i + 1][1] for i in range(nmstates)], dtype=int)
     ms = np.array([statemap[i + 1][2] for i in range(nmstates)], dtype=float)
+
+
+    # get a list of the to-be-printed states and their labels
+    indices = []
+    labels = []
     if options.D:
+        # --- diagonalized representation ---
         for istate in range(nmstates):
-            e = float(energies[istate])
 
             w = np.abs(U[:, istate]) ** 2
-            spin = float(m @ w)
-
             jbest = int(np.argmax(w))
+
             m_best = int(m[jbest])
             s_best = int(s[jbest])
 
-            d = np.real(dm[:, istate, initial])
-            f = (2.0 / 3.0) * (e - float(energies[initial])) * float(d @ d)
-            mdm = np.imag(qmout.mdm[:, istate, initial])
-            f += (2.0 / 3.0) * (e - float(energies[initial])) * float(mdm @ mdm)
-            eqm = qmout.eqm[:, :, istate, initial]
-            quad_term = np.sum(np.abs(eqm) ** 2) - 1 / 3.0 * np.abs(np.trace(eqm)) ** 2
-            f += (1.0 / 20.0) * alpha**2 * (e - energies[initial]) ** 3 * quad_term
-            fosc.append(f)
+            label = f"{IToMult[m_best][0]:>10s}{(s_best - (m_best <= 2)):02d}"
 
-            ref = ezero if ezero != 0.0 else float(energies[initial])
-            de = (e - ref) * HARTREE_TO_EV
+            indices.append(istate)
+            labels.append(label)
 
-            line = (
-                f"{istate + 1:5d} {IToMult[m_best][0]:>10s}{(s_best - (m_best <= 2)):02d} "
-                f"{e:16.10f} {de:12.8f} {f:12.8f}   {spin:6.4f}"
-            )
-            if istate == initial:
-                line += " #initial state"
-            if not options.L:
-                print(line)
     else:
-        ref = ezero if ezero != 0.0 else energies[initial]
-        de = (energies - ref) * HARTREE_TO_EV
+        # --- original representation ---
         ok = (-2.0 * ms + 1.0) == m
 
-        for i, e in enumerate(energies):
-            f = (
-                float(np.real(ion[i][initial]))
-                if options.I
-                else (2.0 / 3.0) * (e - energies[initial]) * float((np.real(dm[:, i, initial]) ** 2).sum())
-            )
-            fosc.append(f)
+        for i in range(nmstates):
+            if ok[i]:
+                label = f"{IToMult[m[i]][0]:>10s}{(s[i] - (m[i] <= 2)):02d}"
 
-            if not options.L and ok[i]:
-                line = (
-                    f"{i+1:5d} {IToMult[m[i]][0]:>10s}{(s[i] - (m[i] <= 2)):02d} "
-                    f"{float(e):16.10f} {float(de[i]):12.8f} {f:12.8f}   {float(m[i]):6.4f}"
-                )
-                if i == initial:
-                    line += " #initial state"
-                print(line)
+                indices.append(i)
+                labels.append(label)
+
+
+    # compute values
+    fosc = []
+    energies = np.real(np.diag(h))
+    ref = ezero if ezero != 0.0 else energies[initial]
+
+    for idx, label in zip(indices, labels):
+
+        # energy
+        e = float(energies[idx])
+        de = (e - ref) * HARTREE_TO_EV
+
+        # spin
+        if options.D:
+            w = np.abs(U[:, idx]) ** 2
+            spin = float(m @ w)
+        else:
+            spin = float(m[idx])
+
+        # oscillator strength
+        if options.I:
+            f = float(np.real(ion[idx][initial]))
+        else:
+            d = np.real(dm[:, idx, initial])
+            f = (2.0 / 3.0) * (e - ref) * float(d @ d)
+            if options.M:
+                mdm = np.imag(qmout.mdm[:, idx, initial])
+                f += (2.0 / 3.0) * (e - ref) * float(mdm @ mdm)
+                eqm = qmout.eqm[:, :, idx, initial]
+                quad_term = np.sum(np.abs(eqm) ** 2) - (1 / 3.0) * np.abs(np.trace(eqm)) ** 2
+                f += (1.0 / 20.0) * alpha**2 * (e - ref) ** 3 * quad_term
+        fosc.append(f)
+
+        if not options.L:
+            line = (
+                f"{idx+1:5d} {label} "
+                f"{e:16.10f} {de:12.8f} {f:12.8f}   {spin:6.4f}"
+            )
+            if idx == initial:
+                line += " #initial state"
+            print(line)
 
     if options.L:
         cwd = os.path.basename(os.getcwd()).split("_")[-1]
