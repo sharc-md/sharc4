@@ -35,17 +35,14 @@ import stat
 import shutil
 import datetime
 import random
-from optparse import OptionParser
 from socket import gethostname
 import numpy as np
 from logger import log
 import factory
 from utils import question, itnmstates, expand_path
-from constants import IToMult, U_TO_AMU, HARTREE_TO_EV, n_avogadro, au2a, au2newton
+from constants import IToMult, U_TO_AMU, HARTREE_TO_EV
 from SHARC_INTERFACE import SHARC_INTERFACE
-# from SHARC_FAST import SHARC_FAST
-# from SHARC_ABINITIO import SHARC_ABINITIO
-# from SHARC_HYBRID import SHARC_HYBRID
+from SHARC_HYBRID import SHARC_HYBRID
 
 # =========================================================0
 PI = math.pi
@@ -1283,6 +1280,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         if Couplings[INFOS["coupling"]]["name"] != "overlap":
             INFOS["phases_from_interface"] = True
         INFOS["phases_from_interface"] = question("Do you want to track wavefunction phases through overlaps?", bool, INFOS["phases_from_interface"])
+        log.info("")
         if INFOS["phases_from_interface"]:
             INFOS["needed_requests"].add("phases")
 
@@ -1800,6 +1798,7 @@ def get_trajectory_info(INFOS, interface: SHARC_INTERFACE) -> dict:
     # fast_child = isinstance(interface, (SHARC_FAST, SHARC_HYBRID)) 
     fast_child = interface._use_with_pysharc
     # adaptive integrator is incompatible with PySHARC
+    INFOS["pysharc_fast"] = False
     if Integrator[INFOS['integrator']]["name"] == 'avv':
         log.info("Pysharc not possible with adaptive time step integrator.")
         pysharc_possible = False
@@ -1813,6 +1812,10 @@ def get_trajectory_info(INFOS, interface: SHARC_INTERFACE) -> dict:
         log.info("PYSHARC runs the SHARC dynamics directly within Python (with C and Fortran extension)")
         log.info("with minimal file I/O for maximum performance.")
         INFOS["pysharc"] = question("Setup for PYSHARC?", bool, default)
+        if isinstance(interface, SHARC_HYBRID):
+            log.info(f"{interface.name()} is a HYBRID interface.")
+            log.info("If multiple FAST children are used, it is recommended to use fast_queue.")
+            INFOS["pysharc_fast"] = question("Enable fast_queue?", bool, False)
     else:
         INFOS["pysharc"] = False
 
@@ -2332,7 +2335,10 @@ def writeRunscript(INFOS, iconddir, interface):
     # ================================
     if INFOS["pysharc"]:
         driver = ("_".join(interface.__class__.__name__.split("_")[1:])).lower()
-        exestring = ". $SHARC/sharcvars.sh\n$SHARC/driver.py -i %s input &> driver.log" % driver
+        if INFOS["pysharc_fast"]:
+            exestring = ". $SHARC/sharcvars.sh\n$SHARC/driver.py -f -i %s input" % driver
+        else:
+            exestring = ". $SHARC/sharcvars.sh\n$SHARC/driver.py -i %s input &> driver.log" % driver
     else:
         exestring = "$SHARC/sharc.x input"
 
@@ -2341,6 +2347,7 @@ def writeRunscript(INFOS, iconddir, interface):
         string = """#!/usr/bin/env bash
 
 echo "%s"
+echo $(hostname)
 
 %s
 
@@ -2570,16 +2577,6 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
 
 def main():
     """Main routine"""
-
-    usage = """
-python setup_traj.py
-
-This interactive program prepares SHARC dynamics calculations.
-"""
-
-    description = ""
-    parser = OptionParser(usage=usage, description=description)
-
     displaywelcome()
     open_keystrokes()
     INFOS = {"select_directly": True, "coeff_bool": 0}  # deactivate in get_infos within interface!, no starting coefficients

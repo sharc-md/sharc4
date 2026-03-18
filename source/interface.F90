@@ -282,36 +282,6 @@ end subroutine get_current_velocities
 
 ! ------------------------------------------------------
 
-subroutine get_IPrint(IPrint)
-    use definitions, only: printlevel
-    implicit none
-
-    __INT__, intent(out) :: IPrint
-
-    IPrint = printlevel
-
-    return
-end subroutine get_IPrint
-
-! ------------------------------------------------------
-
-subroutine get_Constants(consts)
-    use definitions, only: au2a, au2fs, au2u, au2rcm, &
-        au2eV, au2debye
-    implicit none
-
-    __REAL__, dimension(6), intent(out) :: consts
-
-    consts(1) = au2a       !< length
-    consts(2) = au2fs      !< time
-    consts(3) = au2u       !< mass
-    consts(4) = au2rcm     !< energy
-    consts(5) = au2eV      !< energy
-    consts(6) = au2debye   !< energy
-    return
-
-end subroutine
-
 !C ****************************************************************************
 !C
 !C  SHARC funtions to getQMin INFOS 
@@ -382,24 +352,6 @@ endsubroutine
 
 ! ------------------------------------------------------
 
-subroutine get_Savedir(string)
-!C
-!C 
-!C
-    implicit none
-    __C_OUT_STRING_S_ :: string
-    character(len=256) :: cwd
-
-    call getcwd(cwd)
-
-    string = ""
-    write(string,'(A)') trim(cwd)//'/restart' // CHAR(0)
-    
-    return
-endsubroutine
-
-! ------------------------------------------------------
-
 subroutine get_scalingfactor(scl,soc_scl)
     use memory_module, only: ctrl
     implicit none
@@ -417,174 +369,188 @@ endsubroutine
 !C  Get static information, does not change over time!
 !C ****************************************************
 
-subroutine get_tasks(string, ICALL)
-!C
-!C Get all single key tasks as a single string, that can be split with
-!C string.split() to get all keys
-!C
+subroutine get_tasks_mask_(step, icall, tasks_mask) bind(C)
+  use, intrinsic :: iso_c_binding, only: c_int, c_int32_t, c_int64_t
     use memory_module, only: traj, ctrl
-    use definitions, only: printlevel, u_log
     use qm, only: select_grad, select_nacdr, select_dipolegrad
     implicit none
-    __C_OUT_STRING_S_ :: string
-    __INT__, intent(in) :: ICALL
-    ! only needed for ICALL .eq. 3
-    logical :: old_selg_s(ctrl%nstates)
 
-    ! write step into tasks
-    string = 'step'
-    write(string,'(A,1X,I0)') trim(string), traj%step
-    ! TODO: add retain
+  integer(c_int32_t), intent(out) :: step
+  integer(c_int),     intent(in)  :: icall
+  integer(c_int64_t), intent(out) :: tasks_mask
 
+  tasks_mask = 0_c_int64_t
+  step = traj%step
 
-    if (ICALL .eq. 1) then
-        ! if necessary, select the quantities for calculation
-        if (ctrl%calc_grad==1) call select_grad(traj,ctrl)
-        if (ctrl%calc_nacdr==1) call select_nacdr(traj,ctrl)
-        if (ctrl%calc_dipolegrad==1) call select_dipolegrad(traj,ctrl)
+  if (icall == 1) then
+    if (ctrl%calc_grad==1)      call select_grad(traj,ctrl)
+    if (ctrl%calc_nacdr==1)     call select_nacdr(traj,ctrl)
+    if (ctrl%calc_dipolegrad==1)call select_dipolegrad(traj,ctrl)
 
-        if (ctrl%calc_soc==1) then
-          write(string,'(A)') trim(string)  //  ' SOC'
-        else
-          write(string,'(A)')  trim(string) // ' H'
-        endif
-        write(string,'(A)')  trim(string)   // ' DM'
-        if (ctrl%calc_dipole==2) then
-          write(string,'(A)')  trim(string)   // ' MDEQM'
-        endif        
-        if ((traj%step==0).and.(ctrl%track_phase_at_zero==1)) then
-          write(string,'(A)') trim(string)  // ' PHASES'
-        endif
+    if (ctrl%calc_soc==1) tasks_mask = ibset(tasks_mask, 0) ! SOC
+    tasks_mask = ibset(tasks_mask, 1)                       ! DM always requested in your code
+    if (ctrl%calc_dipole==2) tasks_mask = ibset(tasks_mask, 7)
+    if ((traj%step==0).and.(ctrl%track_phase_at_zero==1)) tasks_mask = ibset(tasks_mask, 2)
 
         if (traj%step>=1) then
-          if (ctrl%calc_nacdt==1) write(string,'(A)')   trim(string) // ' NACDT'
-          if (ctrl%calc_overlap==1) write(string,'(A)') trim(string) // ' OVERLAP'
-          if (ctrl%calc_phases==1) write(string,'(A)')  trim(string) // ' PHASES'
-        endif
+      if (ctrl%calc_nacdt==1)    tasks_mask = ibset(tasks_mask, 3)
+      if (ctrl%calc_overlap==1)  tasks_mask = ibset(tasks_mask, 4)
+      if (ctrl%calc_phases==1)   tasks_mask = ibset(tasks_mask, 2)
+    end if
 
         if (ctrl%ionization>0) then
-          if (mod(traj%step,ctrl%ionization)==0) then
-            write(string,'(A)') trim(string) // ' ION'
-          endif
-        endif
+      if (mod(traj%step, ctrl%ionization)==0) tasks_mask = ibset(tasks_mask, 5)
+    end if
 
         if (ctrl%theodore>0) then
-          if (mod(traj%step,ctrl%theodore)==0) then
-            write(string,'(A)') trim(string) // ' THEODORE'
-          endif
-        endif
+      if (mod(traj%step, ctrl%theodore)==0) tasks_mask = ibset(tasks_mask, 6)
+    end if
 
-
-    else if (ICALL .eq. 2) then
-        ! select quantities
-        if (ctrl%calc_grad==2) call select_grad(traj,ctrl)
-        if (ctrl%calc_nacdr==2) call select_nacdr(traj,ctrl)
+  else if (icall == 2) then
+    if (ctrl%calc_grad==2)       call select_grad(traj,ctrl)
+    if (ctrl%calc_nacdr==2)      call select_nacdr(traj,ctrl)
         if (ctrl%calc_dipolegrad==2) call select_dipolegrad(traj,ctrl)
-        !
-    else if (ICALL .eq. 3) then
-        old_selg_s = traj%selg_s
-        call select_grad(traj,ctrl)
-        ! compare old and new selection masks
-        traj%selg_s=.not.old_selg_s.and.traj%selg_s
-        if (printlevel>2) then
-            write(u_log,*) 'Missing gradients'
-            write(u_log,*) traj%selg_s
-            write(u_log,*)
-        endif
-    else
-        write(*,*) "tasks can only be called with icall 0 < icall =< 3"
-        call Exit(100)
-    endif
-    write(string, '(A)') trim(string) // CHAR(0)
 
-    return
-endsubroutine
+  else if (icall == 3) then
+        call select_grad(traj,ctrl)
+
+  else
+        call Exit(100)
+  end if
+end subroutine
 
 ! ------------------------------------------------------
-
-subroutine get_grad(string, ICALL)
-    use memory_module, only: traj, ctrl
+subroutine get_grad_mode_(icall, mode) bind(C)
+  use, intrinsic :: iso_c_binding, only: c_int, c_int8_t
+  use memory_module, only: ctrl
     implicit none
-    __C_OUT_STRING_L_ :: string
-    __INT__, intent(in) :: ICALL
-    integer :: i
 
-    string = ''
-    if (ICALL .eq. 1) then
+  integer(c_int),    intent(in)  :: icall
+  integer(c_int8_t), intent(out) :: mode
+
+  mode = 0_c_int8_t  ! NONE by default
+
+  if (icall == 1) then
         select case (ctrl%calc_grad)
           case (0)
-            write(string,'(A)') 'all'
+      mode = 1_c_int8_t   ! ALL
           case (1)
-            do i=1,ctrl%nstates
-              if (traj%selg_s(i)) write(string,'(A,1X,I3)')  trim(string), i
-            enddo
+      mode = 2_c_int8_t   ! SUBSET (selg_s used)
           case (2)
-              string = ''
-        endselect
+      mode = 0_c_int8_t   ! NONE at icall=1
+    end select
 
-    else if (ICALL .eq. 2) then
+  else if (icall == 2) then
         if (ctrl%calc_grad == 2) then
-          do i=1,ctrl%nstates
-            if (traj%selg_s(i)) write(string,'(A,1X,I3)') trim(string), i
-          enddo
-        endif
-    else if (ICALL .eq. 3) then
-        do i=1,ctrl%nstates
-            if (traj%selg_s(i)) write(string,'(A,1X,I3)') trim(string), i
-        enddo
+      mode = 2_c_int8_t   ! SUBSET (selg_s used)
     else
-        write(*,*) "tasks can only be called with icall 0 < icall =< 3"
-        call Exit(100)
-    endif
-    write(string,'(A)') trim(string) // CHAR(0)
-    return
-endsubroutine
+      mode = 0_c_int8_t
+    end if
 
-! ------------------------------------------------------
+  else if (icall == 3) then
+    mode = 2_c_int8_t     ! SUBSET (selg_s used)
 
-subroutine get_nacdr(string, ICALL)
-    use iso_c_binding
+  else
+    call Exit(100)
+  end if
+end subroutine
+
+subroutine fill_grad_mask_(nstates_in, words) bind(C)
+  use, intrinsic :: iso_c_binding, only: c_int, c_int64_t
     use memory_module, only: traj, ctrl
     implicit none
-    __C_OUT_STRING_XL_ :: string
-    __INT__, intent(in) :: ICALL
-    integer :: i,j
 
-    string = ''
-    if (ICALL .eq. 1) then
+  integer(c_int),     intent(in)  :: nstates_in
+  integer(c_int64_t), intent(out) :: words(*)   ! size = ceil(nstates/64)
+
+  integer :: i, w, b, nstates
+  integer :: nwords
+
+  nstates = ctrl%nstates
+  if (nstates /= nstates_in) call Exit(100)
+
+  nwords = (nstates + 63) / 64
+
+  do w = 1, nwords
+    words(w) = 0_c_int64_t
+  end do
+
+  do i = 1, nstates
+    if (traj%selg_s(i)) then
+      w = (i-1)/64 + 1
+      b = mod(i-1, 64)
+      words(w) = ibset(words(w), b)
+    end if
+  end do
+end subroutine
+
+! ------------------------------------------------------
+subroutine get_nacdr_mode_(icall, mode) bind(C)
+  use iso_c_binding, only: c_int, c_int8_t
+  use memory_module, only: ctrl
+  implicit none
+
+  integer(c_int),    intent(in)  :: icall
+  integer(c_int8_t), intent(out) :: mode
+
+  mode = 0_c_int8_t
+
+  if (icall == 1) then
         select case (ctrl%calc_nacdr)
           case (-1)
-!             write(*,*) 'nonac'
+      mode = 0_c_int8_t
           case (0)
-            write(string,'(A)')  'NACDR'
+      mode = 1_c_int8_t
           case (1)
-            do i=1,ctrl%nstates
-              do j=1,ctrl%nstates
-                if (traj%selt_ss(j,i)) write(string,'(A,I3,1X,I3)') trim(string) , i,j
-              enddo
-            enddo
+      mode = 2_c_int8_t
           case (2)
-            write(*,*)
-        endselect
-    else if (ICALL .eq. 2) then
+      mode = 0_c_int8_t
+    end select
+
+  else if (icall == 2) then
         if (ctrl%calc_nacdr == 2) then
-          do i=1,ctrl%nstates
-            do j=1,ctrl%nstates
-              if (traj%selt_ss(j,i)) write(string,'(A,1X,I3,1X,I3)') trim(string) // C_NEW_LINE , i,j
-            enddo
-          enddo
-        endif
-    else if (ICALL .eq. 3) then
-        string = '' 
+      mode = 2_c_int8_t
     else
-        write(*,*) "tasks can only be called with icall 0 < icall =< 3"
-        call Exit(100)
-    endif
+      mode = 0_c_int8_t
+    end if
 
-    write(string, '(A)') trim(string) // CHAR(0)
+  else
+    mode = 0_c_int8_t
+  end if
+end subroutine
 
-    return
-endsubroutine
+subroutine fill_nacdr_mask_(nstates_in, words) bind(C)
+  use iso_c_binding, only: c_int, c_int64_t
+  use memory_module, only: traj, ctrl
+  implicit none
+
+  integer(c_int),    intent(in)  :: nstates_in
+  integer(c_int64_t),intent(out) :: words(*)
+
+  integer :: i, j, idx, w, b, nstates
+  integer :: nbits, nwords
+
+  nstates = ctrl%nstates
+  if (nstates /= nstates_in) call Exit(100)
+
+  nbits  = nstates * nstates
+  nwords = (nbits + 63) / 64
+
+  do w = 1, nwords
+    words(w) = 0_c_int64_t
+  end do
+
+  do i = 1, nstates
+    do j = 1, nstates
+      if (traj%selt_ss(j,i)) then
+        idx = (i-1)*nstates + (j-1)
+        w = idx/64 + 1
+        b = mod(idx, 64)
+        words(w) = ibset(words(w), b)
+      end if
+    end do
+  end do
+end subroutine
 
 ! ------------------------------------------------------
 
