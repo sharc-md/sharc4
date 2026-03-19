@@ -1279,7 +1279,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     if "phases" in int_features:
         if Couplings[INFOS["coupling"]]["name"] != "overlap":
             INFOS["phases_from_interface"] = True
-        INFOS["phases_from_interface"] = question("Do you want to track wavefunction phases through overlaps?", bool, INFOS["phases_from_interface"])
+        INFOS["phases_from_interface"] = question("Do you want to track wavefunction phases through the interface?", bool, INFOS["phases_from_interface"])
         log.info("")
         if INFOS["phases_from_interface"]:
             INFOS["needed_requests"].add("phases")

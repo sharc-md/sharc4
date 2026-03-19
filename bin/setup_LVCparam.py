@@ -383,6 +383,7 @@ def get_interface() -> SHARC_INTERFACE:
     log.info("")
     log.info("The following interface was selected:")
     log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
+    log.info("")
     return Interfaces[num-1][1]
 
 
@@ -487,6 +488,9 @@ def get_V0_and_states():
 
 def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     features = interface.get_features(KEYSTROKES)
+    log.info("\nThe following features are available from this interface:")
+    log.info(features)
+    log.info("")
     states = INFOS["states"]
 
     INFOS["needed_requests"] = set()
