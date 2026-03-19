@@ -70,12 +70,12 @@ excitation energies and oscillator strengths.
 
     parser = argparse.ArgumentParser(usage=usage, description=description)
     parser.add_argument("inputfile", help="Input file")
-    parser.add_argument("-e", type=float, default=0.0, help="Absolute energy shift (float, default=compute relative energies)")
+    parser.add_argument("-e", type=float, default=0.0, help="Absolute energy shift (float, default: compute relative energies)")
     parser.add_argument("-D", action="store_true", help="Diagonalize")
-    parser.add_argument("-S", type=int, default=1, help="Initial state (Lowest=1)")
+    parser.add_argument("-S", type=int, default=1, help="Initial state (default: lowest=1)")
     parser.add_argument("-L", action="store_true", help="Format in a single line")
     parser.add_argument("-I", action="store_true", default=False, help="Use Dyson norms instead of oscillator strengths")
-    parser.add_argument("-M", action="store_true", default=False, help="Use MDM and EQM")
+    parser.add_argument("-M", action="store_true", default=False, help="Include magnetic dipoles/electric quadrupoles if present")
 
     options = parser.parse_args()
     ezero = options.e
@@ -84,8 +84,7 @@ excitation energies and oscillator strengths.
 
     if options.I:
         if options.D:
-            print("-I and -D are not compatible.")
-            sys.exit()
+            raise ValueError("-I and -D are not compatible.")
         target_list.add(20)  # prop2d
 
     if options.M:
@@ -94,6 +93,8 @@ excitation energies and oscillator strengths.
     qmout = QMout(options.inputfile, flags=target_list)
     nmstates = qmout.nmstates
     states = qmout.states
+
+    # check if Dyson norms are there
     if options.I:
         for i in qmout.prop2d:
             if i[0] == "ion":
@@ -101,6 +102,13 @@ excitation energies and oscillator strengths.
                 break
         else:
             raise ValueError("ION not found!")
+    
+    # Check if MDM and EQM are there
+    qmout.mdm = getattr(qmout, "mdm", None)
+    qmout.edm = getattr(qmout, "eqm", None)
+    if options.M:
+        if qmout.mdm is None or qmout.edm is None:
+            raise ValueError("-M but no magnetic dipoles/electric quadrupoles in file!")
 
     # obtain the statemap
     statemap = {}
@@ -109,21 +117,15 @@ excitation energies and oscillator strengths.
         statemap[i] = [imult, istate, ims]
         i += 1
 
+    # print header
     if not options.L:
-        sys.stderr.write(f"{options.inputfile} {nmstates} {target_list}\n")
         sys.stderr.write(f"Number of states: {states}\n")
         sys.stderr.write(
             f"{'State':>5s}  {'Label':>11s} {'E (E_h)':>16s} "
             f"{'dE (eV)':>12s} {(['f_osc', 'Dys norm'][options.I]):>12s}   {'Spin':>6s}\n"
         )
 
-    qmout.mdm = getattr(qmout, "mdm", None)
-    qmout.edm = getattr(qmout, "eqm", None)
-    if options.M:
-        if not qmout.mdm or not qmout.edm:
-            sys.stderr.write("WARNING: -M request but no MDM or EQM results in QM.out file\n")
-            options.M = False
-
+    # transform and prepare quantities
     if options.D:
         h, dm, mdm, eqm, U = transform(qmout.h, qmout.dm, qmout.mdm, qmout.edm)
     else:
@@ -133,6 +135,7 @@ excitation energies and oscillator strengths.
         except AttributeError:
             dm = np.zeros((3, nmstates, nmstates), dtype=complex)
 
+    # initialize quantum numbers
     m = np.array([statemap[i + 1][0] for i in range(nmstates)], dtype=int)
     s = np.array([statemap[i + 1][1] for i in range(nmstates)], dtype=int)
     ms = np.array([statemap[i + 1][2] for i in range(nmstates)], dtype=float)
@@ -155,7 +158,6 @@ excitation energies and oscillator strengths.
 
             indices.append(istate)
             labels.append(label)
-
     else:
         # --- original representation ---
         ok = (-2.0 * ms + 1.0) == m
@@ -200,6 +202,7 @@ excitation energies and oscillator strengths.
                 f += (1.0 / 20.0) * alpha**2 * (e - ref) ** 3 * quad_term
         fosc.append(f)
 
+        # print if not one-line output
         if not options.L:
             line = (
                 f"{idx+1:5d} {label} "
@@ -209,6 +212,7 @@ excitation energies and oscillator strengths.
                 line += " #initial state"
             print(line)
 
+    # print one-line output
     if options.L:
         cwd = os.path.basename(os.getcwd()).split("_")[-1]
 
