@@ -526,19 +526,9 @@ There are two representations:
         if os.path.isfile(qmfilename):
             qmout = QMout(filepath=qmfilename)
             H = qmout.h
-            DM = qmout.dm
-            MDM = qmout.mdm
-            EQM = qmout.eqm
             if H is not None:
                 if INFOS["diag"]:
-                    eig, U = np.linalg.eigh(H)
-                    Ucon = np.conjugate(U)
-                    DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
-                    MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
-                    EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
-                    if INFOS["ion"]:
-                        P = qmout.ion
-                        P = np.einsum("kij,in,jm->knm", P, Ucon, U)
+                    eig, _ = np.linalg.eigh(H)
                     INFOS["eref"] = eig[0]
                 else:
                     INFOS["eref"] = H[0][0].real
@@ -761,15 +751,18 @@ def get_QMout(INFOS, initlist):
         qmout = QMout(filepath=qmfilename)
         H = qmout.h
         DM = qmout.dm
-        MDM = qmout.mdm
-        EQM = qmout.eqm
+        # currently not used for anything...
+        MDM = getattr(qmout, "mdm", None)
+        EQM = getattr(qmout, "eqm", None)
         if INFOS["diag"]:
             eig, U = np.linalg.eigh(H)
             H = np.diag(eig)
             Ucon = np.conjugate(U)
             DM = np.einsum("kij,in,jm->knm", DM, Ucon, U)
-            MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
-            EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
+            if MDM is not None:
+                MDM = np.einsum("kij,in,jm->knm", MDM, Ucon, U)
+            if EQM is not None:
+                EQM = np.einsum("klij,in,jm->knm", EQM, Ucon, U)
             if INFOS["ion"]:
                 P = qmout.ion
                 P = np.einsum("kij,in,jm->knm", P, Ucon, U)
