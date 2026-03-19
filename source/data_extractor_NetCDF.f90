@@ -94,7 +94,6 @@ program data_extractor
   write(6,*) 'Running...'
   istep = 0 
   do 
-    write(6,*) 'TEST1_data_ext_netcdf'
     call read_sharc_ncoutputdat_istep(nsteps, istep, general_infos%natom, nstates, &
        &  shdata%H_MCH_ss, shdata%U_ss, shdata%DM_ssd, shdata%MDM_ssd, shdata%EQM_ssdd, shdata%overlaps_ss,&
        &  shdata%coeff_diag_s, Energy, shdata%hopprob_s, &
@@ -102,7 +101,6 @@ program data_extractor
        &  shdata%randnum, shdata%state_diag, shdata%state_MCH, shdata%time_step,&
        &  ncdat)
 
-   write(6,*) 'TEST2_data_ext_netcdf'
    shdata%Etot = Energy(1)
    shdata%Epot = Energy(2)
    shdata%Ekin = Energy(3)
@@ -112,20 +110,16 @@ program data_extractor
     ! ========== Reading is done for this time step =============
     call process_data(nstates, istep, general_infos, write_options, shdata, prop_info)
     ! ========== Calculating is done for this time step =============
-    write(6,*) 'TEST3_data_ext_netcdf'
     call write_data_to_file(nstates, istep, general_infos, write_options, shdata)
     ! write progress to screen
     write(*,'(A,F9.2,A)') 't=',shdata%time_step*general_infos%dtstep+shdata%time_shift,' fs'
     ! write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',&
     ! &shdata%time_step*general_infos%dtstep+shdata%time_shift,' fs'
-    write(6,*) 'TEST4_data_ext_netcdf'
     istep = istep + 1
     if (istep == nsteps) then
         exit
     endif
-  write(6,*) 'TEST5_data_ext_netcdf'
   enddo
-  write(6,*) 'TEST6_data_ext_netcdf'
   call close_ncfile(ncdat%id)
   write(*,*) "closed ncfile"
 endprogram
