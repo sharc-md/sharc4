@@ -241,6 +241,7 @@ class SHARC_LVC(SHARC_FAST):
                 line = f.readline()
                 continue
             factor = 1j if line.split()[-1] == "I" else 1
+            
             if "SOC" in line:
                 if factor != 1:
                     soc_real = False
@@ -251,8 +252,9 @@ class SHARC_LVC(SHARC_FAST):
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
+
             elif "DM" in line and "MDM" not in line and "EQM" not in line:
-                j = xyz[line[2]]
+                j = xyz[line.split()[0][2]]
                 if factor != 1:
                     dipole_real = False
                 line = f.readline()
@@ -261,9 +263,9 @@ class SHARC_LVC(SHARC_FAST):
                     self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
+
             elif "MDM" in line:
-                self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
-                j = xyz[line[3]]
+                j = xyz[line.split()[0][3]]
                 if factor != 1:
                     mag_dipole_real = False
                 line = f.readline()
@@ -274,10 +276,8 @@ class SHARC_LVC(SHARC_FAST):
                     line = f.readline()
 
             elif "EQM" in line:
-                self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
-                print(line)
-                k = xyz[line[3]]  # Readout of derivative direction EQMXY -> X
-                j = xyz[line[4]]  # Readout of polarization direction  -> Y
+                k = xyz[line.split()[0][3]]  # Readout of derivative direction EQMXY -> X
+                j = xyz[line.split()[0][6]]  # Readout of polarization direction  -> Y
                 if factor != 1:
                     el_quadrupole_real = False
                 line = f.readline()
@@ -307,6 +307,7 @@ class SHARC_LVC(SHARC_FAST):
             else:
                 line = f.readline()
         f.close()
+
         # setting type as necessary (converting type through view and reshape is a lot faster that simple astype
         # assignemnt)
         if soc_real:
