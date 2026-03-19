@@ -458,22 +458,23 @@ subroutine get_grad_mode_(icall, mode) bind(C)
 end subroutine
 
 subroutine fill_grad_mask_(words) bind(C)
-  use, intrinsic :: iso_c_binding, only: c_int, c_int64_t
+  use, intrinsic :: iso_c_binding, only: c_int64_t
     use memory_module, only: traj, ctrl
     implicit none
 
   integer(c_int64_t), intent(out) :: words(*)   ! size = ceil(nstates/64)
 
-  integer :: i, w, b
+  integer :: i, w, b, nstates
   integer :: nwords
 
-  nwords = (ctrl%nstates + 63) / 64
+  nstates = ctrl%nstates
+  nwords = (nstates + 63) / 64
 
   do w = 1, nwords
     words(w) = 0_c_int64_t
   end do
 
-  do i = 1, ctrl%nstates
+  do i = 1, nstates
     if (traj%selg_s(i)) then
       w = (i-1)/64 + 1
       b = mod(i-1, 64)
@@ -518,15 +519,16 @@ subroutine get_nacdr_mode_(icall, mode) bind(C)
 end subroutine
 
 subroutine fill_nacdr_mask_(words) bind(C)
-  use iso_c_binding, only: c_int, c_int64_t
+  use iso_c_binding, only: c_int64_t
   use memory_module, only: traj, ctrl
   implicit none
 
   integer(c_int64_t),intent(out) :: words(*)
 
-  integer :: i, j, idx, w, b
+  integer :: i, j, idx, w, b, nstates
   integer :: nbits, nwords
 
+  nstates = ctrl%nstates
   nbits  = ctrl%nstates * ctrl%nstates
   nwords = (nbits + 63) / 64
 
@@ -534,10 +536,10 @@ subroutine fill_nacdr_mask_(words) bind(C)
     words(w) = 0_c_int64_t
   end do
 
-  do i = 1, ctrl%nstates
-    do j = 1, ctrl%nstates
+  do i = 1, nstates
+    do j = 1, nstates
       if (traj%selt_ss(j,i)) then
-        idx = (i-1)*ctrl%nstates + (j-1)
+        idx = (i-1)*nstates + (j-1)
         w = idx/64 + 1
         b = mod(idx, 64)
         words(w) = ibset(words(w), b)
