@@ -750,6 +750,10 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                 if "all together" in line:
                     n_mo = int(line.split()[3])
                     break
+        # occupied orbitals include frozen orbitals
+        n_occ[0] += n_froz
+        if n_occ[1] > 0:
+            n_occ[1] += n_froz
 
         self.log.debug(f"Found nMO {n_mo} nOCC {n_occ} nFROZ {n_froz} and nVIRT {n_virt} in control file.")
 
