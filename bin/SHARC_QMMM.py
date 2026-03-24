@@ -343,6 +343,11 @@ class SHARC_QMMM(SHARC_HYBRID):
         super().read_resources(resources_filename)
         self._read_resources = True
 
+    def _check_charge(self):
+        """
+        Do not check charge for total system
+        """
+
     def setup_interface(self):
         # obtain the statemap
         self.QMin.maps["statemap"] = {i + 1: [*v] for i, v in enumerate(itnmstates(self.QMin.molecule["states"]))}
