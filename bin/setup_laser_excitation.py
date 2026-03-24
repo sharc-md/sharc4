@@ -654,11 +654,13 @@ def get_laser(INFOS, output_fields=False):
     INFOS["laser_file_version"] = int(1)
     with open (INFOS["laserfile"]) as laser_f:
         for line in laser_f:
+            if '#' in line:
+                break
             if "!" in line and INFOS["laser_file_version"] != 2:
                 INFOS["laser_file_version"] = int(2)
-            line = line.strip("!\n").split()
-                    # match the four possible keywords
-            key, value = line[1].lower(), line[2].lower()
+            line = line.strip().strip("!\n").split()
+            # match the four possible keywords
+            key, value = line[0].lower(), line[1].lower()
             if key in ["e-field", "b-field", "e-field_gradients", "b-field_gradients"]:
                 # check validity of the boolean value
                 if value == "true":
@@ -670,25 +672,26 @@ def get_laser(INFOS, output_fields=False):
                 # assign to the correct key in INFOS
                 if key == "e-field":
                     INFOS["laser_efield"] = val
-                    print("E-field", INFOS["laser_efield"])
+                    # print("E-field", INFOS["laser_efield"])
                 elif key == "b-field":
                     INFOS["laser_bfield"] = val
                     INFOS["needed_requests"].add("mdeqm")
-                    print("B-field", INFOS["laser_bfield"])
-                    print("Calculation of MD and EQ moments requested!")
+                    # print("B-field", INFOS["laser_bfield"])
+                    # print("Calculation of MD and EQ moments requested!")
                 elif key == "e-field_gradients":
                     INFOS["laser_efield_grad"] = val
                     INFOS["needed_requests"].add("mdeqm")
-                    print("E-field gradient", INFOS["laser_efield_grad"])
-                    print("Calculation of MD and EQ moments requested!")
+                    # print("E-field gradient", INFOS["laser_efield_grad"])
+                    # print("Calculation of MD and EQ moments requested!")
                 elif key == "b-field_gradients":
                     INFOS["laser_bfield_grad"] = val
-                    print("B-field gradient", INFOS["laser_bfield_grad"])
+                    # print("B-field gradient", INFOS["laser_bfield_grad"])
             if key == "laser_freq_path":
                 INFOS["laser_freq_path"] = os.path.join(os.path.dirname(INFOS["laserfile"]), value)
-                print("Found separate laser frequency file!")
-                break
+                # print("Found separate laser frequency file!")
     laser = np.loadtxt(INFOS["laserfile"], comments=["!", "#"])
+
+
     # old laser file format 
     if INFOS["laser_file_version"] == 1:
         if laser.shape[1] != 8: 
@@ -717,32 +720,34 @@ def get_laser(INFOS, output_fields=False):
                 laser_freqs = get_laser_freq(INFOS)
             else:
                 laser_tsteps, laser_freqs = laser[:, 0], laser[:, -1]
-            results = [laser_tsteps, laser_freqs]
+            results = {"laser_tsteps": laser_tsteps, "laser_freqs": laser_freqs}
             if output_fields:
                 field_counter = 0 
                 if INFOS["laser_efield"]:
                     Er, Ei = laser[:, 1:6:2], laser[:, 2:7:2]
-                    results.extend([Er, Ei])
+                    results["Er"] = Er
+                    results["Ei"] = Ei
                     field_counter += 6
                 if INFOS["laser_bfield"]:
                     Br, Bi = laser[:, field_counter+1:field_counter+6:2], laser[:, field_counter+2:field_counter+7:2]
-                    results.extend([Br, Bi])
+                    results["Br"] = Br
+                    results["Bi"] = Bi
                     field_counter +=6
                 if INFOS["laser_efield_grad"]:
                     EGRADr, EGRADi = np.zeros((len(laser_tsteps), 3, 3))  # time, field_component, derivative
                     for field_idx in range(3):
                         EGRADr[:, field_idx, :], EGRADi[:, field_idx, :] = laser[:, field_counter+1:field_counter+6:2], laser[:, field_counter+2:field_counter+7:2]
                         field_counter +=6
-                    results.extend([EGRADr, EGRADi])
+                    results["EGRADr"] = EGRADr
+                    results["EGRADi"] = EGRADi
                 if INFOS["laser_bfield_grad"]:
                     BGRADr, BGRADi = np.zeros((len(laser_tsteps), 3, 3))  # time, field_component, derivative
                     for field_idx in range(3):
                         BGRADr[:, field_idx, :], BGRADi[:, field_idx, :] = laser[:, field_counter+1:field_counter+6:2], laser[:, field_counter+2:field_counter+7:2]
                         field_counter +=6
-                    results.extend([BGRADr, BGRADi])
-                return results
-            else:
-                return results
+                    results["BGRADr"] = BGRADr
+                    results["BGRADi"] = BGRADi
+            return results
 
 
 def random_seed():
@@ -1498,8 +1503,9 @@ def json_info(INFOS):
 def writeSHARCinput(
     INFOS, initobject, iconddir, istate,
     laser_tsteps, laser_freqs,
-    Er=None, Ei=None, Br=None, Bi=None,
-    Egradr=None, Egradi=None, Bgradr=None, Bgradi=None,
+    laser_results = None,
+    # Er=None, Ei=None, Br=None, Bi=None,
+    # Egradr=None, Egradi=None, Bgradr=None, Bgradi=None,
     rng_gen=None, ask=False
 ):
     inputfname = os.path.join(iconddir, "input")
@@ -1552,11 +1558,11 @@ def writeSHARCinput(
         s += f"laser_efield {str(INFOS['laser_efield']).lower()}\n"
         s += f"laser_bfield {str(INFOS['laser_bfield']).lower()}\n"
         s += f"laser_efield_grad {str(INFOS['laser_efield_grad']).lower()}\n"
-        if INFOS["laser_freq_path"]:
-            s += f"laser_bfield_grad {str(INFOS['laser_bfield_grad']).lower()}\n"
+        s += f"laser_bfield_grad {str(INFOS['laser_bfield_grad']).lower()}\n"
+        if "laser_freq_path" in INFOS:
             s += 'laser_freq_path "laser_freq" \n' 
         else:
-            s += f"laser_bfield_grad {str(INFOS['laser_bfield_grad']).lower()}\n\n"
+            s += f"\n\n"
     inputf.write(s)
     inputf.close()
 
@@ -1576,6 +1582,16 @@ def writeSHARCinput(
     if sharcpath is None:
         print("Please set $SHARC to the directory containing the SHARC executables!")
         sys.exit(1)
+
+    # unpack laser
+    Er = laser_results.get("Er",None)
+    Ei = laser_results.get("Ei",None)
+    Br = laser_results.get("Br",None)
+    Bi = laser_results.get("Bi",None)
+    Egradr = laser_results.get("EGRADr",None)
+    Egradi = laser_results.get("EGRADi",None)
+    Bgradr = laser_results.get("BGRADr",None)
+    Bgradi = laser_results.get("BGRADi",None)
 
     # --- Version 1: keep your old handling (E only)
     if INFOS["laser_file_version"] == 1:
@@ -1628,7 +1644,7 @@ def writeSHARCinput(
             write_fields(laserfname, *fields_out)
         else:
             link(INFOS["laserfile"], laserfname)
-        if INFOS["laser_freq_path"]:
+        if "laser_freq_path" in INFOS:
             link(INFOS["laser_freq_path"], laserfreqname)
     return
 
@@ -1955,11 +1971,10 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
 
     ask = True
     if INFOS["rand_laser_pol"]:
-        raise Exception
-        # TODO: Implement different field output possibilities
-        #laser_tsteps, laser_freqs = get_laser(INFOS, output_fields=False)
+        results = get_laser(INFOS, output_fields=True)
     else:
-        laser_tsteps, laser_freqs = get_laser(INFOS, output_fields=False)
+        results = get_laser(INFOS, output_fields=False)
+        laser_tsteps, laser_freqs = results["laser_tsteps"], results["laser_freqs"]
     rng_gen = np.random.default_rng(seed=INFOS["rng_seed_laser"])
     for istate in INFOS["setupstates"]:
         width = 50
@@ -1983,10 +1998,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
             if io != 0:
                 log.info("Skipping initial condition %i %i!" % (istate, icond))
                 continue
-            if INFOS["rand_laser_pol"]:
-                writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, laser_tsteps, laser_freqs, Er, Ei, rng_gen, ask=ask)
-            else:
-                writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, laser_tsteps, laser_freqs, None, None, rng_gen, ask=ask)
+            writeSHARCinput(INFOS, initlist[icond - 1], dirname, istate, laser_tsteps, laser_freqs, laser_results=results, rng_gen=rng_gen, ask=ask)
             ask = False
             io = make_directory(dirname + "/QM")
             io += make_directory(dirname + "/restart")

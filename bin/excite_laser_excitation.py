@@ -285,6 +285,7 @@ def run_data_extractor(initstate, INFOS):
     """
     Extract output.dat in every TRAJ folder for every setupstate
     """
+    setupstate_list = INFOS["setupstates"]
     forbidden = ['crashed', 'running', 'dead', 'dont_analyze']
     for idx_setupstate, setupstate in enumerate(setupstate_list):
         dirname = INFOS["setupstates_names"][idx_setupstate]  # get_iconddir(initstate, INFOS)  # State directory containing trajectories 
@@ -377,10 +378,10 @@ def smooth_population(INFOS):
     INFOS["rho_data"] = np.zeros((len(INFOS["setupstates"]), INFOS["ninit"], INFOS["nsteps"]+1, (len(INFOS["statemap"]))))  # initconds, initstates, timesteps, states
     if INFOS["smoothing"]:
         print("Smoothing populations!")
-        for i_setupstate, setupstate in INFOS["setupstates"]-1:
+        for i_setupstate, setupstate in enumerate(INFOS["setupstates"]):
             for j, jcond in enumerate(INFOS["icond_sel"]):
                 # TRAJ, INITSTATE, TIME, STATEMAP
-                traj_path = os.path.join(INFOS["setupstates_names"][i_setupstate], "/TRAJ_%05i/output_data" %(jcond))
+                traj_path = os.path.join(INFOS["setupstates_names"][i_setupstate], "TRAJ_%05i/output_data" %(jcond))
                 INFOS["coeff_data"][i_setupstate, j, :, :] = np.genfromtxt(os.path.join(traj_path, coeff_file), comments="#")
                 INFOS["rho_data"][i_setupstate, j, :, :] = np.abs(INFOS["coeff_data"][i_setupstate, j, :, 2::2] + 1.j*INFOS["coeff_data"][i_setupstate, j, :, 3::2])**2  # skip first two columns containing time and c**2, but istates start at 1
                 # Apply Low-pass Butterworth filter 
@@ -402,6 +403,7 @@ def smooth_population(INFOS):
                         print("Smoothed population files are not written due to lack of permission!")
                 done = width_bar * (j) // (len(INFOS["icond_sel"]))
                 sys.stdout.write("\r  Progress: [" + "=" * done + " " * (width_bar - done) + "] %3i%%" % (done * 100 // width_bar))
+        sys.stdout.write("\n")
     else:
         print("No smoothing applied to populations!")
         for idx_setupstate, setupstate in enumerate(INFOS["setupstates"]):
@@ -440,35 +442,28 @@ def gfsh_probs(rho, ist, ic, INFOS):
 # ======================================================================= #
 
 
-def compute_max_prob(INFOS, rho_read=np.array([])):
+def compute_max_prob(INFOS, rho_read=None):
     """
     Extract output.dat in every TRAJ folder for single setupstate
     """
     pmax = np.zeros(len(INFOS["setupstates"]))  # initialize maximum probability over all initial states and initial conditions (TRAJS) to ever leave the initial state
-    if rho_read.shape[0] != 0:  # if not the default rho_read
-        for setupstate in INFOS["setupstates"]:
-            pleave_arr = np.zeros(len(INFOS["icond_sel"]))
-            for j, jcond in enumerate(INFOS["icond_sel"]):
-                # TODO: is INFOS["setup_states"] correct, or should one take the current state of each individual traj?
-                p_init = rho_read[j, :, setupstate-1]  # take the rho_list icond j and setup state j (ground state)
-                pstay = 1.
-                for tstep in range(INFOS["nsteps"]):                     
-                    pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
-                pleave_arr[j] = 1.-pstay                                    
+    if rho_read is None:  # if not the default rho_read
+        rho = INFOS["rho_data"]
     else:
-        for idx_setupstate, setupstate in enumerate(INFOS["setupstates"]):
-            pleave_arr = np.zeros(len(INFOS["icond_sel"]))
-            for j, jcond in enumerate(INFOS["icond_sel"]):
-                rho_init = INFOS["rho_data"][idx_setupstate, j, :, setupstate-1] 
-                pstay = 1. 
-                p_init = rho_init
-                for tstep in range(len(rho_init)-1):
-                    pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
-                pleave_arr[j] = 1.-pstay
-            pmax[idx_setupstate] = np.max(pleave_arr)*INFOS["renorm_scale_fac"]
+        rho = rho_read
+    pleave_arr = np.zeros((len(INFOS["setupstates"]),len(INFOS["icond_sel"])))
+    for idx_setupstate, setupstate in enumerate(INFOS["setupstates"]):
+        for j, jcond in enumerate(INFOS["icond_sel"]):
+            rho_init = rho[idx_setupstate, j, :, setupstate-1] 
+            pstay = 1. 
+            p_init = rho_init
+            for tstep in range(len(rho_init)-1):
+                pstay *= 1. - (max(0, 1-p_init[tstep+1]/p_init[tstep]))
+            pleave_arr[idx_setupstate, j] = 1.-pstay
+        pmax[idx_setupstate] = np.max(pleave_arr)*INFOS["renorm_scale_fac"]
     # print("PMAX", pmax)
     # print("Initconds index for pmax:",np.argmax(pleave_arr))
-    return pmax  #, pleave_arr
+    return pmax, pleave_arr
 
 
 # ======================================================================= #
@@ -571,7 +566,7 @@ def read_coeff(INFOS, setup_statelist, exc_list):
     #     INFOS["coeff_time_idx"] = str(np.nan) 
     coeff = np.zeros((len(INFOS["setupstates"]), INFOS["ninit"], len(INFOS["statemap"]), 2))  # NTRAJ, NSTATES (only @ excited states filled)k NSTATES, COMPLEX 
     for idx_setupstate, setupstate in enumerate(INFOS["setupstates"]):
-        print(len(setup_statelist))
+        # print(len(setup_statelist))
         for itraj, traj in enumerate(["TRAJ_%05i" % int(el) for el in INFOS["icond_sel"]]):  # cycle through all TRAJ_directories in initstate folder
             if int(exc_list[idx_setupstate, itraj, 2]) == 1:  # IF TRAJ COMBINATION IS EXCITED
                 try:
@@ -595,42 +590,39 @@ def read_coeff(INFOS, setup_statelist, exc_list):
 
 # ======================================================================= #
 
-# TODO: Make pleave_arr for every setupstate
-# def write_probabilities(rho, initlist, exc_list, INFOS):
-#     pmax, pleave_arr = compute_max_prob(INFOS, rho)  # returns list of pmax for all setupstates
-#     n_states = sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))
-#     n_trajs = len(INFOS["icond_sel"])
-# 
-#     exc_energies_all = np.zeros((n_trajs, n_states))
-#     osc_strengths_all = np.zeros((n_trajs, n_states))
-# 
-#     for ic, icond in enumerate(INFOS["icond_sel"]):
-#         for j, jstate in enumerate(initlist[ic].statelist):
-#             exc_energies_all[ic, j] = jstate.Eexc
-#             osc_strengths_all[ic, j] = jstate.Fosc
-# 
-#     with open("probabilities.txt", "w") as f:
-#         header = ["#No.TRAJ", "ptotk_old", "ptotk_new"]
-#         header += [f"Eexc{j+1}" for j in range(n_states)]
-#         header += [f"Fosc{j+1}" for j in range(n_states)]
-#         header += ["Exc", "Exc_State", "Exc_Time"]
-#         f.write(", ".join(header) + "\n")
-# 
-#         n_digits = 5  
-#         for k in range(n_trajs):
-#             traj_label = f"TRAJ_{INFOS['icond_sel'][k]:0{n_digits}d}"
-#             row = [traj_label, f"{INFOS['pleave_arr_old'][k]:.16f}", f"{pleave_arr[k]:.16f}"]
-#             row += [f"{exc_energies_all[k, m]:.16f}" for m in range(n_states)]
-#             row += [f"{osc_strengths_all[k, m]:.16f}" for m in range(n_states)]
-#             row += [f"{exc_list[k, 2]:.16f}"] 
-#             row += [f"{exc_list[k, 1]:.16f}"] 
-#             row += [f"{exc_list[k, 0]:.12e}"] 
-#             f.write("".join(s.rjust(20) for s in row) + "\n")
-
-def write_probabilities(rho, initlist, exc_list, INFOS):
+def write_probabilities(rho, setupstate_initlist, exc_list, INFOS):
+    # TODO: adjust to multiple set up states
     pmax, pleave_arr = compute_max_prob(INFOS, rho)
     n_states = sum(INFOS["states"][i] * (i + 1) for i in range(len(INFOS["states"])))
     n_trajs = len(INFOS["icond_sel"])
+
+    exc_energies_all = np.zeros((n_trajs, n_states))
+    osc_strengths_all = np.zeros((n_trajs, n_states))
+
+    for idx_setupstate, setupstate in enumerate(setupstate_initlist): 
+        setup_state = INFOS['setupstates'][idx_setupstate]
+        for ic, icond in enumerate(INFOS["icond_sel"]):
+            for j, jstate in enumerate(setupstate[ic].statelist):
+                exc_energies_all[ic, j] = jstate.Eexc
+                osc_strengths_all[ic, j] = jstate.Fosc
+
+        with open("probabilities_State_%i.txt" % setup_state, "w") as f:
+            header = ["#No.TRAJ", "ptotk_old", "ptotk_new"]
+            header += [f"Eexc{j+1}" for j in range(n_states)]
+            header += [f"Fosc{j+1}" for j in range(n_states)]
+            header += ["Exc", "Exc_State", "Exc_Time"]
+            f.write(", ".join(header) + "\n")
+
+            n_digits = 5  
+            for k in range(n_trajs):
+                traj_label = f"TRAJ_{INFOS['icond_sel'][k]:0{n_digits}d}"
+                row = [traj_label, f"{INFOS['pleave_arr_old'][idx_setupstate, k]:.16f}", f"{pleave_arr[idx_setupstate, k]:.16f}"]
+                row += [f"{exc_energies_all[k, m]:.16f}" for m in range(n_states)]
+                row += [f"{osc_strengths_all[k, m]:.16f}" for m in range(n_states)]
+                row += [f"{exc_list[idx_setupstate, k, 2]:.16f}"] 
+                row += [f"{exc_list[idx_setupstate, k, 1]:.16f}"] 
+                row += [f"{exc_list[idx_setupstate, k, 0]:.12e}"] 
+                f.write("".join(s.rjust(20) for s in row) + "\n")
 
 def writeoutput(setupstate_initlist, INFOS):
     for idx_setupstate, setupstate in enumerate(setupstate_initlist): 
@@ -700,13 +692,15 @@ def random_seed():
         line = question("RNG Seed: ", str, "!", False)
         if line == "!":
             random.seed()
-            break
-        try:
-            rngseed = int(line)
-            random.seed(rngseed)
-        except ValueError:
-            print('Please enter an integer or "!".')
-            continue
+            rngseed = random.randint(-1e6,1e6)
+        else:
+            try:
+                rngseed = int(line)
+            except ValueError:
+                print('Please enter an integer or "!".')
+                continue
+        random.seed(rngseed)
+        print(f"RNG seed is {rngseed}")
         break
     print("")
     return rngseed
@@ -754,7 +748,7 @@ def excite(INFOS, setupstate_initlist, exc_list):
                     for j, jstate in enumerate(setupstate[ic].statelist):
                         if exc_list[idx_setupstate, ic, 1]-1==j:
                             jstate.Excited = True
-                            jstate.IState = exc_list[idx_setupstate, ic, 1] 
+                            jstate.IState = idx_setupstate+1 # TODO: here might be something wrong
                             jstate.ExcTime = exc_list[idx_setupstate, ic, 0]*INFOS["tmax"]/INFOS["nsteps"]
                         else:
                             jstate.Excited = False
@@ -822,7 +816,8 @@ def main():
     ]
     run_data_extractor(setupstate_initlist, INFOS)
     INFOS = smooth_population(INFOS)
-    INFOS["max_prob"] = np.max(compute_max_prob(INFOS))  # Compute maximum probability to leave initial state for all setupstates
+    INFOS["max_prob"], INFOS["pleave_arr_old"] = compute_max_prob(INFOS)  # Compute maximum probability to leave initial state for all setupstates
+    INFOS["max_prob"] = np.max(INFOS["max_prob"])
     print("Computed pmax = %.5f" % INFOS["max_prob"])
     exc_pop = np.zeros((len(INFOS["setupstates"]), len(INFOS["icond_sel"]), INFOS["nsteps"]+1, len(INFOS["statemap"])))
     exc_pop_cumsum = np.zeros_like(exc_pop) 
@@ -840,6 +835,7 @@ def main():
             random_probs = []
             hop_idx = 0
             to_state = 0
+            from_state = INFOS["setupstates"][idx_setupstate]-1
             for tstep in range(0, INFOS["nsteps"]+1):
                 no_random = random.random()
                 random_probs.append(no_random)
@@ -858,7 +854,7 @@ def main():
                             "traj": icond,
                             "hop_idx": hop_idx,
                             "time_fs": time_fs,
-                            "from": INFOS['setupstates'][idx_setupstate]-1,
+                            "from": from_state,
                             "to": to_state,
                             "dE_ev": dE * const.physical_constants["Hartree energy in eV"][0],
                             "fosc": fosc,
@@ -867,12 +863,16 @@ def main():
                             "prob_this": prob_this,
                             "last_hop": 0
                         })
-                        exc_list[idx_setupstate, ic, :] = tstep, INFOS["setupstates"][idx_setupstate], 1.0 
-                        exc_pop[idx_setupstate, ic, :, :] = gfsh_probs(rho_renorm[idx_setupstate, ic, :, :], INFOS["setupstates"][idx_setupstate]-1, ic, INFOS)  # time, exc_state
-                        exc_pop_cumsum[idx_setupstate, ic, :, :] = np.cumsum(exc_pop[idx_setupstate, ic, :, :], axis=1) 
-            if to_state != 0:
+                        exc_list[idx_setupstate, ic, :] = tstep, exc_state, 1.0 
+                        if exc_state == INFOS["setupstates"][idx_setupstate]:
+                            exc_list[idx_setupstate, ic, 2] = 0.0
+                        exc_pop[idx_setupstate, ic, :, :] = gfsh_probs(rho_renorm[idx_setupstate, ic, :, :], to_state, ic, INFOS)  # time, exc_state
+                        exc_pop_cumsum[idx_setupstate, ic, :, :] = np.cumsum(exc_pop[idx_setupstate, ic, :, :], axis=1)
+                        from_state = exc_state-1 
+                        break  # need to break out of current time step otherwise hops to more than one state
+            if to_state != INFOS["setupstates"][idx_setupstate]-1:
                 hop_logs[-1]["last_hop"] = 1
-        print(f"Finished EOE rescaling for State {INFOS['setupstates'][idx_setupstate]}!")
+        print(f"Finished EOE for State {INFOS['setupstates'][idx_setupstate]}!")
 
 
     try:
@@ -892,10 +892,10 @@ def main():
     except Exception as e:
         print(f"Could not write hop log: {e}")
 
-    setupstate_initlist = read_coeff(INFOS, setupstate_initlist, exc_list)  # istate -1, because it could also be state 5 that is active
+    setupstate_initlist = read_coeff(INFOS, setupstate_initlist, exc_list) 
     setupstate_initlist = excite(INFOS, setupstate_initlist, exc_list)
     writeoutput(setupstate_initlist, INFOS) 
-    # write_probabilities(rho_renorm, initlist, exc_list, INFOS)
+    write_probabilities(rho_renorm, setupstate_initlist, exc_list, INFOS)
 
     close_keystrokes()
 
