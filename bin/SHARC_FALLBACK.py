@@ -108,10 +108,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
     def changelogstring() -> str:
         return SHARC_FALLBACK._changelogstring
 
-    # ----------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------
-
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
         # return all_features
         if not self._read_template:
@@ -170,10 +166,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._trial_interface.prepare(INFOS, traildir)
         self._fallback_interface.prepare(INFOS, fallbackdir)
 
-    # ----------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------
-
     def read_resources(self, resources_file="FALLBACK.resources", kw_whitelist=None):
         super().read_resources(resources_file)
 
@@ -205,10 +197,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self.QMin.template["fallback_interface"] = tmpl_dict["fallback_interface"]
         self.QMin.template["trial_interface"] = tmpl_dict["trial_interface"]
         self._read_template = True
-
-    # ----------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------
 
     def run(self):
         self._trial_failed = False
@@ -255,10 +243,6 @@ class SHARC_FALLBACK(SHARC_HYBRID):
         self._trial_interface.clean_savedir()
         self._fallback_interface.clean_savedir()
 
-    # ----------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------
-
     def setup_interface(self):
         if not os.path.isdir("fallback_interface"):
             self.log.error("Path fallback_interface does not exist!")
@@ -279,6 +263,9 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._trial_interface.QMin.resources["scratchdir"] = os.path.join(
                 self.QMin.resources["scratchdir"], "trial_interface"
             )
+            self._trial_interface.QMin.save["savedir"] = os.path.join(self.QMin.save["savedir"], "trial_interface")
+            self._trial_interface.QMin.resources["pwd"] = os.path.join(self.QMin.resources["pwd"], "trial_interface")
+            self._trial_interface.QMin.resources["cwd"] = os.path.join(self.QMin.resources["cwd"], "trial_interface")
             self._trial_interface.setup_interface()
 
         with InDir("fallback_interface"):
@@ -289,6 +276,9 @@ class SHARC_FALLBACK(SHARC_HYBRID):
             self._fallback_interface.QMin.resources["scratchdir"] = os.path.join(
                 self.QMin.resources["scratchdir"], "fallback_interface"
             )
+            self._fallback_interface.QMin.save["savedir"] = os.path.join(self.QMin.save["savedir"], "fallback_interface")
+            self._fallback_interface.QMin.resources["pwd"] = os.path.join(self.QMin.resources["pwd"], "fallback_interface")
+            self._fallback_interface.QMin.resources["cwd"] = os.path.join(self.QMin.resources["cwd"], "fallback_interface")
             self._fallback_interface.setup_interface()
 
     def read_requests(self, requests_file="QM.in"):
