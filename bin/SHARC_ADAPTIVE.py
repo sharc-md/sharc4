@@ -282,7 +282,12 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
             v.set_coords(xyz, pc)
 
     def run(self):
-        self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
+        if self.QMin.save["step"] < self.QMin.template["cooldown"]:
+            leader = next(iter(self._kindergarden.values()))
+            leader.run()
+            leader.getQMout()
+        else:
+            self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
 
     def getQMout(self):
         """
