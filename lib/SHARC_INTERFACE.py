@@ -615,8 +615,7 @@ class SHARC_INTERFACE(ABC):
         if not self.QMin.molecule["charge"]:
             self.QMin.molecule["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
             self.log.warning(f"charge not specified setting default, {self.QMin.molecule['charge']}")
-        else:
-            self._check_charge()
+        self._check_charge()
 
         self.QMout.charges = self.QMin.molecule["charge"][:]
 
