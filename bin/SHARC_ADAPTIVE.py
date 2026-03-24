@@ -250,6 +250,13 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
 
         for child, instance in self._kindergarden.items():
             self.log.debug(f"Setup child {child}")
+
+            # Set child paths
+            instance.QMin.save["savedir"] = os.path.join(self.QMin.save["savedir"], child)
+            instance.QMin.resources["scratchdir"] = os.path.join(self.QMin.resources["scratchdir"], child)
+            instance.QMin.resources["pwd"] = os.path.join(self.QMin.resources["pwd"], child)
+            instance.QMin.resources["cwd"] = os.path.join(self.QMin.resources["cwd"], child)
+
             with InDir(os.path.join(self.QMin.resources["pwd"], child)):
                 instance.setup_mol(self.QMin)
                 instance.read_resources()
