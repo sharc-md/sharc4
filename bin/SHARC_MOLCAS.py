@@ -751,6 +751,15 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             qmin.template["gradaccudefault"] *= 10
         endtime = datetime.datetime.now()
 
+        # Check if output shows Happy landing (seems sometimes the exit code is non-zero on a successful job)
+        output = os.path.join(workdir, 'MOLCAS.out')
+        with open(output,"r") as f:
+            lines = f.readlines()
+        if any("Happy landing" in line for line in lines[-10:]):
+            if code != 0:
+                self.log.info(f"Exit code was {code} but 'Happy landing' found in {workdir}")
+            code = 0
+
         # Generate MO and det file for dyson
         if qmin.control["master"] and self._hdf5 and code == 0:
             if qmin.requests["ion"]:
@@ -1176,6 +1185,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "EJOB\n"
         if ("dm" in task and qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]) or "mdeqm" in task or "theodore" in task:
             input_str += "TRD1\n"
+            if self.get_molcas_version(self.QMin.resources["molcas"]) > (25, 0):
+                input_str += "TDM\n"
         if "mdeqm" in task:
             input_str += "QIALL\nQIPR = 0.\n"
         if "soc" in task:
@@ -1184,6 +1195,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             input_str += "STOVERLAPS\nOVERLAPS\n"
             if qmin.control["master"] and (qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]):
                 input_str += "TRD1\n"
+                if self.get_molcas_version(self.QMin.resources["molcas"]) > (25, 0):
+                    input_str += "TDM\n"
         #if task[1] in ("", "soc") and qmin.requests["ion"]:
         if "soc" in task and qmin.requests["ion"]:
             input_str += "CIPR\nTHRS=0.000005d0\n"
@@ -1446,22 +1459,57 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         """
         Get information about the MOLCAS installation (HDF5, WFA, MPI)
         """
+
+        # WFA feature inferred from executable
         if os.path.isfile(os.path.join(self.QMin.resources["molcas"], "bin/wfa.exe")):
             self.log.debug("MOLCAS version supports WFA")
             self._wfa = True
 
-        try:
-            with sp.Popen(["ldd", os.path.join(self.QMin.resources["molcas"], "bin/rassi.exe")], stdout=sp.PIPE) as proc:
-                modules = proc.stdout.read().decode()
-                if re.search(r"libhdf5\.so", modules):
-                    self.log.debug("MOLCAS version supports HDF5")
-                    self._hdf5 = True
 
-                if re.search(r"libmpi\.so", modules):
-                    self.log.debug("MOLCAS version supports MPI")
-                    self._mpi = True
+        # HDF5 and MPI from dynamic libraries or from symbol tables
+        exe = os.path.join(self.QMin.resources["molcas"], "bin/rassi.exe")
+
+        # --- First attempt: dynamic libraries via ldd ---
+        try:
+            with sp.Popen(["ldd", exe], stdout=sp.PIPE, stderr=sp.PIPE) as proc:
+                modules = proc.stdout.read().decode()
+            if re.search(r"libhdf5", modules):
+                self.log.debug("MOLCAS version supports HDF5 (dynamic)")
+                self._hdf5 = True
+            if re.search(r"libmpi", modules):
+                self.log.debug("MOLCAS version supports MPI (dynamic)")
+                self._mpi = True
         except FileNotFoundError:
-            self.log.warning("ldd not found on this machine, feature check failed. Disable hdf5 and MPI support.")
+            self.log.warning("ldd not found, skipping dynamic dependency check.")
+
+        # --- Second attempt: symbol table via nm ---
+        if not (self._hdf5 and self._mpi):
+            try:
+                with sp.Popen(["nm", exe], stdout=sp.PIPE, stderr=sp.PIPE) as proc:
+                    symbols = proc.stdout.read().decode(errors="ignore")
+                if not self._hdf5 and re.search(r"\bH5(Fopen|Fcreate|open)\b", symbols):
+                    self.log.debug("MOLCAS version supports HDF5 (detected via nm)")
+                    self._hdf5 = True
+                if not self._mpi and re.search(r"\bMPI_(Init|Comm_rank|Comm_size)\b", symbols):
+                    self.log.debug("MOLCAS version supports MPI (detected via nm)")
+                    self._mpi = True
+            except FileNotFoundError:
+                self.log.warning("nm not found, skipping symbol check.")
+
+        # --- Final fallback: strings scan ---
+        if not (self._hdf5 and self._mpi):
+            try:
+                with sp.Popen(["strings", exe], stdout=sp.PIPE, stderr=sp.PIPE) as proc:
+                    text = proc.stdout.read().decode(errors="ignore")
+                if not self._hdf5 and re.search(r"\bH5(Fopen|Fcreate|open)\b", text):
+                    self.log.debug("MOLCAS version supports HDF5 (detected via strings)")
+                    self._hdf5 = True
+                if not self._mpi and re.search(r"\bMPI_(Init|Comm_rank|Comm_size)\b", text):
+                    self.log.debug("MOLCAS version supports MPI (detected via strings)")
+                    self._mpi = True
+            except FileNotFoundError:
+                self.log.warning("strings not found, fallback detection failed.")
+
 
     @staticmethod
     def get_molcas_version(path: str) -> tuple[int, int]:
@@ -2169,6 +2217,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tmp_states[mult + 1] = 1  # Avoid double counting
 
             s_cnt += states[mult - 1]
+
+        # TODO: ideally one should also parse the OmFrag.txt
 
         return list(zip(self.QMin.resources["theodore_prop"], theo_mat.T))
 
