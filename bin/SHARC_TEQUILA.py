@@ -411,7 +411,7 @@ class SHARC_TEQUILA(SHARC_FAST):
                 if step == 0:
                     path = os.path.join(qmin.resources["pwd"], f"angles_json.{istate}.init")
                 else:
-                    path = os.path.join(savedir, f"angles_json.{istate}.{step}")
+                    path = os.path.join(savedir, f"angles_json.{istate}.{step-1}")
                 if not os.path.isfile(path):
                     path = None
                 if path:
