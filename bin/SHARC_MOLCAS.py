@@ -1981,14 +1981,12 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             for _ in range(mult):
                 dipole_mat[:, s_cnt : s_cnt + state, s_cnt : s_cnt + state] = dipoles 
                 s_cnt += state
-        # dipole_mat -= electronic_charge*np.einsum("i,jk->ijk", disp_vector, overlaps)
         return dipole_mat
 
-    def get_full_tdm(self, workdir): 
-    # def dyson_orbitals_with_other(self, other, workdir, ncpu, mem):
-    #     if self.get_molcas_version(self.QMin.resources["molcas"]) < (23, 10):
-    #         self.log.error("Dyson orbital calculation requires MOLCAS version 23.10 or higher!")
-    #         raise ValueError()
+    def dyson_orbitals_with_other(self, other, workdir, ncpu, mem):
+        if self.get_molcas_version(self.QMin.resources["molcas"]) < (23, 10):
+            self.log.error("Dyson orbital calculation requires MOLCAS version 23.10 or higher!")
+            raise ValueError()
 
         mkdir(os.path.join(workdir, "dyson"))
 
