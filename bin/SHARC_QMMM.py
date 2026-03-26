@@ -617,7 +617,7 @@ class SHARC_QMMM(SHARC_HYBRID):
         for i in ["ion", "prop", "theodore"]:
             if i in qmQMout:
                 self.QMout[i] = qmQMout[i]
-        self.QMout.runtime = self.clock.measuretime()
+        self.QMout.runtime = self.clock.measuretime(self.log.debug)
         return self.QMout
 
     def create_restart_files(self):

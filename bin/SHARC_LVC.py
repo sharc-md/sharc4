@@ -371,7 +371,7 @@ class SHARC_LVC(SHARC_FAST):
                 
 
     def getQMout(self):
-        self.QMout["runtime"] = self.clock.measuretime(False)
+        self.QMout["runtime"] = self.clock.measuretime(log=self.log.debug)
         return self.QMout
 
     @staticmethod
