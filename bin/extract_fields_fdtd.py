@@ -38,7 +38,10 @@ import scipy.constants as const  # SHOULD THIS BE WRITTEN in the constants libra
 from scipy.signal import find_peaks
 import shutil
 import matplotlib.pyplot as plt
-import pywt
+try:
+    import pywt
+except ImportError:
+    pywt = None
 
 from logger import log
 from scipy import fft, signal, ndimage
@@ -164,7 +167,7 @@ def get_general(INFOS):
         log.info('\nIf you do not have an FDTD output file, prepare one with MEEP!\n')
         log.info('Please enter the filename of the FDTD simulation output file.')
         while True:
-            sim_file_path = question('FDTD simulation output filename:', str, 'FDTD output')
+            sim_file_path = question('FDTD simulation output filename:', str, 'sim_file.hdf5')
             sim_file_path = os.path.expanduser(os.path.expandvars(sim_file_path))
             if os.path.isdir(sim_file_path):
                 log.info(f'Is a directory: {sim_file_path}')
@@ -424,7 +427,10 @@ def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, 
             shift+=6
 
         while True:
-            fft_field = question("Do you want to provide laser frequencies (0), perform FFT (1), perform WT (2)  or integrated WT (3)?", int, [0])
+            if pywt is None:
+                fft_field = question("Do you want to provide laser frequencies (0), perform FFT (1)?", int, [0])
+            else:
+                fft_field = question("Do you want to provide laser frequencies (0), perform FFT (1), perform WT (2)  or integrated WT (3)?", int, [0])
             match fft_field[0]:
                 case 0:
                     i_unit = question("Frequency unit: (0) nm, (1) Hz, (2) eV, (3) a.u.", int, [0])
@@ -433,7 +439,6 @@ def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, 
                     if laser_frequencies is not None:
                         log.info(f"Calculated laser frequencies: {laser_frequencies} in a.u.")
                         return np.vstack([laser_frequencies for t_el in time_arr])
-                        break
                 case 1:
                     fft_freq, fft_signal = zip(*[fft_calc(em_fields[field_idx], time_arr) for field_idx in range(len(em_fields))])
                     fft_signal_max = np.max(fft_signal, axis=1)#[(fft_calc(em_fields[field_idx], time_arr)[1]).max() for field_idx in range(len(em_fields))]
@@ -451,8 +456,9 @@ def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, 
                         log.info('Found no distinct frequencies!')
                         raise IOError                                                    
                     return np.vstack([freq_ex for t_el in time_arr])
-                    break
                 case 2:
+                    if pywt is None:
+                        continue
                     freqs, freq_signals_per_time = zip(*[wavelet_calc(em_fields[field_idx], time_arr) for field_idx in range(len(em_fields))])
                     freq_signals_summed_max = np.max(freq_signals_per_time, axis = (1, 2))  # Maximum over all times and frequencies for one field
                     max_no_of_peaks = 0 
@@ -485,8 +491,9 @@ def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, 
                     freq_peaks = freq_peaks[:, np.any(freq_peaks != 0, axis=0)] 
                     freq_peaks = np.unique(freq_peaks, axis=1)
                     return convert_frequencies(freq_peaks, [1])
-                    break
                 case 3:
+                    if pywt is None:
+                        continue
                     freqs, freq_signals_summed = zip(*[wavelet_calc_sum(em_fields[field_idx], time_arr) for field_idx in range(len(em_fields))])
                     freq_signals_summed_max = np.max(freq_signals_summed, axis = 1)
                     freq_peaks, _ = zip(*[find_peaks(freq_signals_summed[field_idx], prominence=freq_signals_summed_max[field_idx]/5., height=1E-7) for field_idx in range(len(em_fields))])
@@ -498,7 +505,6 @@ def extract_frequencies(laser_file, avail_e, avail_b, avail_egrad, avail_bgrad, 
                     #     plt.plot(freqs[i][freq_peaks[i][0]], freq_signals_summed[i][freq_peaks[i][0]], "rx")
                     #     plt.show()
                     return np.vstack([convert_frequencies(freq_peaks, [1]) for t_idx, t_el in enumerate(time_arr)])
-                    break
                 case _:
                     log.info(f"Did not understand input: {fft_field}!")
                     continue
@@ -548,7 +554,7 @@ def main():
         laser_file = np.zeros((len(int_t_arr), no_of_columns))  # tsteps, (f_exr, f_eyr, f_ezr or f_bxr, f_byr, f_bzr) #3*2 Exyz (real, imag), #3*2 Bxyz (real, imag), #3*3*2 Grad Exyz (real, imag), #3*3*2 Grad Bxyz (real, imag)
         laser_file[:, 0] = int_t_arr*1E15  # SAVE timesteps in fs
         if INFOS["export_e"] or INFOS["export_egrad"]:
-            log.info("Interpolating E-fields/Gradients and writing to laser file:")
+            log.info("Interpolating E-fields/Gradients and writing to laser file...")
             for fld_count, fld in enumerate(efields):
                 fld_arr = np.asarray(h5py.File(INFOS["sim_file_path"], "r")[fld])
                 fields_gradients_real = [None]*len(int_t_arr)
@@ -569,7 +575,7 @@ def main():
                     #laser_file[:, egrad_write_shift+1+fld_count*6], laser_file[:, egrad_write_shift+3+fld_count*6], laser_file[:, egrad_write_shift+5+fld_count*6] =  (fields_gradients_imag[:, 1:]/efield_grad_au_to_v_per_m2).T 
             log.info("E-field/E-gradients extracted!")
         if INFOS["export_b"] or INFOS["export_bgrad"]:
-            log.info("Interpolating B-fields/Gradients and writing to laser file:") 
+            log.info("Interpolating B-fields/Gradients and writing to laser file...") 
             for fld_count, fld in enumerate(bfields):
                 fld_arr = np.asarray(h5py.File(INFOS["sim_file_path"], "r")[fld])
                 fields_gradients_real = [None] * len(int_t_arr)
@@ -583,8 +589,8 @@ def main():
                 fields_gradients_real = np.asarray(fields_gradients_real)
                 fields_gradients_imag = np.asarray(fields_gradients_imag) 
                 if INFOS["export_b"]:
-                    laser_file[:, b_write_shift+fld_count*2] = fields_gradients_real[:, 0]/bfield_au_to_t*const.c*10 
-                    laser_file[:, b_write_shift+1+fld_count*2] = fields_gradients_imag[:, 0]/bfield_au_to_t*const.c*10
+                    laser_file[:, b_write_shift+fld_count*2] = fields_gradients_real[:, 0]/bfield_au_to_t  #*const.c*10 
+                    laser_file[:, b_write_shift+1+fld_count*2] = fields_gradients_imag[:, 0]/bfield_au_to_t  #*const.c*10
                 if INFOS["export_bgrad"]:
                     laser_file[:, bgrad_write_shift+fld_count*6], laser_file[:, bgrad_write_shift+2+fld_count*6], laser_file[:, bgrad_write_shift+4+fld_count*6] =  (fields_gradients_real[:, 1:]/bfield_grad_au_to_t_per_m).T 
                     laser_file[:, bgrad_write_shift+1+fld_count*6], laser_file[:, bgrad_write_shift+3+fld_count*6], laser_file[:, bgrad_write_shift+5+fld_count*6] =  (fields_gradients_imag[:, 1:]/bfield_grad_au_to_t_per_m).T 
