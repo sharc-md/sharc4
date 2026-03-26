@@ -1472,7 +1472,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             log.info("\nDo you want to use an atom mask for velocity rescaling or decoherence?")
             if question("Atom masking?", bool, False):
                 log.info(
-                    '\nPlease enter all atom indices (start counting at 1) of the atoms which should considered for velocity rescaling and dechoerence. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").'
+                    '\nPlease enter all atom indices (start counting at 1) of the atoms which should considered for velocity rescaling and decoherence. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").'
                 )
                 #      log.info('\nPlease enter all atom indices (start counting at 1) of the atoms which should be masked. \nRemember that you can also enter ranges (e.g., "-1~-3  5  11~21").')
                 arr = question("Masked atoms:", int, ranges=True)
