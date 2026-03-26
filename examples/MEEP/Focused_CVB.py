@@ -24,11 +24,9 @@ import h5py
 
 # MEEP specific
 import meep as mp
-import PVB_Source as pvb
 
 # MEEP materials
-from meep.materials import fused_quartz #Au, Al, Pt, Ag 
-# from antenna_geometries import cylinder_shape
+# from meep.materials import fused_quartz #Au, Al, Pt, Ag 
 
 
 
@@ -82,7 +80,7 @@ args = parser.parse_args()
 print("Simulation parameters:")
 for k,v in vars(args).items():
     print(f"{k}: {v}")
-
+print('-----------------------\n')
 
 
 
@@ -299,7 +297,7 @@ if True:
         end_time=runtime,                  
         center_frequency=fcen,             
         is_integrated=True                 
-        ),    
+        )
 else:
     time_source = mp.ContinuousSource(frequency=fcen, is_integrated=True),
 
@@ -311,7 +309,7 @@ if coordinates=="CYLINDRICAL":
             center = source_pos,
             size = source_size, 
             component = mp.Ep,  
-            amp_func = lambda r: pvb.LG_cyl_symm(r.x, -center_r, r.z, -center_z, wvl, w0, j_amp)
+            amp_func = lambda r: LG_cyl_symm(r.x, -center_r, r.z, -center_z, wvl, w0, j_amp)
         )
          ]
     Source_Rad_LG =   [
@@ -320,7 +318,7 @@ if coordinates=="CYLINDRICAL":
             center = source_pos,
             size = source_size, 
             component = mp.Er,  
-            amp_func = lambda r: pvb.LG_cyl_symm(r.x, -center_r, r.z, -center_z, wvl, w0, j_amp)
+            amp_func = lambda r: LG_cyl_symm(r.x, -center_r, r.z, -center_z, wvl, w0, j_amp)
         )
          ]
 
@@ -331,14 +329,14 @@ elif coordinates=="CARTESIAN":
             center = source_pos,
             size = source_size, 
             component = mp.Ex,  
-            amp_func = lambda r: pvb.LG_cart_symm(r.x, -center_x, r.y, -center_y, r.z, -center_z, wvl, w0, j_amp, "x")
+            amp_func = lambda r: LG_cart_symm(r.x, -center_x, r.y, -center_y, r.z, -center_z, wvl, w0, j_amp, "x")
         ),
         mp.Source(
             time_source,                                                                                                                   
             center = source_pos,
             size = source_size, 
             component = mp.Ey,  
-            amp_func = lambda r: pvb.LG_cart_symm(r.x, -center_x, r.y, -center_y, r.z, -center_z, wvl, w0, j_amp, "y")
+            amp_func = lambda r: LG_cart_symm(r.x, -center_x, r.y, -center_y, r.z, -center_z, wvl, w0, j_amp, "y")
         ) 
          ]
     Source_Rad_LG =   [
@@ -347,14 +345,14 @@ elif coordinates=="CARTESIAN":
             center = source_pos,
             size = source_size, 
             component = mp.Ex,
-            amp_func = lambda r: pvb.LG_cart_symm(r.x, -center_x, r.y, -center_y, r.z, -center_z, wvl, w0, j_amp, "rad_x")
+            amp_func = lambda r: LG_cart_symm(r.x, -center_x, r.y, -center_y, r.z, -center_z, wvl, w0, j_amp, "rad_x")
         ),
         mp.Source(
             time_source,                                                                                                                   
             center = source_pos,
             size = source_size, 
             component = mp.Ey,  
-            amp_func = lambda r: pvb.LG_cart_symm(r.x, -center_x, r.y, -center_y, r.z, -center_z, wvl, w0, j_amp, "rad_y")
+            amp_func = lambda r: LG_cart_symm(r.x, -center_x, r.y, -center_y, r.z, -center_z, wvl, w0, j_amp, "rad_y")
         ) 
          ]
 
@@ -392,7 +390,7 @@ if coordinates=="CYLINDRICAL":
     print("Simulation center (sim.geometry_center): ", sim.geometry_center)
     print("Simulation center (sim_center): ", sim_center)
     print("Simulation size (sim_size): ", sim_size)
-    print("----------")
+    print('-----------------------\n')
     xmin, xmax, ymin, ymax, zmin, zmax = mp.visualization.box_vertices(sim_center, sim_size, is_cylindrical = sim.is_cylindrical)
     Nrx, Nz = [int(np.linalg.norm(xmax - xmin)*resolution), int(np.linalg.norm(zmax - zmin)*resolution)]
 elif coordinates=="CARTESIAN":
@@ -404,7 +402,7 @@ elif coordinates=="CARTESIAN":
     print("Simulation center (sim.geometry_center): ", sim.geometry_center)
     #print("Simulation center (sim_center): ", sim_center)
     #print("Simulation size (sim_size): ", sim_size)
-    print("----------")
+    print('-----------------------\n')
     xmin, xmax, ymin, ymax, zmin, zmax = mp.visualization.box_vertices(sim.geometry_center, sim.cell_size, is_cylindrical = sim.is_cylindrical)
     Nrx, Ny, Nz = [int(np.linalg.norm(xmax - xmin)*resolution), int(np.linalg.norm(ymax - ymin)*resolution), int(np.linalg.norm(zmax - zmin)*resolution)]
 # in cylindrical coordinates, radial (R) axis
@@ -419,9 +417,8 @@ print(f"(xmin, xmax, #sim, #saved): {xmin:.2f}, {xmax:.2f}, {Nrx:.2f}, {Nrx:.2f}
 print(f"(ymin, ymax, #sim, #saved): {ymin:.2f}, {ymax:.2f}, {Ny:.2f}, {Ny:.2f}")
 print(f"(zmin, zmax, #sim, #saved): {zmin:.2f}, {zmax:.2f}, {Nz:.2f}, {Nz:.2f}")
 print(f"(tmin, tmax, #sim, #saved): {0:.2f}, {runtime:.2f}, {Nt_sim:.2f}")
-print("---------------")
-print("Internal resolution in s: %.2e",                                                                                                   
-      courant_factor / grid_resolution / const.c * 1E-6)                                                                                       
+print('-----------------------\n')
+print("Internal resolution in s: %.2e" % (courant_factor / grid_resolution / const.c * 1E-6) )
 
 if coordinates=="CYLINDRICAL":
     r_arr = np.linspace(xmin, xmax, Nrx)*1E-6  # starting from 0
