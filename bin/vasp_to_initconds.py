@@ -583,14 +583,14 @@ def main():
 
     # command line option setup
     usage ='''
-    vasp_md_proper.py MD_folder --flags
+    vasp_to_initconds.py MD_folder --flags
 
     MD_folder -> Path to directory that contains VASP MD.
 
     This script generate a set of initial conditions (initconds file) for SHARC-VASP dynamics reading a MD trajectory computed with VASP.
-    It analyzes the last N frames specified by the user with the flag -f.
+    It analyzes the last N frames specified by the user with the flag -f. By default all frames are processed.
     py4vasp, mdtraj and scikit-learn python packages have to be installed in the user's python environment. 
-    Two options are supported for generating initial conditions:
+    Three options are supported for generating initial conditions:
     1) Random sampling of n initial conditions from the last N frames processed (--random).
     2) Sampling of n initial conditions from the last N frames by diving the total number of processed frames by n. 
        One snapshot is taken for each subgroup, so every NFRAMES/n. (--every).
