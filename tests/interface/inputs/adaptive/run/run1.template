@@ -3,3 +3,5 @@ thresholds: {"h": 1}
 interfaces:
     - {"label": "test1", "interface": "QMOUT", "args": [], "kwargs": {}}
     - {"label": "test2", "interface": "QMOUT", "args": [], "kwargs": {}}
+cooldown: 0
+write_angstrom: True

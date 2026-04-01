@@ -1859,12 +1859,14 @@ module input
             write(u_log,'(a,1x,f8.3,1x,a)') 'Non-adiabatic coupling vectors are included for Delta E < ',ctrl%eselect_nac,'eV.'
             write(u_log,'(a)') 'Non-adiabatic coupling vectors are calculated in the second QM calculation.'
         endselect
-        select case (ctrl%nac_projection)
-          case (0)
-            write(u_log,'(a)') 'Not doing NAC projection.'
-          case (1)
-            write(u_log,'(a)') 'Doing NAC projection'
-        endselect
+        if (ctrl%calc_nacdr >= 0) then
+          select case (ctrl%nac_projection)
+            case (0)
+              write(u_log,'(a)') 'Not doing NAC projection.'
+            case (1)
+              write(u_log,'(a)') 'Doing NAC projection'
+          endselect
+        endif
         if (ctrl%calc_second==1) then
           write(u_log,'(a)') 'Doing two QM calculations per step for selection.'
         endif
@@ -3147,7 +3149,7 @@ module input
           if (n>=3) then
             if (trim(values(2))=='file_version') then
                 read(values(3), *) laser_file_version 
-                write(0,*) 'Detected laser file version: ', laser_file_version
+                ! write(0,*) 'Detected laser file version: ', laser_file_version
             endif
           endif
         else
@@ -3159,7 +3161,7 @@ module input
       ! Reading laser file data
       
       if (laser_file_version==2.0) then !Reading for new laser file format
-        write(*,*) "ENTERED LASER FILE VERSION 2.0"
+        ! write(0,*) "ENTERED LASER FILE VERSION 2.0"
         read_shift = 0
         do i=1, com_line_number+1
           read(u_i_laser,'(A)',iostat=io) line                                                                                      
@@ -3207,7 +3209,7 @@ module input
                 ctrl%nlasers = n - read_shift - 1
               ! else
               !  ctrl%nlasers = n - read_shift  !  
-                write(0,*) "Found number of lasers:", ctrl%nlasers 
+                ! write(0,*) "Found number of lasers:", ctrl%nlasers 
                 if (ctrl%nlasers < 1) then
                   write(0,*) 'No central energies for lasers found in ',filename
                   stop 1
@@ -3228,7 +3230,7 @@ module input
       rewind(u_i_laser)
       
       if (laser_file_version==2.0) then
-        write(0,*) 'Laser file version 2.0 detected!'
+        ! write(0,*) 'Laser file version 2.0 detected!'
         if (ctrl%laser_e) then
           allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
         endif
@@ -3246,7 +3248,7 @@ module input
           stop 1
         endif
       else if (laser_file_version==1.0) then
-        write(0,*) 'Laser file version 1.0 detected!'
+        ! write(0,*) 'Laser file version 1.0 detected!'
         allocate(ctrl%laserfield_e_tp(ctrl%nsteps*ctrl%nsubsteps+1,3))
         allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
       endif  !allocate(laser_freq_file_path)

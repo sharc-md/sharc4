@@ -32,8 +32,9 @@ from io import TextIOWrapper
 
 import numpy as np
 import yaml
+from constants import au2a
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, link, mkdir, question, expand_path
+from utils import InDir, expand_path, link, mkdir, question
 
 __all__ = ["SHARC_ADAPTIVE"]
 
@@ -45,26 +46,6 @@ DESCRIPTION = "   HYBRID interface for adaptive sampling"
 
 CHANGELOGSTRING = """
 """
-
-all_features = {
-    "h",
-    "soc",
-    "dm",
-    "grad",
-    "nacdr",
-    "overlap",
-    "phases",
-    "ion",
-    "dmdr",
-    "socdr",
-    "multipolar_fit",
-    "theodore",
-    "point_charges",
-    # raw data request
-    "mol",
-    "wave_functions",
-    "density_matrices",
-}
 
 
 class SHARC_ADAPTIVE(SHARC_HYBRID):
@@ -90,8 +71,11 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                 "exit_on_fail": True,  # Raise exception if threshold exceeded
                 "write_geoms": True,  # Write current geometry to file if threshold exceeded
                 "geom_file": "geoms.xyz",  # Name of geom file
+                "pc_file": "pc",  # Name of point charge file
+                "write_angstrom": False,  # Coords written in Ang or Bohr
                 "interfaces": [],  # List of child parameters
                 "custom_error": {},  # Dictionary with custom loss function
+                "cooldown": -1,  # Wait for n steps before comparing lead and advisor
             }
         )
         self.QMin.template.types.update(
@@ -101,8 +85,11 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                 "exit_on_fail": bool,
                 "write_geoms": bool,
                 "geom_file": str,
+                "pc_file": str,
+                "write_angstrom": bool,
                 "interfaces": list,
                 "custom_error": dict,
+                "cooldown": int,
             }
         )
 
@@ -125,6 +112,9 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
             "mse_max": SHARC_ADAPTIVE._mse_max,
             "rmse": SHARC_ADAPTIVE._rmse,
         }
+
+        # Conversion factor
+        self._unit = 1.0
 
         self._template_file = None
         self._resources_file = None
@@ -194,7 +184,7 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
             except ValueError as exc:
                 self.log.error(f"Invalid threshold value {v} for {k}, value must be float!")
                 raise ValueError from exc
-        for key in ("error_function", "exit_on_fail", "write_geoms", "geom_file", "custom_error"):
+        for key in ("error_function", "exit_on_fail", "write_geoms", "geom_file", "pc_file", "custom_error", "cooldown"):
             if key in tmpl_dict:
                 self.QMin.template[key] = tmpl_dict[key]
 
@@ -204,7 +194,8 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                 self.log.error("custom_error dictionary must contain keys name, file and function!")
                 raise ValueError
             self._error_function[tmpl_dict["custom_error"]["name"].lower()] = self._import_loss(
-                tmpl_dict["custom_error"]["file"], tmpl_dict["custom_error"]["function"]
+                tmpl_dict["custom_error"]["file"],
+                tmpl_dict["custom_error"]["function"],
             )
 
         if self.QMin.template["error_function"].lower() not in self._error_function:
@@ -230,6 +221,10 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                     raise ValueError
         self.QMin.template["interfaces"] = tmpl_dict["interfaces"]
 
+        # Set conversion unit
+        if tmpl_dict.get("write_angstrom", False):
+            self._unit = au2a
+
         self._read_template = True
 
     def setup_interface(self):
@@ -243,10 +238,25 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                 self.log.error(f"{path} does not exist!")
                 raise ValueError
             with InDir(path):
-                self.instantiate_children({child["label"]: (child["interface"], child["args"], child["kwargs"])})
+                self.instantiate_children(
+                    {
+                        child["label"]: (
+                            child["interface"],
+                            child["args"],
+                            child["kwargs"],
+                        )
+                    }
+                )
 
         for child, instance in self._kindergarden.items():
             self.log.debug(f"Setup child {child}")
+
+            # Set child paths
+            instance.QMin.save["savedir"] = os.path.join(self.QMin.save["savedir"], child)
+            instance.QMin.resources["scratchdir"] = os.path.join(self.QMin.resources["scratchdir"], child)
+            instance.QMin.resources["pwd"] = os.path.join(self.QMin.resources["pwd"], child)
+            instance.QMin.resources["cwd"] = os.path.join(self.QMin.resources["cwd"], child)
+
             with InDir(os.path.join(self.QMin.resources["pwd"], child)):
                 instance.setup_mol(self.QMin)
                 instance.read_resources()
@@ -272,13 +282,23 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
             v.set_coords(xyz, pc)
 
     def run(self):
-        self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
+        if self.QMin.save["step"] < self.QMin.template["cooldown"]:
+            leader = next(iter(self._kindergarden.values()))
+            leader.run()
+            leader.getQMout()
+        else:
+            self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
 
     def getQMout(self):
         """
         Check if thresholds for specified properties are exceeded
         Return QMout object of first child
         """
+        self.QMout = next(iter(self._kindergarden.values())).QMout
+
+        if self.QMin.save["step"] < self.QMin.template["cooldown"]:
+            return self.QMout
+
         for prop, thres in self.QMin.template["thresholds"].items():
             err_func = self._error_function[self.QMin.template["error_function"]]
             error = []
@@ -288,7 +308,12 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                         continue
                     match prop:
                         case "h":
-                            error.append(err_func(np.einsum("ii->i", i.QMout["h"]), np.einsum("ii->i", j.QMout["h"])))
+                            error.append(
+                                err_func(
+                                    np.einsum("ii->i", i.QMout["h"]),
+                                    np.einsum("ii->i", j.QMout["h"]),
+                                )
+                            )
                         case "soc":
                             # Set diagonals to zero, then calculate error
                             qmin1 = i.QMout["h"].copy()
@@ -297,7 +322,12 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                             np.einsum("ii->i", qmin2)[:] = 0.0
                             error.append(err_func(qmin1, qmin2))
                         case "nacdr" | "dm":
-                            error.append(err_func(i.QMout[prop], self.phase_correct(i.QMout[prop], j.QMout[prop])))
+                            error.append(
+                                err_func(
+                                    i.QMout[prop],
+                                    self.phase_correct(i.QMout[prop], j.QMout[prop]),
+                                )
+                            )
                         case _:
                             error.append(err_func(i.QMout[prop], j.QMout[prop]))
             if max(error) > thres:
@@ -306,13 +336,23 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
                     with open(self.QMin.template["geom_file"], "a", encoding="utf-8") as geom:
                         geom.write(f"{self.QMin.molecule['natom']}\n\n")
                         for atom, coords in zip(self.QMin.molecule["elements"], self.QMin.coords["coords"]):
-                            geom.write(f"{atom}\t{coords[0]:15.10f}\t{coords[1]:15.10f}\t{coords[2]:15.10f}\n")
+                            geom.write(
+                                f"{atom}\t{coords[0]*self._unit:15.10f}\t{coords[1]*self._unit:15.10f}\t{coords[2]*self._unit:15.10f}\n"
+                            )
+                    if self.QMin.molecule["point_charges"]:
+                        with open(self.QMin.template["pc_file"], "w", encoding="utf-8") as f:
+                            for coord, charge in zip(
+                                self.QMin.coords["pccoords"],
+                                self.QMin.coords["pccharge"],
+                            ):
+                                f.write(
+                                    f"{coord[0]*self._unit:13.8f} {coord[1]*self._unit:13.8f} {coord[2]*self._unit:13.8f} {charge:10.6f}\n"
+                                )
                 if self.QMin.template["exit_on_fail"]:
                     raise ValueError
             else:
                 self.log.info(f"Error of {prop} is {max(error)}")
 
-        self.QMout = next(iter(self._kindergarden.values())).QMout
         self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
 
@@ -358,17 +398,28 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
         return SHARC_ADAPTIVE._changelogstring
 
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None) -> set:
-        features = all_features
         if not self._read_template:
             self._template_file = question(
-                "Please specify the path to your ADAPTIVE.template file", str, KEYSTROKES=KEYSTROKES, default="ADAPTIVE.template"
+                "Please specify the path to your ADAPTIVE.template file",
+                str,
+                KEYSTROKES=KEYSTROKES,
+                default="ADAPTIVE.template",
             )
             self.read_template(self._template_file)
             for child in self.QMin.template["interfaces"]:
-                self.instantiate_children({child["label"]: (child["interface"], child["args"], child["kwargs"])})
+                self.instantiate_children(
+                    {
+                        child["label"]: (
+                            child["interface"],
+                            child["args"],
+                            child["kwargs"],
+                        )
+                    }
+                )
 
-            for instance in self._kindergarden.values():
-                features = features & instance.get_features(KEYSTROKES=KEYSTROKES)
+        features = next(iter(self._kindergarden.values())).get_features()
+        for instance in self._kindergarden.values():
+            features &= instance.get_features(KEYSTROKES=KEYSTROKES)
         return features
 
     def get_infos(self, INFOS: dict, KEYSTROKES: TextIOWrapper | None = None) -> dict:
@@ -378,9 +429,19 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
         self.log.info("=" * 80)
         self.log.info("\n")
 
-        if question("Do you have an ADAPTIVE.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
+        if question(
+            "Do you have an ADAPTIVE.resources file?",
+            bool,
+            KEYSTROKES=KEYSTROKES,
+            autocomplete=False,
+            default=False,
+        ):
             self._resources_file = question(
-                "Specify path to ADAPTIVE.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True, default="ADAPTIVE.resources"
+                "Specify path to ADAPTIVE.resources",
+                str,
+                KEYSTROKES=KEYSTROKES,
+                autocomplete=True,
+                default="ADAPTIVE.resources",
             )
 
         for child, instance in self._kindergarden.items():
@@ -391,9 +452,15 @@ class SHARC_ADAPTIVE(SHARC_HYBRID):
     def prepare(self, INFOS: dict, dir_path: str) -> None:
         create_file = link if INFOS["link_files"] else shutil.copy
 
-        create_file(expand_path(self._template_file), os.path.join(dir_path, "ADAPTIVE.template"))
+        create_file(
+            expand_path(self._template_file),
+            os.path.join(dir_path, "ADAPTIVE.template"),
+        )
         if self._resources_file:
-            create_file(expand_path(self._resources_file), os.path.join(dir_path, "ADAPTIVE.resources"))
+            create_file(
+                expand_path(self._resources_file),
+                os.path.join(dir_path, "ADAPTIVE.resources"),
+            )
 
         for child, instance in self._kindergarden.items():
             child_dir = os.path.join(dir_path, child)

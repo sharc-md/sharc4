@@ -438,7 +438,7 @@ def get_cycles(rate_matrix):
         rank, null = nullspace(A)
         nullrank = len(A[0]) - rank
         if nullrank > 0:
-            print('  The reaction network contains %i %s!' % (nullrank, ['cycles', 'cycle'][nullrank == 1]))
+            print('  The reaction network contains %i %s!' % (nullrank, ['cycles', 'cycle'][int(nullrank == 1)]))
         return nullrank
     else:
         print('  Hint: Cannot check for cycles without NUMPY!')

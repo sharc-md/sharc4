@@ -392,13 +392,13 @@ subroutine get_tasks_mask_(step, icall, tasks_mask) bind(C)
     if (ctrl%calc_dipole==2) tasks_mask = ibset(tasks_mask, 7)
     if ((traj%step==0).and.(ctrl%track_phase_at_zero==1)) tasks_mask = ibset(tasks_mask, 2)
 
-        if (traj%step>=1) then
+    if (traj%step>=1) then
       if (ctrl%calc_nacdt==1)    tasks_mask = ibset(tasks_mask, 3)
       if (ctrl%calc_overlap==1)  tasks_mask = ibset(tasks_mask, 4)
       if (ctrl%calc_phases==1)   tasks_mask = ibset(tasks_mask, 2)
     end if
 
-        if (ctrl%ionization>0) then
+    if (ctrl%ionization>0) then
       if (mod(traj%step, ctrl%ionization)==0) tasks_mask = ibset(tasks_mask, 5)
     end if
 
@@ -409,12 +409,13 @@ subroutine get_tasks_mask_(step, icall, tasks_mask) bind(C)
   else if (icall == 2) then
     if (ctrl%calc_grad==2)       call select_grad(traj,ctrl)
     if (ctrl%calc_nacdr==2)      call select_nacdr(traj,ctrl)
-        if (ctrl%calc_dipolegrad==2) call select_dipolegrad(traj,ctrl)
+    if (ctrl%calc_dipolegrad==2) call select_dipolegrad(traj,ctrl)
 
   else if (icall == 3) then
         call select_grad(traj,ctrl)
 
   else
+    write(0,*) "In get_tasks_mask_, icall was not in [1,2,3]"
         call Exit(100)
   end if
 end subroutine
@@ -451,24 +452,22 @@ subroutine get_grad_mode_(icall, mode) bind(C)
     mode = 2_c_int8_t     ! SUBSET (selg_s used)
 
   else
+    write(0,*) "In get_grad_mode_, icall was not in [1,2,3]"
     call Exit(100)
   end if
 end subroutine
 
-subroutine fill_grad_mask_(nstates_in, words) bind(C)
-  use, intrinsic :: iso_c_binding, only: c_int, c_int64_t
+subroutine fill_grad_mask_(words) bind(C)
+  use, intrinsic :: iso_c_binding, only: c_int64_t
     use memory_module, only: traj, ctrl
     implicit none
 
-  integer(c_int),     intent(in)  :: nstates_in
   integer(c_int64_t), intent(out) :: words(*)   ! size = ceil(nstates/64)
 
   integer :: i, w, b, nstates
   integer :: nwords
 
   nstates = ctrl%nstates
-  if (nstates /= nstates_in) call Exit(100)
-
   nwords = (nstates + 63) / 64
 
   do w = 1, nwords
@@ -519,21 +518,18 @@ subroutine get_nacdr_mode_(icall, mode) bind(C)
   end if
 end subroutine
 
-subroutine fill_nacdr_mask_(nstates_in, words) bind(C)
-  use iso_c_binding, only: c_int, c_int64_t
+subroutine fill_nacdr_mask_(words) bind(C)
+  use iso_c_binding, only: c_int64_t
   use memory_module, only: traj, ctrl
   implicit none
 
-  integer(c_int),    intent(in)  :: nstates_in
   integer(c_int64_t),intent(out) :: words(*)
 
   integer :: i, j, idx, w, b, nstates
   integer :: nbits, nwords
 
   nstates = ctrl%nstates
-  if (nstates /= nstates_in) call Exit(100)
-
-  nbits  = nstates * nstates
+  nbits  = ctrl%nstates * ctrl%nstates
   nwords = (nbits + 63) / 64
 
   do w = 1, nwords

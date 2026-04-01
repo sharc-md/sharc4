@@ -33,7 +33,7 @@ from scipy.linalg import fractional_matrix_power
 from itertools import starmap, chain
 
 from constants import IToMult
-from utils import itnmstates, readfile
+from utils import itnmstates, readfile, phase_correction
 from printing import printheader
 from qmout import QMout
 
@@ -290,57 +290,57 @@ def partition_matrix(matrix, multiplicity, states):
 
 # ======================================================================= #
 
-def phase_correction_do_nothing(matrix):
-    return matrix.real.copy()
+# def phase_correction_do_nothing(matrix):
+#     return matrix.real.copy()
 
 
-def phase_correction(matrix):
-    U = matrix.real.copy()
-    det = np.linalg.det(U)
-    if det < 0:
-        U[:, 0] *= -1.0  # this row/column convention is correct
+# def phase_correction(matrix):
+#     U = matrix.real.copy()
+#     det = np.linalg.det(U)
+#     if det < 0:
+#         U[:, 0] *= -1.0  # this row/column convention is correct
 
-    # sweeps
-    l = len(U)
-    sweeps = 0
-    while True:
-        done = True
-        for j in range(l):
-            for k in range(j + 1, l):
-                delta = 3.0 * (U[j, j] ** 2 + U[k, k] ** 2)
-                delta += 6.0 * U[j, k] * U[k, j]
-                delta += 8.0 * (U[k, k] + U[j, j])
-                delta -= 3.0 * (U[j, :] @ U[:, j] + U[k, :] @ U[:, k])
-                # for i in range(l):
-                # delta -= 3.0 * (U[j, i] * U[i, j] + U[k, i] * U[i, k])
-                if delta < -1e-15:  # needs proper threshold towards 0
-                    U[:, j] *= -1.0  # this row/column convention is correct
-                    U[:, k] *= -1.0  # this row/column convention is correct
-                    done = False
-        sweeps += 1
-        if done:
-            break
-    return U
+#     # sweeps
+#     l = len(U)
+#     sweeps = 0
+#     while True:
+#         done = True
+#         for j in range(l):
+#             for k in range(j + 1, l):
+#                 delta = 3.0 * (U[j, j] ** 2 + U[k, k] ** 2)
+#                 delta += 6.0 * U[j, k] * U[k, j]
+#                 delta += 8.0 * (U[k, k] + U[j, j])
+#                 delta -= 3.0 * (U[j, :] @ U[:, j] + U[k, :] @ U[:, k])
+#                 # for i in range(l):
+#                 # delta -= 3.0 * (U[j, i] * U[i, j] + U[k, i] * U[i, k])
+#                 if delta < -1e-15:  # needs proper threshold towards 0
+#                     U[:, j] *= -1.0  # this row/column convention is correct
+#                     U[:, k] *= -1.0  # this row/column convention is correct
+#                     done = False
+#         sweeps += 1
+#         if done:
+#             break
+#     return U
 
 
-def phase_correction_old(matrix):
-    length = len(matrix)
-    # phase_corrected_matrix = [[0.0 for x in range(length)] for x in range(length)]
-    phase_corrected_matrix = np.zeros_like(matrix)
+# def phase_correction_old(matrix):
+#     length = len(matrix)
+#     # phase_corrected_matrix = [[0.0 for x in range(length)] for x in range(length)]
+#     phase_corrected_matrix = np.zeros_like(matrix)
 
-    for i in range(length):
-        diag = matrix[i][i].real
+#     for i in range(length):
+#         diag = matrix[i][i].real
 
-        # look if diag is significant and negative & switch phase
-        if diag**2 > 0.5 and diag < 0:
-            for j in range(length):
-                phase_corrected_matrix[j][i] = matrix[j][i] * -1
-        # otherwise leave values as is
-        else:
-            for j in range(length):
-                phase_corrected_matrix[j][i] = matrix[j][i]
+#         # look if diag is significant and negative & switch phase
+#         if diag**2 > 0.5 and diag < 0:
+#             for j in range(length):
+#                 phase_corrected_matrix[j][i] = matrix[j][i] * -1
+#         # otherwise leave values as is
+#         else:
+#             for j in range(length):
+#                 phase_corrected_matrix[j][i] = matrix[j][i]
 
-    return phase_corrected_matrix
+#     return phase_corrected_matrix
 
 
 # ======================================================================= #
@@ -379,7 +379,7 @@ def calculate_W_dQi(H, S, e_ref):
 
     # do loewdin orthonorm. on overlap matrix
     U = loewdin_orthonormalization(S)
-    U = phase_correction(U)
+    U, _ = phase_correction(U)
 
     # <old|new><new|new><new|old> -> <old|old>
     return np.dot(np.dot(U, H), U.T) - np.eye(H.shape[0]) * e_ref
@@ -569,21 +569,22 @@ def write_LVC_template(INFOS, template_name):
 
             # Loop over multiplicities to get kappas and lambdas
             # Loop over multiplicities
-            # TODO: could be that we need to remove the nondiagonal entries here!
             start = 0
             for imult, nsi in enumerate(INFOS["states"]):
                 if nsi == 0:
                     continue
                 part_h_pos = QMout_pos.h[start : start + nsi, start : start + nsi].real
+                part_h_pos[:] = np.diag(np.diag(part_h_pos))
                 part_ovl_pos = QMout_pos.overlap[start : start + nsi, start : start + nsi].real
                 part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
-                part_ovl_pos = phase_correction(part_ovl_pos)
+                part_ovl_pos, _ = phase_correction(part_ovl_pos)
                 pos_partition = part_ovl_pos @ part_h_pos @ part_ovl_pos.T
 
                 part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
+                part_h_neg[:] = np.diag(np.diag(part_h_neg))
                 part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
                 part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
-                part_ovl_neg = phase_correction(part_ovl_neg)
+                part_ovl_neg, _ = phase_correction(part_ovl_neg)
                 neg_partition = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
                 # checking problematic states
                 if INFOS["ignore_problematic_states"]:
@@ -692,12 +693,14 @@ def write_LVC_template(INFOS, template_name):
                         start += nsi
 
             part_ovl_pos = loewdin_orthonormalization(QMout_pos.overlap)
-            part_ovl_pos = phase_correction(part_ovl_pos)
+            part_ovl_pos, phases = phase_correction(part_ovl_pos)
+            QMout_pos.h = QMout_pos.h * np.outer(phases,phases)
             pos_partition = part_ovl_pos @ QMout_pos.h @ part_ovl_pos.T
 
             if twosided:
                 part_ovl_neg = loewdin_orthonormalization(QMout_neg.overlap)
-                part_ovl_neg = phase_correction(part_ovl_neg)
+                part_ovl_neg, phases = phase_correction(part_ovl_neg)
+                QMout_neg.h = QMout_neg.h * np.outer(phases,phases)
                 neg_partition = part_ovl_neg @ QMout_neg.h @ part_ovl_neg.T
 
             if twosided:

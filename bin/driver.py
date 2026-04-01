@@ -255,7 +255,7 @@ def main():
     QMout = QMOUT(derived_int.__class__.__name__, basic_info["NAtoms"], basic_info["nmstates"])
 
     derived_int.setup_mol(basic_info)
-    nstates = derived_int.QMin.molecule["nstates"]
+    nstates = derived_int.QMin.molecule["nmstates"]
 
     with InDir("QM"):
         derived_int.read_resources()

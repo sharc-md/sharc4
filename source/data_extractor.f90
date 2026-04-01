@@ -732,10 +732,10 @@ program data_extractor
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
     allocate( DM_mch_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
-    allocate ( MDM_mch_ssd(nstates,nstates,3) )
-    allocate ( MDM_diag_ssd(nstates,nstates,3) )
-    allocate ( EQM_mch_ssdd(nstates,nstates,3,3) )
-    allocate ( EQM_diag_ssdd(nstates,nstates,3,3) )
+    allocate( MDM_mch_ssd(nstates,nstates,3) )
+    allocate( MDM_diag_ssd(nstates,nstates,3) )
+    allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
+    allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
     allocate( dm_proj_sp(nstates,nprojections) )
     allocate( proj_vec_pd(nprojections,3) )
     allocate( norm_proj_vec_p(nprojections) )
@@ -926,21 +926,21 @@ program data_extractor
     endif
 
     if (write_dip) then
-      allocate( DM_mch_ssd(nstates,nstates,3) )
-      allocate( DM_diag_ssd(nstates,nstates,3) )
+      ! allocate( DM_mch_ssd(nstates,nstates,3) )
+      ! allocate( DM_diag_ssd(nstates,nstates,3) )
       allocate( dm_proj_sp(nstates,nprojections) )
       allocate( expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
     endif
     if (write_mag_dip) then
-      allocate( MDM_mch_ssd(nstates,nstates,3) )
-      allocate( MDM_diag_ssd(nstates,nstates,3) )
+      ! allocate( MDM_mch_ssd(nstates,nstates,3) )
+      ! allocate( MDM_diag_ssd(nstates,nstates,3) )
       allocate( mdm_proj_sp(nstates,nprojections) ) 
       allocate( expec_mdm(nstates),expec_mdm_mch(nstates),expec_mdm_act(nstates) )
       !MDM_mch_ssd=dcmplx(0.d0,0.d0)
     endif
     if (write_el_quad) then
-      allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
-      allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
+      ! allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
+      ! allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
       allocate( eqm_proj_sp(nstates,nprojections) )  
       allocate( expec_eqm(nstates),expec_eqm_mch(nstates),expec_eqm_act(nstates) )
       !EQM_mch_ssdd=dcmplx(0.d0,0.d0)

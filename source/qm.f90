@@ -234,7 +234,7 @@ module qm
       enddo
     endif
 
-    ! get electric Dipole moments (DM), magnetic DM, electric QM
+    ! get magnetic DM, electric QM
     if (ctrl%calc_dipole>=2) then
       call get_magnetic_dipoles(ctrl%nstates, traj%MDM_ssd)
       if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic Dipole Moments:                ','OK' 
@@ -1046,17 +1046,19 @@ module qm
       call matwrite(ctrl%nstates,traj%DM_ssd(:,:,i),u,'Dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
     enddo
     write(u,*)
-    do i=1,3
-      call matwrite(ctrl%nstates,traj%MDM_ssd(:,:,i),u,'Magnetic dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
-    enddo 
-    write(u,*)
-    do i=1,3
-      do j=1,3
-        call matwrite(ctrl%nstates,traj%EQM_ssdd(:,:,i,j),u,'Electric quadrupole matrix (MCH basis) '//xyz(i)//''//xyz(j)//' direction','F9.4')
-      enddo
+    if (ctrl%calc_dipole>=2) then
+      do i=1,3
+        call matwrite(ctrl%nstates,traj%MDM_ssd(:,:,i),u,'Magnetic dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
+      enddo 
       write(u,*)
-    enddo  
-    write(u,*)
+      do i=1,3
+        do j=1,3
+          call matwrite(ctrl%nstates,traj%EQM_ssdd(:,:,i,j),u,'Electric quadrupole matrix (MCH basis) '//xyz(i)//''//xyz(j)//' direction','F9.4')
+        enddo
+        write(u,*)
+      enddo  
+      write(u,*)
+    endif 
     do i=1,ctrl%nstates
       write(string,'(A27,I3)') 'Gradient (MCH basis) state ',i
       call vec3write(ctrl%natom,traj%grad_MCH_sad(i,:,:),u,trim(string),'F9.4')
@@ -1128,8 +1130,10 @@ module qm
     traj%H_diag_old_ss=traj%H_diag_ss
  
     traj%DM_old_ssd=traj%DM_ssd
-    traj%MDM_old_ssd=traj%MDM_ssd
-    traj%EQM_old_ssdd=traj%EQM_ssdd
+    if (ctrl%calc_dipole>=2) then
+      traj%MDM_old_ssd=traj%MDM_ssd
+      traj%EQM_old_ssdd=traj%EQM_ssdd
+    endif 
     traj%U_old_ss=traj%U_ss
     traj%NACdt_old_ss=traj%NACdt_ss
     traj%NACdr_old_ssad=traj%NACdr_ssad
@@ -1645,10 +1649,14 @@ end subroutine phase_correction_zhou
 
         select case (ctrl%phase_correction_algo)
           case (0)
-            ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 -> more robust for plan wave basis sets 
-            ! where overlap matrix is not real
+            ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 
+            ! -> more robust for plan wave basis sets where overlap matrix is not real
             do istate=1,ctrl%nstates
-              correction=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+              if (abs(traj%overlaps_ss(istate,istate))>1.d-12) then
+                correction=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+              else
+                correction=dcmplx(1.d0,0.d0)
+              endif
               traj%phases_s(istate)=traj%phases_old_s(istate)*correction 
             enddo
           case (1)
@@ -1760,14 +1768,22 @@ end subroutine phase_correction_zhou
       do istate=1,ctrl%nstates
           traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
       enddo
-    endif
+    endif ! phases_found
     
-    ! check if phases have all norm 1
+    ! all the various ways to update the phases are finished now, so we have the 
+    ! old and new phases and can check them and then apply them to all matrices
+
+
+    ! check if phases have all norm 1 and are not NaN
     ! all_unit_norm = .true.
     do istate=1,ctrl%nstates
       tmp=abs(abs(traj%phases_s(istate)) - 1.d0)
       if ( tmp > 1.d-6  ) then
         write(u_log,'(A,1X,I4,1X,E14.6)') 'Phase was not unity',istate,tmp
+        traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+      endif
+      if (tmp /= tmp) then
+        write(u_log,'(A,1X,I4,1X,E14.6)') 'Phase was NaN',istate,tmp
         traj%phases_s(istate) = dcmplx(1.d0,0.d0)
       endif
     enddo

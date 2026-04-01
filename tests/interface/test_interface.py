@@ -377,13 +377,13 @@ def test_driver_requests():
         (
             os.path.join(expand_path(PATH), "inputs/QM5.in"),
             {"step": 0, "SOC": True, "DM": True, "grad": "all"},
-            {"h": True, "soc": True, "dm": True, "grad": [1, 2, 3, 4, 5, 6], "nacdr": None, "overlap": False, "phases": False},
+            {"h": True, "soc": True, "dm": True, "grad": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "nacdr": None, "overlap": False, "phases": False},
             0,
         ),
         (
             os.path.join(expand_path(PATH), "inputs/QM5.in"),
             {"step": 1, "SOC": True, "DM": True, "OVERLAP": True, "PHASES": True, "grad": "all"},
-            {"h": True, "soc": True, "dm": True, "grad": [1, 2, 3, 4, 5, 6], "nacdr": None, "overlap": True, "phases": True},
+            {"h": True, "soc": True, "dm": True, "grad": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "nacdr": None, "overlap": True, "phases": True},
             1,
         ),
         (
@@ -393,7 +393,7 @@ def test_driver_requests():
                 "h": True,
                 "soc": True,
                 "dm": True,
-                "grad": [1, 2, 3, 4, 5, 6],
+                "grad": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
                 "nacdr": [
                     (1, 1),
                     (1, 2),

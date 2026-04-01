@@ -477,6 +477,7 @@ def get_interface() -> SHARC_INTERFACE:
     log.info("")
     log.info("The following interface was selected:")
     log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
+    log.info("")
     return Interfaces[num-1][1]
 
 

@@ -84,6 +84,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.persistent = False
 
         # Add ab-initio specific keywords to template
         self.QMin.template.update({"density_calculation_methods": ["from_gs2es", "from_determinants"], "tCI": 1e-7})

@@ -1138,6 +1138,10 @@ class SHARC_ORCA(SHARC_ABINITIO):
             ):
                 self.log.warning("SOCs requested but only 1 multiplicity given! Disable SOCs")
                 self.QMin.requests["soc"] = False
+            else:
+                if self.QMin.template["unrestricted_triplets"]:
+                    self.log.error("SOCs are not possible with unrestricted_triplets")
+                    raise RuntimeError
 
     def read_resources(self, resources_file: str = "ORCA.resources", kw_whitelist: list[str] | None = None) -> None:
         if kw_whitelist is None:
@@ -1269,6 +1273,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
             states_to_do[0] = req + 1
             states_to_do[2] = req
+        # TODO: setup_interface should not check for requests
         elif self.QMin.requests["soc"] and len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
             self.log.error("Request SOC is not compatible with unrestricted_triplets!")
             raise ValueError()

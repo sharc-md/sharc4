@@ -36,6 +36,7 @@ import datetime
 import re
 from optparse import OptionParser
 from constants import au2fs, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, AMBERVEL_TO_AU, MASSES, NUMBERS
+from utils import readfile, writefile
 
 # =========================================================
 # some constants
@@ -43,38 +44,6 @@ DEBUG = False
 
 version = '4.0'
 versiondate = datetime.date(2025, 4, 1)
-
-# =========================================================
-
-def readfile(filename):
-    try:
-        f = open(filename)
-        out = f.readlines()
-        f.close()
-    except IOError:
-        print('File %s does not exist!' % (filename))
-        sys.exit(13)
-    return out
-
-# ======================================================================= #
-
-
-def writefile(filename, content):
-    # content can be either a string or a list of strings
-    try:
-        f = open(filename, 'w')
-        if isinstance(content, list):
-            for line in content:
-                f.write(line)
-        elif isinstance(content, str):
-            f.write(content)
-        else:
-            print('Content %s cannot be written to file!' % (content))
-            sys.exit(14)
-        f.close()
-    except IOError:
-        print('Could not write to file %s!' % (filename))
-        sys.exit(15)
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -550,6 +519,22 @@ def get_atoms_from_prmtop(filename):
 # ======================================================================================================================
 # ======================================================================================================================
 
+# def is_ascii_restart(filename: str) -> bool:
+#     with open(filename, 'rb') as f:
+#         head = f.read(100)  # read first 100 bytes
+#         try:
+#             head.decode('ascii')  # try decoding as ASCII
+#             return True
+#         except UnicodeDecodeError:
+#             return False
+
+def is_netcdf_restart(filename: str) -> bool:
+    with open(filename, 'rb') as f:
+        head = f.read(4)
+        return head in [b'CDF\x01', b'CDF\x02']  # classic NetCDF and 64-bit offset
+
+def is_ascii_restart(filename: str) -> bool:
+    return not is_netcdf_restart(filename)  # fallback: assume ASCII if not NetCDF
 
 def get_coords(INFOS):
 
@@ -564,7 +549,11 @@ def get_coords(INFOS):
     dt /= au2fs             # convert to atomic units
     dt *= 0.5               # only take half a timestep to get correct geometry
 
-
+    # check if the first restart file is ASCII
+    if not is_ascii_restart(INFOS["filename_rsts"][0]):
+        print("\nERROR:\nThe first restart file seems to be not in ASCII format.")
+        print("This script can only process ASCII restart files (rst7).\n")
+        raise RuntimeError
 
 
     # initialize arrays

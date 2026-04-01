@@ -127,6 +127,8 @@ class SHARC_LVC(SHARC_FAST):
         self._G = {im: np.zeros((n, n, r3N, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
         self._h = {im: np.zeros((n, n), dtype=float) for im, n in enumerate(states) if n != 0}
         self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
+        self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
+        self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
         self._soc = np.zeros((nmstates, nmstates), dtype=complex)
         self._U = np.zeros((nmstates, nmstates), dtype=float)
         self._Q = np.zeros(r3N, float)
@@ -239,6 +241,7 @@ class SHARC_LVC(SHARC_FAST):
                 line = f.readline()
                 continue
             factor = 1j if line.split()[-1] == "I" else 1
+            
             if "SOC" in line:
                 if factor != 1:
                     soc_real = False
@@ -249,8 +252,9 @@ class SHARC_LVC(SHARC_FAST):
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
+
             elif "DM" in line and "MDM" not in line and "EQM" not in line:
-                j = xyz[line[2]]
+                j = xyz[line.split()[0][2]]
                 if factor != 1:
                     dipole_real = False
                 line = f.readline()
@@ -259,9 +263,9 @@ class SHARC_LVC(SHARC_FAST):
                     self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
+
             elif "MDM" in line:
-                self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
-                j = xyz[line[3]]
+                j = xyz[line.split()[0][3]]
                 if factor != 1:
                     mag_dipole_real = False
                 line = f.readline()
@@ -272,10 +276,8 @@ class SHARC_LVC(SHARC_FAST):
                     line = f.readline()
 
             elif "EQM" in line:
-                self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
-                print(line)
-                k = xyz[line[3]]  # Readout of derivative direction EQMXY -> X
-                j = xyz[line[4]]  # Readout of polarization direction  -> Y
+                k = xyz[line.split()[0][3]]  # Readout of derivative direction EQMXY -> X
+                j = xyz[line.split()[0][6]]  # Readout of polarization direction  -> Y
                 if factor != 1:
                     el_quadrupole_real = False
                 line = f.readline()
@@ -305,6 +307,7 @@ class SHARC_LVC(SHARC_FAST):
             else:
                 line = f.readline()
         f.close()
+
         # setting type as necessary (converting type through view and reshape is a lot faster that simple astype
         # assignemnt)
         if soc_real:
@@ -368,7 +371,7 @@ class SHARC_LVC(SHARC_FAST):
                 
 
     def getQMout(self):
-        self.QMout["runtime"] = self.clock.measuretime(False)
+        self.QMout["runtime"] = self.clock.measuretime(log=self.log.debug)
         return self.QMout
 
     @staticmethod
@@ -511,9 +514,7 @@ class SHARC_LVC(SHARC_FAST):
         # sanity check for coordinates - check if centre of mass is conserved
         elif self.QMin.save["step"] == 0:
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
-            if not np.allclose(self._com_ref, self._com_coords, rtol=1e-3) or not np.allclose(
-                np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5
-            ):
+            if not np.allclose(self._com_ref, self._com_coords, atol=1e-6) or not np.allclose(self._Trot, np.eye(3), atol=1e-6):
                 raise RuntimeError(
                     "Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch"
                 )

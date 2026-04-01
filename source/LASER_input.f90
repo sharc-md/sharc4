@@ -175,8 +175,10 @@ subroutine read_params
       
       !Orthonormalize E-field and B-field, whereby the E-field polarization is only normalized
       polarization_b(:, ilasers) = z3gram_schmidt_vec1_on_vec2(polarization_b(:, ilasers), polarization_e(:, ilasers))
-      write(6,*) 'Gram-Schmidt orthonormalized E-field polarisation:', polarization_e(:, ilasers)
-      write(6,*) 'Gram-Schmidt orthonormalized B-field polarisation:', polarization_b(:, ilasers)
+      write(6,*) 'Gram-Schmidt orthonormalized E-field polarisation:'
+      write(6,*)  polarization_e(:, ilasers)
+      write(6,*) 'Gram-Schmidt orthonormalized B-field polarisation:'
+      write(6,*)  polarization_b(:, ilasers)
     endif
 
     write(6,*) 'Choose type of envelope (1=Gaussian,2=Sinusoidal):'

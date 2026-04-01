@@ -25,4 +25,5 @@ nac_select
 eselect      0.5
 
 select_directly
+spinorbit
 output_format ascii

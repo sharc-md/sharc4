@@ -1112,7 +1112,11 @@ module definitions
         ! in TSH, if one is using projected NAC, the vector is given in
         ! traj%hopping_direction_ssad and traj%frustrated_hop_vec_ssad
         allocate_pNACdR_GB_ssad=0
-        if (ctrl%method==1 .and. ctrl%nac_projection==1) then
+        if ((ctrl%method==1 .and. ctrl%nac_projection==1) .or. &
+          &(ctrl%method==0 .and. (ctrl%ekincorrect==2 .or. ctrl%ekincorrect==5 .or. ctrl%ekincorrect==6 .or. ctrl%ekincorrect==8)) .or. &
+          &(ctrl%method==0 .and. (ctrl%reflect_frustrated==2 .or. ctrl%reflect_frustrated==5 .or. ctrl%reflect_frustrated==6 .or. &
+          &ctrl%reflect_frustrated==8 .or. ctrl%reflect_frustrated==92 .or. ctrl%reflect_frustrated==95 .or. &
+          &ctrl%reflect_frustrated==96 .or. ctrl%reflect_frustrated==98))) then
           allocate_pNACdR_GB_ssad=1
         endif
   

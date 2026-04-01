@@ -615,19 +615,7 @@ class SHARC_INTERFACE(ABC):
         if not self.QMin.molecule["charge"]:
             self.QMin.molecule["charge"] = [i % 2 for i in range(len(self.QMin.molecule["states"]))]
             self.log.warning(f"charge not specified setting default, {self.QMin.molecule['charge']}")
-        else:
-            # sanity check
-            if len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
-                self.QMin.molecule["charge"] = [
-                    int(self.QMin.molecule["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
-                ]
-
-                for mult, c in enumerate(self.QMin.molecule["charge"]):
-                    if self.QMin.molecule["states"][mult] > 0 and mult % 2 != (self.QMin.molecule["Atomcharge"] - c) % 2:
-                        self.log.error(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
-                        raise ValueError(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
-            else:
-                raise ValueError('Length of "charge" does not match length of "states"!')
+        self._check_charge()
 
         self.QMout.charges = self.QMin.molecule["charge"][:]
 
@@ -657,6 +645,22 @@ class SHARC_INTERFACE(ABC):
         self._setup_mol = True
 
         self.log.debug("Setup successful.")
+
+    def _check_charge(self) -> None:
+        """
+        Check if total charges and multiplicities match
+        """
+        if len(self.QMin.molecule["charge"]) >= len(self.QMin.molecule["states"]):
+            self.QMin.molecule["charge"] = [
+                int(self.QMin.molecule["charge"][i]) for i in range(len(self.QMin.molecule["states"]))
+            ]
+
+            for mult, c in enumerate(self.QMin.molecule["charge"]):
+                if self.QMin.molecule["states"][mult] > 0 and mult % 2 != (self.QMin.molecule["Atomcharge"] - c) % 2:
+                    self.log.error(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
+                    raise ValueError(f"Spin and Charge do not fit! {mult} {c} -> {c+self.QMin.molecule['Atomcharge']}")
+        else:
+            raise ValueError('Length of "charge" does not match length of "states"!')
 
     def parseStates(self, states: str) -> dict[str, Any]:
         """
@@ -1011,7 +1015,7 @@ class SHARC_INTERFACE(ABC):
     def _all_grad_cache(self):
         cache = self._all_grad
         if cache is None:
-            cache = list(range(1, self.QMin.molecule["nstates"] + 1))
+            cache = list(range(1, self.QMin.molecule["nmstates"] + 1))
             self._all_grad = cache
         return cache
 
@@ -1045,11 +1049,11 @@ class SHARC_INTERFACE(ABC):
             if requests["grad_mode"] == 1:
                 req["grad"] = self._all_grad_cache()
             elif requests["grad_mode"] == 2:
-                req["grad"] = decode_grad(requests["grad_mask"], self.QMin.molecule["nstates"])
+                req["grad"] = decode_grad(requests["grad_mask"], self.QMin.molecule["nmstates"])
             if requests["nacdr_mode"] == 1:
                 req["nacdr"] = self._all_nacdr_cache()
             elif requests["nacdr_mode"] == 2:
-                req["nacdr"] = nacdr_pairs(requests["nacdr_mask"], self.QMin.molecule["nstates"])
+                req["nacdr"] = nacdr_pairs(requests["nacdr_mask"], self.QMin.molecule["nmstates"])
         else:
             for k, v in requests.items():
                 kl = k.lower()

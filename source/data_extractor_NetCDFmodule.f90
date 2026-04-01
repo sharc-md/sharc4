@@ -1618,8 +1618,7 @@ contains
           !    !endif
           endif                                 
        enddo                                     
-    enddo                                         
-    write(*,*) "SUMmodule", sum
+    enddo                                   
 
 !     compute density matrix
       do istate=1,nstates

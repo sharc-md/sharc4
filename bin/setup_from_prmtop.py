@@ -23,8 +23,11 @@
 #
 # ******************************************
 
-
-import parmed as pmd
+try:
+    import parmed as pmd
+except ModuleNotFoundError:
+    print("ERROR: Parmed is currently not compatible with modern NumPy versions. Please install numpy<2.3 and retry")
+    raise
 import re
 import os
 from constants import au2a
