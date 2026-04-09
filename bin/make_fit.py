@@ -1286,7 +1286,7 @@ def make_fit(INFOS):
 
     # bounds
     if INFOS['bounds']:
-        bounds = (1e-7, np.inf)
+        bounds = (1e-8, np.inf)
     else:
         bounds = (-np.inf, np.inf)
 

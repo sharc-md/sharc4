@@ -552,7 +552,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Check for basis and cas settings
         for i in ["basis", "nactel", "ras2", "inactive"]:
-            if not self.QMin.template[i]:
+            if self.QMin.template[i] is None:
                 self.log.error(f"Key {i} is missing in template file!")
                 raise ValueError()
 

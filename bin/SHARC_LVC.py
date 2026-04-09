@@ -794,6 +794,7 @@ class SHARC_LVC(SHARC_FAST):
             else:
                 adia_soc = np.einsum('in,ij,jm->nm', self._U, self._soc, self._U, casting='safe', optimize=["einsum_path", (0,1),(0,1)])
                 self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
+            # TODO: one should actually rotate the SOCs according to the Kabsch rotation matrix
 
             if adia_soc.dtype == complex:
                 Hd = Hd.astype(complex)
