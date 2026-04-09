@@ -480,7 +480,7 @@ def write_LVC_template(INFOS, template_name):
                     if k**2 > pthresh:
                         kappa_str_list.append("%3i %3i %5i % .5e\n" % (imult + 1, i + 1, int(normal_mode), k))
                         nkappa += 1
-            start += nsi
+            start += nsi*(imult+1)
 
     # ------------------------ lambda --------------------------
     lam = 0
@@ -641,7 +641,7 @@ def write_LVC_template(INFOS, template_name):
                                     "%3i %3i %3i %3i % .5e\n" % (imult + 1, i + 1, j + 1, int(normal_mode), lam)
                                 )
                                 nlambda += 1
-                start += nsi
+                start += nsi*(imult+1)
 
     # ------------------------ lambda_soc --------------------------
 
@@ -683,14 +683,20 @@ def write_LVC_template(INFOS, template_name):
             # Loop over multiplicities to get kappas and lambdas
             # Loop over multiplicities
             # TODO: block handling is not correct: actually, we could just remove the diagonal
-            start = 0
-            for imult, nsi in enumerate(INFOS["states"]):
-                if nsi != 0:
-                    for _ in range(imult + 1):
-                        QMout_pos.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
-                        if twosided:
-                            QMout_neg.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
-                        start += nsi
+            # start = 0
+            # for imult, nsi in enumerate(INFOS["states"]):
+            #     if nsi == 0:
+            #         continue
+            #     for _ in range(imult + 1):
+            #         QMout_pos.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
+            #         if twosided:
+            #             QMout_neg.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
+            #         start += nsi
+
+            # TODO: I think this is the correct way to do it, in order to also get M_S=M_S lambda_socs
+            np.fill_diagonal(QMout_pos.h, 0.0 + 0.0j)
+            if twosided:
+                np.fill_diagonal(QMout_neg.h, 0.0 + 0.0j)
 
             part_ovl_pos = loewdin_orthonormalization(QMout_pos.overlap)
             part_ovl_pos, phases = phase_correction(part_ovl_pos)
@@ -866,7 +872,7 @@ def write_LVC_template(INFOS, template_name):
                 # )
                 # )
                 # )
-                start += nsi
+                start += nsi*(imult+1)
 
     # approximation from second order central
     if "gammas" in INFOS and INFOS["gammas"] == "second order central":
@@ -954,7 +960,7 @@ def write_LVC_template(INFOS, template_name):
                     )
                 )
 
-                start = start + nsi
+                start = start + nsi*(imult+1)
 
     # calculate gammas from approximatin the hessian through diabatized gradients at displacements and equilibrium geometry
     print("gammas", INFOS["gammas"])
@@ -1098,7 +1104,7 @@ def write_LVC_template(INFOS, template_name):
                             )
                         )
                     )
-                start += nsi
+                start += nsi*(imult+1)
 
     # add results to template string
     lvc_template_content += "kappa\n"
