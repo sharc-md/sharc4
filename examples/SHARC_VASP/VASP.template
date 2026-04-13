@@ -28,8 +28,8 @@ a2 0.0 10.0 0.0 # 2ns lattice vector.
 
 a3 0.0 0.0 10.0 # 3rd lattice vector. 
 
-overlap_method full # Selecting pawpyseed method for overlap computations. 
-                    # Either "full" for AE overlaps or "pseudo" for PS overlaps are available.
+overlap_method pawpyseed #By default overlap computation is provided by pawpyseed. "vasp" could also be selected to 
+                         #provide vasp overlap among KS orbitals. This is option is still under testing! 
 
 phases_method simple #Selecting method for phases correction of adiabatic states.
                    # Either "none", "simple" (Akimov J. Phys. Chem. Lett. 2018, 9, 6096−6102)
