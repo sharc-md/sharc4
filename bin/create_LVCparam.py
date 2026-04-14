@@ -187,16 +187,20 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
             val = mat[i][j].real
             if deldiag and i == j:
                 val = 0.0
-            rstr += oformat % val
-            if val * val > pthresh:
+            if val * val <= pthresh:
+                val = 0.0
+            else:
                 rnonzero = True
+            rstr += oformat % val
 
             val = mat[i][j].imag
             if deldiag and i == j:
                 val = 0.0
-            istr += oformat % val
-            if val * val > pthresh:
+            if val * val <= pthresh:
+                val = 0.0
+            else:
                 inonzero = True
+            istr += oformat % val
 
         rstr += "\n"
         istr += "\n"
