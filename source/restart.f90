@@ -87,18 +87,18 @@ module restart
      write(u,*) ctrl%output_version
      write(u,*) ctrl%compat_mode
      write(u,*) ctrl%natom, '! natom'
-     write(u,*) ctrl%maxmult
+     write(u,*) ctrl%maxmult, '! maxmult'
      write(u,*) (ctrl%nstates_m(imult),imult=1,ctrl%maxmult)
      write(u,*) (ctrl%charges_m(imult),imult=1,ctrl%maxmult)
-     write(u,*) ctrl%nstates
-     write(u,*) ctrl%nsteps
-     write(u,*) ctrl%nsubsteps
+     write(u,*) ctrl%nstates, '! nstates'
+     write(u,*) ctrl%nsteps, '! nsteps'
+     write(u,*) ctrl%nsubsteps, '! nsubsteps'
      write(u,*) ctrl%tmax
      write(u,*) ctrl%dtstep_min
      write(u,*) ctrl%dtstep_max
      write(u,*) ctrl%dtstep
      write(u,*) ctrl%dtstep_old
-     write(u,*) ctrl%ezero
+     write(u,*) ctrl%ezero, '! ezero'
      write(u,*) ctrl%convthre
      write(u,*) ctrl%scalingfactor
      write(u,*) ctrl%soc_scaling
@@ -107,7 +107,7 @@ module restart
      write(u,*) ctrl%eselect_dmgrad
      write(u,*) ctrl%dampeddyn
      write(u,*) ctrl%decoherence_alpha
-     write(u,*) ctrl%force_hop_to_gs
+     write(u,*) ctrl%force_hop_to_gs, '! force_hop_to_gs'
      write(u,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
      write(u,*) ctrl%output_format, '! output_format'
      write(u,*) (ctrl%output_steps_stride(istate),istate=1,3)
@@ -116,11 +116,11 @@ module restart
        write(u,*) (ctrl%output_steps_stride_nuc(istate),istate=1,3)
        write(u,*) (ctrl%output_steps_limits_nuc(istate),istate=1,3)
     endif
-     write(u,*) ctrl%restart
+     write(u,*) ctrl%restart, '! restart'
      !  write(u,*) ctrl%restart_rerun_last_qm_step
      write(u,*) ctrl%retain_restart_files
-     write(u,*) ctrl%method
-     write(u,*) ctrl%integrator
+     write(u,*) ctrl%method, '! method'
+     write(u,*) ctrl%integrator, '! integrator'
      write(u,*) ctrl%write_restart_files
      write(u,*) ctrl%staterep
      write(u,*) ctrl%initcoeff
@@ -128,22 +128,22 @@ module restart
      write(u,*) ctrl%laser_e, '! laser_efield'
      write(u,*) ctrl%laser_b, '! laser_bfield'
      write(u,*) ctrl%laser_egrad, '! laser_efield_grad'
-     write(u,*) ctrl%laser_freq_path, '! laser frequency file path'
+     write(u,'(A)') trim(ctrl%laser_freq_path)
      write(u,*) ctrl%coupling
      write(u,*) ctrl%ktdc_method
      write(u,*) ctrl%kmatrix_method
-     write(u,*) ctrl%eeom
-     write(u,*) ctrl%neom
+     write(u,*) ctrl%eeom, '! eeom'
+     write(u,*) ctrl%neom, '! neom'
      write(u,*) ctrl%neom_rep
-     write(u,*) ctrl%surf
+     write(u,*) ctrl%surf, '! surf'
      write(u,*) ctrl%decoherence
      write(u,*) ctrl%ekincorrect
      write(u,*) ctrl%reflect_frustrated
      write(u,*) ctrl%time_uncertainty
-     write(u,*) ctrl%gradcorrect
+     write(u,*) ctrl%gradcorrect, '! gradcorrect'
      write(u,*) ctrl%dipolegrad, '! dipolegrad'
 
-     write(u,*) ctrl%nac_projection
+     write(u,*) ctrl%nac_projection, '! nac_projection'
      write(u,*) ctrl%zpe_correction
      write(u,*) ctrl%lpzpe_scheme
      write(u,*) ctrl%lpzpe_nah
@@ -160,22 +160,22 @@ module restart
      write(u,*) ctrl%pointer_basis
      write(u,*) ctrl%pointer_maxiter
 
-     write(u,*) ctrl%calc_soc
-     write(u,*) ctrl%calc_grad
-     write(u,*) ctrl%calc_overlap
-     write(u,*) ctrl%calc_nacdt
-     write(u,*) ctrl%calc_nacdr
-     write(u,*) ctrl%calc_effectivenac
+     write(u,*) ctrl%calc_soc, '! calc_soc'
+     write(u,*) ctrl%calc_grad, '! calc_grad'
+     write(u,*) ctrl%calc_overlap, '! calc_overlap'
+     write(u,*) ctrl%calc_nacdt, '! calc_nacdt'
+     write(u,*) ctrl%calc_nacdr, '! calc_nacdr'
+     write(u,*) ctrl%calc_effectivenac, '! calc_effectivenac'
      write(u,*) ctrl%calc_dipolegrad, '!calc_dipolegrad'
-     write(u,*) ctrl%calc_second
-     write(u,*) ctrl%calc_phases
+     write(u,*) ctrl%calc_second, '! calc_second'
+     write(u,*) ctrl%calc_phases, '! calc_phases'
      write(u,*) ctrl%killafter
      write(u,*) ctrl%ionization
      write(u,*) ctrl%theodore
      write(u,*) ctrl%track_phase
      write(u,*) ctrl%track_phase_at_zero
      write(u,*) ctrl%phase_correction_algo
-     write(u,*) ctrl%hopping_procedure
+     write(u,*) ctrl%hopping_procedure, '! hopping_procedure'
      write(u,*) ctrl%boltzmann_hop
      write(u,*) ctrl%boltzmann_temperature
      write(u,*) ctrl%boltzmann_damping
@@ -183,7 +183,7 @@ module restart
      write(u,*) ctrl%army_ants
  
      ! thermostat
-     write(u,*) ctrl%thermostat
+     write(u,*) ctrl%thermostat, '! thermostat'
      if (ctrl%thermostat/=0) then
       write(u,*) ctrl%ntempregions
       call vecwrite(ctrl%ntempregions, ctrl%temperature, u, 'temperature','ES24.16E3')
@@ -198,7 +198,7 @@ module restart
      endif
  
      ! constraints
-     write(u,*) ctrl%do_constraints
+     write(u,*) ctrl%do_constraints, '! do_constraints'
      write(u,*) ctrl%constraints_tol
      write(u,*) ctrl%n_constraints
      if (ctrl%do_constraints==1) then
@@ -212,8 +212,8 @@ module restart
  
     ! write the laser field
     if (ctrl%laser==2) then
-      write(u,*) ctrl%laser_bandwidth
-      write(u,*) ctrl%nlasers
+      write(u,*) ctrl%laser_bandwidth, '! laser_bandwidth'
+      write(u,*) ctrl%nlasers, '! nlasers'
       if (ctrl%laser_e) then
         call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, 'Laser E-field','ES24.16E3')
       endif
@@ -230,14 +230,14 @@ module restart
       enddo
     endif
      
-     write(u,*) ctrl%write_soc
+     write(u,*) ctrl%write_soc, '! write_soc'
      write(u,*) ctrl%write_overlap
      write(u,*) ctrl%write_grad
      write(u,*) ctrl%write_nacdr
      write(u,*) ctrl%write_property1d
      write(u,*) ctrl%write_property2d
      write(u,*) ctrl%n_property1d
-     write(u,*) ctrl%n_property2d
+     write(u,*) ctrl%n_property2d, '! n_property2d'
      
     ! write atom mask for decoherence, rescaling, ...
      do iatom=1,ctrl%natom
@@ -248,21 +248,23 @@ module restart
       write(u,*) ctrl%atommask_b(iatom)
     enddo
     
-    ! write restrictive potentials info
-    write(u,*) ctrl%restrictive_potential
-    if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
-      write(u,*) ctrl%restricted_droplet_force
-      write(u,*) ctrl%restricted_droplet_radius
-      do iatom=1,ctrl%natom
-        write(u,*) ctrl%sel_restricted_droplet(iatom)
-      enddo
-    endif
-    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
-      write(u,*) ctrl%tethering_force
-      write(u,*) ctrl%tethering_radius
-      write(u,*) (ctrl%tether_at(iatom),iatom=1,size(ctrl%tether_at))
-    endif
-     close(u)
+    ! ! write restrictive potentials info
+    ! write(u,*) ctrl%restrictive_potential
+    ! if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
+    !   write(u,*) ctrl%restricted_droplet_force
+    !   write(u,*) ctrl%restricted_droplet_radius
+    !   do iatom=1,ctrl%natom
+    !     write(u,*) ctrl%sel_restricted_droplet(iatom)
+    !   enddo
+    ! endif
+    ! if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+    !   write(u,*) ctrl%tethering_force
+    !   write(u,*) ctrl%tethering_radius
+    !   write(u,*) (ctrl%tether_at(iatom),iatom=1,size(ctrl%tether_at))
+    ! endif
+
+
+    close(u)
  
    endsubroutine
  
@@ -654,9 +656,9 @@ module restart
      ! Trajectory consistency
      write(u,*) traj%discrepancy
 
-    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
-      call vecwrite(3, traj%tethering_pos,  u, 'Tethering position','ES24.16E3')
-    endif
+    ! if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+    !   call vecwrite(3, traj%tethering_pos,  u, 'Tethering position','ES24.16E3')
+    ! endif
  
      close(u)
  
@@ -738,10 +740,14 @@ module restart
      endif
  
      ! read ctrl
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 0 ...'
+     call flush(u_log)
      read(u_ctrl,'(A)') ctrl%cwd
      call getcwd(ctrl%cwd)
      read(u_ctrl,*) ctrl%output_version
      read(u_ctrl,*) ctrl%compat_mode
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 1 ...'
+     call flush(u_log)
      read(u_ctrl,*) ctrl%natom
      read(u_ctrl,*) ctrl%maxmult
      allocate( ctrl%nstates_m(ctrl%maxmult) )
@@ -766,6 +772,8 @@ module restart
      read(u_ctrl,*) ctrl%dampeddyn
      read(u_ctrl,*) ctrl%decoherence_alpha
      read(u_ctrl,*) ctrl%force_hop_to_gs
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 2 ...'
+     call flush(u_log)
      allocate( ctrl%actstates_s(ctrl%nstates) )
      read(u_ctrl,*) (ctrl%actstates_s(istate),istate=1,ctrl%nstates)
      read(u_ctrl,*) ctrl%output_format
@@ -775,14 +783,16 @@ module restart
        read(u_ctrl,*) (ctrl%output_steps_stride_nuc(istate),istate=1,3)
        read(u_ctrl,*) (ctrl%output_steps_limits_nuc(istate),istate=1,3)
      endif
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 3 ...'
+     call flush(u_log)
      read(u_ctrl,*) ctrl%restart
-     !  read(u_ctrl,*) ctrl%restart_rerun_last_qm_step
      read(u_ctrl,*) ctrl%retain_restart_files
      read(u_ctrl,*) ctrl%method
      read(u_ctrl,*) ctrl%integrator
      read(u_ctrl,*) ctrl%write_restart_files
      read(u_ctrl,*) ctrl%staterep
      read(u_ctrl,*) ctrl%initcoeff
+     read(u_ctrl,*) ctrl%laser
      read(u_ctrl,*) ctrl%laser_e
      read(u_ctrl,*) ctrl%laser_b
      read(u_ctrl,*) ctrl%laser_egrad
@@ -801,6 +811,8 @@ module restart
      read(u_ctrl,*) ctrl%gradcorrect
      read(u_ctrl,*) ctrl%dipolegrad
 
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 4 ...'
+     call flush(u_log)
      read(u_ctrl,*) ctrl%nac_projection
      read(u_ctrl,*) ctrl%zpe_correction
      read(u_ctrl,*) ctrl%lpzpe_scheme
@@ -822,6 +834,8 @@ module restart
      read(u_ctrl,*) ctrl%pointer_basis
      read(u_ctrl,*) ctrl%pointer_maxiter
 
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 5 ...'
+     call flush(u_log)
      read(u_ctrl,*) ctrl%calc_soc
      read(u_ctrl,*) ctrl%calc_grad
      read(u_ctrl,*) ctrl%calc_overlap
@@ -845,6 +859,8 @@ module restart
      read(u_ctrl,*) ctrl%army_ants
      
      ! thermostat
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 6 ...'
+     call flush(u_log)
      read(u_ctrl,*) ctrl%thermostat
      if (ctrl%thermostat/=0) then
       read(u_ctrl,*) ctrl%ntempregions
@@ -870,6 +886,8 @@ module restart
  
  
      ! constraints
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 7 ...'
+     call flush(u_log)
      read(u_ctrl,*) ctrl%do_constraints
      read(u_ctrl,*) ctrl%constraints_tol
      read(u_ctrl,*) ctrl%n_constraints
@@ -889,6 +907,8 @@ module restart
      ! with an external laser, increasing the simulation time necessitates that
      ! the laserfield in
      ! the control file is enlarged 
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 8 ...'
+     call flush(u_log)
      if (ctrl%laser==2) then
        read(u_ctrl,*) ctrl%laser_bandwidth
        read(u_ctrl,*) ctrl%nlasers
@@ -912,6 +932,8 @@ module restart
        enddo
      endif
  
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 9 ...'
+     call flush(u_log)
      read(u_ctrl,*) ctrl%write_soc
      read(u_ctrl,*) ctrl%write_overlap
      read(u_ctrl,*) ctrl%write_grad
@@ -921,6 +943,8 @@ module restart
      read(u_ctrl,*) ctrl%n_property1d
      read(u_ctrl,*) ctrl%n_property2d
  
+     if (printlevel>3) write(u_log,*) 'Reading restart file, Section 10 ...'
+     call flush(u_log)
      allocate( ctrl%atommask_a(ctrl%natom))
      do iatom=1,ctrl%natom
        read(u_ctrl,*) ctrl%atommask_a(iatom)
@@ -930,26 +954,26 @@ module restart
       read(u_ctrl,*) ctrl%atommask_b(iatom)
     enddo
     
-    !read restrictive potential infos
-    read(u_ctrl, *) ctrl%restrictive_potential
-    if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
-      read(u_ctrl,*) ctrl%restricted_droplet_force
-      read(u_ctrl,*) ctrl%restricted_droplet_radius
-      allocate( ctrl%sel_restricted_droplet(ctrl%natom))
-      do iatom=1,ctrl%natom
-        read(u_ctrl,*) ctrl%sel_restricted_droplet(iatom)
-      enddo
-    endif
-    if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
-      read(u_ctrl,*) ctrl%tethering_force
-      read(u_ctrl,*) ctrl%tethering_radius
-      call split(line,' ',values,k)
-      allocate(ctrl%tether_at(k))
-      do i=1,k
-        read(values(i),*) ctrl%tether_at(i)
-      enddo
-      deallocate(values)
-    endif
+    ! !read restrictive potential infos
+    ! read(u_ctrl, *) ctrl%restrictive_potential
+    ! if (ctrl%restrictive_potential==1 .or. ctrl%restrictive_potential==3) then
+    !   read(u_ctrl,*) ctrl%restricted_droplet_force
+    !   read(u_ctrl,*) ctrl%restricted_droplet_radius
+    !   allocate( ctrl%sel_restricted_droplet(ctrl%natom))
+    !   do iatom=1,ctrl%natom
+    !     read(u_ctrl,*) ctrl%sel_restricted_droplet(iatom)
+    !   enddo
+    ! endif
+    ! if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+    !   read(u_ctrl,*) ctrl%tethering_force
+    !   read(u_ctrl,*) ctrl%tethering_radius
+    !   call split(line,' ',values,k)
+    !   allocate(ctrl%tether_at(k))
+    !   do i=1,k
+    !     read(values(i),*) ctrl%tether_at(i)
+    !   enddo
+    !   deallocate(values)
+    ! endif
  
       close(u_ctrl)
 
@@ -969,7 +993,7 @@ module restart
      call additional_allocate_traj(traj,ctrl)
  
      if (printlevel>1) then
-       write(u_log,'(a,1x,i4,1x,a,1x,i4,1x,a)') 'Allocation with nstates=',ctrl%nstates,'and natom=',ctrl%natom,'successful.'
+       write(u_log,'(a,1x,i6,1x,a,1x,i6,1x,a)') 'Allocation with nstates=',ctrl%nstates,'and natom=',ctrl%natom,'successful.'
        write(u_log,*)
      endif
  
@@ -1338,10 +1362,10 @@ module restart
    ! Trajectory consistency
    read(u_traj,*) traj%discrepancy
 
-  !read tethering position
-  if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
-    call vecread(3, traj%tethering_pos,  u_traj, string)
-  endif
+  ! !read tethering position
+  ! if (ctrl%restrictive_potential==2 .or. ctrl%restrictive_potential==3) then
+  !   call vecread(3, traj%tethering_pos,  u_traj, string)
+  ! endif
  
    close(u_traj)
    ! Now everything about trajectory has been read from the restart file

@@ -472,7 +472,7 @@ module definitions
     integer :: thermostat                     !< 0=none, 1=Langevin thermostat
     logical :: restart_thermostat_random      !< F=no, T=yes (default) to use same random number sequence if restarted
   logical :: remove_trans_rot               !< whether to remove the total translational and rotational components during thermostatting
-  integer :: restrictive_potential          !< 0=none, 1=restricted droplet, 2=tethering of an atom, 3=restricted atom + tethering
+  ! integer :: restrictive_potential          !< 0=none, 1=restricted droplet, 2=tethering of an atom, 3=restricted atom + tethering
   
   ! lp-zpe
     integer :: lpzpe_scheme                   !< correction_scheme=0 skip correction if BC bonds do not have enough kinetic energy; 1=forced correction by moving all kinetic energies of BC bonds to AH bonds
@@ -547,13 +547,13 @@ module definitions
   real*8,allocatable :: thermostat_const(:,:) !< constants needed for thermostat. Langevin: friction coeffitient
   real*8,allocatable :: rotation_tot(:,:)     !< unit vectors for rotation of whole system (used to prevent such a rotation)
 
-  ! restrictive potentials
-  real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
-  real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
-  real*8 :: tethering_force                 !< force constant for tethering of atom
-  real*8 :: tethering_radius                !< radius of beyond which tethering potential is not zero
-  logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
-  integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
+  ! ! restrictive potentials
+  ! real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
+  ! real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
+  ! real*8 :: tethering_force                 !< force constant for tethering of atom
+  ! real*8 :: tethering_radius                !< radius of beyond which tethering potential is not zero
+  ! logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
+  ! integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
   
   endtype
   
@@ -1185,8 +1185,8 @@ module definitions
       if (allocated(ctrl%temperature))                deallocate(ctrl%temperature)
         if (allocated(ctrl%thermostat_const))           deallocate(ctrl%thermostat_const)
       if (allocated(ctrl%rotation_tot))               deallocate(ctrl%rotation_tot)
-      if (allocated(ctrl%sel_restricted_droplet))     deallocate(ctrl%sel_restricted_droplet)
-      if (allocated(ctrl%tether_at))                  deallocate(ctrl%tether_at)
+      ! if (allocated(ctrl%sel_restricted_droplet))     deallocate(ctrl%sel_restricted_droplet)
+      ! if (allocated(ctrl%tether_at))                  deallocate(ctrl%tether_at)
   
       endsubroutine
   
