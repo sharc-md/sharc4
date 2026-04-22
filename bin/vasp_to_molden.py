@@ -34,8 +34,8 @@ def vibration_from_outcar(file_outcar,file_poscar,file_out,remove_rotations):
     modes=[]
     counter=0
     for n,i in enumerate(index):
-        pattern1=r"\s*"+str(n+1)+r"\s+f"
-        pattern2=r"\s*"+str(n+1)+r"\s+f/i"
+        pattern1=r"\s*"+str(n+1)+r"\s+f\s*="
+        pattern2=r"\s*"+str(n+1)+r"\s+f/i\s*="
         if re.search(pattern1,data[i]) is not None:
             match=r".*2PiTHz (.*?) cm-1"
             freqs.append(float(re.search(match,data[i]).group(1)))
