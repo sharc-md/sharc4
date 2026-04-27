@@ -277,7 +277,7 @@ def write_promdens_input(initlist, filename, nstates):
 
 # ==================
 
-def run_promdens(promdens_in, args, nstates):
+def run_promdens(promdens_in, rest, nstates):
 
     if shutil.which("promdens") is None:
         print("ERROR: 'promdens' is not found in your PATH. ")
@@ -297,8 +297,8 @@ def run_promdens(promdens_in, args, nstates):
     ]
 
     # Forward everything else
-    if args.rest:
-        cmd += args.rest
+    if rest:
+        cmd += rest
 
     print("Running:", " ".join(cmd))
     result = subprocess.run(cmd, check=False)
@@ -350,6 +350,15 @@ def parse_promdens_output(initlist, dt):
     print(f"Read {len(excitation_data)} excitation entries from PDA file.")
     print(excitation_data)
     
+    # --- Step 1.5: Shift times so all are >= 0 ---
+    if excitation_data:
+        min_time = min(excitation_data.values())
+        if min_time < 0:
+            shift = -min_time
+            print(f"Shifting all excitation times by +{shift:.6f} fs to avoid negative times.")
+            for key in excitation_data:
+                excitation_data[key] += shift
+
     # --- Step 2: Update initlist ---
     for (idx, el_state), exc_time_fs in excitation_data.items():
         initlist[idx-1].statelist[el_state-1].Excited = True
@@ -455,11 +464,12 @@ def main():
     parser.add_argument("--tdm_unit", default="debye", help=argparse.SUPPRESS)
     parser.add_argument("--file_type", default="file", help=argparse.SUPPRESS)
     parser.add_argument("--plot", default="file", help=argparse.SUPPRESS)
-    parser.add_argument(
-        "rest", nargs=argparse.REMAINDER,
-        help="Arguments to pass to the external PDA script"
-    )
-    args = parser.parse_args()
+    # parser.add_argument(
+    #     "rest", nargs=argparse.REMAINDER,
+    #     help="Arguments to pass to the external PDA script"
+    # )
+    # args = parser.parse_args()
+    args, rest = parser.parse_known_args()
 
 
     # 1. Read IC file (using your INITCOND logic)
@@ -469,7 +479,7 @@ def main():
     promdens_in = "input_file.dat"
     write_promdens_input(initlist, promdens_in, INFOS["n_exc_states"])
     # 3. Run promdens
-    run_promdens(promdens_in, args, INFOS["n_exc_states"])
+    run_promdens(promdens_in, rest, INFOS["n_exc_states"])
     # 4. Parse output and update ICs
     parse_promdens_output(initlist, args.dt)
     # 5. Write updated excited ICs
