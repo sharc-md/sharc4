@@ -675,12 +675,14 @@ def get_laser(INFOS, output_fields=False):
                     # print("E-field", INFOS["laser_efield"])
                 elif key == "b-field":
                     INFOS["laser_bfield"] = val
-                    INFOS["needed_requests"].add("mdeqm")
+                    if val:
+                        INFOS["needed_requests"].add("mdeqm")
                     # print("B-field", INFOS["laser_bfield"])
                     # print("Calculation of MD and EQ moments requested!")
                 elif key == "e-field_gradients":
                     INFOS["laser_efield_grad"] = val
-                    INFOS["needed_requests"].add("mdeqm")
+                    if val:
+                        INFOS["needed_requests"].add("mdeqm")
                     # print("E-field gradient", INFOS["laser_efield_grad"])
                     # print("Calculation of MD and EQ moments requested!")
                 elif key == "b-field_gradients":
@@ -694,6 +696,7 @@ def get_laser(INFOS, output_fields=False):
 
     # old laser file format 
     if INFOS["laser_file_version"] == 1:
+        raise RuntimeError("Laser file (v1) detected!")
         if laser.shape[1] != 8: 
             print("Laser file (v1) does not match specifications!")
             raise IOError
@@ -734,14 +737,16 @@ def get_laser(INFOS, output_fields=False):
                     results["Bi"] = Bi
                     field_counter +=6
                 if INFOS["laser_efield_grad"]:
-                    EGRADr, EGRADi = np.zeros((len(laser_tsteps), 3, 3))  # time, field_component, derivative
+                    EGRADr  = np.zeros((len(laser_tsteps), 3, 3))  # time, field_component, derivative
+                    EGRADi  = np.zeros((len(laser_tsteps), 3, 3))  # time, field_component, derivative
                     for field_idx in range(3):
                         EGRADr[:, field_idx, :], EGRADi[:, field_idx, :] = laser[:, field_counter+1:field_counter+6:2], laser[:, field_counter+2:field_counter+7:2]
                         field_counter +=6
                     results["EGRADr"] = EGRADr
                     results["EGRADi"] = EGRADi
                 if INFOS["laser_bfield_grad"]:
-                    BGRADr, BGRADi = np.zeros((len(laser_tsteps), 3, 3))  # time, field_component, derivative
+                    BGRADr  = np.zeros((len(laser_tsteps), 3, 3))  # time, field_component, derivative
+                    BGRADi = np.zeros((len(laser_tsteps), 3, 3))  # time, field_component, derivative
                     for field_idx in range(3):
                         BGRADr[:, field_idx, :], BGRADi[:, field_idx, :] = laser[:, field_counter+1:field_counter+6:2], laser[:, field_counter+2:field_counter+7:2]
                         field_counter +=6
@@ -757,6 +762,8 @@ def random_seed():
         line = question("RNG Seed: ", str, "!", False)
         if line == "!":
             random.seed()
+            rngseed = random.randint(0,65536)
+            random.seed(rngseed)
             break
         try:
             rngseed = int(line)
@@ -788,105 +795,51 @@ def transform_fields(Rmat, Er=None, Ei=None, Br=None, Bi=None, Egradr=None, Egra
     return Er_rot, Ei_rot
 
 
-# def custom_formatter(val: float):                                           
-#     """                                                                     
-#     Formats the laser fields files' values in defined scientific notation   
-#     Args:                                                                   
-#        x (int):                                                            
-#     Returns:                                                                
-#       Formatted laser fields files' values                                 
-#     """                                                                     
-#     # assert isinstance(val, float), "val must be a float!"                 
-#     if val!=0.0:                                                            
-#         if np.abs(val)<1E-99:                                               
-#             val=0.0                                                         
-#     val_form = '{:.8e}'.format(val)  # Format with 3 digits for the exponent
-#     mantissa, exponent = val_form.split('e')                                
-#     sign = '  ' if float(mantissa) >= 0 else ' '  # Check if positive       
-#     return f'{sign}{mantissa}E{exponent[0]}{exponent[1:].zfill(2)}'         
+def write_fields(output_name, laser_tsteps, laser_freqs, fields):
+    nsteps = len(laser_tsteps)
+    dt = laser_tsteps[1] - laser_tsteps[0]
+    efield = "Er" in fields or "Ei" in fields
+    bfield = "Br" in fields or "Bi" in fields
+    egrads = "Egradr" in fields or "Egradi" in fields
+    header = '''! laser file
+! SHARC 4.0
+! file_version 2.0
+! nsteps %i
+! dt %f
+! e-field %s
+! b-field %s
+! e-field_gradients %s
+! b-field_gradients false''' % (nsteps, dt, str(efield), str(bfield), str(egrads))
 
+ #=====================================================================================================================================
+ #        Time |         Re(Ex) |         Im(Ex) |         Re(Ey) |         Im(Ey) |         Re(Ez) |         Im(Ez) |          Freq. |
+ #        [fs] |         [a.u.] |         [a.u.] |         [a.u.] |         [a.u.] |         [a.u.] |         [a.u.] |         [a.u.] |
+ #=====================================================================================================================================
 
-# def fast_formatter(arr):
-#     arr = arr.copy()
-#     arr[np.abs(arr) < 1e-99] = 0.0
-# 
-#     base_fmt = np.char.mod('%.8e', arr.ravel())  # flatten for formatting
-# 
-#     parts = np.char.split(base_fmt, 'e')
-#     mantissa = np.array([p[0] for p in parts])
-#     exponent = np.array([p[1] for p in parts])
-# 
-#     exponent = np.char.zfill(exponent, 3)
-#     exponent = np.char.upper(exponent)
-# 
-#     signs = np.where(mantissa.astype(float) >= 0, '  ', ' ')
-#     formatted = np.char.add(signs, mantissa)
-#     formatted = np.char.add(formatted, 'E')
-#     formatted = np.char.add(formatted, exponent)
-# 
-#     return formatted.reshape(arr.shape)
-# 
-# 
-def write_fields(output_name, laser_tsteps, laser_freqs, E=None):
-    rot_laser_fields = np.empty((E[0].shape[0], 8))
-    rot_laser_fields[:, 1:6:2], rot_laser_fields[:, 2:7:2] = E
-    rot_laser_fields[:, 0], rot_laser_fields[:, 7] = laser_tsteps, laser_freqs
+    nfields = 2 + 6*efield + 6*bfield + 18*egrads
+    rot_laser_fields = np.zeros( (nsteps,nfields) )
+    rot_laser_fields[:, 0], rot_laser_fields[:, -1] = laser_tsteps, laser_freqs
+    index = 1
+    if efield:
+        rot_laser_fields[:, index:index+6:2] = fields["Er"]
+        rot_laser_fields[:, index+1:index+6+1:2] = fields["Ei"]
+        index += 6
+    if bfield:
+        rot_laser_fields[:, index:index+6:2] = fields["Br"]
+        rot_laser_fields[:, index+1:index+6+1:2] = fields["Bi"]
+        index += 6
+    if egrads:
+        rot_laser_fields[:, index:index+18:2] = fields["Egradr"].reshape(nsteps, 9)
+        rot_laser_fields[:, index+1:index+18+1:2] = fields["Egradi"].reshape(nsteps, 9)
 
-    # formatted_laser_file = np.empty(
-    #     (len(rot_laser_fields), rot_laser_fields.shape[1] + 1),
-    #     dtype="U16"
-    # )
-    # formatted_laser_file[:, 0] = " "
-    # formatted_laser_file[:, 1:] = fast_formatter(rot_laser_fields)
+    np.savetxt(output_name, rot_laser_fields, fmt="%1.8E", delimiter=" ", comments="", header=header)
 
-    np.savetxt(output_name, rot_laser_fields, fmt="%1.8E", delimiter=" ", comments="")
-# 
-# # def write_fields(output_name, laser_tsteps, laser_freqs, E=None):
-# #     rot_laser_fields = np.empty((E[0].shape[0], 8))
-# #     rot_laser_fields[:, 1:6:2], rot_laser_fields[:, 2:7:2] = E
-# #     rot_laser_fields[:, 0], rot_laser_fields[:, 7] = laser_tsteps, laser_freqs
-# #     vectorized_formatter = np.vectorize(custom_formatter)  
-# #     formatted_laser_file = np.empty((len(rot_laser_fields), len(rot_laser_fields[0]) + 1), dtype="U16")                  
-# #     formatted_laser_file[:, 0] = " "  # First column filled with space                                                   
-# #     formatted_laser_file[:, 1:] = vectorized_formatter(rot_laser_fields)                                                 
-# #     # head=''.join(head)                                                                                                   
-# #     np.savetxt(output_name, formatted_laser_file, fmt="%s", delimiter="", comments='')        
-
-
-# ======================================================================================================================
-
-
-# def check_laserfile(filename, nsteps, dt):
-#     log.info('Laser file must have %i steps and a time step of %f fs.' % (nsteps,dt))
-#     try:
-#         f = open(filename)
-#         data = f.readlines()
-#         f.close()
-#     except IOError:
-#         log.info("Could not open laser file %s" % (filename))
-#         return False
-#     n = 0
-#     for line in data:
-#         if len(line.split()) >= 8:
-#             n += 1
-#         else:
-#             break
-#     if n < nsteps:
-#         log.info("File %s has only %i timesteps, %i steps needed!" % (filename, n, nsteps))
-#         return False
-#     for i in range(int(nsteps) - 1):
-#         t0 = float(data[i].split()[0])
-#         t1 = float(data[i + 1].split()[0])
-#         if abs(abs(t1 - t0) - dt) > 1e-6:
-#             log.info("Time step wrong in file %s at line %i." % (filename, i + 1))
-#             return False
-#     return True
 
 
 def get_laser_time(filename):
     data = readfile(filename)
     data = [item for item in data if "!" not in item and "#" not in item]
-    return float(data[-1].split()[0]), len(data)-1, float(data[-1].split()[0])/(len(data)-1)  # -float(data[-2].split()[0])  # tmax, nsteps, dtstep 
+    return float(data[-1].split()[0]),   len(data)-1,   float(data[-1].split()[0])/(len(data)-1)  # -float(data[-2].split()[0])  # tmax, nsteps, dtstep 
     
 # ======================================================================================================================
 # ======================================================================================================================
@@ -965,7 +918,7 @@ from the initcond files as provided by wigner.py.
     # TODO: it might make sense to initialize the wave function in the diagonal basis
     # but run in the MCH basis (the latter is required because we otherwise cannot match the basis with the subsequent simulation)
     # initializing the wave function in the diagonal basis would suppress oscillations from SOC!
-    INFOS["diag"] = True
+    INFOS["diag"] = False
     INFOS["repr"] = initf.readline().split()[1] 
     INFOS["repr"] = "MCH"  # force MCH
     # if INFOS["repr"].lower() == "diag":
@@ -975,6 +928,7 @@ from the initcond files as provided by wigner.py.
     #     INFOS["diag"] = True
     #     INFOS["repr"] = "MCH"
 
+    # TODO: we should get the eref from the single point calculations, else users have to use excite.py first
     INFOS["eref"] = float(initf.readline().split()[1])
     INFOS["eharm"] = float(initf.readline().split()[1])
 
@@ -1140,7 +1094,7 @@ from the initcond files as provided by wigner.py.
         log.info(INFOS["isactive"])
         # nsetupable = sum([INFOS["n_issel"][i - 1] for i in INFOS["setupstates"] if INFOS["isactive"][i - 1]])
         nsetupable = sum([INFOS["isactive"][i - 1] for i in INFOS["setupstates"]])
-        log.info("\nThere can be %i trajector%s set up.\n" % (nsetupable, ["y", "ies"][nsetupable != 1]))
+        # log.info("\nThere can be %i trajector%s set up.\n" % (nsetupable, ["y", "ies"][nsetupable != 1]))
         if nsetupable == 0:
             continue
         break
@@ -1200,13 +1154,29 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             continue
         else:
             break
-    INFOS["rand_laser_pol"] = question("Do you want to have an isotropic laser polarization distribution:", bool, True)
+    
+    # --------- figure out simulation time step ----------
     INFOS["tmax"], INFOS["nsteps"], INFOS["dtstep"] = get_laser_time(INFOS["laserfile"])
-
-    print(INFOS["tmax"], INFOS["nsteps"], INFOS["dtstep"])
+    print("Data for laser:  tmax=%f fs, nsteps=%i, dt=%f fs" % (INFOS["tmax"], INFOS["nsteps"], INFOS["dtstep"]))
     # users should be able to choose a number of substeps that is a true divisor of INFOS["nsteps"]
-    divisors = sympy.divisors(INFOS["nsteps"])
-    target = 0.5
+    divisors = sorted(sympy.divisors(INFOS["nsteps"]))
+    possible_dt = [d * INFOS["dtstep"] for d in divisors]
+    print("\nPossible dynamics time steps (fs):")
+    for d, dt in zip(divisors, possible_dt):
+        print(f"  substeps={d:6d}  ->  dt={dt:.6f} fs")
+
+    while True:
+        target_dt = question("What time step do you plan to use in your subsequent trajectories (in fs)?",float, default = [0.5])[0]
+        ratio = target_dt / INFOS["dtstep"]
+        if not ratio.is_integer():
+            print("Chosen value %f fs is not a multiple of laser time steps (%f fs)" % (target_dt,INFOS["dtstep"]))
+            continue
+        if INFOS["nsteps"] % ratio != 0:
+            print("Laser simulation time %f fs is not multiple of chosen value %f fs" % (INFOS["tmax"], target_dt)) 
+            continue
+        break
+
+    target = target_dt
     best_divisor = min(divisors, key=lambda d: abs(d * INFOS["dtstep"] - target))
     while True:
         divisor = question("How many substeps do you want to use?",int, default = [best_divisor])[0]
@@ -1218,11 +1188,14 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     INFOS["nsubstep"] = divisor
     INFOS["dtstep"] = INFOS["dtstep"] * divisor
 
+
     log.info("Total simulation time: %f"  % INFOS["tmax"])
     log.info("Simulation will have %i time steps." % (INFOS["nsteps"]))
     log.info("Simulation will have %i substeps per time step." % (INFOS["nsubstep"]))
     log.info("Simulation will have %.2f fs time steps." % (INFOS["dtstep"]))
 
+    # polarization
+    INFOS["rand_laser_pol"] = question("Do you want to have an isotropic laser polarization distribution:", bool, True)
 
     # Integrator
     INFOS['integrator'] = int(2)    
@@ -1282,15 +1255,15 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
     # Phase tracking
     INFOS["phases_from_interface"] = False
 
-    # Gradient correction (only for diagonal PESs)
-    if INFOS["surf"] == "diagonal":
-        INFOS["gradcorrect"] = 1
-        INFOS["needed_requests"].update(GradCorrect[1]["required"])
-    else:
-        num = next((k for k, v in GradCorrect.items() if v["name"] == "none"), None)
-        INFOS["gradcorrect"] = 1
-        INFOS["needed_requests"].update(GradCorrect[1]["required"])
-    INFOS["needed_requests"].update(GradCorrect[INFOS["gradcorrect"]]["required"])
+    # # Gradient correction (only for diagonal PESs)
+    # if INFOS["surf"] == "diagonal":
+    #     INFOS["gradcorrect"] = 1
+    #     INFOS["needed_requests"].update(GradCorrect[1]["required"])
+    # else:
+    #     num = next((k for k, v in GradCorrect.items() if v["name"] == "none"), None)
+    #     INFOS["gradcorrect"] = 1
+    #     INFOS["needed_requests"].update(GradCorrect[1]["required"])
+    # INFOS["needed_requests"].update(GradCorrect[INFOS["gradcorrect"]]["required"])
 
 
 
@@ -1578,6 +1551,8 @@ def writeSHARCinput(
     # ============ Laser file ============
     laserfname = os.path.join(iconddir, "laser")
     laserfreqname = os.path.join(iconddir, "laser_freq")
+    if INFOS["rand_laser_pol"]:
+        laser_Rmat_filename = os.path.join(iconddir, "Rmat")
     sharcpath = os.getenv("SHARC")
     if sharcpath is None:
         print("Please set $SHARC to the directory containing the SHARC executables!")
@@ -1590,16 +1565,24 @@ def writeSHARCinput(
     Bi = laser_results.get("Bi",None)
     Egradr = laser_results.get("EGRADr",None)
     Egradi = laser_results.get("EGRADi",None)
-    Bgradr = laser_results.get("BGRADr",None)
-    Bgradi = laser_results.get("BGRADi",None)
+    # Bgradr = laser_results.get("BGRADr",None)
+    # Bgradi = laser_results.get("BGRADi",None)
 
     # --- Version 1: keep your old handling (E only)
     if INFOS["laser_file_version"] == 1:
         if INFOS["rand_laser_pol"]:
             rot = R.random(random_state=rng_gen)
             Rmat = rot.as_matrix()
+            np.savetxt(
+                laser_Rmat_filename,
+                Rmat,
+                fmt="% .8f",
+                header="# Random rotation matrix (3x3) used for laser polarization",
+                comments=""
+            )
             Er_rot, Ei_rot = transform_fields(Rmat, Er=Er, Ei=Ei)
-            write_fields(laserfname, laser_tsteps, laser_freqs, E=[Er_rot, Ei_rot])
+            fields = {"Er": Er_rot, "Ei": Ei_rot}
+            write_fields(laserfname, laser_tsteps, laser_freqs, fields)
         else:
             link(INFOS["laserfile"], laserfname)
         return
@@ -1610,12 +1593,19 @@ def writeSHARCinput(
         Er_rot, Ei_rot = Er, Ei
         Br_rot, Bi_rot = Br, Bi
         Egradr_rot, Egradi_rot = Egradr, Egradi
-        Bgradr_rot, Bgradi_rot = Bgradr, Bgradi
+        # Bgradr_rot, Bgradi_rot = Bgradr, Bgradi
 
         # Apply random polarization (rotation) if requested
         if INFOS["rand_laser_pol"]:
             rot = R.random(random_state=rng_gen)
             Rmat = rot.as_matrix()
+            np.savetxt(
+                laser_Rmat_filename,
+                Rmat,
+                fmt="% .8f",
+                header="# Random rotation matrix (3x3) used for laser polarization",
+                comments=""
+            )
             if Er is not None:
                 Er_rot, Ei_rot = transform_fields(Rmat, Er=Er, Ei=Ei)
             if Br is not None:
@@ -1624,180 +1614,33 @@ def writeSHARCinput(
             if Egradr is not None:
                 Egradr_rot = np.einsum("ij,tjk,kl->til", Rmat, Egradr, Rmat.T)
                 Egradi_rot = np.einsum("ij,tjk,kl->til", Rmat, Egradi, Rmat.T)
-            if Bgradr is not None:
-                Bgradr_rot = np.einsum("ij,tjk,kl->til", Rmat, Bgradr, Rmat.T)
-                Bgradi_rot = np.einsum("ij,tjk,kl->til", Rmat, Bgradi, Rmat.T)
+            # if Bgradr is not None:
+            #     Bgradr_rot = np.einsum("ij,tjk,kl->til", Rmat, Bgradr, Rmat.T)
+            #     Bgradi_rot = np.einsum("ij,tjk,kl->til", Rmat, Bgradi, Rmat.T)
 
 
             # Prepare output list dynamically
-            fields_out = [laser_tsteps, laser_freqs]
+            fields = {}
             if INFOS["laser_efield"]:
-                fields_out.extend([Er_rot, Ei_rot])
+                fields["Er"] = Er_rot
+                fields["Ei"] = Ei_rot
             if INFOS["laser_bfield"]:
-                fields_out.extend([Br_rot, Bi_rot])
+                fields["Br"] = Br_rot
+                fields["Bi"] = Bi_rot
             if INFOS["laser_efield_grad"]:
-                fields_out.extend([Egradr_rot, Egradi_rot])
-            if INFOS["laser_bfield_grad"]:
-                fields_out.extend([Bgradr_rot, Bgradi_rot])
+                fields["Egradr"] = Egradr_rot
+                fields["Egradi"] = Egradi_rot
+            # if INFOS["laser_bfield_grad"]:
+            #     fields_out.extend([Bgradr_rot, Bgradi_rot])
 
             # Write combined file
-            write_fields(laserfname, *fields_out)
+            write_fields(laserfname, laser_tsteps, laser_freqs, fields)
         else:
             link(INFOS["laserfile"], laserfname)
         if "laser_freq_path" in INFOS:
             link(INFOS["laser_freq_path"], laserfreqname)
     return
 
-
-# def writeSHARCinput(INFOS, initobject, iconddir,istate, laser_tsteps, laser_freqs, Er, Ei, rng_gen, ask=False):
-#     inputfname = iconddir + "/input"
-#     try:
-#         inputf = open(inputfname, "w")
-#     except IOError:
-#         log.info("IOError during writeSHARCinput, iconddir=%s\n%s" % (iconddir, inputfname))
-#         quit(1)
-# 
-#     s = 'printlevel 2\n\ngeomfile "geom"\nveloc external\nvelocfile "veloc"\n\n'   
-#     s += "nstates "
-#     for nst in INFOS["states"]:
-#         s += "%i " % nst
-#     s += "\nactstates "
-#     for nst in INFOS["actstates"]:
-#         s += "%i " % nst
-#     s += "\ncharge "
-#     for nst in INFOS["charge"]:
-#         s += "%i " % nst
-#     s += "\nstate %i %s\n" % (istate, ["mch", "diag"][INFOS["diag"]])
-#     s += "coeff auto\n"
-#     s += "ezero %18.10f\n" % (INFOS["eref"])
-# 
-#     s += "tmax %f\nstepsize %f\nnsubsteps %i\n" % (INFOS["tmax"], INFOS["dtstep"], INFOS["nsubstep"])
-#     s += 'integrator %s\n' % (Integrator[INFOS['integrator']]["name"])
-#     # if Integrator[INFOS['integrator']]["name"] == 'avv':
-#     #     s += 'convthre %s\n' % (INFOS['convthre'])
-#     s += "\n"
-# 
-# 
-#     # general dynamics settings
-#     s += 'method %s\n' % (INFOS['method'])
-#     s += "surf %s\n" % (INFOS["surf"])
-#     s += "coupling %s\n" % (Couplings[INFOS["coupling"]]["name"])
-#     s += 'nogradcorrect\n'
-# 
-#     # TSH settings
-#     if INFOS['method'] == 'tsh':
-#         s += 'ekincorrect %s\n' % (EkinCorrect[INFOS['ekincorrect']]['name'])
-#         s += 'reflect_frustrated %s\n' % (EkinCorrect[INFOS['reflect']]['name'])
-#         s += 'decoherence_scheme %s\n' % (INFOS['decoherence'][0])
-#         if INFOS['decoherence'][1]:
-#             s += 'decoherence_param %s\n' % (INFOS['decoherence'][1])
-#         s += 'hopping_procedure %s\n' % (INFOS['hopping'])
-#         if INFOS['force_hops']:
-#             s += 'force_hop_to_gs %f\n' % (INFOS['force_hops_dE'])
-#         if INFOS['scaling_for_sharc']:
-#             s += 'scaling %f\n' % (INFOS['scaling_for_sharc'])
-#         if INFOS['damping'] is not False:
-#             s += 'dampeddyn %f\n' % (INFOS['damping'])
-#         if INFOS['phases_from_interface']:
-#             s += 'phases_from_interface\n'
-#         if "atommaskarray" in INFOS and INFOS["atommaskarray"] is not None:
-#             s += '\natommask external\natommaskfile "atommask"\n\n'
-# 
-#     s += "notrack_phase\n"
-# 
-#     if INFOS["select_directly"]:
-#         s += "select_directly\n"
-# 
-#     if not INFOS["soc"]:
-#         s += "nospinorbit\n"
-# 
-#     # NetCDF or ASCII
-#     out = "netcdf_separate_nuc"
-#     s += "output_format %s\n" % out
-# 
-#     # stride
-#     if "stride" in INFOS:
-#         s += "output_dat_steps"
-#         for i in INFOS["stride"]:
-#             s += " %i" % i
-#         s += "\n"
-# 
-#     # stride for separate nuclei
-#     if INFOS["netcdf_separate"]:
-#         if "stride_nuclear" in INFOS:
-#             s += "output_dat_steps_nuc"
-#             for i in INFOS["stride_nuclear"]:
-#                 s += " %i" % i
-#             s += "\n"
-# 
-#     s += "\n"
-# 
-#     # laser
-#     s += "laser external\n"
-#     s += 'laserfile "laser"\n'
-#     s += "laserfilepath %s\n" %(INFOS["laserfile"])
-#     s += "\n"
-# 
-#     # let user look at input and add extra stuff
-#     if ask:
-#         if question("\n\nDo you want to see the input for the first trajectory?", bool, default=False):
-#             log.info(f"{'generated input for ' + iconddir:=^80}")
-#             log.info("-"*80)
-#             log.info(s)
-#             log.info("-"*80)
-#         if question("Do you want to add keywords to the input of all trajectories?", bool, default=False):
-#             INFOS["all_additions"] = []
-#             addition = " "
-#             while addition != "end":
-#                 INFOS["all_additions"].append(addition)
-#                 addition = question("Type the keyword and value you want to add (terminate by typing 'end')", str, default='end')
-# 
-#     if "all_additions" in INFOS:
-#         s += "\n".join(INFOS["all_additions"])
-# 
-#     inputf.write(s)
-#     inputf.close()
-# 
-#     # geometry file
-#     geomfname = iconddir + "/geom"
-#     geomf = open(geomfname, "w")
-#     for atom in initobject.atomlist:
-#         geomf.write(atom[:60] + "\n")
-#     geomf.close()
-# 
-#     # velocity file
-#     velocfname = iconddir + "/veloc"
-#     velocf = open(velocfname, "w")
-#     for atom in initobject.atomlist:
-#         velocf.write(atom[60:])
-#     velocf.close()
-# 
-#     # laser file
-#     laserfname = iconddir + "/laser"
-#     sharcpath = os.getenv('SHARC')   
-#     if sharcpath is None:                                                                
-#        print('Please set $SHARC to the directory containing the SHARC executables!')
-#        sys.exit(1)
-#     if INFOS["rand_laser_pol"]:
-#         rot = R.random(random_state=rng_gen)
-#         Rmat = rot.as_matrix()
-#         trans_fields = transform_fields(Rmat, Er=Er, Ei=Ei, Br=None, Bi=None, Egradr=None, Egradi=None) 
-#         write_fields(laserfname, laser_tsteps, laser_freqs, E=trans_fields)
-#     else: 
-#         link(INFOS["laserfile"], laserfname)
-#    
-#     # atommask file
-#     if "atommaskarray" in INFOS and INFOS['atommaskarray'] is not None:
-#         atommfname = iconddir + "/atommask"
-#         atommf = open(atommfname, "w")
-#         for i, atom in enumerate(initobject.atomlist):
-#             if i + 1 in INFOS["atommaskarray"]:
-#                 atommf.write("T\n")
-#             else:
-#                 atommf.write("F\n")
-#         atommf.close()
-# 
-#     return 
 
 
 # ======================================================================================================================
@@ -1974,7 +1817,7 @@ def setup_all(INFOS, interface: SHARC_INTERFACE):
         results = get_laser(INFOS, output_fields=True)
     else:
         results = get_laser(INFOS, output_fields=False)
-        laser_tsteps, laser_freqs = results["laser_tsteps"], results["laser_freqs"]
+    laser_tsteps, laser_freqs = results["laser_tsteps"], results["laser_freqs"]
     rng_gen = np.random.default_rng(seed=INFOS["rng_seed_laser"])
     for istate in INFOS["setupstates"]:
         width = 50
