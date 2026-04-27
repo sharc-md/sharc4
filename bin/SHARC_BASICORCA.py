@@ -7,11 +7,12 @@ import re
 import struct
 import shutil
 import sys
+import subprocess as sp
 
 import numpy as np
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
-from utils import batched, expand_path, itmult, mkdir, question, readfile, writefile
+from utils import batched, expand_path, itmult, mkdir, question, readfile, writefile, link
 
 
 # ---------------------------------| Infos |---------------------------------------------------------------------------
@@ -147,7 +148,11 @@ class SHARC_BASICORCA(SHARC_ABINITIO):
     def setup_interface(self) -> None:
         super().setup_interface()
         self.QMin.control["states_to_do"] = deepcopy(self.QMin.molecule["states"])
-
+        self.QMin.resources["orca_version"] = self.get_orca_version(self.QMin.resources["orcadir"])
+        if not (4,9999) < self.QMin.resources["orca_version"] < (5,999):
+            raise RuntimeError("The BASICORCA interface supports only ORCA 5. ORCA 6 can be used with SHARC_ORCA.py")
+        if any(x != 0 for x in self.QMin.molecule["states"][1:]):
+            raise RuntimeError("The BASICORCA interface can only compute singlet states. Use SHARC_ORCA.py for other multiplicities.")
 
         #TODO: Setup stuff that needs to be done after read_template and read_resources
 
@@ -434,6 +439,20 @@ class SHARC_BASICORCA(SHARC_ABINITIO):
 # ---------------------------------| Additional Methods |------------------------------------------------------------
 
 #TODO: Put all of your extra methods in here. They all should start with and underscore "_". For example a method that parses the gradients from the output-file should be called _get_grad().
+
+    @staticmethod
+    def get_orca_version(path: str) -> tuple[int, ...]:
+        """
+        Get ORCA version number of given path
+        """
+        string = os.path.join(path, "orca") + " nonexisting"
+        with sp.Popen(string, shell=True, stdout=sp.PIPE, stderr=sp.PIPE) as proc:
+            comm = proc.communicate()[0].decode()
+            if not comm:
+                raise ValueError("ORCA version not found!")
+            version = re.findall(r"Program Version (\d.\d.\d)", comm)[0].split(".")
+            return tuple(int(i) for i in version)
+
     @staticmethod
     def generate_inputstr(qmin: QMin) -> str:
         """
@@ -462,9 +481,6 @@ class SHARC_BASICORCA(SHARC_ABINITIO):
             string += f"\tnroots {max(states_to_do)-1}\n"
             if do_grad:
                 string += "\tsgradlist " +  ",".join([str(i[1]-1) for i in qmin.maps["gradmap"]]) + "\n"
-                
-
-
             string += "end\n\n"
         
         string += "%output\n"
