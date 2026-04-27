@@ -143,7 +143,7 @@ def displaywelcome():
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('RESP fit RAM size estimator') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
-    string += '||' + '{:^80}'.format('Author: ChatGPT') + '||\n'
+    string += '||' + '{:^80}'.format('Author: Sascha Mausenberger') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
     string += '||' + '{:^80}'.format('Version: 1.0') + '||\n'
     string += '||' + '{:^80}'.format('') + '||\n'
