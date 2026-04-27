@@ -47,6 +47,9 @@ from logger import log
 from scipy import fft, signal, ndimage
 from utils import question                                 
 from scipy.interpolate import RegularGridInterpolator
+
+from constants import au2eV
+
 # from SHARC_INTERFACE import SHARC_INTERFACE                
 # =========================================================
 sharcversion='4.0'  # QA -> Take from SHARC
@@ -403,7 +406,7 @@ def convert_frequencies(laser_frequencies, i_unit):
             return [freq * time_au_to_s for freq in laser_frequencies]
         case 2:
             #log.info(f"Provided frequencies: {laser_frequencies} in eV")
-            return [freq * time_au_to_s / const.h for freq in laser_frequencies]
+            return [freq / au2eV for freq in laser_frequencies]
         case 3:
             #log.info(f"Provided frequencies: {laser_frequencies} in a.u.")
             return laser_frequencies
@@ -639,7 +642,7 @@ def main():
         header=header+header_line+header_fields+header_units+header_line
         log.info("Writing information to file: laser")
         formatted_laser_file = np.array([[custom_formatter(val) for val in row] for row in laser_file], dtype=str)
-        np.savetxt("laser", formatted_laser_file, fmt="%s", delimiter="", header=header, comments='')
+        np.savetxt("laser", formatted_laser_file, fmt="%s", delimiter="", header=header.rstrip("\n"), comments='')
     
         
     #QA: Where should the laser file be saved?
