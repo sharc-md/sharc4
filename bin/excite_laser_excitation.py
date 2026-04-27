@@ -533,7 +533,10 @@ def get_iconddir(istate, INFOS):
     if INFOS["diag"]:  # For the naming of the folder, the initial 
         dirname = "State_%i" % (istate)
     else:
-        mult, state, ms = INFOS["statemap"][istate]
+        statemap = []
+        for m,i,ms in itnmstates(INFOS["states"]):
+            statemap.append([m,i,ms])
+        mult, state, ms = statemap[istate]
         dirname = IToMult[mult] + "_%i" % (state - (mult == 1 or mult == 2))
     return dirname
 
@@ -626,7 +629,7 @@ def write_probabilities(rho, setupstate_initlist, exc_list, INFOS):
 
 def writeoutput(setupstate_initlist, INFOS):
     for idx_setupstate, setupstate in enumerate(setupstate_initlist): 
-        dirname = get_iconddir(INFOS["setupstates"][idx_setupstate], INFOS)
+        dirname = get_iconddir(INFOS["setupstates"][idx_setupstate]-1, INFOS)
         outfilename = INFOS["initf"] + "_" + dirname + ".excited"
 
         if os.path.isfile(outfilename):
@@ -676,10 +679,13 @@ def writeoutput(setupstate_initlist, INFOS):
         string += "\n\n"
         outf.write(string)
     
+        # summary
+        print("Summary of excited initial conditions:")
+        print("Index ExcitedTo ExcitedFrom ExcitationTime")
         for ic, icond in enumerate(setupstate):
             for j, jstate in enumerate(setupstate[ic].statelist):
                 if jstate.Excited:
-                    print(ic, j, jstate.IState, jstate.ExcTime)
+                    print(ic, j+1, jstate.IState, jstate.ExcTime)
             outf.write("Index     %i\n%s" % (ic + 1, str(icond)))
         outf.close()
     return 0
@@ -806,7 +812,7 @@ def main():
         quit(1)
     INFOS["rng_seed"] = random_seed()
     INFOS["renorm_scale_fac"] = scale_pmax()
-    INFOS["smoothing"] = question("Should the population be smoothed before analysis?", bool, True) 
+    INFOS["smoothing"] = question("Should the population be smoothed before analysis?", bool, False) 
     INFOS["max_hops"] = question("What is the max. allowed number of hops (including back-hops)", int, [99999])[0] 
     INFOS["sample_number"] = sample_number()
     initlist = get_initconds(INFOS)
