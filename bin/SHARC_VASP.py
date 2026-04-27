@@ -643,13 +643,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         Parse VASP output files
         """
         
-        #This should be set by the user in the slurm script to make it working properly.
-        #Setting it here doesn't work properly with pysharc.
-        #self.log.debug(f"Setting OMP_NUM_THREADS to self.QMin.resources['ncpu']: {self.QMin.resources['ncpu']}")
-        #os.environ["OMP_NUM_THREADS"]=str(self.QMin.resources['ncpu'])
         threads=os.environ.get('OMP_NUM_THREADS')
         if threads is None:
-            self.log.debug(f"OMP_NUM_THREADS is not set. Setting it to 1, but Pawpyseed overlap computation would benefit from multithreading. Set OMP_NUM_THREADS > 1 in your env.")
+            self.log.debug(f"OMP_NUM_THREADS is not set. Setting it to 1, but overlap computation would benefit from multithreading, especially when pawpyseed is used. Set OMP_NUM_THREADS > 1 in your env.")
             os.environ["OMP_NUM_THREADS"]=str(1)
         else:
             self.log.debug(f"Checking OMP_NUM_THREADS: {threads}")
@@ -670,68 +666,58 @@ class SHARC_VASP(SHARC_ABINITIO):
             npc=self.QMin.molecule["npc"],
             requests=requests,
         )
-        
-        nmstates = self.QMin.molecule["nmstates"]
 
-        #Opening OUTCAR output file for parsing
-        with open(os.path.join(self.QMin.control["workdir"],"OUTCAR"), "r", encoding="utf-8") as f:
-            OUTCAR = f.read()
+        #Opening vaspout.h5  file for parsing with h5py
+        with h5py.File(os.path.join(self.QMin.control["workdir"], "vaspout.h5"), "r") as vaspout:
 
-        # Populate energies
-        if self.QMin.requests["h"]:
-            energies,det_t, ks_mo_index = self._get_energies(OUTCAR)
-            for i in range(len(energies)):
-                self.QMout["h"][i][i] = energies[i]
-        #ks_mo_index is a dictionary with each orbital label and corresponding orbital index
-        # det_t contains occupation strings for determinants of each active state of current timestep 
-        # It is needed to compute overlaps
-        
-        # Populate dipole moments
-        if self.QMin.requests["dm"]:
-            self.QMout["dm"] = self._get_dipoles(OUTCAR)
-        
-        # Populate gradients
-        if self.QMin.requests["grad"]:
-            self.QMout.grad = self._get_gradients(OUTCAR) #This is gonna be used in the parent SHARC_CPA interface for each excited-state
-            self.log.debug("Checking GS gradients assigned to QMout and shape")
-            self.log.debug(self.QMout.grad)
-            self.log.debug(self.QMout.grad.shape)
+            # Populate energies
+            if self.QMin.requests["h"]:
+                energies,det_t, ks_mo_index = self._get_energies(vaspout)
+                for i in range(len(energies)):
+                    self.QMout["h"][i][i] = energies[i]
+            #ks_mo_index is a dictionary with each orbital label and corresponding orbital index
+            # det_t contains occupation strings for determinants of each active state of current timestep 
+            # It is needed to compute overlaps
+            
+            # Populate dipole moments
+            if self.QMin.requests["dm"]:
+                self.QMout["dm"] = self._get_dipoles(vaspout)
+            
+            # Populate gradients
+            if self.QMin.requests["grad"]:
+                self.QMout.grad = self._get_gradients(vaspout) #This is gonna be used in the parent SHARC_CPA interface for each excited-state
+                self.log.debug("Checking GS gradients assigned to QMout and shape")
+                self.log.debug(self.QMout.grad)
+                self.log.debug(self.QMout.grad.shape)
 
-        # Populate overlaps
-        if self.QMin.requests["overlap"]:
-            self.QMout.overlap = self._get_overlap(det_t,ks_mo_index)
-            self.log.debug("Checking population of self.QMout.overlap, overlap matrix")
-            self.log.debug(self.QMout.overlap)
+            # Populate overlaps
+            if self.QMin.requests["overlap"]:
+                self.QMout.overlap = self._get_overlap(det_t,ks_mo_index,vaspout)
+                self.log.debug("Checking population of self.QMout.overlap, overlap matrix")
+                self.log.debug(self.QMout.overlap)
 
-
-        # Populate phases
-        if self.QMin.requests["overlap"] and self.QMin.requests["phases"]:
-            self.QMout.phases=self._get_phases(self.QMin.template["phases_method"],self.QMout.overlap)
-            self.log.debug("Checking population of self.QMout.phases")
-            self.log.debug(self.QMout.phases)
+            # Populate phases
+            if self.QMin.requests["overlap"] and self.QMin.requests["phases"]:
+                self.QMout.phases=self._get_phases(self.QMin.template["phases_method"],self.QMout.overlap)
+                self.log.debug("Checking population of self.QMout.phases")
+                self.log.debug(self.QMout.phases)
         
         return self.QMout
     
 
-    def _get_gradients(self, vasp_out: str) -> np.ndarray:
+    def _get_gradients(self, vaspout: h5py.File) -> np.ndarray:
         """
         Get GS gradients from VASP output (OUTCAR) file.
         Each ES gradient does coincide with the GS one -> CPA approximation!!
         Gradients are output in Hartree/Bohr units and read in eV/Ang. from VASP OUTCAR
 
-        vasp_out: VASP OUTCAR file
+        vaspout: VASP vaspout.h5 HDF5 file
         """        
         
         start = datetime.datetime.now()
         
-        nmstates = self.QMin.molecule["nmstates"]
-
-        start_marker=r"\sPOSITION\s+TOTAL-FORCE \(eV\/Angst\)\n\s\-+\n"
-        end_marker=r"\s\-+\n"
-        pattern = rf'{start_marker}(.*?){end_marker}'
-        match = re.search(pattern, vasp_out, re.DOTALL)
         #Forces from VASP in eV/Ang.
-        forces=np.array([i.split() for i in match.group(1).splitlines()],dtype=np.float64)[:,3:]
+        forces=vaspout["intermediate/ion_dynamics/forces"][()][0]
         # Sorting output forces according to QMin geometry format 
         forces=forces[self._indices_vasp]
         # To be removed after testing
@@ -749,13 +735,13 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug("==> Getting gradients out of VASP done." + check_timing(start,end))
         return gradients
 
-    def _get_dipoles(self, vasp_out: str) -> np.ndarray:
+    def _get_dipoles(self, vaspout: h5py.File) -> np.ndarray:
         """
         Get dipole operator matrix. Currently this return an array of zeros
         because dipole matrix elements are meaningless in the KS orbital picture.
         This is trivially done to prevent other SHARC script from not working properly if no TDM are provided in QM.out.
 
-        vasp_out: VASP OUTCAR file
+        vaspout: VASP vaspout.h5 HDF5 file
         """
         
         nmstates = self.QMin.molecule["nmstates"]
@@ -763,7 +749,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         return dip
 
-    def _get_energies(self, vasp_out: str) -> tuple[np.ndarray,tuple[dict,dict]]:
+    def _get_energies(self, vaspout: h5py.File) -> tuple[np.ndarray,tuple[dict,dict]]:
         """
         Eigenstate energies from VASP. Excitation energies are computed as orbital energy difference between KS eigenvalues!
         GS energy is the correct DFT one, higher-lying state energies are obtained by summing excitation energy (from KS MOs difference) to GS energy.
@@ -773,31 +759,27 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         reference: J.Chem.TheoryComput.2013,9,4959−4972 (Akimov & Prezhdo)
 
-        vasp_out: VASP OUTCAR file
+        vaspout: VASP vaspout.h5 HDF5 file
         """
-        natom = self.QMin.molecule["natom"]
+        
         nmstates = self.QMin.molecule["nmstates"]
 
         start = datetime.datetime.now()
         
         #### Extracting KS MOs and corresponding energies first ####
-        start_marker=r"\s+band\s+No\.\s+band\s+energies\s+occupation\s+\n"
-        end_marker=r"\n\n\n\-+"
-        pattern = rf'{start_marker}(.*?){end_marker}'
-        match = re.search(pattern, vasp_out, re.DOTALL)
-        data=np.array([i.split() for i in match.group(1).splitlines()],dtype=np.float64)
-        pattern=rf'\s+Fermi energy:\s+(.*?)\n' #Fermi energy
-        efermi=float(re.search(pattern,vasp_out).group(1))
-        ks_en=np.copy(data[:,1])-efermi #ks eigenvalues upon subtracting fermi energy
-        occ=np.copy(data[:,2]) #occ. n of each orbital
+        efermi=float(vaspout["results/electron_dos/efermi"][()])
+        #Saving occupations as a single array. occupations either 1 or 0 for ISPIN=1 too.
+        occ=vaspout["results/electron_eigenvalues/fermiweights"][()].flatten()
         self.log.debug("Orbitals occupancies from VASP output")
         self.log.debug(occ)
+        #Saving KS orbital energies and subtracting fermi energy
+        ks_en=vaspout["results/electron_eigenvalues/eigenvalues"][()].flatten()-efermi 
         for i in occ:
-            if i != 2.0 and i != 0.0:
-                self.log.error("Orbital occupancy from VASP calculation differ from 2 or 0. Open-shell or partial occupancies are not supported")
-                raise ValueError("Orbital occupancy from VASP calculation differ from 2 or 0. Open-shell or partial occupancies are not supported") 
+            if i != 1.0 and i != 0.0:
+                self.log.error("Orbital occupancy from VASP calculation differ from 1 or 0. Partial occupancies are not supported!")
+                raise ValueError("Orbital occupancy from VASP calculation differ from 1 or 0. Partial occupancies are not supported!") 
         #Reading and sorting KS orbital energies (Fermi energy set to 0!)
-        n_o=int(np.sum(occ)/2) # N. of occupied MO, assuming closed shell
+        n_o=int(np.sum(occ)) # N. of occupied MO, assuming closed shell, so result of ISPIN=1
         n_u=len(ks_en)-n_o
         ks_o=dict([('H-'+ str(n_o-1-i),ks_en[i]) for i in range(0,n_o-1)]) #orbitals below H
         ks_o.update({'H':ks_en[n_o-1]}) # H orbital
@@ -816,8 +798,9 @@ class SHARC_VASP(SHARC_ABINITIO):
             self._write_transitions(ks_es,ks_mo_index) #Writing out states selected and their composition
         #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
         energies=np.zeros(nmstates,dtype=complex)
-        pattern=rf'  energy  without entropy=.*energy\(sigma->0\)\s+=\s+(.*?)\n'
-        gs_en=float(re.search(pattern,vasp_out).group(1))
+        mask = np.char.find(vaspout["intermediate/ion_dynamics/energies_tags"][()], b'energy(sigma->0)') != -1
+        index = np.where(mask)[0]
+        gs_en=float(vaspout["intermediate/ion_dynamics/energies"][()].flatten()[index[0]])
         self.log.debug("debugging GS energy from VASP")
         self.log.debug(gs_en)
         energies[0]=(gs_en/au2eV)
@@ -864,7 +847,7 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         return energies,det_ind,ks_mo_index
     
-    def _get_overlap(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
+    def _get_overlap(self, det_t: np.ndarray,  ks_mo_index: dict, vaspout: h5py.File) -> np.ndarray:
         ''' 
         Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
         
@@ -873,9 +856,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
         ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
        
-        self.QMin.template["overlap_method"] selects which method from pawpyseed to compute MO overlaps.
-        if 'full',  default AE overlaps are calculated.
-        if 'pseudo' only pseudowavefunction overlaps
+        self.QMin.template["overlap_method"] selects if overlaps are computed from paypyseed or vasp.
         '''
        
         start = datetime.datetime.now()
@@ -888,8 +869,7 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         #If KS orbital overlaps are computed from VASP directly we skip PawPyseed call
         if self.QMin.template["overlap_method"]=="vasp":
-            vasph5 = h5py.File(os.path.join(self.QMin.control["workdir"],"vaspout.h5"), "r")
-            S=vasph5["results/wswq/elements"][()][0,0,:,:,0]+ 1j*vasph5["results/wswq/elements"][()][0,0,:,:,1] #Gamma-point only and spin channel 1, that is why 0,0 !!
+            S=vaspout["results/wswq/elements"][()][0,0,:,:,0]+ 1j*vaspout["results/wswq/elements"][()][0,0,:,:,1] #Gamma-point only and spin channel 1, that is why 0,0 !!
             #real and imaginary parts are stored in different indexes (last index)
             S=np.conjugate(S) #conjugation because Manuel’s routine in VASP deliver <psi_j(t+dt)|psi_i(t)>.
             self.log.debug(f"Shape of KS overlap matrix from VASP {S.shape}")
