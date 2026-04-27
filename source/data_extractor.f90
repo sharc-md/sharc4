@@ -925,12 +925,12 @@ program data_extractor
       write(*,*) "Reading of fields"
     endif
 
-    if (write_dip) then
+    ! if (write_dip) then
       ! allocate( DM_mch_ssd(nstates,nstates,3) )
       ! allocate( DM_diag_ssd(nstates,nstates,3) )
-      allocate( dm_proj_sp(nstates,nprojections) )
-      allocate( expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
-    endif
+      ! allocate( dm_proj_sp(nstates,nprojections) )
+      ! allocate( expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
+    ! endif
     if (write_mag_dip) then
       ! allocate( MDM_mch_ssd(nstates,nstates,3) )
       ! allocate( MDM_diag_ssd(nstates,nstates,3) )
