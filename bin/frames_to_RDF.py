@@ -172,17 +172,18 @@ def main(infile, maskfile1, maskfile2, outfile, options):
 
 if __name__ == "__main__":
 
-    parser = OptionParser()
+    usage = "usage: %prog [options] <h5file> <maskfile1> <maskfile2> <outfile>"
+    parser = OptionParser(usage=usage)
+
     parser.add_option("-w", "--cell_width",  dest="w", type="float", default=0.1, help="specify the cell width in Angstrom")
     parser.add_option("-n", "--cell_number", dest="n", type="int",   default=100,  help="specify the number of cells")
     parser.add_option("-r", "--rawhist", dest='rawhist', action='store_true', help="Return raw histograms rather than normalized RDFs")
 
 
     (options, args) = parser.parse_args()
-    if len(args) < 3:
-        parser.print_usage()
-        sys.exit()
-    infile, maskfile1, maskfile2, outfile = args[0:4]
+    if len(args) != 4:
+        parser.error("incorrect number of arguments")
+    infile, maskfile1, maskfile2, outfile = args
     print("\nRunning Cartesian-weighted RDF with the following options:")
     print(f"  Input file:          {infile}")
     print(f"  Mask file 1:         {maskfile1}")
