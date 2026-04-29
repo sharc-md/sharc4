@@ -223,7 +223,14 @@ def main():
         Tshift = int(np.genfromtxt("start.time")[0]/options.t)
         sys.stderr.write("Spotted time shift = %f!\n" % Tshift)
     else:                                                     
-        Tshift = options.T
+        Tshift = options.T * options.t
+
+    # check if time step and Tshift are compatible
+    ratio = Tshift / options.t
+    is_int = abs(ratio - round(ratio)) < 1e-9
+    if not is_int:
+        sys.stderr.write("Time shift %f fs and time step %f fs not consistent!\n" % (Tshift,options.t))
+        sys.exit(1)
 
     # iteration
     for igeom, geom in enumerate(TRAJ):
