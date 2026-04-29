@@ -87,7 +87,8 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "ismear": 0, #Smearing parameter for VASP, default set to Gaussian smearing (0) 
                 "sigma": 0.001, #Smearing width
                 "encut": 200, #Energy cutoff for plan waves in eV
-                "ispin": 1, #keyword for selecting spin calculation, only singlet ISPIN=1 is implemented below
+                "ispin": 1, #keyword for selecting spin calculation,
+                "magmom": None, #list of on-site spin magnetization when ISPIN=2 is selected (MAGMOM VASP flag)
                 "nbands": None, #If unspecified it will not appear in INCAR, so VASP will determine it automatically
                 "nelm": 60, #setting maximun number of SCF electronic steps
                 "algo": "Normal", #selects the algorithm to optimize orbitals, ALGO
@@ -113,6 +114,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                 "sigma": float,
                 "encut" : float,
                 "ispin": int, 
+                "magmom": list, 
                 "nbands" : int,
                 "nelm" : int,
                 "algo":str, 
@@ -203,10 +205,25 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.error("ispin in template has to be an integer, check ISPIN vasp wiki")
             raise ValueError()
         else:
-            if self.QMin.template["ispin"] != 1:
-                self.log.error("ispin has to be set to 1, singlet calculation. Higher multiplicities are not implemented yet")
+            if self.QMin.template["ispin"] != 1 and self.QMin.template["ispin"] != 2:
+                self.log.error("ispin has to be set to 1 or 2. Check ISPIN vasp wiki.")
                 raise ValueError()
+        
+        if self.QMin.template["ispin"] == 2 and self.QMin.template["magmom"] is None:
+            self.log.warning("ISPIN=2 was selected but no MAGMOM was given. VASP will use its default but it is advisable to specify on-site magnetization ")
 
+        if self.QMin.template["magmom"] is not None:
+            if  not isinstance(self.QMin.template["magmom"],list):
+                self.log.error("magmom has to be a list of numbers in the following manner: n_atoms magnetization n_atoms magnetization ...etc.")
+                raise ValueError()
+            else:
+                for i in self.QMin.template["magmom"][::2]:
+                    if not float(i).is_integer():
+                        self.log.error("The n.of atoms for each specified magnetization must be an integer following POSCAR order. Check your magmom in VASP.template.")
+                for i in self.QMin.template["magmom"][1::2]:
+                    if not isinstance(i,(float,int)):
+                        self.log.error("The magnetization (every second number) in magmom must be a number, either int or float. Check your magmom in VASP.template.")
+            
         if self.QMin.template["nbands"] is not None and not isinstance(self.QMin.template["nbands"],int):
             self.log.error("nbands in template has to be an integer, check NBANDS vasp wiki")
             raise ValueError()
@@ -338,6 +355,9 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         self.log.info(f"Scratchdir: {self.QMin.resources['scratchdir']}")
         self.log.info(f"Savedir: {self.QMin.save['savedir']}")
+
+        os.environ["OMP_NUM_THREADS"]=str(self.QMin.resources['ncpu'])
+        self.log.debug(f"OMP_NUM_THREADS initialized to {os.environ.get('OMP_NUM_THREADS')}. Note that VASP will only use MPI anyway.")
        
         if (any(num > 0 for num in self.QMin.molecule["states"][1:]) or self.QMin.molecule["states"][0] == 0):
             self.log.error("Current VASP implementation only deals with singlets!")
@@ -672,13 +692,16 @@ class SHARC_VASP(SHARC_ABINITIO):
 
             # Populate energies
             if self.QMin.requests["h"]:
-                energies,det_t, ks_mo_index = self._get_energies(vaspout)
+                #RKS
+                if self.QMin.template["ispin"]==1: 
+                    energies,det_t, ks_mo_index = self._get_energies_rks(vaspout)
+                #UKS
+                elif self.QMin.template["ispin"]==2: 
+                    energies,det_t, ks_mo_index_alpha,ks_mo_index_beta = self._get_energies_uks(vaspout)
+                #Assigning ground and excited state energies
                 for i in range(len(energies)):
                     self.QMout["h"][i][i] = energies[i]
-            #ks_mo_index is a dictionary with each orbital label and corresponding orbital index
-            # det_t contains occupation strings for determinants of each active state of current timestep 
-            # It is needed to compute overlaps
-            
+
             # Populate dipole moments
             if self.QMin.requests["dm"]:
                 self.QMout["dm"] = self._get_dipoles(vaspout)
@@ -692,7 +715,10 @@ class SHARC_VASP(SHARC_ABINITIO):
 
             # Populate overlaps
             if self.QMin.requests["overlap"]:
-                self.QMout.overlap = self._get_overlap(det_t,ks_mo_index,vaspout)
+                if self.QMin.template["ispin"]==1: 
+                    self.QMout.overlap = self._get_overlap_rks(det_t,ks_mo_index,vaspout)
+                elif self.QMin.template["ispin"]==2:
+                    self.QMout.overlap = self._get_overlap_uks(det_t,ks_mo_index_alpha,ks_mo_index_beta,vaspout)
                 self.log.debug("Checking population of self.QMout.overlap, overlap matrix")
                 self.log.debug(self.QMout.overlap)
 
@@ -749,15 +775,11 @@ class SHARC_VASP(SHARC_ABINITIO):
         
         return dip
 
-    def _get_energies(self, vaspout: h5py.File) -> tuple[np.ndarray,tuple[dict,dict]]:
+    def _get_energies_rks(self, vaspout: h5py.File) -> tuple[np.ndarray,np.ndarray,dict]:
         """
         Eigenstate energies from VASP. Excitation energies are computed as orbital energy difference between KS eigenvalues!
         GS energy is the correct DFT one, higher-lying state energies are obtained by summing excitation energy (from KS MOs difference) to GS energy.
-        Currently, only single excitations are considered! No double, triple excitations etc. 
-        Moreover, GS is assumed to be closed shell and only singlet excited states are accounted for.
-        Refinements will follow.
-        
-        reference: J.Chem.TheoryComput.2013,9,4959−4972 (Akimov & Prezhdo)
+        Only single excitations with ISPIN=1 (RKS) are considered here.
 
         vaspout: VASP vaspout.h5 HDF5 file
         """
@@ -772,12 +794,18 @@ class SHARC_VASP(SHARC_ABINITIO):
         occ=vaspout["results/electron_eigenvalues/fermiweights"][()].flatten()
         self.log.debug("Orbitals occupancies from VASP output")
         self.log.debug(occ)
+        #Checking sanity of occupancies
+        tol=1e-10 #tolerance for occupancies threshold to ensure they are 1 or 0.
+        for n, i in enumerate(occ):
+            if np.abs(i - 1.0) <= tol:
+                occ[n] = 1.0
+            elif np.abs(i - 0.0) <= tol:
+                occ[n] = 0.0
+            else:
+                self.log.error(f"Occupancy of orbital {n} is {i}, partial occupancies are not supported!")
+                raise ValueError("Orbital occupancy from VASP calculation differ from 1 or 0. Partial occupancies are not supported!") 
         #Saving KS orbital energies and subtracting fermi energy
         ks_en=vaspout["results/electron_eigenvalues/eigenvalues"][()].flatten()-efermi 
-        for i in occ:
-            if i != 1.0 and i != 0.0:
-                self.log.error("Orbital occupancy from VASP calculation differ from 1 or 0. Partial occupancies are not supported!")
-                raise ValueError("Orbital occupancy from VASP calculation differ from 1 or 0. Partial occupancies are not supported!") 
         #Reading and sorting KS orbital energies (Fermi energy set to 0!)
         n_o=int(np.sum(occ)) # N. of occupied MO, assuming closed shell, so result of ISPIN=1
         n_u=len(ks_en)-n_o
@@ -794,8 +822,6 @@ class SHARC_VASP(SHARC_ABINITIO):
                 ks_es_all.update({ i+'->'+j : ks_u[j]-ks_o[i]})
         ks_es_all=dict(sorted(ks_es_all.items(), key=lambda x: x[1])) #sorting excitation energies
         ks_es= dict(itertools.islice(ks_es_all.items(), nmstates-1)) # Getting first nmstates-1 excitation energies
-        if nmstates > 1: 
-            self._write_transitions(ks_es,ks_mo_index) #Writing out states selected and their composition
         #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
         energies=np.zeros(nmstates,dtype=complex)
         mask = np.char.find(vaspout["intermediate/ion_dynamics/energies_tags"][()], b'energy(sigma->0)') != -1
@@ -815,9 +841,20 @@ class SHARC_VASP(SHARC_ABINITIO):
         gs=dict(itertools.islice(ks_mo_index.items(), list(ks_mo_index.keys()).index("L")))
         self.log.debug("checking Slater determinant string of GS")
         self.log.debug(gs)
-        #Adding excited state determinants now 
+        #Creating string to write out to file excited-state transitions. 
+        if nmstates > 1:
+            step=self.QMin.save['step']
+            if step==0:
+                input_path = os.path.join(self.QMin.save["savedir"], "TRANSITIONS_t0")
+            else:
+                input_path = os.path.join(self.QMin.save["savedir"], f"TRANSITIONS.{step}")
+            input_str = f"VASP states and info for step n.{step}\n"
+            value = ks_es.get('H->L', min(ks_es.values()))  # use min value if key missing
+            input_str += f"Bangap: {value:<10.5f} eV\n"
+            input_str += f"{'Excited state n.':<20}{'orbitals (vasp band indexes)':<30}{'Energy(eV)':<20}\n"
+        #Building occupation strings of excited-state SDs
         es=list()
-        for i in ks_es.keys():
+        for n,(i,j) in enumerate(ks_es.items()):
             tmp={}
             from_orbital=(i.split('->')[0]) #Occupied orbital to excite from
             to_orbital=(i.split('->')[-1]) #Unoccupied orbital to excite into
@@ -827,7 +864,12 @@ class SHARC_VASP(SHARC_ABINITIO):
                     tmp[to_orbital] = ks_mo_index[to_orbital]
                 else:
                     tmp[k] = v
-            es.append(tmp)
+            if nmstates > 1: #Appending to string for output file containing transitions
+                label=i+" ("+str(ks_mo_index[from_orbital]+1)+'->'+str(ks_mo_index[to_orbital]+1)+")" # +1 is because VASP index start from 1 and not 0
+                input_str += f"{n+1:<20}{label:<30}{j:<10.5f}\n"
+            es.append(tmp) 
+        writefile(input_path, input_str)
+        #End of writing and SD strings construction for excited-states            
         self.log.debug("checking Slater determinant strings for selected ES")
         self.log.debug(es)
         det_ind=np.zeros((nmstates,len(gs)),dtype=int)
@@ -847,9 +889,168 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         return energies,det_ind,ks_mo_index
     
-    def _get_overlap(self, det_t: np.ndarray,  ks_mo_index: dict, vaspout: h5py.File) -> np.ndarray:
+    def _get_energies_uks(self, vaspout: h5py.File) -> tuple[np.ndarray,np.ndarray,dict,dict]:
+        """
+        Eigenstate energies from VASP. Excitation energies are computed as orbital energy difference between KS eigenvalues!
+        GS energy is the correct DFT one, higher-lying state energies are obtained by summing excitation energy (from KS MOs difference) to GS energy.
+        Only single excitations with ISPIN=2 (UKS) are considered here. So both alpha and beta channels excitations are built here.
+
+        vaspout: VASP vaspout.h5 HDF5 file
+        """
+        
+        nmstates = self.QMin.molecule["nmstates"]
+
+        start = datetime.datetime.now()
+        
+        #### Extracting KS MOs and corresponding energies first ####
+        efermi=float(vaspout["results/electron_dos/efermi"][()])
+        #Saving occupations as a single array. occupations either 1 or 0.
+        occ_alpha=vaspout["results/electron_eigenvalues/fermiweights"][()][0].flatten()
+        occ_beta=vaspout["results/electron_eigenvalues/fermiweights"][()][1].flatten()
+        self.log.debug("Alpha orbital occupancies from VASP output")
+        self.log.debug(occ_alpha)
+        self.log.debug("Beta orbital occupancies from VASP output")
+        self.log.debug(occ_beta)
+        #Checking sanity of occupancies
+        tol=1e-10 #tolerance for occupancies threshold to ensure they are 1 or 0.
+        for n, i in enumerate(occ_alpha):
+            if np.abs(i - 1.0) <= tol:
+                occ_alpha[n] = 1.0
+            elif np.abs(i - 0.0) <= tol:
+                occ_alpha[n] = 0.0
+            else:
+                self.log.error(f"Occupancy of alpha orbital {n} is {i}, partial occupancies are not supported!")
+        for n, i in enumerate(occ_beta):
+            if np.abs(i - 1.0) <= tol:
+                occ_beta[n] = 1.0
+            elif np.abs(i - 0.0) <= tol:
+                occ_beta[n] = 0.0
+            else:
+                self.log.error(f"Occupancy of beta orbital {n} is {i}, partial occupancies are not supported!")
+        #Saving KS orbital energies and subtracting fermi energy
+        ks_alpha=vaspout["results/electron_eigenvalues/eigenvalues"][()][0].flatten()-efermi 
+        ks_beta=vaspout["results/electron_eigenvalues/eigenvalues"][()][1].flatten()-efermi 
+        #Reading and sorting KS orbital energies for alpha MOs
+        n_o_alpha=int(np.sum(occ_alpha)) # N. of occupied alpha MOs
+        n_u_alpha=len(ks_alpha)-n_o_alpha #N. of unoccupied alpha MOs
+        ks_o_alpha=dict([('H-'+ str(n_o_alpha-1-i),ks_alpha[i]) for i in range(0,n_o_alpha-1)]) #orbitals below H alpha
+        ks_o_alpha.update({'H':ks_alpha[n_o_alpha-1]}) # H orbital
+        ks_u_alpha={'L':ks_alpha[n_o_alpha]} #L orbital
+        ks_u_alpha.update(dict([('L+'+ str(i-n_o_alpha),ks_alpha[i]) for i in range(n_o_alpha+1,n_o_alpha+n_u_alpha)])) #obitals above L alpha
+        #same for beta MOs
+        n_o_beta=int(np.sum(occ_beta)) # N. of occupied beta MOs
+        n_u_beta=len(ks_beta)-n_o_beta 
+        ks_o_beta=dict([('H-'+ str(n_o_beta-1-i),ks_beta[i]) for i in range(0,n_o_beta-1)]) #orbitals below H beta
+        ks_o_beta.update({'H':ks_beta[n_o_beta-1]}) # H orbital beta
+        ks_u_beta={'L':ks_beta[n_o_beta]} #L orbital beta
+        ks_u_beta.update(dict([('L+'+ str(i-n_o_beta),ks_beta[i]) for i in range(n_o_beta+1,n_o_beta+n_u_beta)])) #obitals above L beta
+        #### Computing excitation energies by orbital energy difference among KS MOs and selecting first "nmstates" only #### 
+        #alpha
+        ks_mo_alpha= ks_o_alpha|ks_u_alpha
+        ks_mo_index_alpha=dict([(i,n) for n,i in enumerate(ks_mo_alpha.keys())]) #Dictionary {'orbital_label':index} 
+        ks_es_all_alpha=dict()
+        for i in ks_o_alpha:
+            for j in ks_u_alpha:
+                ks_es_all_alpha.update({ 'alpha '+i+'->'+j : ks_u_alpha[j]-ks_o_alpha[i]})
+        #beta
+        ks_mo_beta= ks_o_beta|ks_u_beta
+        ks_mo_index_beta=dict([(i,n) for n,i in enumerate(ks_mo_beta.keys())]) #Dictionary {'orbital_label':index} 
+        ks_es_all_beta=dict()
+        for i in ks_o_beta:
+            for j in ks_u_beta:
+                ks_es_all_beta.update({ 'beta '+i+'->'+j : ks_u_beta[j]-ks_o_beta[i]})
+        #combining alpha and beta to get all excitations
+        ks_es_all = ks_es_all_alpha | ks_es_all_beta
+        ks_es_all = dict(sorted(ks_es_all.items(), key=lambda x: x[1]))
+        ks_es= dict(itertools.islice(ks_es_all.items(), nmstates-1)) # Getting first nmstates-1 excitation energies
+        #### Create the output list with GS energy and nmstates-1 excited state energies for SHARC driver ####
+        energies=np.zeros(nmstates,dtype=complex)
+        mask = np.char.find(vaspout["intermediate/ion_dynamics/energies_tags"][()], b'energy(sigma->0)') != -1
+        index = np.where(mask)[0]
+        gs_en=float(vaspout["intermediate/ion_dynamics/energies"][()].flatten()[index[0]])
+        self.log.debug("debugging GS energy from VASP")
+        self.log.debug(gs_en)
+        energies[0]=(gs_en/au2eV)
+        for n,i in enumerate(ks_es.values()):
+            energies[n+1]=(energies[0]+i/au2eV)
+        self.log.debug("TESTING ENERGIES PARSING")
+        self.log.debug(energies)
+        self.log.debug("KS orbitals and transitions out of VASP")
+        self.log.debug(ks_es)
+        #### Saving Slater determinants occupation indexes for overlap calculation #####
+        #GS slater determinant first {'first_occupied_orbital_label' : first_occupied_orbital_index ...etc...}
+        gs={'alpha': dict(itertools.islice(ks_mo_index_alpha.items(), list(ks_mo_index_alpha.keys()).index("L")))}
+        gs.update({'beta': dict(itertools.islice(ks_mo_index_beta.items(), list(ks_mo_index_beta.keys()).index("L")))})
+        self.log.debug("checking Slater determinant string of GS (alpha)")
+        self.log.debug(gs['alpha'])
+        self.log.debug("checking Slater determinant string of GS (beta)")
+        self.log.debug(gs['beta'])
+        #Creating string to write out to file excited-states transitions
+        if nmstates > 1: 
+            step=self.QMin.save['step']
+            if step==0:
+                input_path = os.path.join(self.QMin.save["savedir"], "TRANSITIONS_t0")
+            else:
+                input_path = os.path.join(self.QMin.save["savedir"], f"TRANSITIONS.{step}")
+            input_str = f"VASP states and info for step n.{step}\n"
+            bg_alpha = ks_es.get('alpha H->L', min(ks_es.values()))  
+            input_str += f"Bangap (alpha channel): {bg_alpha:<10.5f} eV\n"
+            bg_beta = ks_es.get('beta H->L', min(ks_es.values()))  
+            input_str += f"Bangap (beta channel): {bg_beta:<10.5f} eV\n"
+            input_str += f"{'Excited state n.':<20}{'spin channel':<20}{'orbitals (vasp band indexes)':<30}{'Energy(eV)':<20}\n"
+        #Building SDs occupation strings for excited-states
+        es=list()
+        for n,(i,j) in enumerate(ks_es.items()):
+            tmp={'alpha' : {}, 'beta' : {}}
+            channel,ex_label=i.split()
+            from_orbital=(ex_label.split('->')[0]) #Occupied orbital to excite from
+            to_orbital=(ex_label.split('->')[1]) #unoccupied orbital to excite to
+            if 'alpha' in channel: 
+                tmp['beta']=gs['beta'].copy() #Beta occupation untouched upon alpha excitation
+                for k, v in gs['alpha'].items():
+                    if k == from_orbital:
+                        tmp['alpha'][to_orbital] = ks_mo_index_alpha[to_orbital]
+                    else:
+                        tmp['alpha'][k] = v
+                if nmstates > 1: #Continue writing each excited-state transition to file string
+                    label=ex_label+" ("+str(ks_mo_index_alpha[from_orbital]+1)+'->'+str(ks_mo_index_alpha[to_orbital]+1)+")" # +1 is because VASP index start from 1 and not 0
+                    input_str += f"{n+1:<20}{channel:<20}{label:<30}{j:<10.5f}\n"
+            elif 'beta' in channel: 
+                tmp['alpha']=gs['alpha'].copy()
+                for k, v in gs['beta'].items():
+                    if k == from_orbital:
+                        tmp['beta'][to_orbital] = ks_mo_index_alpha[to_orbital]
+                    else:
+                        tmp['beta'][k] = v
+                if nmstates > 1: 
+                    label=ex_label+" ("+str(ks_mo_index_beta[from_orbital]+1)+'->'+str(ks_mo_index_beta[to_orbital]+1)+")" 
+                    input_str += f"{n+1:<20}{channel:<20}{label:<30}{j:<10.5f}\n"
+            es.append(tmp)
+        writefile(input_path, input_str)
+        #End of determinants construction
+        self.log.debug("checking Slater determinant strings for selected ES")
+        self.log.debug(es)
+        det_ind=np.zeros((nmstates,len(gs['alpha'])+len(gs['beta'])),dtype=int)
+        det_ind[0]=np.array(list(gs['alpha'].values())+list(gs['beta'].values())) #array of orbital indexes for each slater determinant. first alpha then beta
+        for n,i in enumerate(es):
+            det_ind[n+1]=np.array(list(i['alpha'].values())+list(i['beta'].values()))
+        self.log.debug("checking number of states selected from SHARC input")
+        self.log.debug(self.QMin.molecule["nmstates"]) 
+        self.log.debug("checking number of states for which overlap is computed")
+        self.log.debug(det_ind.shape)
+        #Saving Slater Determinant occupations for overlap
+        filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']}") 
+        np.savetxt(filename,det_ind,fmt='%d') 
+        
+        end = datetime.datetime.now()
+        self.log.debug("==> Building excitations out of VASP orbitals done." + check_timing(start,end))
+
+        return energies,det_ind,ks_mo_index_alpha,ks_mo_index_beta
+    
+    def _get_overlap_rks(self, det_t: np.ndarray,  ks_mo_index: dict, vaspout: h5py.File) -> np.ndarray:
         ''' 
-        Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
+        Function to get S_{ij}(r,t+dt) overlap matrix to compute overlaps between SDs out of KS orbitals from VASP.
+        Either PawPySeed or VASP overlaps are supported.
         
         This routine relies on matrix determinant lemma (rank-1 and rank-2 updates) for speeding up multiple SD overlaps computation.
 
@@ -1008,6 +1209,30 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug("==> Full overlap routine done." + check_timing(start,end))
        
         return S_ij
+
+    def _get_overlap_uks(self, det_t: np.ndarray,  ks_mo_index_alpha: dict, ks_mo_index_beta: dict, vaspout: h5py.File) -> np.ndarray:
+        ''' 
+        Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
+        
+        This routine relies on matrix determinant lemma (rank-1 and rank-2 updates) for speeding up multiple SD overlaps computation.
+
+        det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
+        ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
+       
+        self.QMin.template["overlap_method"] selects if overlaps are computed from paypyseed or vasp.
+        '''
+       
+        start = datetime.datetime.now()
+
+        #Determinant strings from previous tstep
+        filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']-1}")
+        det_t0=np.loadtxt(filename,dtype=int)
+        self.log.debug("Occupation strings of Slater determinants at previous timestep")
+        self.log.debug(det_t0)
+
+        
+       
+        return S_ij
     
     @staticmethod
     def longest_common_prefix(A,B):
@@ -1035,204 +1260,204 @@ class SHARC_VASP(SHARC_ABINITIO):
                 break  # mismatch in this column
         return common_seq
     
-    #Routine above with determinant lemma should be faster!
-    #Keeping this here just in case we need to go back to Schur complement
-    def _get_overlap_schur(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
-        ''' 
-        Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
+    # #Routine above with determinant lemma should be faster!
+    # #Keeping this here just in case we need to go back to Schur complement
+    # def _get_overlap_schur(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
+    #     ''' 
+    #     Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
         
-        This routine relies on Schur complement to speed up multi SDs overlap evaluation.
+    #     This routine relies on Schur complement to speed up multi SDs overlap evaluation.
 
-        det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
-        ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
+    #     det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
+    #     ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
         
-        self.QMin.template["overlap_method"] selects which method from pawpyseed to compute MO overlaps.
-        if 'full',  default AE overlaps are calculated.
-        if 'pseudo' only pseudowavefunction overlaps.
-        '''
+    #     self.QMin.template["overlap_method"] selects which method from pawpyseed to compute MO overlaps.
+    #     if 'full',  default AE overlaps are calculated.
+    #     if 'pseudo' only pseudowavefunction overlaps.
+    #     '''
         
-        start = datetime.datetime.now()
+    #     start = datetime.datetime.now()
         
-        from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
+    #     from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
 
-        filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']-1}")
-        det_t0=np.loadtxt(filename,dtype=int)
-        self.log.debug("Occupation strings of Slater determinants at previous timestep")
-        self.log.debug(det_t0)
-        self.log.debug(f"Checking OMP_NUM_THREADS parallelization for pawpyseed: {os.environ['OMP_NUM_THREADS']}")
+    #     filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']-1}")
+    #     det_t0=np.loadtxt(filename,dtype=int)
+    #     self.log.debug("Occupation strings of Slater determinants at previous timestep")
+    #     self.log.debug(det_t0)
+    #     self.log.debug(f"Checking OMP_NUM_THREADS parallelization for pawpyseed: {os.environ['OMP_NUM_THREADS']}")
 
-        #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
-        self.log.debug("-----------------------------")
-        self.log.debug("PAWPYSEED overlap calculation")
-        self.log.debug("-----------------------------\n")
-        with suppress_stdout_stderr():  
-            wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
-                                            wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
-                                            cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
-                                            vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
-            wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save['step']-1}"), #previous timestep wf
-                                            wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save['step']-1}"),
-                                            cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
-                                            vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
+    #     #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
+    #     self.log.debug("-----------------------------")
+    #     self.log.debug("PAWPYSEED overlap calculation")
+    #     self.log.debug("-----------------------------\n")
+    #     with suppress_stdout_stderr():  
+    #         wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
+    #                                         wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
+    #                                         cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
+    #                                         vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
+    #         wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save['step']-1}"), #previous timestep wf
+    #                                         wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save['step']-1}"),
+    #                                         cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
+    #                                         vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
 
-            pr=Projector(wf_t, wf_t0)
+    #         pr=Projector(wf_t, wf_t0)
 
-        end_setup= datetime.datetime.now()
-        self.log.debug("==> Pawpyseed projectors setup"+ check_timing(start,end_setup))
+    #     end_setup= datetime.datetime.now()
+    #     self.log.debug("==> Pawpyseed projectors setup"+ check_timing(start,end_setup))
 
-        #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
-        S=np.zeros((len(ks_mo_index),len(ks_mo_index)),dtype=complex)
-        with suppress_stdout_stderr():  
-            for idx,i in enumerate(ks_mo_index.values()):
-                S[idx,:]=pr.single_band_projection(i) #Computing each ith row of the KS overlap matrix 
-        S=S.T  #Because each single_band_projection() loop computes <\psi_1(t0)|\psi_i(t+dt)>....<\psi_n(t0)|\psi_i(t+dt)>
-        #which is a column of S(t,t+dt) 
-        #np.savetxt('overlap_VASP.dat',S) #Printing out full MOs overlap matrix for VASP check
-        end_pawpyseed= datetime.datetime.now()
-        self.log.debug("==> Pawpyseed overlap"+ check_timing(end_setup,end_pawpyseed))
+    #     #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
+    #     S=np.zeros((len(ks_mo_index),len(ks_mo_index)),dtype=complex)
+    #     with suppress_stdout_stderr():  
+    #         for idx,i in enumerate(ks_mo_index.values()):
+    #             S[idx,:]=pr.single_band_projection(i) #Computing each ith row of the KS overlap matrix 
+    #     S=S.T  #Because each single_band_projection() loop computes <\psi_1(t0)|\psi_i(t+dt)>....<\psi_n(t0)|\psi_i(t+dt)>
+    #     #which is a column of S(t,t+dt) 
+    #     #np.savetxt('overlap_VASP.dat',S) #Printing out full MOs overlap matrix for VASP check
+    #     end_pawpyseed= datetime.datetime.now()
+    #     self.log.debug("==> Pawpyseed overlap"+ check_timing(end_setup,end_pawpyseed))
 
-        #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
-        det_beta=det_slog(S[np.ix_(det_t0[0],det_t[0])]) #beta electrons always the same, alpha excitations.
-        #Schur complement for speeding up determinant evaluation for SD overlaps for alpha electrons.
-        #All these determinants share a big block, which is always the same and can be pre-computed to make use of Schur complement for full determinant.
-        start_lu=datetime.datetime.now()
-        common_idx=SHARC_VASP.longest_common_prefix(det_t0,det_t)
-        self.log.debug(f"common set of orbitals among all SDs: {common_idx}")
-        sub_block=S[np.ix_(common_idx,common_idx)]
-        lu_block, piv_block = lu_factor(sub_block)
-        # determinant info from LU
-        diag = np.diag(lu_block)
-        logdet_block = np.sum(np.log(np.abs(diag)))
-        phase_block = np.prod(diag / np.abs(diag))
-        piv_sign = (-1) ** np.sum(piv_block != np.arange(len(piv_block)))
-        sign_block = piv_sign * phase_block
-        det_block = sign_block * np.exp(logdet_block)
-        end_lu=datetime.datetime.now()
-        self.log.debug("==> Determinant of the sub_block and LU factorization done."+check_timing(start_lu,end_lu))
+    #     #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
+    #     det_beta=det_slog(S[np.ix_(det_t0[0],det_t[0])]) #beta electrons always the same, alpha excitations.
+    #     #Schur complement for speeding up determinant evaluation for SD overlaps for alpha electrons.
+    #     #All these determinants share a big block, which is always the same and can be pre-computed to make use of Schur complement for full determinant.
+    #     start_lu=datetime.datetime.now()
+    #     common_idx=SHARC_VASP.longest_common_prefix(det_t0,det_t)
+    #     self.log.debug(f"common set of orbitals among all SDs: {common_idx}")
+    #     sub_block=S[np.ix_(common_idx,common_idx)]
+    #     lu_block, piv_block = lu_factor(sub_block)
+    #     # determinant info from LU
+    #     diag = np.diag(lu_block)
+    #     logdet_block = np.sum(np.log(np.abs(diag)))
+    #     phase_block = np.prod(diag / np.abs(diag))
+    #     piv_sign = (-1) ** np.sum(piv_block != np.arange(len(piv_block)))
+    #     sign_block = piv_sign * phase_block
+    #     det_block = sign_block * np.exp(logdet_block)
+    #     end_lu=datetime.datetime.now()
+    #     self.log.debug("==> Determinant of the sub_block and LU factorization done."+check_timing(start_lu,end_lu))
 
-        #Computing the overlap matrix elements with joblib parallelization
-        def compute_row(i):
-            row = np.empty(nt, dtype=complex)
-            for j in range(nt):
-                # Compute submatrix on-the-fly to save memory
-                submatrix = S[np.ix_(det_t0[i], det_t[j])]
-                #Change of determinant sign because of re-ordering of orbitals in SD string
-                #Reordering assume the new orbital after excitation will be put at the end of the string
-                #Energy-based order of orbitals in SD
-                if i!=0:
-                    sgn_row=(-1)**((det_length-1)-np.argmax(det_t0[i]-det_t0[0]))
-                else:
-                    sgn_row=1
-                if j!=0:
-                    sgn_col=(-1)**((det_length-1)-np.argmax(det_t[j]-det_t[0]))
-                else:
-                    sgn_col=1
-                row[j] = sgn_col*sgn_row*schur_det(submatrix, len(common_idx), det_block, lu_block,piv_block) * det_beta
-            return row
-        # Parallel computation over rows
-        n0 = len(det_t0)
-        nt = len(det_t)
-        det_length=len(det_t0[0]) #Length of each SD string
-        njobs=int(os.environ['OMP_NUM_THREADS']) 
-        S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i) for i in range(n0)))
+    #     #Computing the overlap matrix elements with joblib parallelization
+    #     def compute_row(i):
+    #         row = np.empty(nt, dtype=complex)
+    #         for j in range(nt):
+    #             # Compute submatrix on-the-fly to save memory
+    #             submatrix = S[np.ix_(det_t0[i], det_t[j])]
+    #             #Change of determinant sign because of re-ordering of orbitals in SD string
+    #             #Reordering assume the new orbital after excitation will be put at the end of the string
+    #             #Energy-based order of orbitals in SD
+    #             if i!=0:
+    #                 sgn_row=(-1)**((det_length-1)-np.argmax(det_t0[i]-det_t0[0]))
+    #             else:
+    #                 sgn_row=1
+    #             if j!=0:
+    #                 sgn_col=(-1)**((det_length-1)-np.argmax(det_t[j]-det_t[0]))
+    #             else:
+    #                 sgn_col=1
+    #             row[j] = sgn_col*sgn_row*schur_det(submatrix, len(common_idx), det_block, lu_block,piv_block) * det_beta
+    #         return row
+    #     # Parallel computation over rows
+    #     n0 = len(det_t0)
+    #     nt = len(det_t)
+    #     det_length=len(det_t0[0]) #Length of each SD string
+    #     njobs=int(os.environ['OMP_NUM_THREADS']) 
+    #     S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i) for i in range(n0)))
 
-        end = datetime.datetime.now()
-        self.log.debug("==> Slater determinants overlap done." + check_timing(end_lu,end))
-        self.log.debug("==> Full overlap routine done." + check_timing(start,end))
+    #     end = datetime.datetime.now()
+    #     self.log.debug("==> Slater determinants overlap done." + check_timing(end_lu,end))
+    #     self.log.debug("==> Full overlap routine done." + check_timing(start,end))
         
-        return S_ij
+    #     return S_ij
 
-    #Routine for computing overlap matrix with no speedup. Only for debugging purposes.
-    def _get_overlap_fulldet(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
-        ''' 
-        Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
+    # #Routine for computing overlap matrix with no speedup. Only for debugging purposes.
+    # def _get_overlap_fulldet(self, det_t: np.ndarray,  ks_mo_index: dict) -> np.ndarray:
+    #     ''' 
+    #     Function to get S_{ij}(r,t+dt) overlap matrix by using pawpyseed to compute overlaps between SDs out of KS orbitals from VASP.
 
-        This does not provide any speedup for multi SDs evaluation. ONLY FOR DEBUGGING!
+    #     This does not provide any speedup for multi SDs evaluation. ONLY FOR DEBUGGING!
 
-        det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
-        ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
+    #     det_t: np.array with determinants occupation for current timestep with orbital occupations for selected states
+    #     ks_mo_index: dictionary where full orbital labels and corresponding indexes are stored. First occupied orbital index is 0.
         
-        self.QMin.template["overlap_method"] selects which method from pawpyseed to compute MO overlaps.
-        if 'full',  default AE overlaps are calculated.
-        if 'pseudo' only pseudowavefunction overlaps.
-        '''
+    #     self.QMin.template["overlap_method"] selects which method from pawpyseed to compute MO overlaps.
+    #     if 'full',  default AE overlaps are calculated.
+    #     if 'pseudo' only pseudowavefunction overlaps.
+    #     '''
         
-        start = datetime.datetime.now()
+    #     start = datetime.datetime.now()
         
-        from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
+    #     from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
 
-        filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']-1}")
-        det_t0=np.loadtxt(filename,dtype=int)
-        self.log.debug("Occupation strings of Slater determinants at previous timestep")
-        self.log.debug(det_t0)
-        self.log.debug(f"Checking OMP_NUM_THREADS parallelization for pawpyseed: {os.environ['OMP_NUM_THREADS']}")
+    #     filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']-1}")
+    #     det_t0=np.loadtxt(filename,dtype=int)
+    #     self.log.debug("Occupation strings of Slater determinants at previous timestep")
+    #     self.log.debug(det_t0)
+    #     self.log.debug(f"Checking OMP_NUM_THREADS parallelization for pawpyseed: {os.environ['OMP_NUM_THREADS']}")
 
-        #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
-        self.log.debug("-----------------------------")
-        self.log.debug("PAWPYSEED overlap calculation")
-        self.log.debug("-----------------------------\n")
-        with suppress_stdout_stderr():  
-            wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
-                                            wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
-                                            cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
-                                            vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
-            wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save['step']-1}"), #previous timestep wf
-                                            wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save['step']-1}"),
-                                            cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
-                                            vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
+    #     #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
+    #     self.log.debug("-----------------------------")
+    #     self.log.debug("PAWPYSEED overlap calculation")
+    #     self.log.debug("-----------------------------\n")
+    #     with suppress_stdout_stderr():  
+    #         wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
+    #                                         wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
+    #                                         cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
+    #                                         vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
+    #         wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save['step']-1}"), #previous timestep wf
+    #                                         wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save['step']-1}"),
+    #                                         cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
+    #                                         vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
 
-            pr=Projector(wf_t, wf_t0)
+    #         pr=Projector(wf_t, wf_t0)
             
-        end_setup= datetime.datetime.now()
-        self.log.debug("==> Pawpyseed projectors setup"+ check_timing(start,end_setup))
+    #     end_setup= datetime.datetime.now()
+    #     self.log.debug("==> Pawpyseed projectors setup"+ check_timing(start,end_setup))
 
-        #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
-        S=np.zeros((len(ks_mo_index),len(ks_mo_index)),dtype=complex)
-        with suppress_stdout_stderr():  
-            for idx,i in enumerate(ks_mo_index.values()):
-                S[idx,:]=pr.single_band_projection(i) #Computing each ith row of the KS overlap matrix 
-        S=S.T  #Because each single_band_projection() loop computes <\psi_1(t0)|\psi_i(t+dt)>....<\psi_n(t0)|\psi_i(t+dt)>
-        #which is a column of S(t,t+dt) 
-        #np.savetxt('overlap_VASP.dat',S) #Printing out full MOs overlap matrix for VASP check
-        end_pawpyseed= datetime.datetime.now()
-        self.log.debug("==> Pawpyseed overlap"+ check_timing(end_setup,end_pawpyseed))
+    #     #Computing the whole S overlap matrix among MOs, including all VASP MOs from WAVECAR
+    #     S=np.zeros((len(ks_mo_index),len(ks_mo_index)),dtype=complex)
+    #     with suppress_stdout_stderr():  
+    #         for idx,i in enumerate(ks_mo_index.values()):
+    #             S[idx,:]=pr.single_band_projection(i) #Computing each ith row of the KS overlap matrix 
+    #     S=S.T  #Because each single_band_projection() loop computes <\psi_1(t0)|\psi_i(t+dt)>....<\psi_n(t0)|\psi_i(t+dt)>
+    #     #which is a column of S(t,t+dt) 
+    #     #np.savetxt('overlap_VASP.dat',S) #Printing out full MOs overlap matrix for VASP check
+    #     end_pawpyseed= datetime.datetime.now()
+    #     self.log.debug("==> Pawpyseed overlap"+ check_timing(end_setup,end_pawpyseed))
 
-        #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
-        det_beta=det_slog(S[np.ix_(det_t0[0],det_t[0])]) #beta electrons always the same, alpha excitations.
-        end_gs=datetime.datetime.now()
-        self.log.debug("==> Determinant of the GS overlap evaluated."+check_timing(end_pawpyseed,end_gs))
+    #     #Creating sub-determinants from whole S matrix in orbital space for each state-to-state overlap
+    #     det_beta=det_slog(S[np.ix_(det_t0[0],det_t[0])]) #beta electrons always the same, alpha excitations.
+    #     end_gs=datetime.datetime.now()
+    #     self.log.debug("==> Determinant of the GS overlap evaluated."+check_timing(end_pawpyseed,end_gs))
 
-        #Computing the overlap matrix elements with joblib parallelization
-        def compute_row(i):
-            row = np.empty(nt, dtype=complex)
-            for j in range(nt):
-                # Compute submatrix on-the-fly to save memory
-                submatrix = S[np.ix_(det_t0[i], det_t[j])]
-                #Change of determinant sign because of re-ordering of orbitals in SD string
-                #Reordering assume the new orbital after excitation will be put at the end of the string
-                #Energy-based order of orbitals in SD
-                if i!=0:
-                    sgn_row=(-1)**((det_length-1)-np.argmax(det_t0[i]-det_t0[0]))
-                else:
-                    sgn_row=1
-                if j!=0:
-                    sgn_col=(-1)**((det_length-1)-np.argmax(det_t[j]-det_t[0]))
-                else:
-                    sgn_col=1
-                row[j] = sgn_col*sgn_row*np.linalg.det(submatrix) * det_beta
-            return row
-        # Parallel computation over rows
-        n0 = len(det_t0)
-        nt = len(det_t)
-        det_length=len(det_t0[0]) #Length of each SD string
-        njobs=int(os.environ['OMP_NUM_THREADS']) 
-        S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i) for i in range(n0)))
+    #     #Computing the overlap matrix elements with joblib parallelization
+    #     def compute_row(i):
+    #         row = np.empty(nt, dtype=complex)
+    #         for j in range(nt):
+    #             # Compute submatrix on-the-fly to save memory
+    #             submatrix = S[np.ix_(det_t0[i], det_t[j])]
+    #             #Change of determinant sign because of re-ordering of orbitals in SD string
+    #             #Reordering assume the new orbital after excitation will be put at the end of the string
+    #             #Energy-based order of orbitals in SD
+    #             if i!=0:
+    #                 sgn_row=(-1)**((det_length-1)-np.argmax(det_t0[i]-det_t0[0]))
+    #             else:
+    #                 sgn_row=1
+    #             if j!=0:
+    #                 sgn_col=(-1)**((det_length-1)-np.argmax(det_t[j]-det_t[0]))
+    #             else:
+    #                 sgn_col=1
+    #             row[j] = sgn_col*sgn_row*np.linalg.det(submatrix) * det_beta
+    #         return row
+    #     # Parallel computation over rows
+    #     n0 = len(det_t0)
+    #     nt = len(det_t)
+    #     det_length=len(det_t0[0]) #Length of each SD string
+    #     njobs=int(os.environ['OMP_NUM_THREADS']) 
+    #     S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i) for i in range(n0)))
         
-        end = datetime.datetime.now()
-        self.log.debug("==> Slater determinants overlap done." + check_timing(end_gs,end))
-        self.log.debug("==> Full overlap routine done." + check_timing(start,end))
+    #     end = datetime.datetime.now()
+    #     self.log.debug("==> Slater determinants overlap done." + check_timing(end_gs,end))
+    #     self.log.debug("==> Full overlap routine done." + check_timing(start,end))
         
-        return S_ij
+    #     return S_ij
 
     def _get_phases(self,flag: str, overlap: np.ndarray[complex,2] ) -> np.ndarray[complex,1]:
         ''' 
@@ -1258,29 +1483,6 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug("==> Phase correction routine done." + check_timing(start,end))
         
         return phases
-    
-    def _write_transitions(self,ks_es: dict, mo_index : dict):
-        ''' 
-        Function for writing out to a text file the orbitals involved in the selected transitions.
-        '''
-
-        step=self.QMin.save['step']
-        if step==0:
-            input_path = os.path.join(self.QMin.save["savedir"], "TRANSITIONS_t0")
-        else:
-            input_path = os.path.join(self.QMin.save["savedir"], f"TRANSITIONS.{step}")
-        input_str = f"VASP states and info for step n.{step}\n"
-        value = ks_es.get('H->L', min(ks_es.values()))  # use min value if key missing
-        input_str += f"Bangap: {value:<10.5f} eV\n"
-        input_str += f"{'Excited state n.':<20}{'orbitals(vasp band indexes)':<30}{'Energy(eV)':<20}\n"
-        for n,(i,j) in enumerate(ks_es.items()):
-            tmp=i.split('->')
-            label=i+" ("+str(mo_index[tmp[0]]+1)+'->'+str(mo_index[tmp[1]]+1)+")" # +1 is because VASP index start from 1 and not 0
-            input_str += f"{n+1:<20}{label:<30}{j:<10.5f}\n"
-        writefile(input_path, input_str)
-        
-        return 
-
 
 #-------------------| Functions for generating inputstrings for writing VASP input files |---------------------------- 
 
@@ -1302,7 +1504,13 @@ class SHARC_VASP(SHARC_ABINITIO):
 
         inputstring += f"EFERMI = MIDGAP\n"
 
-        inputstring += f"ISPIN = {self.QMin.template['ispin']}\n" #Only singlets currently available
+        inputstring += f"ISPIN = {self.QMin.template['ispin']}\n" 
+
+        if self.QMin.template['ispin']==2 and self.QMin.template['magmom'] is not None:
+            MAGMOM="" 
+            for i, j in zip(self.QMin.template["magmom"][0::2],self.QMin.template["magmom"][1::2]):
+                MAGMOM += f"{int(i)}*{j} "
+            inputstring += f"MAGMOM = {MAGMOM}\n" 
 
         inputstring += f"GGA = {self.QMin.template['gga']}\n"
 
