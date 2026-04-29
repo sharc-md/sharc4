@@ -334,8 +334,8 @@ program data_extractor
       write_mdm_diag = .true.
     elseif (trim(args(i)) == "-dde") then
       write_eqm_diag = .true.
-    elseif (trim(args(i)) == "-dp") then
-      write_dm_proj = .true.
+    ! elseif (trim(args(i)) == "-dp") then
+    !   write_dm_proj = .true.
     elseif (trim(args(i)) == "-id") then
       write_iondiag = .true.
     elseif (trim(args(i)) == "-im") then
@@ -366,7 +366,7 @@ program data_extractor
       write_dm_diag = .true.
       write_mdm_diag = .true.
       write_eqm_diag = .true.
-      write_dm_proj = .true.
+      ! write_dm_proj = .true.
       write_iondiag = .true.
       write_ionmch = .true.
     ! large set of flags true
@@ -922,7 +922,7 @@ program data_extractor
           call vec3read(nsteps*nsubsteps+1,laserfield_egrad_tpd(:,:,idir),u_dat,string1)
         enddo
       endif
-      write(*,*) "Reading of fields"
+      ! write(*,*) "Reading of fields"
     endif
 
     ! if (write_dip) then
@@ -1447,7 +1447,7 @@ program data_extractor
             endif
         enddo
     enddo 
-    write(*,*) "SUM_data_ext", sum
+    ! write(*,*) "SUM_data_ext", sum
 !     call matwrite(nstates,H_diag_ss,0,'Hafter','F12.9')
 
 !     compute density matrix
