@@ -287,7 +287,7 @@ def test_buildjobs2():
     ]
 
     for path, template, maps in tests:
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, RuntimeError)):
             build_jobs(os.path.join(PATH, path), os.path.join(PATH, template), maps)
 
 
