@@ -537,9 +537,10 @@ def main():
 
     # command line option setup
     usage ='''
-    vasp_to_initconds.py MD_folder --flags
+    vasp_to_initconds.py MD_folder POSCAR_eq [options]
 
     MD_folder -> Path to directory that contains VASP MD.
+    POSCAR_eq -> Path to POSCAR of equilibrium reference structure for ICOND_00000.
 
     This script generate a set of initial conditions (initconds file) for SHARC-VASP dynamics reading a MD trajectory computed with VASP.
     It analyzes the last N frames specified by the user with the flag -f. By default all frames are processed.
@@ -553,7 +554,6 @@ def main():
     parser = OptionParser(usage=usage, description=description)
     parser.add_option('-f', dest='frames', type=int, nargs=1, default=None, help="N. of last frames to read from trajectory. (Default all)")
     parser.add_option('-n', dest='init', type=int, nargs=1, default=10, help="N. of initial conditions to generate (Default 10)")
-    parser.add_option('--eq', dest='eq', type=str, nargs=1, default=None, help="Path to POSCAR of equilibrium structure, for ICOND_00000")
     parser.add_option('--random', dest='random', action='store_true', help="Select n random initial conditions from the input frames")
     parser.add_option('--every', dest='every', action='store_true', help="Select one initial condition every NFRAMES/n")
 
@@ -564,13 +564,18 @@ def main():
 
     # arg processing
     (options, args) = parser.parse_args()
-    if len(args) == 0:
-        print(usage)
+    if len(args) < 2:
+        print("\nERROR: one argument is missing. Please check usage\n")
+        parser.print_help()
         quit(1)
 
     # options
     INFOS = {}
     INFOS['VASPDIR'] = args[0]
+    INFOS['EQ']=args[1]
+    if not os.path.isfile(INFOS['EQ']):
+        print('ERROR: Wrong path for equilibrium structure POSCAR file. File does not exist.')
+        sys.exit(1) 
 
     # Checking INCAR for MD run.
     with open(os.path.join(INFOS["VASPDIR"],"INCAR"), 'r') as file:
@@ -599,15 +604,6 @@ def main():
     INFOS['KTR'] = options.KTR
     INFOS['NFRAMES']=options.frames
     INFOS['NINIT']=options.init
-    INFOS['EQ']=options.eq
-    if INFOS['EQ'] is None:
-        print('ERROR: please specify the path to the POSCAR of the equilibrium structure. This is necessary for ICOND_00000 and setting up the other ICOND_* properly')
-        sys.exit(1) 
-    else:
-        if not os.path.isfile(INFOS['EQ']):
-            print('ERROR: Wrong path for equilibrium structure POSCAR file. File does not exist.')
-            sys.exit(1) 
-
     INFOS['random']=options.random
     INFOS['every']=options.every
 
