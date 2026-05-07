@@ -850,7 +850,7 @@ class SHARC_VASP(SHARC_ABINITIO):
                 input_path = os.path.join(self.QMin.save["savedir"], f"TRANSITIONS.{step}")
             input_str = f"VASP states and info for step n.{step}\n"
             value = ks_es.get('H->L', min(ks_es.values()))  # use min value if key missing
-            input_str += f"Bangap: {value:<10.5f} eV\n"
+            input_str += f"Bandgap: {value:<10.5f} eV\n"
             input_str += f"{'Excited state n.':<20}{'orbitals (vasp band indexes)':<30}{'Energy(eV)':<20}\n"
         #Building occupation strings of excited-state SDs
         es=list()
@@ -994,9 +994,9 @@ class SHARC_VASP(SHARC_ABINITIO):
                 input_path = os.path.join(self.QMin.save["savedir"], f"TRANSITIONS.{step}")
             input_str = f"VASP states and info for step n.{step}\n"
             bg_alpha = ks_es.get('alpha H->L', min(ks_es.values()))  
-            input_str += f"Bangap (alpha channel): {bg_alpha:<10.5f} eV\n"
+            input_str += f"Bandgap (alpha channel): {bg_alpha:<10.5f} eV\n"
             bg_beta = ks_es.get('beta H->L', min(ks_es.values()))  
-            input_str += f"Bangap (beta channel): {bg_beta:<10.5f} eV\n"
+            input_str += f"Bandgap (beta channel): {bg_beta:<10.5f} eV\n"
             input_str += f"{'Excited state n.':<20}{'spin channel':<20}{'orbitals (vasp band indexes)':<30}{'Energy(eV)':<20}\n"
         #Building SDs occupation strings for excited-states
         es=list()
@@ -1038,7 +1038,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug(self.QMin.molecule["nmstates"]) 
         self.log.debug("checking number of states for which overlap is computed")
         self.log.debug(det_ind.shape)
-        #Saving Slater Determinant occupations for overlap
+        #Writing out Slater Determinant occupation strings for overlap as numpy array
         filename=os.path.join(self.QMin.save["savedir"], f"det_index.{self.QMin.save['step']}") 
         np.savetxt(filename,det_ind,fmt='%d') 
         
@@ -1114,19 +1114,14 @@ class SHARC_VASP(SHARC_ABINITIO):
         #LU factorization for determinant evaluation and inverse
         lu_gs,piv_gs=lu_factor(S_GS)
         #Determinant from LU factorization
-        diag = np.diag(lu_gs)
-        logdet_gs = np.sum(np.log(np.abs(diag)))
-        phase_gs  = np.prod(diag / np.abs(diag))
-        piv_sign = (-1) ** np.sum(piv_gs != np.arange(len(piv_gs)))
-        sign_gs = piv_sign * phase_gs
-        det_gs  = sign_gs * np.exp(logdet_gs)
+        det_gs = SHARC_VASP.det_from_lu(lu_gs, piv_gs)
         #Setting up matrix determinant Lemma ingredients for speeding up multiple SD overlap computation.
         det_beta=det_gs #beta electrons always the same, alpha excitations only here.
         end_lu=datetime.datetime.now()
         self.log.debug("==> Determinant and LU factorization of GS SDs overlap done."+check_timing(start_lu,end_lu))
 
         #Computing the overlap matrix elements with joblib parallelization
-        def compute_row(i):
+        def compute_row(i, S, S_GS, det_t, det_t0, lu_gs, piv_gs, det_beta, det_gs,det_length, nt):
             ''' Computes matrix elements of SDs overlap matrix by relying on 1st or 2nd order rank update 
                 determinant matrix Lemma. 
 
@@ -1147,14 +1142,13 @@ class SHARC_VASP(SHARC_ABINITIO):
                 if i==0 and j==0:
                     sgn_col=1
                     sgn_row=1
-                    row[j]=sgn_col*sgn_row*det_beta*det_gs #Everything was computed already for this case.
+                    det_alpha=det_gs
+                    row[j]=sgn_col*sgn_row*det_beta*det_alpha #Everything was computed already for this case.
                 elif i==0 and j!=0: #1-rank update determinant lemma for columns
                     idx_c=np.argmax(det_t[j]-det_t[0])
                     sgn_col=(-1)**((det_length-1)-idx_c) #Permutation of columns to get SD string in correct energy order of orbitals.
                     sgn_row=1
                     diff_c=S[0:det_length,det_t[j][idx_c]]-S_GS[:,idx_c]
-                    basis_c=np.zeros_like(diff_c)
-                    basis_c[idx_c]=complex(1,0)
                     update=lu_solve((lu_gs,piv_gs),diff_c) #Inverse from LU factorization
                     det_alpha=det_gs*(1+update[idx_c]) #1-rank column update of new determinant
                     row[j]=sgn_col*sgn_row*det_alpha*det_beta 
@@ -1163,8 +1157,6 @@ class SHARC_VASP(SHARC_ABINITIO):
                     sgn_col=1
                     sgn_row=(-1)**((det_length-1)-idx_r)
                     diff_r=S[det_t0[i][idx_r],0:det_length]-S_GS[idx_r,:]
-                    basis_r=np.zeros_like(diff_r)
-                    basis_r[idx_r]=complex(1,0)
                     update = lu_solve((lu_gs, piv_gs), diff_r, trans=1).T
                     det_alpha=det_gs*(1+update[idx_r]) #1-rank row update of new determinant
                     row[j]=sgn_col*sgn_row*det_alpha*det_beta 
@@ -1197,7 +1189,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         nt = len(det_t)
         det_length=len(det_t0[0]) #Length of each SD string
         njobs=int(os.environ['OMP_NUM_THREADS']) 
-        S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i) for i in range(n0)))
+        S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i, S, S_GS, det_t, det_t0, lu_gs, piv_gs, det_beta, det_gs,det_length, nt) for i in range(n0)))
 
         #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
         #This may need to be commented, so it's the driver doing that, before checking for intruder states (to be tested!)
@@ -1209,6 +1201,33 @@ class SHARC_VASP(SHARC_ABINITIO):
         self.log.debug("==> Full overlap routine done." + check_timing(start,end))
        
         return S_ij
+
+    @staticmethod
+    def det_from_lu(lu, piv):
+            """
+            Compute determinant from LU factorization (SciPy style).
+
+            Parameters
+            ----------
+            lu : ndarray
+                Output of lu_factor (contains L and U in compact form)
+            piv : ndarray
+                Pivot indices from lu_factor
+
+            Returns
+            -------
+            complex
+                Determinant of the matrix
+            """
+            diag = np.diag(lu)
+
+            logdet = np.sum(np.log(np.abs(diag)))
+            phase  = np.prod(diag / np.abs(diag))
+
+            piv_sign = (-1) ** np.sum(piv != np.arange(len(piv)))
+            sign = piv_sign * phase
+
+            return sign * np.exp(logdet)
 
     def _get_overlap_uks(self, det_t: np.ndarray,  ks_mo_index_alpha: dict, ks_mo_index_beta: dict, vaspout: h5py.File) -> np.ndarray:
         ''' 
@@ -1229,8 +1248,272 @@ class SHARC_VASP(SHARC_ABINITIO):
         det_t0=np.loadtxt(filename,dtype=int)
         self.log.debug("Occupation strings of Slater determinants at previous timestep")
         self.log.debug(det_t0)
+        zero_indices = np.where(det_t0[0] == 0)[0]
+        self.log.debug(f"Positions of zeros in first determinant string of det_t0 {zero_indices}") 
+        ind_alpha=zero_indices[0]
+        ind_beta=zero_indices[-1]
+        self.log.debug(f"Starting index of alpha block {ind_alpha} and beta block {ind_beta} in each SD string.")
 
-        
+        #If KS orbital overlaps are computed from VASP directly we skip PawPyseed call
+        if self.QMin.template["overlap_method"]=="vasp":
+            S_alpha=vaspout["results/wswq/elements"][()][0,0,:,:,0]+ 1j*vaspout["results/wswq/elements"][()][0,0,:,:,1] #Gamma-point only and spin channel alpha
+            S_beta=vaspout["results/wswq/elements"][()][1,0,:,:,0]+ 1j*vaspout["results/wswq/elements"][()][1,0,:,:,1] #Gamma-point only and spin channel beta
+            #real and imaginary parts are stored in different indexes (last index)
+            S_alpha=np.conjugate(S_alpha) #conjugation because Manuel’s routine in VASP deliver <psi_j(t+dt)|psi_i(t)>.
+            S_beta=np.conjugate(S_beta) 
+            self.log.debug(f"Shape of KS overlap matrix from VASP (alpha block) {S_alpha.shape}")
+            self.log.debug(f"Shape of KS overlap matrix from VASP (beta block) {S_beta.shape}")
+
+        else: #PawPySeed full computation otherwise
+
+            from pawpyseed.core.projector import Wavefunction,Projector #Check if this is installed in $CONDA_PREFIX is done above
+            self.log.debug(f"Checking OMP_NUM_THREADS parallelization for pawpyseed: {os.environ.get('OMP_NUM_THREADS')}")
+            #Initializing AE or PS wavefunctions (KS valence MO wavefunctions)
+            self.log.debug("-----------------------------")
+            self.log.debug("PAWPYSEED overlap calculation")
+            self.log.debug("-----------------------------\n")
+            with suppress_stdout_stderr():  
+                wf_t = Wavefunction.from_files(struct=os.path.join(self.QMin.control["workdir"],"CONTCAR"),  #current timestep wf
+                                                wavecar=os.path.join(self.QMin.control["workdir"],"WAVECAR"),
+                                                cr=os.path.join(self.QMin.control["workdir"],"POTCAR"),
+                                                vr=os.path.join(self.QMin.control["workdir"],"vasprun.xml"))
+                wf_t0 = Wavefunction.from_files(struct=os.path.join(self.QMin.save["savedir"],f"CONTCAR.{self.QMin.save['step']-1}"), #previous timestep wf
+                                                wavecar=os.path.join(self.QMin.save["savedir"],f"WAVECAR.{self.QMin.save['step']-1}"),
+                                                cr=os.path.join(self.QMin.save["savedir"],"POTCAR"),
+                                                vr=os.path.join(self.QMin.save["savedir"],f"vasprun.xml.{self.QMin.save['step']-1}"))
+                
+                pr=Projector(wf_t, wf_t0)            #Setting up PawPySeed projectors
+            
+            end_setup= datetime.datetime.now()
+            self.log.debug("==> Pawpyseed projectors setup"+ check_timing(start,end_setup))
+            
+            #Computing the whole S_alpha and S_beta overlap matrix blocks using PawPySeed
+            S_alpha=np.zeros((len(ks_mo_index_alpha),len(ks_mo_index_alpha)),dtype=complex)
+            S_beta=np.zeros((len(ks_mo_index_beta),len(ks_mo_index_beta)),dtype=complex)
+            with suppress_stdout_stderr():  
+                for idx,i in enumerate(ks_mo_index_alpha.values()):
+                    tmp=pr.single_band_projection(i)
+                    S_alpha[idx,:]=tmp[0::2]
+                    S_beta[idx,:]=tmp[1::2] 
+            S_alpha=S_alpha.T  #Because each single_band_projection() loop computes <\psi_1(t0)|\psi_i(t+dt)>....<\psi_n(t0)|\psi_i(t+dt)>, which is a column of S_alpha(t,t+dt)
+            S_beta=S_beta.T   
+            end_pawpyseed= datetime.datetime.now()
+            self.log.debug("==> Pawpyseed overlap"+ check_timing(end_setup,end_pawpyseed))
+
+        #Computing SD overlaps from overlaps
+        start_lu=datetime.datetime.now()
+        S_GS_alpha=S_alpha[np.ix_(det_t0[0][ind_alpha:ind_beta],det_t[0][ind_alpha:ind_beta])] #<GS(t0)|GS(t)> alpha block
+        #ind_alpha is the starting index of the alpha block in each SD string, while ind_beta is the starting index of the beta block (also equal to n.of alpha electrons in each SD).
+        S_GS_beta=S_beta[np.ix_(det_t0[0][ind_beta:],det_t[0][ind_beta:])] #<GS(t0)|GS(t)> alpha block
+        #LU factorization for determinant evaluation and inverse
+        lu_gs_alpha,piv_gs_alpha=lu_factor(S_GS_alpha)
+        lu_gs_beta,piv_gs_beta=lu_factor(S_GS_beta)
+        #Determinant from LU factorization
+        det_gs_alpha = SHARC_VASP.det_from_lu(lu_gs_alpha, piv_gs_alpha)
+        det_gs_beta = SHARC_VASP.det_from_lu(lu_gs_beta, piv_gs_beta)
+
+        #Setting up matrix determinant Lemma ingredients for speeding up multiple SD overlap computation.
+        end_lu=datetime.datetime.now()
+        self.log.debug("==> Determinant and LU factorization of GS SDs overlap done."+check_timing(start_lu,end_lu))
+
+        #Computing the overlap matrix elements with joblib parallelization
+        def compute_row(i, S_alpha, S_beta, S_GS_alpha, S_GS_beta, ind_beta, 
+                        det_t, det_t0,
+                        lu_gs_alpha, lu_gs_beta, piv_gs_alpha, piv_gs_beta, 
+                        det_gs_alpha, det_gs_beta, det_length, nt):
+            ''' Computes matrix elements of SDs overlap matrix by relying on 1st or 2nd order rank update 
+                determinant matrix Lemma. 
+
+                1-rank update:
+                det(A+UV^T)=det(A)*(1+V^T @ A^-1 @ U)
+                A -> nxn matrix
+                U,V -> n-dimensional vectors
+ 
+                2-rank update:
+                same formula but U,V become nx2 matrices and so instead of 1 we have 2x2 identity matrix.
+
+                In our case A is the precomputed SD overlap matrix of alpha (or beta) channel, e.g. <GS_alpha(t0)|GS_alpha(t)>.
+                Each update compute the overlap of other SDs (excited states) starting from the alpha or beta GS one. 
+                This applies in the same way to the alpha or beta block depending on which excitation is considered.                         
+            '''
+
+            det_length_alpha=ind_beta #note that ind_beta also equals n.of alpha electrons in each SD string since alpha string comes first.
+            det_length_beta=det_length-det_length_alpha
+
+            row = np.empty(nt, dtype=complex)
+
+            for j in range(nt):
+
+                # Easy case, just <GS(t0)|GS(t)>                
+                if i==0 and j==0:
+                    sgn_col=1
+                    sgn_row=1
+                    row[j]=sgn_col*sgn_row*det_gs_beta*det_gs_alpha 
+                
+                #1-rank update determinant lemma for columns
+                elif i==0 and j!=0: 
+                    #Determing first if it’s alpha or beta excitation channel
+                    idx_c=np.argmax(det_t[j]-det_t[0]) #index of orbital that differ
+                    orbital=det_t[j][idx_c] # actual orbital number of the orbital that differ
+                    alpha_exc = idx_c < ind_beta
+                    if alpha_exc: # alpha excitation
+                        sgn_col=(-1)**((det_length_alpha-1)-idx_c) #Permutation of columns to get SD string for alpha block in correct energy order of orbitals.
+                        sgn_row=1
+                        diff_c=S_alpha[0:det_length_alpha,orbital]-S_GS_alpha[:,idx_c]
+                        update=lu_solve((lu_gs_alpha,piv_gs_alpha),diff_c) #Inverse from LU factorization
+                        det_alpha=det_gs_alpha*(1+update[idx_c]) #1-rank column update of new determinant (alpha)
+                        #Assembling full determinant
+                        full_det=det_alpha*det_gs_beta
+                        row[j]=sgn_col*sgn_row*full_det
+                    else: #beta excitation
+                        idx_c=idx_c-ind_beta #Because we want index with respect to beginning of beta block !!
+                        sgn_col=(-1)**((det_length_beta-1)-idx_c) #Permutation of columns to get SD string for beta block in correct energy order of orbitals.
+                        sgn_row=1
+                        diff_c=S_beta[0:det_length_beta,orbital]-S_GS_beta[:,idx_c]
+                        update=lu_solve((lu_gs_beta,piv_gs_beta),diff_c) 
+                        det_beta=det_gs_beta*(1+update[idx_c]) 
+                        #Assembling full determinant
+                        full_det=det_gs_alpha*det_beta
+                        row[j]=sgn_col*sgn_row*full_det
+
+                #1-rank update determinant lemma for rows             
+                elif i!=0 and j==0: 
+                    idx_r=np.argmax(det_t0[i]-det_t0[0])
+                    orbital=det_t0[i][idx_r] # actual orbital number of the orbital that differ
+                    alpha_exc = idx_r < ind_beta
+                    if alpha_exc:
+                        sgn_col=1
+                        sgn_row=(-1)**((det_length_alpha-1)-idx_r)
+                        diff_r=S_alpha[orbital,0:det_length_alpha]-S_GS_alpha[idx_r,:]
+                        update = lu_solve((lu_gs_alpha, piv_gs_alpha), diff_r, trans=1).T
+                        det_alpha=det_gs_alpha*(1+update[idx_r]) #1-rank row update of new determinant (alpha)
+                        #Assembling full determinant
+                        full_det=det_alpha*det_gs_beta
+                        row[j]=sgn_col*sgn_row*full_det
+                    else:
+                        idx_r=idx_r-ind_beta
+                        sgn_col=1
+                        sgn_row=(-1)**((det_length_beta-1)-idx_r)
+                        diff_r=S_beta[orbital,0:det_length_beta]-S_GS_beta[idx_r,:]
+                        update = lu_solve((lu_gs_beta, piv_gs_beta), diff_r, trans=1).T
+                        det_beta=det_gs_beta*(1+update[idx_r]) #1-rank row update of new determinant (beta)
+                        #Assembling full determinant
+                        full_det=det_beta*det_gs_alpha
+                        row[j]=sgn_col*sgn_row*full_det
+                
+                #double 1-rank updates  or 2-rank updates below, depending on which excitations we have for (i,j), where ij refers to S_ij.
+                #  e.g. (alpha,beta),(beta,alpha),(alpha,alpha),(beta,beta)
+                # (alpha,alpha) means that both state i and j in S_ij have alpha excitations w.r.t. GS.
+                else: 
+                    idx_c=np.argmax(det_t[j]-det_t[0])
+                    idx_r=np.argmax(det_t0[i]-det_t0[0])
+                    orbital_c=det_t[j][idx_c]
+                    orbital_r=det_t0[i][idx_r]
+                    alpha_exc_c = idx_c < ind_beta
+                    alpha_exc_r = idx_r < ind_beta
+
+                    # (alpha,alpha), 2-rank update for alpha block. beta block untouched w.r.t GS.
+                    if alpha_exc_r and alpha_exc_c:
+                        #Column change
+                        sgn_col=(-1)**((det_length_alpha-1)-idx_c) 
+                        diff_c=S_alpha[0:det_length_alpha,orbital_c]-S_GS_alpha[:,idx_c]
+                        basis_c=np.zeros_like(diff_c)
+                        basis_c[idx_c]=complex(1,0)
+                        #Row change
+                        sgn_row=(-1)**((det_length_alpha-1)-idx_r)
+                        diff_r=S_alpha[orbital_r,0:det_length_alpha]-S_GS_alpha[idx_r,:]
+                        basis_r=np.zeros_like(diff_r)
+                        basis_r[idx_r]=complex(1,0)
+                        #cross terms have to be updated properly, column_takes precedence
+                        diff_c[idx_r]=S_alpha[orbital_r,orbital_c]-S_GS_alpha[idx_r,idx_c]
+                        diff_r[idx_c]=0
+                        U=np.column_stack((diff_c,basis_r))
+                        V=np.column_stack((basis_c,diff_r))
+                        X=lu_solve((lu_gs_alpha,piv_gs_alpha),U)
+                        M=np.eye(2)+V.T @ X
+                        det_alpha=det_gs_alpha*det_slog(M)
+                        #Assembling full determinant
+                        full_det=det_alpha*det_gs_beta
+                        row[j]=sgn_col*sgn_row*full_det
+
+                    # (beta,beta), 2-rank update for beta block. alpha block untouched w.r.t GS.
+                    elif not alpha_exc_r and not alpha_exc_c:
+                        idx_c=idx_c-ind_beta
+                        idx_r=idx_r-ind_beta
+                        #Column change
+                        sgn_col=(-1)**((det_length_beta-1)-idx_c) 
+                        diff_c=S_beta[0:det_length_beta,orbital_c]-S_GS_beta[:,idx_c]
+                        basis_c=np.zeros_like(diff_c)
+                        basis_c[idx_c]=complex(1,0)
+                        #Row change
+                        sgn_row=(-1)**((det_length_beta-1)-idx_r)
+                        diff_r=S_beta[orbital_r,0:det_length_beta]-S_GS_beta[idx_r,:]
+                        basis_r=np.zeros_like(diff_r)
+                        basis_r[idx_r]=complex(1,0)
+                        #cross terms have to be updated properly, column_takes precedence
+                        diff_c[idx_r]=S_beta[orbital_r,orbital_c]-S_GS_beta[idx_r,idx_c]
+                        diff_r[idx_c]=0
+                        U=np.column_stack((diff_c,basis_r))
+                        V=np.column_stack((basis_c,diff_r))
+                        X=lu_solve((lu_gs_beta,piv_gs_beta),U)
+                        M=np.eye(2)+V.T @ X
+                        det_beta=det_gs_beta*det_slog(M)
+                        #Assembling full determinant
+                        full_det=det_beta*det_gs_alpha
+                        row[j]=sgn_col*sgn_row*full_det
+
+                    # (beta,alpha), two 1-rank updates for alpha and beta block that are indipendent.
+                    elif not alpha_exc_r and alpha_exc_c:
+                        #Column change, alpha excitation
+                        sgn_col=(-1)**((det_length_alpha-1)-idx_c) 
+                        diff_c=S_alpha[0:det_length_alpha,orbital_c]-S_GS_alpha[:,idx_c]
+                        update=lu_solve((lu_gs_alpha,piv_gs_alpha),diff_c) 
+                        det_alpha=det_gs_alpha*(1+update[idx_c]) 
+                        #Row change, beta excitation
+                        idx_r=idx_r-ind_beta
+                        sgn_row=(-1)**((det_length_beta-1)-idx_r)
+                        diff_r=S_beta[orbital_r,0:det_length_beta]-S_GS_beta[idx_r,:]
+                        update = lu_solve((lu_gs_beta, piv_gs_beta), diff_r, trans=1).T
+                        det_beta=det_gs_beta*(1+update[idx_r])
+                        #Assembling full determinant 
+                        full_det=det_beta*det_alpha
+                        row[j]=sgn_col*sgn_row*full_det
+
+                    # (alpha,beta)
+                    elif alpha_exc_r and not alpha_exc_c:
+                        idx_c=idx_c-ind_beta
+                        #Column change, beta excitation
+                        sgn_col=(-1)**((det_length_beta-1)-idx_c) 
+                        diff_c=S_beta[0:det_length_beta,orbital_c]-S_GS_beta[:,idx_c]
+                        update=lu_solve((lu_gs_beta,piv_gs_beta),diff_c) 
+                        det_beta=det_gs_beta*(1+update[idx_c]) 
+                        #Row change, alpha excitation
+                        sgn_row=(-1)**((det_length_alpha-1)-idx_r)
+                        diff_r=S_alpha[orbital_r,0:det_length_alpha]-S_GS_alpha[idx_r,:]
+                        update = lu_solve((lu_gs_alpha, piv_gs_alpha), diff_r, trans=1).T
+                        det_alpha=det_gs_alpha*(1+update[idx_r]) 
+                        #Assembling full determinant
+                        full_det=det_beta*det_alpha
+                        row[j]=sgn_col*sgn_row*full_det
+
+            return row
+       
+        # Parallel computation over rows
+        n0 = len(det_t0)
+        nt = len(det_t)
+        det_length=len(det_t0[0]) #Length of each SD string
+        njobs=int(os.environ['OMP_NUM_THREADS']) 
+        S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(
+                    i, S_alpha, S_beta, S_GS_alpha, S_GS_beta, ind_beta,
+                    det_t, det_t0, lu_gs_alpha, lu_gs_beta,
+                    piv_gs_alpha, piv_gs_beta, det_gs_alpha,
+                    det_gs_beta, det_length, nt
+                ) for i in range(n0)
+            )
+        )
+        end = datetime.datetime.now()
+        self.log.debug("==> Slater determinants overlap done." + check_timing(end_lu,end))
+        self.log.debug("==> Full overlap routine done." + check_timing(start,end))
        
         return S_ij
     
