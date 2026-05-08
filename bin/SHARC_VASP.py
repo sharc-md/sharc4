@@ -209,12 +209,11 @@ class SHARC_VASP(SHARC_ABINITIO):
                 self.log.error("ispin has to be set to 1 or 2. Check ISPIN vasp wiki.")
                 raise ValueError()
         
-        #Temporay if (to be removed later) to prevent usage of UKS until proper testing is finished.
-        if self.QMin.template["ispin"] ==2:
-            self.log.error("ispin has to be set to 1. Spin-polarized (UKS) calculations are not yet supported.")
-            raise ValueError()
+        # #Temporay if (to be removed later) to prevent usage of UKS until proper testing is finished.
+        # if self.QMin.template["ispin"] ==2:
+        #     self.log.error("ispin has to be set to 1. Spin-polarized (UKS) calculations are not yet supported.")
+        #     raise ValueError()
 
-        
         if self.QMin.template["ispin"] == 2 and self.QMin.template["magmom"] is None:
             self.log.warning("ISPIN=2 was selected but no MAGMOM was given. VASP will use its default but it is advisable to specify on-site magnetization ")
 
@@ -225,7 +224,7 @@ class SHARC_VASP(SHARC_ABINITIO):
             else:
                 for i in self.QMin.template["magmom"][::2]:
                     if not float(i).is_integer():
-                        self.log.error("The n.of atoms for each specified magnetization must be an integer following POSCAR order. Check your magmom in VASP.template.")
+                        self.log.error("The n.of atoms for each specified magnetization must be an integer following POSCAR-like ordering. Check your magmom in VASP.template.")
                 for i in self.QMin.template["magmom"][1::2]:
                     if not isinstance(i,(float,int)):
                         self.log.error("The magnetization (every second number) in magmom must be a number, either int or float. Check your magmom in VASP.template.")
