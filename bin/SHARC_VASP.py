@@ -209,6 +209,12 @@ class SHARC_VASP(SHARC_ABINITIO):
                 self.log.error("ispin has to be set to 1 or 2. Check ISPIN vasp wiki.")
                 raise ValueError()
         
+        #Temporay if (to be removed later) to prevent usage of UKS until proper testing is finished.
+        if self.QMin.template["ispin"] ==2:
+            self.log.error("ispin has to be set to 1. Spin-polarized (UKS) calculations are not yet supported.")
+            raise ValueError()
+
+        
         if self.QMin.template["ispin"] == 2 and self.QMin.template["magmom"] is None:
             self.log.warning("ISPIN=2 was selected but no MAGMOM was given. VASP will use its default but it is advisable to specify on-site magnetization ")
 
@@ -1316,11 +1322,55 @@ class SHARC_VASP(SHARC_ABINITIO):
         end_lu=datetime.datetime.now()
         self.log.debug("==> Determinant and LU factorization of GS SDs overlap done."+check_timing(start_lu,end_lu))
 
-        #Computing the overlap matrix elements with joblib parallelization
-        def compute_row(i, S_alpha, S_beta, S_GS_alpha, S_GS_beta, ind_beta, 
+        ###### Computing the overlap matrix elements with joblib parallelization ######
+
+        #helper function for 1-rank column update Lemma
+        def col_update(S, S_GS, orbital, idx, lu, piv, det_gs, L):
+            ''' 
+            1-rank column update routine
+            '''
+            diff = S[:L, orbital] - S_GS[:, idx]
+            upd = lu_solve((lu, piv), diff)
+            sign = (-1)**((L - 1) - idx)
+            return sign, det_gs * (1 + upd[idx])
+
+        #helper function for 1-rank row update Lemma
+        def row_update(S, S_GS, orbital, idx, lu, piv, det_gs, L):
+            ''' 
+            1-rank row update routine
+            '''
+            diff = S[orbital, :L] - S_GS[idx, :]
+            upd = lu_solve((lu, piv), diff, trans=1).T
+            sign = (-1)**((L - 1) - idx)
+            return sign, det_gs * (1 + upd[idx])
+
+        #helper function for 2-rank (1 row and 1 column) update Lemma
+        def double_update(S, S_GS,orb_r, orb_c,idx_r, idx_c,lu, piv, det_gs, L):
+            ''' 
+            2-rank column and row update routine
+            '''
+            diff_c = S[:L, orb_c] - S_GS[:, idx_c]
+            diff_r = S[orb_r, :L] - S_GS[idx_r, :]
+            b_c = np.zeros(L, dtype=complex)
+            b_r = np.zeros(L, dtype=complex)
+            b_c[idx_c] = 1
+            b_r[idx_r] = 1
+            diff_c[idx_r] = S[orb_r, orb_c] - S_GS[idx_r, idx_c]
+            diff_r[idx_c] = 0
+            U = np.column_stack((diff_c, b_r))
+            V = np.column_stack((b_c, diff_r))
+            X = lu_solve((lu, piv), U)
+            M = np.eye(2) + V.T @ X
+            sign = (-1)**((L - 1) - idx_r) * (-1)**((L - 1) - idx_c)
+            return sign, det_gs * det_slog(M)
+
+        def compute_row(i, S_alpha, S_beta,S_GS_alpha, S_GS_beta,
+                        ind_beta,
                         det_t, det_t0,
-                        lu_gs_alpha, lu_gs_beta, piv_gs_alpha, piv_gs_beta, 
-                        det_gs_alpha, det_gs_beta, det_length, nt):
+                        lu_gs_alpha, lu_gs_beta,
+                        piv_gs_alpha, piv_gs_beta,
+                        det_gs_alpha, det_gs_beta,
+                        det_length, nt):
             ''' Computes matrix elements of SDs overlap matrix by relying on 1st or 2nd order rank update 
                 determinant matrix Lemma. 
 
@@ -1332,169 +1382,88 @@ class SHARC_VASP(SHARC_ABINITIO):
                 2-rank update:
                 same formula but U,V become nx2 matrices and so instead of 1 we have 2x2 identity matrix.
 
-                In our case A is the precomputed SD overlap matrix of alpha (or beta) channel, e.g. <GS_alpha(t0)|GS_alpha(t)>.
+                In our case A is the precomputed SD overlap matrix of alpha (or beta) channel, e.g. <GS_alpha(t0)|GS_alpha(t)>. 
                 Each update compute the overlap of other SDs (excited states) starting from the alpha or beta GS one. 
-                This applies in the same way to the alpha or beta block depending on which excitation is considered.                         
+                This applies in the same way to the alpha or beta block depending on which excitation is considered.                        
             '''
 
-            det_length_alpha=ind_beta #note that ind_beta also equals n.of alpha electrons in each SD string since alpha string comes first.
-            det_length_beta=det_length-det_length_alpha
+            L_a = ind_beta #length of alpha block of each SD string. ind_beta is starting index of first beta orbital too.
+            L_b = det_length - L_a
 
             row = np.empty(nt, dtype=complex)
 
             for j in range(nt):
 
-                # Easy case, just <GS(t0)|GS(t)>                
-                if i==0 and j==0:
-                    sgn_col=1
-                    sgn_row=1
-                    row[j]=sgn_col*sgn_row*det_gs_beta*det_gs_alpha 
-                
-                #1-rank update determinant lemma for columns
-                elif i==0 and j!=0: 
-                    #Determing first if it’s alpha or beta excitation channel
-                    idx_c=np.argmax(det_t[j]-det_t[0]) #index of orbital that differ
-                    orbital=det_t[j][idx_c] # actual orbital number of the orbital that differ
-                    alpha_exc = idx_c < ind_beta
-                    if alpha_exc: # alpha excitation
-                        sgn_col=(-1)**((det_length_alpha-1)-idx_c) #Permutation of columns to get SD string for alpha block in correct energy order of orbitals.
-                        sgn_row=1
-                        diff_c=S_alpha[0:det_length_alpha,orbital]-S_GS_alpha[:,idx_c]
-                        update=lu_solve((lu_gs_alpha,piv_gs_alpha),diff_c) #Inverse from LU factorization
-                        det_alpha=det_gs_alpha*(1+update[idx_c]) #1-rank column update of new determinant (alpha)
-                        #Assembling full determinant
-                        full_det=det_alpha*det_gs_beta
-                        row[j]=sgn_col*sgn_row*full_det
-                    else: #beta excitation
-                        idx_c=idx_c-ind_beta #Because we want index with respect to beginning of beta block !!
-                        sgn_col=(-1)**((det_length_beta-1)-idx_c) #Permutation of columns to get SD string for beta block in correct energy order of orbitals.
-                        sgn_row=1
-                        diff_c=S_beta[0:det_length_beta,orbital]-S_GS_beta[:,idx_c]
-                        update=lu_solve((lu_gs_beta,piv_gs_beta),diff_c) 
-                        det_beta=det_gs_beta*(1+update[idx_c]) 
-                        #Assembling full determinant
-                        full_det=det_gs_alpha*det_beta
-                        row[j]=sgn_col*sgn_row*full_det
+                # Easy case, just <GS(t0)|GS(t)>
+                if i == 0 and j == 0:
+                    row[j] = det_gs_alpha * det_gs_beta
+                    continue
 
-                #1-rank update determinant lemma for rows             
-                elif i!=0 and j==0: 
-                    idx_r=np.argmax(det_t0[i]-det_t0[0])
-                    orbital=det_t0[i][idx_r] # actual orbital number of the orbital that differ
-                    alpha_exc = idx_r < ind_beta
-                    if alpha_exc:
-                        sgn_col=1
-                        sgn_row=(-1)**((det_length_alpha-1)-idx_r)
-                        diff_r=S_alpha[orbital,0:det_length_alpha]-S_GS_alpha[idx_r,:]
-                        update = lu_solve((lu_gs_alpha, piv_gs_alpha), diff_r, trans=1).T
-                        det_alpha=det_gs_alpha*(1+update[idx_r]) #1-rank row update of new determinant (alpha)
-                        #Assembling full determinant
-                        full_det=det_alpha*det_gs_beta
-                        row[j]=sgn_col*sgn_row*full_det
-                    else:
-                        idx_r=idx_r-ind_beta
-                        sgn_col=1
-                        sgn_row=(-1)**((det_length_beta-1)-idx_r)
-                        diff_r=S_beta[orbital,0:det_length_beta]-S_GS_beta[idx_r,:]
-                        update = lu_solve((lu_gs_beta, piv_gs_beta), diff_r, trans=1).T
-                        det_beta=det_gs_beta*(1+update[idx_r]) #1-rank row update of new determinant (beta)
-                        #Assembling full determinant
-                        full_det=det_beta*det_gs_alpha
-                        row[j]=sgn_col*sgn_row*full_det
-                
-                #double 1-rank updates  or 2-rank updates below, depending on which excitations we have for (i,j), where ij refers to S_ij.
-                #  e.g. (alpha,beta),(beta,alpha),(alpha,alpha),(beta,beta)
-                # (alpha,alpha) means that both state i and j in S_ij have alpha excitations w.r.t. GS.
-                else: 
-                    idx_c=np.argmax(det_t[j]-det_t[0])
-                    idx_r=np.argmax(det_t0[i]-det_t0[0])
-                    orbital_c=det_t[j][idx_c]
-                    orbital_r=det_t0[i][idx_r]
-                    alpha_exc_c = idx_c < ind_beta
-                    alpha_exc_r = idx_r < ind_beta
+                # 1-rank column updates
+                elif i == 0 and j != 0:
+                    idx_c = np.argmax(det_t[j] - det_t[0])
+                    orb_c = det_t[j][idx_c]
+                    #if alpha excitation
+                    if idx_c < ind_beta: 
+                        s, d = col_update(S_alpha, S_GS_alpha,orb_c, idx_c,lu_gs_alpha, piv_gs_alpha,det_gs_alpha, L_a)
+                        row[j] = s * d * det_gs_beta
+                    else: # beta excitation
+                        idx_b = idx_c - ind_beta #This is because the beta block matrix start from 0 again, so we need relative index not absolute in the full string.
+                        s, d = col_update(S_beta, S_GS_beta,orb_c, idx_b,lu_gs_beta, piv_gs_beta,det_gs_beta, L_b)
+                        row[j] = s * d * det_gs_alpha
+                    continue
 
-                    # (alpha,alpha), 2-rank update for alpha block. beta block untouched w.r.t GS.
-                    if alpha_exc_r and alpha_exc_c:
-                        #Column change
-                        sgn_col=(-1)**((det_length_alpha-1)-idx_c) 
-                        diff_c=S_alpha[0:det_length_alpha,orbital_c]-S_GS_alpha[:,idx_c]
-                        basis_c=np.zeros_like(diff_c)
-                        basis_c[idx_c]=complex(1,0)
-                        #Row change
-                        sgn_row=(-1)**((det_length_alpha-1)-idx_r)
-                        diff_r=S_alpha[orbital_r,0:det_length_alpha]-S_GS_alpha[idx_r,:]
-                        basis_r=np.zeros_like(diff_r)
-                        basis_r[idx_r]=complex(1,0)
-                        #cross terms have to be updated properly, column_takes precedence
-                        diff_c[idx_r]=S_alpha[orbital_r,orbital_c]-S_GS_alpha[idx_r,idx_c]
-                        diff_r[idx_c]=0
-                        U=np.column_stack((diff_c,basis_r))
-                        V=np.column_stack((basis_c,diff_r))
-                        X=lu_solve((lu_gs_alpha,piv_gs_alpha),U)
-                        M=np.eye(2)+V.T @ X
-                        det_alpha=det_gs_alpha*det_slog(M)
-                        #Assembling full determinant
-                        full_det=det_alpha*det_gs_beta
-                        row[j]=sgn_col*sgn_row*full_det
+                # 1-rank row updates
+                elif i !=0 and j == 0:
+                    idx_r = np.argmax(det_t0[i] - det_t0[0])
+                    orb_r = det_t0[i][idx_r]
+                    #if alpha excitation
+                    if idx_r < ind_beta:
+                        s, d = row_update(S_alpha, S_GS_alpha,orb_r, idx_r,lu_gs_alpha, piv_gs_alpha,det_gs_alpha, L_a)
+                        row[j] = s * d * det_gs_beta
+                    else:# beta excitation
+                        idx_b = idx_r - ind_beta
+                        s, d = row_update(S_beta, S_GS_beta,orb_r, idx_b,lu_gs_beta, piv_gs_beta,det_gs_beta, L_b)
+                        row[j] = s * d * det_gs_alpha
+                    continue
 
-                    # (beta,beta), 2-rank update for beta block. alpha block untouched w.r.t GS.
-                    elif not alpha_exc_r and not alpha_exc_c:
-                        idx_c=idx_c-ind_beta
-                        idx_r=idx_r-ind_beta
-                        #Column change
-                        sgn_col=(-1)**((det_length_beta-1)-idx_c) 
-                        diff_c=S_beta[0:det_length_beta,orbital_c]-S_GS_beta[:,idx_c]
-                        basis_c=np.zeros_like(diff_c)
-                        basis_c[idx_c]=complex(1,0)
-                        #Row change
-                        sgn_row=(-1)**((det_length_beta-1)-idx_r)
-                        diff_r=S_beta[orbital_r,0:det_length_beta]-S_GS_beta[idx_r,:]
-                        basis_r=np.zeros_like(diff_r)
-                        basis_r[idx_r]=complex(1,0)
-                        #cross terms have to be updated properly, column_takes precedence
-                        diff_c[idx_r]=S_beta[orbital_r,orbital_c]-S_GS_beta[idx_r,idx_c]
-                        diff_r[idx_c]=0
-                        U=np.column_stack((diff_c,basis_r))
-                        V=np.column_stack((basis_c,diff_r))
-                        X=lu_solve((lu_gs_beta,piv_gs_beta),U)
-                        M=np.eye(2)+V.T @ X
-                        det_beta=det_gs_beta*det_slog(M)
-                        #Assembling full determinant
-                        full_det=det_beta*det_gs_alpha
-                        row[j]=sgn_col*sgn_row*full_det
+                # 2-rank updates or double 1-rank updates, depending on excitations of I and J of S_IJ
+                # e.g. alpha-alpha, beta-beta, alpha-beta, beta-alpha
+                else:
+                    idx_c = np.argmax(det_t[j] - det_t[0])
+                    idx_r = np.argmax(det_t0[i] - det_t0[0])
+                    orb_c = det_t[j][idx_c]
+                    orb_r = det_t0[i][idx_r]
+                    c_alpha = idx_c < ind_beta
+                    r_alpha = idx_r < ind_beta
 
-                    # (beta,alpha), two 1-rank updates for alpha and beta block that are indipendent.
-                    elif not alpha_exc_r and alpha_exc_c:
-                        #Column change, alpha excitation
-                        sgn_col=(-1)**((det_length_alpha-1)-idx_c) 
-                        diff_c=S_alpha[0:det_length_alpha,orbital_c]-S_GS_alpha[:,idx_c]
-                        update=lu_solve((lu_gs_alpha,piv_gs_alpha),diff_c) 
-                        det_alpha=det_gs_alpha*(1+update[idx_c]) 
-                        #Row change, beta excitation
-                        idx_r=idx_r-ind_beta
-                        sgn_row=(-1)**((det_length_beta-1)-idx_r)
-                        diff_r=S_beta[orbital_r,0:det_length_beta]-S_GS_beta[idx_r,:]
-                        update = lu_solve((lu_gs_beta, piv_gs_beta), diff_r, trans=1).T
-                        det_beta=det_gs_beta*(1+update[idx_r])
-                        #Assembling full determinant 
-                        full_det=det_beta*det_alpha
-                        row[j]=sgn_col*sgn_row*full_det
+                    # alpha-alpha, 2-rank update for alpha block
+                    if r_alpha and c_alpha:
+                        s, d = double_update(S_alpha, S_GS_alpha,orb_r, orb_c,idx_r, idx_c,lu_gs_alpha, piv_gs_alpha,det_gs_alpha, L_a)
+                        row[j] = s * d * det_gs_beta
+                        continue
 
-                    # (alpha,beta)
-                    elif alpha_exc_r and not alpha_exc_c:
-                        idx_c=idx_c-ind_beta
-                        #Column change, beta excitation
-                        sgn_col=(-1)**((det_length_beta-1)-idx_c) 
-                        diff_c=S_beta[0:det_length_beta,orbital_c]-S_GS_beta[:,idx_c]
-                        update=lu_solve((lu_gs_beta,piv_gs_beta),diff_c) 
-                        det_beta=det_gs_beta*(1+update[idx_c]) 
-                        #Row change, alpha excitation
-                        sgn_row=(-1)**((det_length_alpha-1)-idx_r)
-                        diff_r=S_alpha[orbital_r,0:det_length_alpha]-S_GS_alpha[idx_r,:]
-                        update = lu_solve((lu_gs_alpha, piv_gs_alpha), diff_r, trans=1).T
-                        det_alpha=det_gs_alpha*(1+update[idx_r]) 
-                        #Assembling full determinant
-                        full_det=det_beta*det_alpha
-                        row[j]=sgn_col*sgn_row*full_det
+                    # beta-beta, 2-rank update for beta block
+                    elif (not r_alpha) and (not c_alpha):
+                        idx_r_b = idx_r - ind_beta
+                        idx_c_b = idx_c - ind_beta
+                        s, d = double_update(S_beta, S_GS_beta,orb_r, orb_c,idx_r_b, idx_c_b,lu_gs_beta, piv_gs_beta,det_gs_beta, L_b)
+                        row[j] = s * d * det_gs_alpha
+                        continue
+
+                    # beta-alpha, 2 1-rank updates. row update for beta matrix and column update for alpha matrix
+                    elif (not r_alpha) and c_alpha:
+                        idx_r_b = idx_r - ind_beta
+                        s_c, d_c = col_update(S_alpha, S_GS_alpha,orb_c, idx_c,lu_gs_alpha, piv_gs_alpha,det_gs_alpha, L_a)
+                        s_r, d_r = row_update(S_beta, S_GS_beta,orb_r, idx_r_b,lu_gs_beta, piv_gs_beta,det_gs_beta, L_b)
+                        row[j] = s_c * s_r * d_c * d_r
+                        continue
+
+                    # alpha-beta, 2 1-rank updates. row update for alpha matrix and column update for beta matrix
+                    idx_c_b = idx_c - ind_beta
+                    s_c, d_c = col_update(S_beta, S_GS_beta,orb_c, idx_c_b,lu_gs_beta, piv_gs_beta,det_gs_beta, L_b)
+                    s_r, d_r = row_update(S_alpha, S_GS_alpha,orb_r, idx_r,lu_gs_alpha, piv_gs_alpha,det_gs_alpha, L_a)
+                    row[j] = s_c * s_r * d_c * d_r
 
             return row
        
