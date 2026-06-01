@@ -32,7 +32,7 @@ import numpy as np
 from scipy.linalg import fractional_matrix_power
 from itertools import starmap, chain
 
-from constants import IToMult
+from constants import IToMult, rcm_to_Eh
 from utils import itnmstates, readfile, phase_correction
 from printing import printheader
 from qmout import QMout
@@ -67,7 +67,10 @@ versiondate = datetime.date(2025, 4, 1)
 
 # ======================================================================= #
 
-pthresh = 1.0e-5**2
+pthresh = 1.0e-5**2      # for lambda, kappa
+mthresh = 1.0e-10**2     # for SOCs, DMs
+lthresh = 1.0e-7         # for lambda-SOCs
+gthresh = rcm_to_Eh      # for gammas
 
 # ======================================================================= #
 
@@ -187,7 +190,7 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
             val = mat[i][j].real
             if deldiag and i == j:
                 val = 0.0
-            if val * val <= pthresh:
+            if val * val <= mthresh:
                 val = 0.0
             else:
                 rnonzero = True
@@ -196,7 +199,7 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
             val = mat[i][j].imag
             if deldiag and i == j:
                 val = 0.0
-            if val * val <= pthresh:
+            if val * val <= mthresh:
                 val = 0.0
             else:
                 inonzero = True
@@ -725,7 +728,7 @@ def write_LVC_template(INFOS, template_name):
                 list(
                     starmap(
                         lambda i, j, c: f"{i+1:3d} {j+1:3d} {int(normal_mode):3d} {'RI'[c]} {lambda_soc[i,j,c]: .7e}\n",
-                        filter(lambda x: x[0] < x[1], zip(*np.where(abs(lambda_soc) > 1e-7))),
+                        filter(lambda x: x[0] < x[1], zip(*np.where(abs(lambda_soc) > lthresh))),    # here is hidden a threshold 
                     )
                 )
             )
@@ -745,10 +748,10 @@ def write_LVC_template(INFOS, template_name):
                 m = INFOS["displacement_magnitudes_gamma"][normal_mode + "_2"] / displ_mag
             print(displ_mag, m)
             freq = INFOS["frequencies"][normal_mode]
-            necessary_displ = math.sqrt(2 * 2 * 4.55633590401805e-06 / freq)  # displ necessary for energy difference of 2cm-1
+            necessary_displ = math.sqrt(2 * 2 * rcm_to_Eh / freq)  # displ necessary for energy difference of 2cm-1
             if (necessary_displ - displ_mag * m) / necessary_displ > 0.1:  # 10% tolerance for
                 print(
-                    f"skipping normal mode {normal_mode} ({freq/4.55633590401805e-06: 0.1f}cm-1)! Insufficient maximum displacment {displ_mag * m: .2f} vs {necessary_displ: .2f}!"
+                    f"skipping normal mode {normal_mode} ({freq/rcm_to_Eh: 0.1f}cm-1)! Insufficient maximum displacment {displ_mag * m: .2f} vs {necessary_displ: .2f}!"
                 )
                 continue
 
@@ -840,8 +843,8 @@ def write_LVC_template(INFOS, template_name):
 
                 if start == 0:
                     freq = INFOS["frequencies"][normal_mode]
-                    gfreq_dev = (gammas[0, 0] * 2) / 4.55633590401805e-06
-                    dev_per = gfreq_dev / (freq / 4.55633590401805e-06)
+                    gfreq_dev = (gammas[0, 0] * 2) / rcm_to_Eh
+                    dev_per = gfreq_dev / (freq / rcm_to_Eh)
                     print(
                         "sanity check: difference in S0 frequency of mode:",
                         normal_mode,
@@ -853,9 +856,9 @@ def write_LVC_template(INFOS, template_name):
                 print(
                     "Problematic gammas:",
                     [
-                        (normal_mode, imult, n, f"{(g * 2 + INFOS['frequencies'][normal_mode])/4.55633590401805e-06: .1f}cm-1")
+                        (normal_mode, imult, n, f"{(g * 2 + INFOS['frequencies'][normal_mode])/rcm_to_Eh: .1f}cm-1")
                         for n, g in enumerate(np.diag(gammas))
-                        if (g * 2 + INFOS["frequencies"][normal_mode]) / 4.55633590401805e-06 < 0
+                        if (g * 2 + INFOS["frequencies"][normal_mode]) / rcm_to_Eh < 0
                     ],
                 )
 
@@ -863,7 +866,7 @@ def write_LVC_template(INFOS, template_name):
                     list(
                         starmap(
                             lambda i, j: f"{imult + 1:3d} {states[i]+1:3d} {states[j]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i,j]: .7e}\n",
-                            zip(*np.where(abs(gammas) > 4.55633590401805e-06)),
+                            zip(*np.where(abs(gammas) > gthresh)),   # another hidden threshold
                         )
                     )
                 )
@@ -872,7 +875,7 @@ def write_LVC_template(INFOS, template_name):
                 # list(
                 # map(
                 # lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
-                # np.where(abs(gammas) > 4.55633590401805e-06)[0],
+                # np.where(abs(gammas) > rcm_to_Eh)[0],
                 # )
                 # )
                 # )
@@ -933,7 +936,7 @@ def write_LVC_template(INFOS, template_name):
                         f"WARNING: gammas wrong for states in {imult}",
                         [states[x] for x in check],
                         np.array2string(
-                            (gammas[check] * 2) / 4.55633590401805e-06, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
+                            (gammas[check] * 2) / rcm_to_Eh, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
                         ),
                         np.array2string(gammas[check] * 2 / freq, formatter={"float": lambda x: f"{x*100: 4.1f}%"}),
                     )
@@ -941,7 +944,7 @@ def write_LVC_template(INFOS, template_name):
                     print(
                         "sanity check: difference in S0 frequency of mode:",
                         normal_mode,
-                        f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
+                        f"{(gammas[0] * 2)/rcm_to_Eh: .1f}cm-1",
                     )
                     gammas[0] = 0
                 print(
@@ -950,7 +953,7 @@ def write_LVC_template(INFOS, template_name):
                     imult,
                     [
                         [states[i], gammas[i] * 2 / freq]
-                        for i in np.where((np.abs(gammas) > 4.55633590401805e-06) & (np.abs(gammas * 2) / freq < 0.5))[0]
+                        for i in np.where((np.abs(gammas) > rcm_to_Eh) & (np.abs(gammas * 2) / freq < 0.5))[0]
                     ],
                 )
                 # gammas = np.where(np.abs(gammas * 2) / freq > 0.5, 0, gammas)
@@ -959,7 +962,7 @@ def write_LVC_template(INFOS, template_name):
                     list(
                         map(
                             lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
-                            np.where(abs(gammas) > 4.55633590401805e-06)[0],
+                            np.where(abs(gammas) > rcm_to_Eh)[0],
                         )
                     )
                 )
@@ -1040,14 +1043,14 @@ def write_LVC_template(INFOS, template_name):
 
                     if normal_mode == derivate_mode:
                         gammas -= freq * 0.5
-                        # print(f"normal_mode {normal_mode}:", INFOS["frequencies"][normal_mode] / 4.55633590401805e-06)
+                        # print(f"normal_mode {normal_mode}:", INFOS["frequencies"][normal_mode] / rcm_to_Eh)
                         check = np.where(np.abs(gammas * 2) / freq > 0.5)[0]
                         if len(check) > 0:
                             print(
                                 f"WARNING: gammas wrong for states in {normal_mode}: {imult}",
                                 [states[x] for x in check],
                                 np.array2string(
-                                    (gammas[check] * 2) / 4.55633590401805e-06, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
+                                    (gammas[check] * 2) / rcm_to_Eh, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
                                 ),
                                 np.array2string(gammas[check] * 2 / freq, formatter={"float": lambda x: f"{x*100: 4.1f}%"}),
                             )
@@ -1056,7 +1059,7 @@ def write_LVC_template(INFOS, template_name):
                         print(
                             "sanity check: difference in S0 frequency of mode:",
                             normal_mode,
-                            f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
+                            f"{(gammas[0] * 2)/rcm_to_Eh: .1f}cm-1",
                         )
                     if start == 0:
                         gammas[0] = 0.0
@@ -1083,7 +1086,7 @@ def write_LVC_template(INFOS, template_name):
                                 f"WARNING: gammas wrong for states in {normal_mode}: {imult}",
                                 [states[x] for x in check],
                                 np.array2string(
-                                    (gammas[check] * 2) / 4.55633590401805e-06, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
+                                    (gammas[check] * 2) / rcm_to_Eh, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
                                 ),
                                 np.array2string(gammas[check] * 2 / freq, formatter={"float": lambda x: f"{x*100: 4.1f}%"}),
                             )
@@ -1094,7 +1097,7 @@ def write_LVC_template(INFOS, template_name):
                             imult,
                             [
                                 [states[i], gammas[i] * 2 / freq]
-                                for i in np.where((np.abs(gammas) > 4.55633590401805e-06) & (np.abs(gammas * 2) / freq < 0.5))[0]
+                                for i in np.where((np.abs(gammas) > rcm_to_Eh) & (np.abs(gammas * 2) / freq < 0.5))[0]
                             ],
                         )
                         gammas = np.where(np.abs(gammas * 2) / freq > 0.5, 0, gammas)
@@ -1104,7 +1107,7 @@ def write_LVC_template(INFOS, template_name):
                         list(
                             map(
                                 lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(derivate_mode):3d} {gammas[i]: .7e}\n",
-                                np.where(np.abs(gammas) > 4.55633590401805e-06)[0],
+                                np.where(np.abs(gammas) > rcm_to_Eh)[0],
                             )
                         )
                     )
@@ -1200,6 +1203,9 @@ def main():
     script_name = sys.argv[0].split("/")[-1]
 
     usage = """python %s""" % (script_name)
+
+    # TODO: command line options for the thresholds
+    # TODO: make the thresholds clean and use different ones for different quantities
 
     displaywelcome()
     is_other_dir = len(sys.argv) == 2 and os.path.isdir(sys.argv[1])
