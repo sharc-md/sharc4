@@ -300,6 +300,7 @@ class SHARC_ECI(SHARC_HYBRID):
         return " " + "=" * eq_length + sentence + "=" * (total_length - len(sentence) - eq_length)
 
     def _check_type_recursively(self, v, t):
+        self.log.debug(f"DEBUG: value={v}, expected={t}")
         if isinstance( t, type ) or isinstance( t, tuple ):
             if not isinstance( v, t ):
                 self.log.error(f"Entry "+str(v)+" is of a type "+str(type(v))+" and should be of the type "+t.__name__+"!")
@@ -964,7 +965,7 @@ class SHARC_ECI(SHARC_HYBRID):
             # Make job instance
             properties = [ prop for prop in ['dm'] if QMin.requests[prop]]
             job = ECI.calculation( ncpu=QMin.resources['ncpu'],
-                                   mem=QMin.resources['memory'],
+                                   mem=QMin.resources['memory'], # must be in GB (TODO: change to MB for consistency with other interfaces)
                                    charge=Z, 
                                    multiplicities=[m+1 for m, nstates in enumerate(QMin.molecule['states']) if nstates > 0 and QMin.molecule['charge'][m] == Z ],
                                    tO=QMin.template['calculation']['tO'],

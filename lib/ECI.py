@@ -33,6 +33,8 @@ import numpy as np
 import scipy as sp
 import opt_einsum as oe
 
+import tracemalloc
+
 from pyscf import gto
 merge_moles = gto.mole.conc_mol
 
@@ -1032,6 +1034,28 @@ class ECI:
                     if len(big_aux) > 0 and len(big1) > 0 and len(big2) > 0:
                         if job.ri['chunksize'] == -1:
                             chunksize = rhos1.shape[0]
+                        elif job.ri['chunksize'] == 0 and job.mem is not None and job.mem > 0:
+                            n1   = len(big1)
+                            n2   = len(big2)
+                            naux = len(big_aux)
+                            bytes_per = np.dtype(L.dtype).itemsize
+                            overhead_factor = 3.0
+                            safety_factor = 0.7
+                            bytes_per_chunk = bytes_per * (
+                                n1*n1
+                                + n1*naux*n2
+                                + n2*n2
+                            ) * overhead_factor
+                            usable_mem = job.mem * safety_factor
+                            chunksize = max(1, int(usable_mem // bytes_per_chunk))
+                            chunksize = min(chunksize, rhos1.shape[0])
+                            self.log.print(
+                                '             Automatic chunksize = '
+                                + str(chunksize)
+                                + ' (estimated from memory limit of '
+                                + str(round(job.mem/1024**3,2))
+                                + ' GB)'
+                            )
                         else:
                             chunksize = job.ri['chunksize']
                         chunk = 0
@@ -1041,6 +1065,7 @@ class ECI:
                             stop = start + chunksize 
                             if stop > rhos1.shape[0]: stop = rhos1.shape[0]
                             t1 = time.time()
+                            tracemalloc.start()
                             self.log.print('             Chunk '+str(chunk)+' ( contracting '+str(stop-start)+' densities of the first fragment )...')
                             X = np.tensordot(np.ascontiguousarray(rhos1[start:stop,:,:]),L, axes=([2],[1])) # mij,pjk->mipk
                             LP12 = np.tensordot(X, L, axes=([1,2],[1,0])) #mipk, pil -> mkl
@@ -1053,6 +1078,8 @@ class ECI:
                                         K[mult][row,column] += values[m][n]
                             t2 = time.time()
                             self.log.print('             Done in '+str(round(t2-t1,3))+' sec.')
+                            current, peak = tracemalloc.get_traced_memory()
+                            self.debug.print(f"             Peak Python memory: {peak/1e9:.2f} GB")
                             if stop == rhos1.shape[0]: break
                     else:
                         self.log.print('             No K-integrals for this fragment pair.')
