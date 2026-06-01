@@ -51,7 +51,7 @@ AUTHORS = "Sascha Mausenberger, Lorenz Grünewald, Sebastian Mai"
 VERSION = "4.0"
 VERSIONDATE = datetime.datetime(2023, 8, 29)
 NAME = "MOLCAS"
-DESCRIPTION = "AB INITIO interface for OpenMolcas (>v23) for multireference calculations (CASSCF/RASSCF, MS/XMS-CASPT2, CMS-PDFT)"
+DESCRIPTION = "AB INITIO interface for OpenMolcas (>v23) for multireference calculations (CASSCF/RASSCF, MS/XMS/RMS-CASPT2, CMS-PDFT)"
 
 CHANGELOGSTRING = """
 """
@@ -585,6 +585,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             "ms-caspt2",
             "cms-pdft",
             "xms-caspt2",
+            "rms-caspt2",
         ]:
             self.log.error(f"{self.QMin.template['method']} is not a valid method!")
             raise ValueError()
@@ -1076,7 +1077,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False])
                         tasks.append(["mclr", qmin.template["gradaccudefault"], f"sala={grad[1]}"])
                         tasks.append(["alaska"])
-                    case "ms-caspt2" | "xms-caspt2" | "caspt2":
+                    case "ms-caspt2" | "xms-caspt2" | "rms-caspt2" | "caspt2":
                         tasks.append(["rasscf", mult + 1, qmin.template["roots"][mult], True, False,[f"RLXROOT={grad[1]}"],])
                         if qmin.template['ipea'] != 0:
                             cort_or_dort = qmin.template["cort_or_dort"] + "\n"
@@ -1102,7 +1103,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     tasks.append(["mcpdft", [f"KSDFT={qmin.template['functional']}", "GRAD", "MSPDFT", f"nac={nac[1]} {nac[3]}"]])
                     tasks.append(["mclr", qmin.template["gradaccudefault"], f"nac={nac[1]} {nac[3]}"])
                     tasks.append(["alaska"])
-                case "ms-caspt2" | "xms-caspt2" | "caspt2":
+                case "ms-caspt2" | "xms-caspt2" |"rms-caspt2" |  "caspt2":
                     tasks.append(["rasscf", mult + 1, qmin["template"]["roots"][mult], True, False])
                     if qmin.template['ipea'] != 0:
                         cort_or_dort = qmin.template["cort_or_dort"] + "\n"
@@ -1126,6 +1127,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str = ""
 
         for task in tasks:
+            self.log.info(str(task))
             match task[0]:
                 case "gateway":
                     input_str += self._write_gateway(qmin)
@@ -1183,7 +1185,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str += "MEIN\n"
         if qmin.template["method"] != "casscf":
             input_str += "EJOB\n"
-        if ("dm" in task and qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"]) or "mdeqm" in task or "theodore" in task:
+        if ("dm" in task and (qmin.requests["multipolar_fit"] or qmin.requests["density_matrices"])) or "mdeqm" in task or "theodore" in task:
             input_str += "TRD1\n"
             if self.get_molcas_version(self.QMin.resources["molcas"]) > (25, 0):
                 input_str += "TDM\n"
@@ -1221,7 +1223,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     input_str += f"MULTISTATE= {task[2]} "
                 case "xms-caspt2":
                     input_str += f"XMULTISTATE= {task[2]} "
-            if qmin.template["method"] in ("ms-caspt2", "xms-caspt2"):
+                case "rms-caspt2":
+                    input_str += f"RMULTISTATE= {task[2]} "
+            if qmin.template["method"] in ("ms-caspt2", "xms-caspt2", "rms-caspt2"):
                 input_str += " ".join(str(i + 1) for i in range(task[2]))
         input_str += "\nOUTPUT=BRIEF\nPRWF=0.1\n"
         if qmin.template["pcmset"]:
@@ -1245,7 +1249,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.template["ras3"]:
             input_str += f"RAS3={qmin.template['ras3']}\n"
         input_str += f"CIROOT={task[2]} {task[2]} 1\n"
-        if qmin.template["method"] not in ("ms-caspt2", "xms-caspt2"):
+        if qmin.template["method"] not in ("ms-caspt2", "xms-caspt2", "rms-caspt2"):
             # TODO: check if needed
             input_str += "ORBLISTING=NOTHING\nPRWF=1.0e-12\n"
             # input_str += "ORBLISTING=NOTHING\n"
@@ -1416,7 +1420,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                     if state > 1:
                         self.log.error("NACs/Gradients are not possible with SS-CASPT2 with more than 1 root")
                         raise ValueError()
-            elif self.QMin.template["method"] in ("xms-caspt2", "ms-caspt2"):
+            elif self.QMin.template["method"] in ("xms-caspt2", "ms-caspt2", "rms-caspt2"):
                 for mult, (state, root) in enumerate(zip(self.QMin.molecule["states"], self.QMin.template["roots"]), 1):
                     if state != root:
                         self.log.error(f"(X)MS-CASPT2 with NACs/grad. Number of roots must equal number of states in mult {mult}.")
@@ -1449,9 +1453,9 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if not self._hdf5:
                 self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support in OpenMolcas!")
                 raise ValueError()
-        if self.QMin.requests["multipolar_fit"] and self.QMin.molecule["point_charges"]:
-            self.log.error("Multipolar fit not compatible with point charges!")
-            raise ValueError()
+        # if self.QMin.requests["multipolar_fit"] and self.QMin.molecule["point_charges"]:
+        #     self.log.error("Multipolar fit not compatible with point charges!")
+            # raise ValueError()
         if self.QMin.requests["phases"]:
             self.QMin.requests["overlap"] = True
 
@@ -1732,6 +1736,10 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         if self.QMin.requests["mol"] or self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
             # Parse basis
+            if (self.QMin.molecule["point_charges"]):
+                path = os.path.join(scratchdir, "master/MOLCAS.rasscf.molden")
+                s = self.remove_molden_dummy_atoms(path)
+                writefile(path, s)
             mol, _, _, _, _, _ = tools.molden.load(os.path.join(scratchdir, "master/MOLCAS.rasscf.molden"))
             mol.basis = mol._basis
             self.QMout["mol"] = mol
@@ -1743,6 +1751,148 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         self.QMout["runtime"] = self.clock.measuretime(False)
         return self.QMout
+
+    @staticmethod
+    def remove_molden_dummy_atoms(path):
+        """
+        Removes dummy atoms (atoms without basis functions) from a Molden file.
+
+        Input:
+            path: str (molden file path)
+
+        Output:
+            list of strings (cleaned Molden file)
+        """
+
+        # ------------------------------------------------------------
+        # Helper: read file
+        # ------------------------------------------------------------
+        with open(path, "r") as f:
+            lines = f.readlines()
+
+        # ============================================================
+        # PASS 1: detect atoms with basis from [GTO]
+        # ============================================================
+        atoms_with_basis = set()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if "[GTO]" in line:
+                i += 1
+                current_atom = None
+                while i < len(lines):
+                    line = lines[i].strip()
+                    # next section → stop GTO parsing
+                    if line.startswith("[") and line != "[GTO]":
+                        break
+                    if not line:
+                        i += 1
+                        continue
+                    parts = line.split()
+                    # atom index line
+                    if len(parts) == 1 and parts[0].isdigit():
+                        current_atom = int(parts[0])
+                    # shell line → atom has basis
+                    elif current_atom is not None and parts[0][0].isalpha():
+                        atoms_with_basis.add(current_atom)
+                    i += 1
+            i += 1
+
+        # ============================================================
+        # PASS 2: rewrite file section-by-section
+        # ============================================================
+        out = []
+        i = 0
+        n = len(lines)
+        while i < n:
+            line = lines[i].strip()
+            # --------------------------------------------------------
+            # detect section start
+            # --------------------------------------------------------
+            if line.startswith("["):
+                section = line
+                out.append(lines[i])
+                i += 1
+                # ----------------------------------------------------
+                # [Atoms]
+                # ----------------------------------------------------
+                if section.startswith("[N_Atoms]"):
+                    out.append(str(len(atoms_with_basis))+'\n')
+                    while i < n:
+                        raw = lines[i]
+                        s = raw.strip()
+                        if s.startswith("["):
+                            break
+                        i += 1
+                # ----------------------------------------------------
+                # [Atoms]
+                # ----------------------------------------------------
+                if section.startswith("[Atoms]"):
+                    while i < n:
+                        raw = lines[i]
+                        s = raw.strip()
+                        if s.startswith("["):
+                            break
+                        parts = s.split()
+                        if parts and parts[1].isdigit():
+                            idx = int(parts[1])
+                            if idx in atoms_with_basis:
+                                out.append(raw)
+                        i += 1
+                    continue
+                # ----------------------------------------------------
+                # [Charge]
+                # ----------------------------------------------------
+                if section.startswith("[Charge]"):
+                    new_charge_lines = []
+                    atom_counter = 1
+                    i += 1
+                    while i < n:
+                        raw = lines[i]
+                        s = raw.strip()
+                        if s.startswith("["):
+                            break
+                        if atom_counter in atoms_with_basis:
+                            new_charge_lines.append(raw)
+                        atom_counter += 1
+                        i += 1
+                    out.append("".join(new_charge_lines))
+                    continue
+                # ----------------------------------------------------
+                # [GTO] → filter full blocks
+                # ----------------------------------------------------
+                if section.startswith("[GTO]"):
+                    while i < n:
+                        raw = lines[i]
+                        s = raw.strip()
+                        if s.startswith("[") and s != "[GTO]":
+                            break
+                        parts = s.split()
+                        if parts and parts[0].isdigit():
+                            atom_idx = int(parts[0])
+                            keep = atom_idx in atoms_with_basis
+                            if keep:   
+                                out.append(raw)
+                        else:
+                            if keep:
+                                out.append(raw)
+                        i += 1
+                    continue
+                # ----------------------------------------------------
+                # all other sections: pass through unchanged
+                # ----------------------------------------------------
+                while i < n:
+                    raw = lines[i]
+                    if raw.strip().startswith("["):
+                        break
+                    out.append(raw)
+                    i += 1
+                continue
+            # non-section garbage (rare in Molden)
+            out.append(lines[i])
+            i += 1
+        return out
+
 
     def read_and_append_densities(self):
         pass
@@ -1820,7 +1970,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             match self.QMin.template["method"]:
                 case "casscf":
                     energies = re.findall(r"RASSCF root number.*Total energy:\s+(.*)\n", output_file)
-                case "xms-caspt2" | "caspt2":
+                case "xms-caspt2" | "caspt2" | "rms-caspt2":
                     energies = re.findall(r"CASPT2 Root.*Total energy:\s+(.*)\n", output_file)
                 case "ms-caspt2":
                     energies = re.findall(r"MS-CASPT2 Root.*Total energy:\s+(.*)\n", output_file)
