@@ -875,7 +875,7 @@ The data is then transformed and written to initconds format.
         "--give_single_out",
         action="store_true",
         dest="sing_out",
-        help="Allows specifying a signle output.dat to use (default: automatically recurses into all subdirectories)",
+        help="Allows specifying a single output.dat to use (default: automatically recurses into all subdirectories)",
     )
 
     # arg processing
