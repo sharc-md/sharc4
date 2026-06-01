@@ -108,6 +108,11 @@ class SHARC_OPENMM(SHARC_FAST):
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set:
         return {"h", "grad", "overlap", "dm", "multipolar_fit"}
+    
+    def _check_charge(self):
+        """
+        Do not check charge for total system
+        """
 
     def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         self.log.info("=" * 80)

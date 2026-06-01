@@ -383,6 +383,11 @@ class SHARC_DROPLET(SHARC_HYBRID):
             return
         super().read_resources(resources_filename)
 
+    def _check_charge(self):
+        """
+        Do not check charge for total system
+        """
+
     def setup_interface(self):
         # prepare info for child interface
         # setup mol for qm
