@@ -182,6 +182,7 @@ def main():
     parser.add_option('-k', dest='k', action='store_true', help="Switch on aligning via the Kabsch algorithm")
     parser.add_option('-b', dest='b', action='store_true', help="Switch on buffered reading")
     parser.add_option('--ignore_start_time', dest='TSF', action="store_true", help="ignore start.time file")
+    parser.add_option('-n', dest='n', action="store_true", help="pad with NaNs between 0fs and first time step (if using -T or start.time file)")
     parser.add_option(
         "-q",
         "--qm-list",
@@ -196,6 +197,7 @@ def main():
     file_size_mb = os.path.getsize(options.g) / (1024 * 1024)
     # buffered = file_size_mb<50.
     buffered = options.b
+    Fill_Nan = options.n
     TRAJ = XYZIterator(options.g, buffered = buffered)
     V0 = read_V0(options.v)
     ref_coords = V0["ref_coords"]
@@ -231,6 +233,16 @@ def main():
     if not is_int:
         sys.stderr.write("Time shift %f fs and time step %f fs not consistent!\n" % (Tshift,options.t))
         sys.exit(1)
+
+    # pad with NaNs if requested
+    if Fill_Nan and Tshift > 0:
+        nsteps = int(round(Tshift / options.t))
+        for istep in range(nsteps):
+            time = istep * options.t
+            string = "%6.2f " % time
+            for _ in range(nmodes):
+                string += " %12s" % "NaN"
+            print(string + " Padding")
 
     # iteration
     for igeom, geom in enumerate(TRAJ):
