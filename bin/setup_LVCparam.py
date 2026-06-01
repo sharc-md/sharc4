@@ -539,7 +539,10 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     ## -------------------- whether to do gradients or numerical -------------------- ##
     print("{:-^60}".format("Analytical gradients") + "\n")
 
-    INFOS["ana_grad"] = question("Do you want to use analytical gradients for kappa terms?", bool, True)
+    if "grad" in features:
+        INFOS["ana_grad"] = question("Do you want to use analytical gradients for kappa terms?", bool, True)
+    else:
+        INFOS["ana_grad"] = False
 
     print("\nAnalytical gradients for kappas: %r\n" % INFOS["ana_grad"])
 
@@ -717,9 +720,10 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
         print("\nOne-sided derivation will be used on: %s\n" % (reduce_big_list_to_short_str(one_sided_derivations.keys())))
 
     ## ----------------------Multipolar fit ---------------------------- ##
-    INFOS["multipolar_fit"] = question(
-        "Do you want to fit an atomwise multipolar density representation for each state?", bool, False
-    )
+    if "multipolar_fit" in features:
+        INFOS["multipolar_fit"] = question("Do you want to fit an atomwise multipolar density representation for each state?", bool, False)
+    else:
+        INFOS["multipolar_fit"] = False
 
     ## -------------------- Calculate displacements -------------------- ##
     INFOS = calculate_displacements(INFOS)
