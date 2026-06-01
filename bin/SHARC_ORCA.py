@@ -1671,7 +1671,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         string += f"\tcharge {charge}\n"
         string += f"\tmult {gsmult}\n"
         string += "\tcoords\n"
-        for iatom, (label, coords) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"])):
+        for iatom, (label, coords) in enumerate(zip(qmin.molecule["elements"], qmin.coords["coords"]), 1):
             string += f"\t{label:4s} {coords[0]:16.9f} {coords[1]:16.9f} {coords[2]:16.9f}"
             if qmin.template["basis_per_atom"] and str(iatom) in qmin.template["basis_per_atom"]:
                 idx = qmin.template["basis_per_atom"].index(str(iatom))
