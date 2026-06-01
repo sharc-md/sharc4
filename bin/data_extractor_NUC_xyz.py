@@ -37,10 +37,20 @@ from optparse import OptionParser
 
 from constants import au2fs, ANG_TO_BOHR, U_TO_AMU, IAn2AName
 from utils import readfile
-from setup_from_prmtop import expand_str_to_list
 
 
 
+
+def expand_str_to_list(input: str) -> list[int]:
+    out = []
+    for i in input.split():
+        if "~" in i:
+            q = i.split("~")
+            for j in range(int(q[0]), int(q[1]) + 1):
+                out.append(j)
+        else:
+            out.append(int(i))
+    return out
 
 # =========================================================
 # some constants
