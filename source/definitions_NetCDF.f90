@@ -33,6 +33,8 @@ type Tsharc_ncoutput
     integer :: H_MCH_id
     integer :: U_id
     integer :: DM_id
+    integer :: MDM_id
+    integer :: EQM_id
     integer :: overlaps_id
     integer :: coeff_diag_id
     integer :: e_id

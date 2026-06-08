@@ -1,0 +1,40 @@
+4
+
+H   3.80373      5.94095      4.88752
+H   3.80373      4.05905      5.11248
+C   4.39506      5.00000      5.00000
+O   5.60948      5.00000      5.00000
+
+    ## The first few lines have to comply with the xyz file format (number of atoms, comment, atoms)
+    ## Comments at the end of these lines cause errors
+
+    ## from here, comments can be put at the end of each line
+    ## blank lines can be used freely
+    ## order of keywords does not matter
+    ## only the first instance of every keyword is used
+    ## everything is case-insensitive
+
+    ## ===============================================
+    ## Control keywords:
+step 0
+#samestep
+#restart
+
+#cleanup        # delete complete scratchdir and savedir, only keep QM.out
+#backup         # backup content of savedir for this time step
+
+    ## ===============================================
+    # Settings:
+unit angstrom
+states 3                 # Number of states calculated (singlets) only singlets currently implemented from VASP
+charge 0                  # Charge of the system depending on the multiplicity
+
+    ## ===============================================
+    # Quantity requests:
+h                       # Calculation of energies for each state
+grad 1                # Selection of states for which gradients are needed
+#overlap            # Overlap calculation. This is the only supported propagation scheme currently available for VASP 
+#phases             #phase correction based on overlap matrix
+    
+# note that the "soc" keyword does not work with the VASP interface
+

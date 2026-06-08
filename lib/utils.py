@@ -30,6 +30,7 @@ import os
 import shutil
 import readline
 import numpy as np
+from scipy import optimize
 from dataclasses import dataclass
 from error import Error, exception_hook
 import subprocess as sp
@@ -126,8 +127,10 @@ def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=Tru
             raise RuntimeError("Default for int or float questions must be list!")
     if typefunc == str and autocomplete:
         readline.set_completer_delims(" \t\n;")
+        readline.set_completer(completer)
         readline.parse_and_bind("tab: complete")  # activate autocomplete
     else:
+        readline.set_completer(None)
         readline.parse_and_bind("tab: ")  # deactivate autocomplete
 
     while True:
@@ -208,6 +211,13 @@ def question(question, typefunc, KEYSTROKES=None, default=None, autocomplete=Tru
                     logging.warning("Please enter integers!")
                 continue
 
+def completer(text, state):
+    """
+    Function to make the autocomplete feature of question() working also for python >= 3.12
+    """
+    import glob
+    matches = glob.glob(text + '*')
+    return matches[state] if state < len(matches) else None 
 
 # ======================================================================================================================
 # ======================================================================================================================
@@ -978,3 +988,108 @@ def phase_correction(matrix):
         sweeps += 1
 
     return U, phases
+
+def phase_correction_cmplx(overlap,flag="simple"):
+    """
+    Phase correction for complex overlap matrix. 
+    Depending on the value of flag ("simple" or "robust") two different methods can be used:
+
+    "simple" -> Akimov et al. J. Phys. Chem. Lett. 2018, 9, 6096−6102
+                Only works for diagonally-dominant overlap matrices. Complex matrices. Fast.
+
+    "robust" -> Subotnik et al. JCTC 2020, 16, 835−846. 
+                Robust for situations with non diagonally-dominant matrices i.e. trivial crossings or nearly trivial crossings
+                Complex matrices. More computationally expensive.
+    
+    overlap: overlap matrix whose adiabatic states phase has to be fixed prior to Löwdin's orthogonalization.
+
+    Return: phases for corrections 
+    """
+    
+    if flag=="simple": #This does not require the matrix to be exactly unitary
+        phases=[]
+        for i in range(len(overlap)):
+            phases.append(np.conj(overlap[i,i]/np.abs(overlap[i,i])))
+        phases=np.array(phases)
+        return phases
+    
+    elif flag=="robust":
+        thold=1e-6 #Threshold for convergence
+        max_sweeps=1000 #Maximum number of allowed sweeps, otherwise too expensive for big overlap matrices
+        
+        #Following delta function is used later, for minimization, see Subotnik et al.
+        def delta_cmplx(teta,A1,A2,B1,B2):
+            delta=A1*np.cos(teta)+A2*np.cos(2*teta)+B1*np.sin(teta)+B2*np.sin(2*teta)
+            return delta
+        #Function to compute Tr(|log(matrix)|**2) for debugging algorithm below
+        def trace_log(U):
+            eig=np.linalg.eigvals(U)
+            out=np.sum(np.abs(np.log(eig))**2)
+            return out
+        
+        ##### start of actual algorithm ####
+        
+        #First we need to make the matrix unitary -> Löwdin's orthogonalization
+        λ,V = np.linealg.eigh(overlap.T.conjugate() @ overlap)
+        S=overlap @ V @ np.diag(λ**(-1/2)) @ V.T.conjugate()
+        U = S.copy()
+        for i in range(U.shape[0]):
+            tmp=np.argmax(np.abs(U[:,i]))
+            max_el=U[tmp,i]
+            U[:,i]=U[:,i]*max_el.conjugate()/np.abs(max_el)
+        det = np.linalg.det(U)
+        #logging.debug(f"debugging phase fixing algorithm. Initial determinant {det}") #Only for debugs, requires extra computations
+        #logging.debug(f"Initial Tr(|log(U)|^2) {trace_log(U)}")
+        if isinstance(det,complex):
+            U[:,0]=U[:,0]*det.conjugate()
+        elif det < 0.: #real and negative -> must be -1
+            U[:,0] *= -1.
+        # sweeps
+        sweeps = 0
+        while True:
+            done = True
+            for j in range(U.shape[0]):
+                for k in range(j + 1, U.shape[0]):
+                    # variable names follow eq.23 Subtonik paper with the following mapping
+                    # e.g. A1 below is Г_1^{jk} in the paper, A2 -> Г_2^{jk}
+                    # e.g. B1 below is Ξ_1^{jk} in the paper, B2 -> Ξ_2^{jk}
+                    A1= (6.0*np.real(np.dot(U[j,:],U[:,j])+np.dot(U[k,:],U[:,k]))-
+                    12.0*np.real(U[j,k]*U[k,j])-6.0*np.real(U[j,j]**2+U[k,k]**2)-16.0*np.real(U[j,j]+U[k,k]))
+                    A2=3.0*np.real(U[j,j]**2+U[k,k]**2)
+                    B1=(6.0*np.imag(np.dot(U[k,:],U[:,k])-np.dot(U[j,:],U[:,j]))-
+                    6.0*np.imag(U[k,k]**2-U[j,j]**2)-16.0*np.imag(U[k,k]-U[j,j]))
+                    B2=3.0*np.imag(U[k,k]**2-U[j,j]**2)
+                    #Minimizing delta function
+                    seed=np.random.uniform(0, 2 * np.pi)
+                    out=optimize.minimize(delta_cmplx,seed,args=(A1,A2,B1,B2),method='BFGS',options={'gtol':1e-6})
+                    delta=out.fun
+                    teta=out.x[0]
+                    #logging.debug(f"Optimization delta: {delta}") #Only debugs
+                    #logging.debug(f"Optimization teta: {teta}")
+                    #Applying phase correction
+                    U[:,j] *= np.exp(complex(0.,teta))
+                    U[:,k] *=  np.exp(complex(0.,-teta))
+                    if teta < -thold or teta > thold:
+                        done=False
+            sweeps += 1
+            if done or sweeps > max_sweeps:
+                #Saving scaling factors
+                tmp=[U[:,i]/S[:,i] for i in range(U.shape[0])]
+                phases=[i[0] for i in tmp if np.all(np.round(i,9)==np.round(i[0],9))]
+                #logging.debug(f"Matrix determinant at last stage {LA.det(U)}") #Require extra computations, only for debugs
+                #logging.debug(f"Final Tr(|log(U)|^2) {trace_log(U)}")
+                break
+        return phases
+
+def det_slog(matrix):
+    '''
+    Compute determinant of a square (complex or real) matrix by using np.linalg.slogdet(),  which is significantly faster than
+    np.linalg.det(), especially for small matrix size < 1000x1000
+    '''
+    sign, logdet = np.linalg.slogdet(matrix)
+    det = sign * np.exp(logdet)
+    return det
+
+
+
+

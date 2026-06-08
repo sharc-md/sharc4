@@ -1,9 +1,8 @@
 columbus $COLUMBUS
 molcas $molcas
-wfoverlap $SHARC/wfoverlap.x
 
 scratchdir $SCRADIR/WORK
-savedir $SCRADIR/TRAJ/restart
+wfoverlap $SHARC/wfoverlap.x
 
 memory 1700             # for runc
 

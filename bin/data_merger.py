@@ -104,10 +104,10 @@ def build_get_time_func(steps_info, stepsize):
         step = 0
         for i, b in enumerate(breakpoints):
             cumulative = sum(breakpoints[:i+1])
-            if index - 1 >= cumulative:
+            if index >= cumulative:
                 step += b * steps_info[i][0]
             else:
-                step += (index - 1 - sum(breakpoints[:i])) * steps_info[i][0]
+                step += (index - sum(breakpoints[:i])) * steps_info[i][0]
                 break
         return step * stepsize
 
@@ -142,9 +142,9 @@ def main():
     ap.add_argument("--y-col", type=int, default=2, help="Y column (1-based)")
     ap.add_argument("--output", required=True, help="Output file")
     ap.add_argument("--convolution", type=int, choices=kernels.keys(), help="Convolution kernel ID", default=None)
-    ap.add_argument("--fwhm", type=float, help="FWHM for convolution kernel")
-    ap.add_argument("--tmin", type=float, help="Min time for convolution grid")
-    ap.add_argument("--tmax", type=float, help="Max time for convolution grid")
+    ap.add_argument("--fwhm", type=float, help="FWHM for convolution kernel (in fs)")
+    ap.add_argument("--tmin", type=float, help="Min time for convolution grid (in fs)")
+    ap.add_argument("--tmax", type=float, help="Max time for convolution grid (in fs)")
     ap.add_argument("--tpoints", type=int, help="Number of points in convolution grid")
     ap.add_argument("--ref_av_n", type=int, default=1, help="Use average of the first N time steps as reference")
     args = ap.parse_args()

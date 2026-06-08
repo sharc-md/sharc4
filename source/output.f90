@@ -105,10 +105,10 @@ subroutine write_logtimestep(u,step,trajtime)
   idate=time()
   date=ctime(idate)
   if (printlevel>0) then
-    write(u,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<============================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-    write(u,'(A,I9,A)') '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Entering timestep ',step,'  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-    write(u,'(A,F12.4,A)') '<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Trajectory time in fs',trajtime*au2fs,'  >>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-    write(u,'(A)')      '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<============================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+    write(u,'(A)')         '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<======================================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+    write(u,'(A,I10,A)')    '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<     Entering timestep ',step,'     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+    write(u,'(A,F12.4,A)') '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Trajectory time in fs ',trajtime*au2fs,'  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+    write(u,'(A)')         '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<======================================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
     write(u,'(56X,A12,A)')     'Start time: ', trim(date)
     write(u,*)
   endif
@@ -281,8 +281,8 @@ subroutine write_list_line(u, traj, ctrl)
   implicit none
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
-  integer :: u, imult,ims,istate,jstate,i,iatom,idir
-  real*8 :: expec_dm, expec_s, grad_length, temp_dm, den, gap
+  integer :: u, imult,ims,istate,jstate,i,iatom,idir, jdir
+  real*8 :: expec_dm, expec_mdm, expec_eqm, expec_s, grad_length, temp_dm, temp_mdm, temp_eqm, den, gap
   real*8 :: p(ctrl%natom,3), r(ctrl%natom,3), summass, com(3), jmag, j(3)
 
   ! calculate properties
@@ -304,6 +304,38 @@ subroutine write_list_line(u, traj, ctrl)
   enddo
   expec_dm=dsqrt(expec_dm)*au2debye
 
+  expec_mdm=0.d0
+  do idir=1,3
+    temp_mdm=0.d0
+    do istate=1,ctrl%nstates
+      do jstate=1,ctrl%nstates
+        temp_mdm=temp_mdm&
+        &+real( conjg(traj%U_ss(istate,traj%state_diag))&
+        &*traj%MDM_print_ssd(istate,jstate,idir)&
+        &*traj%U_ss(jstate,traj%state_diag) )
+      enddo
+    enddo
+    expec_mdm=expec_mdm+temp_mdm**2
+  enddo
+  expec_mdm=dsqrt(expec_mdm)*au2debye
+
+  expec_eqm=0.d0
+  do idir=1,3
+    do jdir=1,3
+      temp_eqm=0.d0
+      do istate=1,ctrl%nstates
+        do jstate=1,ctrl%nstates
+          temp_eqm=temp_eqm&
+          &+real( conjg(traj%U_ss(istate,traj%state_diag))&
+          &*traj%EQM_print_ssdd(istate,jstate,idir,jdir)&
+          &*traj%U_ss(jstate,traj%state_diag) )
+        enddo
+      enddo
+      expec_eqm=expec_eqm+temp_eqm**2
+    enddo
+  enddo
+  expec_eqm=dsqrt(expec_eqm)*au2debye*au2a
+  
   ! expec_s
   expec_s=0.d0
   i=1
@@ -423,7 +455,7 @@ subroutine write_dat_initial(u, ctrl, traj)
   implicit none
   type(ctrl_type) :: ctrl
   type(trajectory_type) :: traj
-  integer :: u, n
+  integer :: u, n, ipol, idir
   character*8000 :: string1
   character*8000, allocatable :: string2(:)
 
@@ -445,10 +477,15 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) ctrl%ezero, '! ezero'
     write(u,*) ctrl%calc_overlap, '! calc_overlap'
     write(u,*) ctrl%laser, '! laser'
+    write(u,*) ctrl%laser_e, '! laser_e'
     write(u,*) ctrl%nsteps,'! nsteps'
     write(u,*) ctrl%nsubsteps,'! nsubsteps'
-    if (ctrl%laser==2) call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, '! Laser field','E21.13e3')    
-  elseif   (ctrl%output_version >= 2.0) then
+    if (ctrl%laser==2) then
+        if (ctrl%laser_e) then  
+            call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, '! Laser E-field','E21.13e3')    
+        endif
+    endif
+  elseif   (ctrl%output_version == 2.0) then
     ! header for SHARC v2.0
     write(u,'(a14,f5.1)') 'SHARC_version ',  ctrl%output_version
     write(u,*) 'method',           ctrl%method
@@ -472,6 +509,7 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'n_property1d',     ctrl%n_property1d
     write(u,*) 'n_property2d',     ctrl%n_property2d
     write(u,*) 'laser',            ctrl%laser
+    write(u,*) 'laser_e',          ctrl%laser_e
     write(u,'(a)') '************************************* End of settings *************************************'
     if (ctrl%output_format == 2) then
         call vecwrite(1,traj%atomicnumber_a(1:2),u,'! Atomic numbers','E21.13e3')
@@ -482,7 +520,54 @@ subroutine write_dat_initial(u, ctrl, traj)
         call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
         call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E21.13e3')
     endif
-    if (ctrl%laser==2) call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_td, u, '! Laser field','E21.13e3')    
+    if (ctrl%laser==2) then
+        if (ctrl%laser_e) then  
+            call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, '! Laser E-field','E21.13e3')    
+        endif
+    endif 
+    write(u,'(a)') '********************************* End of header array data ********************************'
+
+  elseif   (ctrl%output_version >= 3.0) then
+    ! header for SHARC v2.0
+    write(u,'(a14,f5.1)') 'SHARC_version ',  ctrl%output_version
+    write(u,*) 'method',                     ctrl%method
+    write(u,*) 'integrator',                 ctrl%integrator
+    write(u,*) 'maxmult',                    ctrl%maxmult
+    write(u,'(1X,A9,64(1X,I4))') 'nstates_m',ctrl%nstates_m
+    write(u,*) 'natom',                      ctrl%natom
+    write(u,*) 'dtstep',                     ctrl%dtstep
+    write(u,*) 'nsteps',                     ctrl%nsteps
+    write(u,*) 'nsubsteps',                  ctrl%nsubsteps
+    write(u,*) 'ezero',                      ctrl%ezero
+    write(u,*) 'write_overlap',              ctrl%write_overlap
+    write(u,*) 'write_grad',                 ctrl%write_grad
+    write(u,*) 'write_nacdr',                ctrl%write_NACdr
+    write(u,*) 'write_property1d',           ctrl%write_property1d
+    write(u,*) 'write_property2d',           ctrl%write_property2d
+    write(u,*) 'n_property1d',               ctrl%n_property1d
+    write(u,*) 'n_property2d',               ctrl%n_property2d
+    write(u,*) 'laser',                      ctrl%laser
+    write(u,*) 'laser_e',                    ctrl%laser_e
+    write(u,*) 'laser_b',                    ctrl%laser_b
+    write(u,*) 'laser_egrad',                ctrl%laser_egrad
+    write(u,*) 'laser_freq_path ',           trim(ctrl%laser_freq_path)
+    write(u,'(a)') '************************************* End of settings *************************************'
+    call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
+    call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
+    call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E21.13e3')
+    if (ctrl%laser==2) then
+        if (ctrl%laser_e) then  
+            call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, '! Laser E-field','E21.13e3')    
+        endif
+        if (ctrl%laser_b) then
+            call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_b_tp, u, '! Laser B-field','E21.13e3')    
+        endif
+        if (ctrl%laser_egrad) then
+          do idir=1,3
+            call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_egrad_tpd(:,idir,:), u, '! Laser E-field gradient','E21.13e3') 
+          enddo
+        endif
+    endif 
     write(u,'(a)') '********************************* End of header array data ********************************'
   endif
 
@@ -527,7 +612,22 @@ subroutine write_dat(u, traj, ctrl)
     call matwrite(nstates, traj%DM_print_ssd(:,:,1), u, '! 3 Dipole moments X (MCH) in a.u.', 'E21.13e3')
     call matwrite(nstates, traj%DM_print_ssd(:,:,2), u, '! 3 Dipole moments Y (MCH) in a.u.', 'E21.13e3')
     call matwrite(nstates, traj%DM_print_ssd(:,:,3), u, '! 3 Dipole moments Z (MCH) in a.u.', 'E21.13e3')
-
+    if (ctrl%laser_b) then
+        call matwrite(nstates, traj%MDM_print_ssd(:,:,1), u, '! 4 Magnetic dipole moments X (MCH) in a.u.', 'E21.13e3')
+        call matwrite(nstates, traj%MDM_print_ssd(:,:,2), u, '! 4 Magnetic dipole moments Y (MCH) in a.u.', 'E21.13e3')
+        call matwrite(nstates, traj%MDM_print_ssd(:,:,3), u, '! 4 Magnetic dipole moments Z (MCH) in a.u.', 'E21.13e3')
+    endif
+    if (ctrl%laser_egrad) then
+        call matwrite(nstates, traj%EQM_print_ssdd(:,:,1,1), u, '! 5 Electric quadrupole moments XX (MCH) in a.u.', 'E21.13e3')
+        call matwrite(nstates, traj%EQM_print_ssdd(:,:,1,2), u, '! 5 Electric quadrupole moments XY (MCH) in a.u.', 'E21.13e3')
+        call matwrite(nstates, traj%EQM_print_ssdd(:,:,1,3), u, '! 5 Electric quadrupole moments XZ (MCH) in a.u.', 'E21.13e3') 
+        call matwrite(nstates, traj%EQM_print_ssdd(:,:,2,1), u, '! 5 Electric quadrupole moments YX (MCH) in a.u.', 'E21.13e3')
+        call matwrite(nstates, traj%EQM_print_ssdd(:,:,2,2), u, '! 5 Electric quadrupole moments YY (MCH) in a.u.', 'E21.13e3')
+        call matwrite(nstates, traj%EQM_print_ssdd(:,:,2,3), u, '! 5 Electric quadrupole moments YZ (MCH) in a.u.', 'E21.13e3') 
+        call matwrite(nstates, traj%EQM_print_ssdd(:,:,3,1), u, '! 5 Electric quadrupole moments ZX (MCH) in a.u.', 'E21.13e3')
+        call matwrite(nstates, traj%EQM_print_ssdd(:,:,3,2), u, '! 5 Electric quadrupole moments ZY (MCH) in a.u.', 'E21.13e3')
+        call matwrite(nstates, traj%EQM_print_ssdd(:,:,3,3), u, '! 5 Electric quadrupole moments ZZ (MCH) in a.u.', 'E21.13e3')  
+    endif
     if (ctrl%write_overlap==1) then
       call matwrite(nstates, traj%overlaps_ss, u, '! 4 Overlap matrix (MCH)', 'E21.13e3')
     endif

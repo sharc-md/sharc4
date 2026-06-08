@@ -36,6 +36,7 @@ typedef struct {
     PyObject_HEAD
     int NAtoms;
     double * Crd;
+    double * Vel;
 } QMin;
 
 static void
@@ -75,6 +76,8 @@ QMin_init(QMin *self, PyObject *args)
 #else
     double ** Crd_ptr = &self->Crd;
     setQMinPointers( (double **)Crd_ptr );
+    double ** Vel_ptr = &self->Vel;
+    setQMinPointers_vel( (double **)Vel_ptr );
 #endif
     return 0;
   fail:

@@ -23,29 +23,27 @@
 #
 # ******************************************
 
-# IMPORTS
-# EXTERNAL
-import time
-import numpy as np
-from typing import Any, Union
-from optparse import OptionParser
-from importlib import import_module
+import argparse
 import inspect
+import os
+import time
+from importlib import import_module
+from typing import Any
 
-# INTERNAL
+import numpy as np
+
 try:
     import sharc.sharc as sharc
 except:
     print("ERROR: sharc.sharc import failed. Do you have the correct Python environment loaded?")
     raise
 
-# import sharc
-# from factory import factory
-from SHARC_INTERFACE import SHARC_INTERFACE
-from qmout import QMout
 from error import Error
-from utils import list2dict, InDir
-from logger import log, loglevel as loglevel_env
+from logger import log
+from logger import loglevel as loglevel_env
+from qmout import QMout
+from SHARC_INTERFACE import SHARC_INTERFACE
+from utils import InDir
 
 
 class QMOUT:
@@ -53,26 +51,6 @@ class QMOUT:
 
     def __init__(self, interface: str, natoms: int, nmstates: int):
         self._QMout = sharc.QMout(interface, natoms, nmstates)
-
-    def set_hamiltonian(self, h: list[list[Union[float, complex]]]):
-        log.debug(f"{type(h)}")
-        self._QMout.set_hamiltonian(h)
-
-    def set_gradient(self, grad: dict[list[list[float], list[float], list[float]]], icall: int):
-        log.debug(f"{type(grad)}")
-        self._QMout.set_gradient(grad, icall)
-
-    def set_dipolemoment(self, dip: list[list[list[Union[complex, float]]]]):
-        log.debug(f"{type(dip)}")
-        self._QMout.set_dipolemoment(dip)
-
-    def set_overlap(self, ovl: list[list[float]]):
-        log.debug(f"{type(ovl)}")
-        self._QMout.set_overlap(ovl)
-
-    def set_nacdr(self, nac: dict[int, dict[int, list[float, float, float]]], icall: int):
-        log.debug(f"{type(nac)}")
-        self._QMout.set_nacdr(nac, icall)
 
     def printInfos(self):
         self._QMout.printInfos()
@@ -86,36 +64,26 @@ class QMOUT:
         if icall == 1:
             log.debug("setting h and dm")
             if "h" in data:
-                self._QMout.set_hamiltonian(data["h"])
+                self._QMout.set_hamiltonian(np.asfortranarray(data["h"]))
             if "dm" in data:
-                self._QMout.set_dipolemoment(data["dm"])
-
+                self._QMout.set_dipolemoment(np.asfortranarray(data["dm"]))
+                log.debug("setting dm")
+            if "mdm" in data:
+                self._QMout.set_mag_dipolemoment(np.asfortranarray(data["mdm"]))
+                log.debug("setting mdm")
+            if "eqm" in data:
+                self._QMout.set_el_quadrupolemoment(np.asfortranarray(data["eqm"]))
+                log.debug("setting eqm")
         if "overlap" in data:
             # assumes type is numpy array
-            self._QMout.set_overlap(data["overlap"])
+            self._QMout.set_overlap(np.asfortranarray(data["overlap"]))
+        if "phases" in data:
+            # assumes type is numpy array
+            self._QMout.set_phases(np.asfortranarray(data["phases"]))
         if "grad" in data:
-            if isinstance(data["grad"], list):
-                self._QMout.set_gradient(list2dict(data["grad"]), icall)
-            elif data["grad"] is None:
-                self._QMout.set_gradient({}, icall)
-            elif isinstance(data["grad"], np.ndarray):
-                self._QMout.set_gradient_full_array(data["grad"])
-            else:
-                raise RuntimeError
+            self._QMout.set_gradient_full_array(np.asfortranarray(data["grad"]))
         if "nacdr" in data:
-            if isinstance(data["nacdr"], dict):
-                self._QMout.set_nacdr(data["nacdr"], icall)
-            elif isinstance(data["nacdr"], list):
-                nacdr = {}
-                for i, ele in enumerate(data["nacdr"]):
-                    nacdr[i] = list2dict(ele)
-                self._QMout.set_nacdr(nacdr, icall)
-            elif isinstance(data["nacdr"], np.ndarray):
-                self._QMout.set_nacdr_full_array(data["nacdr"])
-            else:
-                raise RuntimeError
-
-        return
+            self._QMout.set_nacdr_full_array(np.asfortranarray(data["nacdr"]))
 
 
 def setup_sharc(inp_file: str) -> int:
@@ -127,29 +95,24 @@ def set_qmout(qmout: QMOUT, icall: int):
     return sharc.set_qmout(qmout, icall)
 
 
-def get_constants() -> dict:
-    """returns dict with conversion constants"""
-    return sharc.get_constants()
-
-
-def get_tasks() -> str:
-    """returns tasks string"""
-    return sharc.get_tasks()
-
-
 def get_basic_info() -> dict[str, Any]:
     """returns dict {states: str, dt: str, savedir: str, NAtoms: int, NSteps: int, istep: int, IAn: list[int]}"""
     return sharc.get_basic_info()
 
 
-def get_all_tasks(icall: int) -> dict:
+def get_all_tasks(icall: int, nstates: int) -> dict:
     """returns {tasks: str, grad: str, nacdr: str}"""
-    return sharc.get_all_tasks(icall)
+    return sharc.get_all_tasks(icall, nstates)
 
 
 def get_crd(unit: int = 0) -> list[list[float]]:
     """returns coordinates in specified unit (0 = Bohr, 1 = Angstrom)"""
     return sharc.get_crd(unit)
+
+
+def get_vel() -> np.ndarray:
+    """returns velocities"""
+    return sharc.get_vel()
 
 
 def initial_qm_pre():
@@ -188,47 +151,60 @@ def safe(func: callable):
         raise
 
 
-def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT):
+def do_qm_calc(i: SHARC_INTERFACE, qmout: QMOUT, nstates: int):
     icall = 1
-    log.debug(f"\tset_requ")
-    i.read_requests(get_all_tasks(icall))
-    log.debug(f"\tcoords")
+    log.debug("\tset_requ")
+
+    i.read_requests(get_all_tasks(icall, nstates))
+
+    log.debug("\tcoords")
     i.set_coords(get_crd())
+    i.set_veloc(get_vel())
     with InDir("QM"):
-        log.debug(f"\trun")
+        log.debug("\trun")
         safe(i.run)
-        log.debug(f"\twrite Stepfile")
+        log.debug("\twrite Stepfile")
         i.write_step_file()
-    log.debug(f"\tset_props")
-    qmout.set_props(i.getQMout(), icall)
+    log.debug("\tset_props")
+    qmdata = i.getQMout()
+    qmout.set_props(qmdata, icall)
     i.clean_savedir()
 
     isecond = set_qmout(qmout._QMout, icall)
     if isecond == 1:
         icall = 2
-        i.read_requests(get_all_tasks(icall))
+        i.read_requests(get_all_tasks(icall, nstates))
         with InDir("QM"):
             safe(i.run)
-        qmout.set_props(i.getQMout(), icall)
+        qmdata = i.getQMout()
+        qmout.set_props(qmdata, icall)
         isecond = set_qmout(qmout._QMout, icall)
     return icall
 
 
 def main():
     start = time.time_ns()
-    parser = OptionParser()
+    parser = argparse.ArgumentParser()
 
-    parser.add_option("-i", "--interface", dest="name", help="Name of the Interface you want to use.")
-    parser.add_option("-P", "--nonpersistent", dest="persistent", action="store_false", default=True, help="to turn off interface persistency")
-    parser.add_option(
-        "-v", "--verbose", dest="verbose", action="store_true", default=False, help="sets verbosity, i.e. print and debug option"
+    parser.add_argument("-i", "--interface", dest="name", help="Name of the Interface you want to use.")
+    parser.add_argument(
+        "-P", "--nonpersistent", dest="persistent", action="store_false", default=True, help="to turn off interface persistency"
     )
-    parser.add_option("-s", "--silent", dest="silent", action="store_true", default=False, help="only error and critical output")
-    parser.add_option("-d", "--debug", dest="debug", action="store_true", default=False, help="debug flag for printing")
-    parser.add_option("-p", "--print", dest="print", action="store_true", default=False, help="flag for printing")
-    parser.add_option("-f", "--fast_queue", dest="fast", action="store_true", default=False, help="Enable fast queue for hybrids with fast children.")
+    parser.add_argument("-v", "--verbose", action="store_true", default=False, help="sets verbosity, i.e. print and debug option")
+    parser.add_argument("-s", "--silent", action="store_true", default=False, help="only error and critical output")
+    parser.add_argument("-d", "--debug", action="store_true", default=False, help="debug flag for printing")
+    parser.add_argument("-p", "--print", dest="print", action="store_true", default=False, help="flag for printing")
+    parser.add_argument(
+        "-f",
+        "--fast_queue",
+        dest="fast",
+        action="store_true",
+        default=False,
+        help="Enable fast queue for hybrids with fast children.",
+    )
+    parser.add_argument("input_file", nargs="?", help="Path to input file for SHARC")
 
-    (options, args) = parser.parse_args()
+    options = parser.parse_args()
 
     loglevel = loglevel_env
     if options.silent:
@@ -239,15 +215,13 @@ def main():
         loglevel = log.DEBUG
     if not options.name:
         raise Error('please specifiy the interface with "-i <name>"')
-    if len(args) == 0:
+    if not options.input_file:
         print("call with path to input file for SHARC")
         exit(0)
-    inp_file = args[0]
-    # param = args[0:-1]
 
+    inp_file = options.input_file
 
     # load interface without factory
-    # interface = factory(options.name)
     interface_name = options.name.upper()
     interface_name = interface_name if interface_name.split("_")[0] == "SHARC" else f"SHARC_{interface_name}"
     try:
@@ -267,7 +241,6 @@ def main():
         log.error(f"Class {interface_name} not found in {module}")
         raise AttributeError from exc
 
-
     with InDir("QM"):
         derived_int: SHARC_INTERFACE = interface(persistent=options.persistent, loglevel=loglevel, fast_queue=options.fast)
     derived_int.QMin.molecule["unit"] = "bohr"
@@ -278,22 +251,21 @@ def main():
 
     basic_info = get_basic_info()
     basic_info.update(derived_int.parseStates(basic_info["states"]))
+    basic_info["savedir"] = os.path.join(os.getcwd(), "restart")
     QMout = QMOUT(derived_int.__class__.__name__, basic_info["NAtoms"], basic_info["nmstates"])
 
     derived_int.setup_mol(basic_info)
+    nstates = derived_int.QMin.molecule["nmstates"]
 
     with InDir("QM"):
         derived_int.read_resources()
         derived_int.read_template()
-        # derived_int.QMin.save['savedir'] = basic_info['savedir']
-        # derived_int.update_step(basic_info["step"])
         derived_int.setup_interface()
     if IRestart == 0:
         initial_qm_pre()
-        do_qm_calc(derived_int, QMout)
+        do_qm_calc(derived_int, QMout, nstates)
         initial_qm_post()
         initial_step(IRestart)
-        # derived_int.update_step()
     lvc_time = 0.0
     all_time = 0.0
     for istep in range(basic_info["istep"] + 1, basic_info["NSteps"] + 1):
@@ -304,10 +276,9 @@ def main():
         log.debug(f"{istep} done")
         s1 = time.perf_counter_ns()
         log.debug(f"{istep} do_qm_calc")
-        count = do_qm_calc(derived_int, QMout)
+        count = do_qm_calc(derived_int, QMout, nstates)
         log.debug(f"{istep} done")
         s2 = time.perf_counter_ns()
-        # print(" do_qm_calc: ", (s2 - s1) * 1e-6)
         lvc_time += s2 - s1
         log.debug(f"{istep} done")
         log.debug(f"{istep} verlet_vstep")
@@ -315,8 +286,8 @@ def main():
         log.debug(f"{istep} done")
 
         if IRedo == 2:
-            with(InDir("QM")):
-                derived_int.read_requests(get_all_tasks(count))
+            with InDir("QM"):
+                derived_int.read_requests(get_all_tasks(count, nstates))
                 safe(derived_int.run)
                 QMout.set_props(derived_int.getQMout(), 3)
         iexit = verlet_finalize(1)
@@ -324,13 +295,12 @@ def main():
         all_time += all_s2 - all_s1
         if iexit == 1:
             break
-        # derived_int.update_step()
 
     derived_int.create_restart_files()
     finalize_sharc()
     stop = time.time_ns()
     print(f"Timing per step ({derived_int.__class__.__name__}):", lvc_time / basic_info["NSteps"] * 1e-6, "ms")
-    print(f"Timing per step full", all_time / basic_info["NSteps"] * 1e-6, "ms")
+    print("Timing per step full", all_time / basic_info["NSteps"] * 1e-6, "ms")
     print("Timing:", (all_time) * 1e-6, "ms")
     print("Timing:", (stop - start) * 1e-6, "ms")
 

@@ -838,7 +838,14 @@ J. Cryst. Mol. Struct., 1977, 8, 317-320.
         Tshift = int(np.genfromtxt("start.time")[0]/options.t)
         sys.stderr.write("Spotted time shift = %f!\n" % Tshift)
     else:
-        Tshift = options.T
+        Tshift = options.T * dt
+
+    # check if time step and Tshift are compatible
+    ratio = Tshift / dt
+    is_int = abs(ratio - round(ratio)) < 1e-9
+    if not is_int:
+        sys.stderr.write("Time shift %f fs and time step %f fs not consistent!\n" % (Tshift,dt))
+        sys.exit(1)
 
     geofilename = options.g
     try:

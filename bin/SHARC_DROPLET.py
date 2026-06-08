@@ -318,7 +318,7 @@ class SHARC_DROPLET(SHARC_HYBRID):
         for droplet in tmpl_dict["droplet_potentials"]:
             name = droplet.get("name", "<unnamed>")
             # --- Rcut ---
-            Rcut = droplet.get("Rcut")
+            Rcut = droplet.get("Rcut")/au2a
             if not isinstance(Rcut, (int, float)) or Rcut < 0:
                 raise ValueError(f"Droplet potential '{name}': Rcut must be a nonnegative float")
             # --- k ---
@@ -357,7 +357,7 @@ class SHARC_DROPLET(SHARC_HYBRID):
                 else:
                     raise ValueError(f"Droplet '{name}': origin string must be 'com', got '{origin}'")
             elif isinstance(origin, list) and len(origin) == 3 and all(isinstance(x, (int, float)) for x in origin):
-                origin = [float(x) for x in origin]
+                origin = [float(x)/au2a for x in origin]
             else:
                 raise ValueError(f"Droplet '{name}': origin must be a string or list of 3 floats")
 
@@ -382,6 +382,11 @@ class SHARC_DROPLET(SHARC_HYBRID):
             self._read_resources = True
             return
         super().read_resources(resources_filename)
+
+    def _check_charge(self):
+        """
+        Do not check charge for total system
+        """
 
     def setup_interface(self):
         # prepare info for child interface
@@ -462,7 +467,7 @@ class SHARC_DROPLET(SHARC_HYBRID):
                 self.QMout.grad[i] += Gradtot
                 # TODO: set gradients to zero that were not originally requested, but keep M_S sublevels
 
-        self.QMout.runtime = self.clock.measuretime()
+        self.QMout.runtime = self.clock.measuretime(self.log.debug)
         return self.QMout
 
     def write_step_file(self):

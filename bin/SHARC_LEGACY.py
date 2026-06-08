@@ -318,7 +318,7 @@ ncpu %i
     shutil.copy(cpfrom, cpto)
     if parent.setupINFOS['molpro.guess']:
         cpfrom = parent.setupINFOS['molpro.guess']
-        cpto = '%s/QM/wf.init' % (iconddir)
+        cpto = '%s/wf.init' % (iconddir)
         shutil.copy(cpfrom, cpto)
 
     return

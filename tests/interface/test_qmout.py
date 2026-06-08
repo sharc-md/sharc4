@@ -1,5 +1,6 @@
 from qmout import QMout
-from utils import expand_path
+from qmin import QMin
+from utils import expand_path, readfile
 import os
 import pickle
 import numpy as np
@@ -27,10 +28,10 @@ def test_read_qmout():
 
 def test_parsing():
     tests = [
-        (os.path.join(PATH, "421_h_soc_dm_grad_ion"), os.path.join(PATH, "421_h_soc_dm_grad_ion_ref")), # plus notes (turbomole)
-        (os.path.join(PATH, "421_h_soc_dm_grad_ion2"), os.path.join(PATH, "421_h_soc_dm_grad_ion_ref")), # no notes
-        (os.path.join(PATH, "421_h_theodore"), os.path.join(PATH, "421_h_theodore_ref")), # no notes
-        (os.path.join(PATH, "410_h_multipolar"), os.path.join(PATH, "410_h_multipolar_ref")), # plus densities
+        (os.path.join(PATH, "421_h_soc_dm_grad_ion"), os.path.join(PATH, "421_h_soc_dm_grad_ion_ref")),  # plus notes (turbomole)
+        (os.path.join(PATH, "421_h_soc_dm_grad_ion2"), os.path.join(PATH, "421_h_soc_dm_grad_ion_ref")),  # no notes
+        (os.path.join(PATH, "421_h_theodore"), os.path.join(PATH, "421_h_theodore_ref")),  # no notes
+        (os.path.join(PATH, "410_h_multipolar"), os.path.join(PATH, "410_h_multipolar_ref")),  # plus densities
         (os.path.join(PATH, "400_h_nacdr"), os.path.join(PATH, "400_h_nacdr_ref")),
     ]
 
@@ -59,3 +60,26 @@ def test_parsing():
                         assert v2 == str(reference[k][k2])
             elif v:
                 assert v == reference[k], k
+
+
+def test_writing():
+    tests = [
+        (os.path.join(PATH, "421_h_soc_dm_grad_ion"), {"h": True, "soc": True, "dm": True, "grad": [1], "ion": True}),
+        (os.path.join(PATH, "421_h_soc_dm_grad_ion2"), {"h": True, "soc": True, "dm": True, "grad": [1], "ion": True}),
+        (os.path.join(PATH, "421_h_theodore"), {"h": True, "theodore": True}),
+        (os.path.join(PATH, "422_h_dm_multipolar_dens_mol"), {"h": True, "dm": True, "multipolar_fit": [1], "density_matrices": [1], "mol": True}),
+        (os.path.join(PATH, "400_h_nacdr"), {"nacdr": [1]}),
+    ]
+
+    for qmout, req in tests:
+        test = QMout(qmout)
+        test.multipolar_fit_settings = " order: 2, grid: lebedev, firstlayer: 1.4, density: 4.0, layers: 4"
+        requests = QMin().requests
+        requests.update(req)
+        a = test.write(None, requests).splitlines(True)
+        b = readfile(qmout)
+        for k, (la, lb) in enumerate(zip(b, a)):
+            if la != lb:
+                raise AssertionError(f"First diff at line {k+1}:\ntest: {la!r}\n ref: {lb!r}")
+        if len(a) != len(b):
+            raise AssertionError(f"Different length: test={len(a)} ref={len(b)}")

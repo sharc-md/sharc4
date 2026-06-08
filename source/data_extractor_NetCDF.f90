@@ -95,11 +95,12 @@ program data_extractor
   istep = 0 
   do 
     call read_sharc_ncoutputdat_istep(nsteps, istep, general_infos%natom, nstates, &
-       &  shdata%H_MCH_ss, shdata%U_ss, shdata%DM_ssd, shdata%overlaps_ss,&
+       &  shdata%H_MCH_ss, shdata%U_ss, shdata%DM_ssd, shdata%MDM_ssd, shdata%EQM_ssdd, shdata%overlaps_ss,&
        &  shdata%coeff_diag_s, Energy, shdata%hopprob_s, &
        &  shdata%geom_ad, shdata%veloc_ad,&
        &  shdata%randnum, shdata%state_diag, shdata%state_MCH, shdata%time_step,&
        &  ncdat)
+
    shdata%Etot = Energy(1)
    shdata%Epot = Energy(2)
    shdata%Ekin = Energy(3)
@@ -114,7 +115,6 @@ program data_extractor
     write(*,'(A,F9.2,A)') 't=',shdata%time_step*general_infos%dtstep+shdata%time_shift,' fs'
     ! write(*,'(A,A,F9.2,A)',advance='no') achar(13), 't=',&
     ! &shdata%time_step*general_infos%dtstep+shdata%time_shift,' fs'
-
     istep = istep + 1
     if (istep == nsteps) then
         exit

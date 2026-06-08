@@ -56,6 +56,8 @@ struct sharc_ncoutput {
     int H_MCH_id;
     int U_id;
     int DM_id;
+    int MDM_id;
+    int EQM_id;
     int overlaps_id;
     int coeff_diag_id;
     // other
@@ -87,6 +89,8 @@ void write_sharc_ncoutputdat_istep_(
         const double* H_MCH_ss,           // complex, (frame, 2*nstates, nstates)
         const double* U_ss,               // complex, (frame, 2*nstates, nstates)
         const double* DM_print_ssd,       // complex, (frame, 2*nstates, nstates, 3)
+        const double* MDM_print_ssd,      // complex, (frame, 2*nstates, nstates, 3)
+        const double* EQM_print_ssdd,     // complex, (frame, 2*nstates, nstates, 3 ,3)
         const double* overlaps_ss,        // complex, (frame, 2*nstates, nstates)
         const double* coeff_diag_s,       // complex, (frame, 2*nstates)
         const double* E,                  // real, contains Etot, Epot and Ekin, (frame, 3)

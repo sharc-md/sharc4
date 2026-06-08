@@ -84,6 +84,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.persistent = False
 
         # Add ab-initio specific keywords to template
         self.QMin.template.update({"density_calculation_methods": ["from_gs2es", "from_determinants"], "tCI": 1e-7})
@@ -109,11 +110,13 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_betas": [0.0005, 0.0015, 0.003],
                 "resp_layers": 4,
                 "resp_first_layer": 1.4,
-                "resp_density": 4.0,
+                "resp_density": 10.0,
                 "resp_fit_order": 2,
                 "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
                 "resp_target": "zero",
+                "resp_block_size": 5000,
+                "resp_nuke_ram": False,  # Old, memory heavy fitting
             }
         )
 
@@ -137,6 +140,8 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_mk_radii": bool,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": str,
                 "resp_target": str,
+                "resp_block_size": int,
+                "resp_nuke_ram": bool,
             }
         )
 
@@ -395,7 +400,10 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
 
         if (self.QMin.requests["ion"] or self.QMin.requests["overlap"]) and self.QMin.resources["wfoverlap"] != "":
             self.log.debug(self.QMin.resources["wfoverlap"])
-            assert is_exec(self.QMin.resources["wfoverlap"])
+            if not is_exec(self.QMin.resources["wfoverlap"]):
+                raise RuntimeError(
+                        f"Could not find executable {self.QMin.resources['wfoverlap']}!"
+                    )
 
     def get_mole(self):
         raise NotImplementedError("This interface does not support the density request!")
@@ -1147,8 +1155,17 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
             self.QMin.resources["resp_shells"],
             grid=self.QMin.resources["resp_grid"],
             logger=self.log,
+            block_size=self.QMin.resources["resp_block_size"],
         )
         mol = self.QMout["mol"]
+
+        if not self.QMin.resources["resp_nuke_ram"]:
+            # Use new RAM friendly batched fitting
+            fits.low_ram_prepare(mol, self.QMin.resources["resp_fit_order"])
+            return fits.low_ram_multipoles(
+                self.QMout.density_matrices, mol, self.QMin.resources["resp_betas"], self.QMin.resources["resp_fit_order"]
+            )
+
         if self.QMin.resources["resp_target"] == "loewdin":
             Sao_root = fractional_matrix_power(self.QMin.molecule["SAO"], 0.5)
         fits.prepare(mol, self.QMin.resources["ncpu"])  # the charge of the atom does not affect integrals

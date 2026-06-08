@@ -37,11 +37,11 @@ import re
 import time
 import numpy as np
 
-from constants import CM_TO_HARTREE, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, NUMBERS, MASSES, ISOTOPES
+from constants import CM_TO_HARTREE, HARTREE_TO_EV, U_TO_AMU, ANG_TO_BOHR, NUMBERS, MASSES, MASSES_VASP, ISOTOPES
 # =========================================================0
 
 # some constants
-DEBUG = True
+DEBUG = False
 
 version = '4.0'
 versiondate = datetime.date(2025, 4, 1)
@@ -290,7 +290,10 @@ def get_mass(symb, number):
         return MASS_LIST[number]
     else:
         try:
-            return MASSES[symb]
+            if vasp_masses:
+                return MASSES_VASP[symb]
+            else: 
+                return MASSES[symb]
         except KeyError:
             print('No default mass for atom %s' % (symb))
             quit(1)
@@ -318,7 +321,7 @@ def import_from_molden(filename, scaling, flag, lvc=False):
     iline += 1
     natom = 0
     molecule = []
-    while '[' not in data[iline]:
+    while '[' not in data[iline] and data[iline].strip() != '':
         f = data[iline].split()
         symb = f[0].lower().title()
         num = NUMBERS[symb]
@@ -527,8 +530,8 @@ The function returns a probability for this set of parameters."""
                     n = 500
     if n == 0:    # vibrational ground state
         return (math.exp(-Q**2) * math.exp(-P**2), 0.)
-        # TODO: see eq (6) of Zobel 10.1039/C8CP03273D for a better way to sample the canonical ensemble of an harmonic oscillator
-        # TODO: alternatively, one could implement a Husimi distirbution inside the current function
+    # TODO: see eq (6) of Zobel 10.1039/C8CP03273D for a better way to sample the canonical ensemble of an harmonic oscillator
+    # TODO: alternatively, one could implement a Husimi distirbution inside the current function
     # TODO: what about n==-1 ??
     else:    # vibrational excited state
         rhosquare = 2.0 * (P**2 + Q**2)
@@ -834,13 +837,13 @@ def determine_normal_modes_format(modes, molecule, nmodes, flag):
             
             # print all matrices
             if DEBUG:
-                for row in result:
-                    string = ''
-                    for entry in row:
-                        string += "%4.1f" % (float(entry))
-                    print(string)
-                print()
-
+               for row in result:
+                   string = ''
+                   for entry in row:
+                       string += "%5.2f" % (float(entry))
+                   print(string)
+               print()
+            
             if any([abs(i) > thresh for j in result for i in j]):
                 diagonalcheck[1].append(0)
             else:
@@ -988,7 +991,7 @@ def sample_initial_condition(molecule, modes):
 # ======================================================================================================================
 
 
-def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0):
+def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0, start_index = 1, skip_header = False):
     """This function converts an list of initial conditions into a string."""
     ninit = len(ic_list)
     natom = ic_list[0].natom
@@ -997,7 +1000,8 @@ def create_initial_conditions_string(molecule, modes, ic_list, eref=0.0):
     eharm = 0.
     for mode in modes:
         eharm += mode['freq'] * 0.5
-    string = '''SHARC Initial conditions file, version %s
+    if not skip_header:
+        string = '''SHARC Initial conditions file, version %s
 Ninit     %i
 Natom     %i
 Repr      %s
@@ -1007,12 +1011,14 @@ Eharm     %18.10f
 
 Equilibrium
 ''' % (version, ninit, natom, representation, temperature, eref, eharm)
-    for atom in molecule:
-        string += str(atom) + '\n'
-    string += '\n\n'
+        for atom in molecule:
+            string += str(atom) + '\n'
+        string += '\n\n'
+    else:
+        string = ''
 
     for i, ic in enumerate(ic_list):
-        string += 'Index     %i\n%s' % (i + 1, str(ic))
+        string += 'Index     %i\n%s' % (i + start_index, str(ic))
     return string
 
 
@@ -1227,6 +1233,7 @@ as described in [2] (non-fixed energy, independent mode sampling).
     parser.add_option(
         '--keep_trans_rot', dest='KTR', action='store_true', help="Keep translational and rotational components"
     )
+    parser.add_option('--VASP_masses', dest='VM', action='store_true', help="Use atom masses as defined in VASP PBE POTCAR files")
     parser.add_option(
         '--use_eq_geom',
         dest='UEG',
@@ -1242,6 +1249,12 @@ as described in [2] (non-fixed energy, independent mode sampling).
     parser.add_option(
         '--single_atom', dest='atom', type=str, nargs=1, default="", help="Ignore molden file and generate initconds with one atom of specified element at origin"
     )
+    parser.add_option(
+        '--start_index', dest='start_index', type=int, nargs=1, default=1, help="Start indexing at this number"
+    )
+    parser.add_option(
+        '--skip_header', dest='skip_header', action='store_true', help="Do not print the file header (useful together with --start_index)"
+    )
 
     (options, args) = parser.parse_args()
 
@@ -1256,9 +1269,10 @@ as described in [2] (non-fixed energy, independent mode sampling).
         filename = args[0]
     outfile = options.o
     nondefmass = options.m
+    global vasp_masses
+    vasp_masses = options.VM
     scaling = options.s
     flag = options.f
-    lvc = options.lvc
     global LOW_FREQ
     LOW_FREQ = max(0.0000001, options.L)
 
@@ -1323,11 +1337,12 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
     string = '\nGeometry:\n'
     for atom in molecule:
         string += str(atom)[:61] + '\n'
-    string += 'Assumed Isotopes: '
-    for i in set(whichatoms):
-        string += ISOTOPES[i] + ' '
-    string += '\nIsotopes with * are pure isotopes.\n'
-    print(string)
+    if not vasp_masses:
+        string += 'Assumed Isotopes: '
+        for i in set(whichatoms):
+            string += ISOTOPES[i] + ' '
+        string += '\nIsotopes with * are pure isotopes.\n'
+        print(string)
 
     string = 'Frequencies (cm^-1) used in the calculation:\n'
     for i, mode in enumerate(modes):
@@ -1341,7 +1356,7 @@ Temperature                  = %f''' % (filename, outfile, options.n, options.r,
         ic_list = create_initial_conditions_list(amount, molecule, modes, dummy=dummy, dummy_el=dummy_el)
         # print('Writing output to initconds')
         outfile = open(outfile, 'w')
-        outstring = create_initial_conditions_string(molecule, modes, ic_list)
+        outstring = create_initial_conditions_string(molecule, modes, ic_list, start_index=options.start_index, skip_header=options.skip_header)
         outfile.write(outstring)
         outfile.close()
 

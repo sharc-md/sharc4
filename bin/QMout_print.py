@@ -27,415 +27,206 @@
 #
 # usage python QMout_print.py [options] <QM.out>
 
-import math
-import sys
+import argparse
 import os
-from optparse import OptionParser
-from constants import HARTREE_TO_EV, IToMult 
-try:
-    import numpy
-    NONUMPY = False
-except ImportError:
-    import subprocess as sp
-    NONUMPY = True
+import sys
 
-# =========================================================0
-# some constants
-DEBUG = False
+import numpy as np
+from constants import HARTREE_TO_EV, IToMult, alpha
+from qmout import QMout
+from utils import itnmstates
 
 
-# ======================================================================= #
+def transform(H, DM, MDM, EQM):
+    """transforms the H and DM matrices in the representation where H is diagonal."""
+    eig, U = np.linalg.eigh(H)
+    Ucon = U.conj().T
 
+    H[:] = 0
+    np.fill_diagonal(H, eig.astype(complex))
 
-def readfile(filename):
-    try:
-        f = open(filename)
-        out = f.readlines()
-        f.close()
-    except IOError:
-        print('File %s could not be read!' % (filename))
-        sys.exit(12)
-    return out
+    if DM is not None:
+        DM = Ucon @ DM @ U
+    if MDM is not None:
+        MDM = Ucon @ MDM @ U
+    if EQM is not None:
+        EQM = Ucon @ EQM @ U
+    return H, DM, MDM, EQM, U
 
-# ======================================================================= #
-
-
-def itnmstates(states):
-    for i in range(len(states)):
-        if states[i] < 1:
-            continue
-        for k in range(i + 1):
-            for j in range(states[i]):
-                yield i + 1, j + 1, k - i / 2.
-    return
-
-# ======================================================================= #
-
-
-def read_QMout(path, nstates, natom, request):
-    targets = {'h': {'flag': 1,
-                     'type': complex,
-                     'dim': (1, nstates, nstates)},
-               'dm': {'flag': 2,
-                      'type': complex,
-                      'dim': (3, nstates, nstates)},
-               'grad': {'flag': 3,
-                        'type': float,
-                        'dim': (nstates, natom, 3)},
-               'ion':  {'flag': 20,
-                        'type': complex,
-                        'dim': (1, nstates, nstates),
-                        'property': 1}
-               }
-
-    # read QM.out
-    lines = readfile(path)
-
-    # obtain all targets
-    QMout = {}
-    for t in targets:
-        if t in request:
-            iline = -1
-            while True:
-                iline += 1
-                if iline >= len(lines):
-                    print('Could not find target %s with flag %i in file %s!' % (t, targets[t]['flag'], path))
-                    sys.exit(11)
-                line = lines[iline]
-                if '! %i' % (targets[t]['flag']) in line:
-                    break
-            values = []
-            if 'property' in targets[t]:
-                nprop = int(lines[iline+1].split()[0])
-                iline += 3 + nprop + (nstates+1)*(targets[t]['property']-1)
-            for iblocks in range(targets[t]['dim'][0]):
-                iline += 1
-                block = []
-                for irow in range(targets[t]['dim'][1]):
-                    iline += 1
-                    line = lines[iline].split()
-                    if targets[t]['type'] == complex:
-                        row = [complex(float(line[2 * i]), float(line[2 * i + 1])) for i in range(targets[t]['dim'][2])]
-                    elif targets[t]['type'] == float:
-                        row = [float(line[i]) for i in range(targets[t]['dim'][2])]
-                    block.append(row)
-                values.append(block)
-            QMout[t] = values
-        else:
-            values = []
-            for iblocks in range(targets[t]['dim'][0]):
-                block = []
-                for irow in range(targets[t]['dim'][1]):
-                    if targets[t]['type'] == complex:
-                        row = [complex(0., 0.) for i in range(targets[t]['dim'][2])]
-                    elif targets[t]['type'] == float:
-                        row = [float(0.) for i in range(targets[t]['dim'][2])]
-                    block.append(row)
-                values.append(block)
-            QMout[t] = values
-
-    # pprint.pprint(QMout)
-    return QMout
-
-# ======================================================================= #
-
-
-def read_QMin(path, request):
-    QMin = {}
-    qminlines = readfile(path)
-    natom = int(qminlines[0])
-
-    for r in request:
-        for iline, line in enumerate(qminlines):
-            if iline <= natom + 2:
-                continue
-            s = line.split(None, 1)
-            if len(s)<1:
-                continue
-            if r in s[0]:
-                QMin[s[0]] = s[1]
-    if 'natom' in request:
-        QMin['natom'] = natom
-    # pprint.pprint(QMin)
-    return QMin
-
-# ======================================================================================================================
-
-
-class diagonalizer:
-    def __init__(self):
-        exe = os.getenv('SHARC')
-        exe = os.path.expanduser(os.path.expandvars(exe)) + '/diagonalizer.x'
-        if not os.path.isfile(exe):
-            print('SHARC auxilliary diagonalizer not found at %s!' % (exe))
-            sys.exit(1)
-        self.exe = exe
-
-    def eigh(self, H):
-        STDIN = 'C %i %i\nTitle\n' % (len(H), len(H))
-        for x in H:
-            for y in x:
-                STDIN += '%20.13f %20.13f ' % (y.real, y.imag)
-            STDIN += '\n'
-        proc = sp.Popen(self.exe, stdin=sp.PIPE, stdout=sp.PIPE)
-        STDOUT = proc.communicate(input=STDIN)[0].split('\n')
-        shift = 1
-        for ix in range(len(H)):
-            line = STDOUT[shift + ix].split()
-            for iy in range(len(H)):
-                H[ix][iy] = complex(float(line[0 + 2 * iy]), float(line[1 + 2 * iy]))
-        U = [[0. for i in range(len(H))] for j in range(len(H))]
-        shift = 2 + len(H)
-        for ix in range(len(H)):
-            line = STDOUT[shift + ix].split()
-            for iy in range(len(H)):
-                U[ix][iy] = complex(float(line[0 + 2 * iy]), float(line[1 + 2 * iy]))
-        return H, U
-
-# ======================================================================================================================
-
-
-def transform(H, DM, P):
-    '''transforms the H and DM matrices in the representation where H is diagonal.'''
-
-    if NONUMPY:
-        diagon = diagonalizer()
-        H, U = diagon.eigh(H)
-        UDMU = [[[0. for i in range(len(H))] for j in range(len(H))] for k in range(3)]
-        for xyz in range(3):
-            temp = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        temp[a][b] += U[i][a].conjugate() * DM[xyz][i][b]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        UDMU[xyz][a][b] += temp[a][i] * U[i][b]
-        DM = UDMU
-
-        if P is not None:
-            UPU = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        UPU[a][b] += U[i][a].conjugate() * P[i][b]
-            P = [[0. for i in range(len(H))] for j in range(len(H))]
-            for a in range(len(H)):
-                for b in range(len(H)):
-                    for i in range(len(H)):
-                        P[a][b] += temp[a][i] * U[i][b]
-
-    else:
-        eig, U = numpy.linalg.eigh(H)
-        Ucon = [[0. for i in range(len(H))] for j in range(len(H))]
-        for ix in range(len(U)):
-            for iy in range(len(U)):
-                Ucon[ix][iy] = U[iy][ix].conjugate()
-                if ix == iy:
-                    H[ix][iy] = complex(eig[ix])
-                else:
-                    H[ix][iy] = complex(0)
-        UDMU = [0, 0, 0]
-        for xyz in range(3):
-            UDMU[xyz] = numpy.dot(Ucon, numpy.dot(DM[xyz], U))
-        DM = UDMU
-
-        if P is not None:
-            UPU = numpy.dot(Ucon, numpy.dot(P, U))
-            P = UPU
-
-    return H, DM, U
 
 # ========================== Main Code =============================== #
 
 
 def main():
 
-    usage = '''
+    usage = """
 QMout_print.py [options] QM.out
 
 This script reads a QM.out file from a SHARC interface and prints
 excitation energies and oscillator strengths.
-'''
+"""
 
-    description = ''
+    description = ""
 
-    parser = OptionParser(usage=usage, description=description)
-    parser.add_option('-i', dest='i', type=str, nargs=1, default='', help="QM.in file (to read number of states)")
-    parser.add_option('-e', dest='e', type=float, nargs=1, default=0.0, help="Absolute energy shift (float, default=compute relative energies)")
-    parser.add_option('-E', dest='E', action='store_true', help="Use absolute shift of 0.0 (default=compute relative energies).")
-    parser.add_option('-s', dest='s', type=str, nargs=1, default='', help="Number of states (in quotes separated by whitespace)")
-    parser.add_option('-n', dest='n', type=int, nargs=1, default=1, help="Number of atoms")
-    parser.add_option('-D', dest='D', action='store_true', help="Diagonalize")
-    parser.add_option('-S', dest='S', type=int, nargs=1, default=1, help="Initial state (Lowest=1)")
-    parser.add_option('-t', dest='t', type=int, nargs=1, default=0, help="0 (default): for QM.out containing h,dm; 1: for QM.out containing only h")
-    parser.add_option('-L', dest='L', action='store_true', help="Format in a single line")
-    parser.add_option('-I', dest='I', action='store_true', default=False, help="Use Dyson norms instead of oscillator strengths")
+    parser = argparse.ArgumentParser(usage=usage, description=description)
+    parser.add_argument("inputfile", help="Input file")
+    parser.add_argument("-e", type=float, default=0.0, help="Absolute energy shift (float, default: compute relative energies)")
+    parser.add_argument("-D", action="store_true", help="Diagonalize")
+    parser.add_argument("-S", type=int, default=1, help="Initial state (default: lowest=1)")
+    parser.add_argument("-L", action="store_true", help="Format in a single line")
+    parser.add_argument("-I", action="store_true", default=False, help="Use Dyson norms instead of oscillator strengths")
+    parser.add_argument("-M", action="store_true", default=False, help="Include magnetic dipoles/electric quadrupoles if present")
 
-    #parser.add_option('-n', dest='n', type=int, nargs=1, default=3, help="Number of geometries to be generated (integer, default=3)")
-    #parser.add_option('-r', dest='r', type=int, nargs=1, default=16661, help="Seed for the random number generator (integer, default=16661)")
-    #parser.add_option('--MOLPRO', dest='M', action='store_true',help="Assume a MOLPRO frequency file (default=assume MOLDEN file)")
-    #parser.add_option('-m', dest='m', action='store_true',help="Enter non-default atom masses")
-    #parser.add_option('--keep_trans_rot', dest='KTR', action='store_true',help="Keep translational and rotational components")
-
-    (options, args) = parser.parse_args()
+    options = parser.parse_args()
     ezero = options.e
-    qminfile = options.i
     initial = options.S - 1
-    target = options.t
-    qmoutfile = args[0]
+    target_list = {1, 2}  # h, dm
 
-    QMin = {'states': 1, 'natom': options.n}
-    if qminfile != '':
-        QMin = read_QMin(qminfile, ['states', 'natom'])
-        sstates = QMin['states']
-    elif options.s != '':
-        sstates = options.s
-    else:
-        sstates = '1'
-    states = []
-    for i in sstates.split():
-        states.append(int(i))
-    QMin['states'] = states
-    nmstates = 0
-    for i in range(len(states)):
-        nmstates += states[i] * (i + 1)
-    QMin['nmstates'] = nmstates
+    if options.I:
+        if options.D:
+            raise ValueError("-I and -D are not compatible.")
+        target_list.add(20)  # prop2d
+
+    if options.M:
+        target_list.update({41, 42})
+
+    qmout = QMout(options.inputfile, flags=target_list)
+    nmstates = qmout.nmstates
+    states = qmout.states
+
+    # check if Dyson norms are there
+    if options.I:
+        for i in qmout.prop2d:
+            if i[0] == "ion":
+                ion = i[1]
+                break
+        else:
+            raise ValueError("ION not found!")
+    
+    # Check if MDM and EQM are there
+    qmout.mdm = getattr(qmout, "mdm", None)
+    qmout.edm = getattr(qmout, "eqm", None)
+    if options.M:
+        if qmout.mdm is None or qmout.edm is None:
+            raise ValueError("-M but no magnetic dipoles/electric quadrupoles in file!")
 
     # obtain the statemap
     statemap = {}
     i = 1
-    for imult, istate, ims in itnmstates(QMin['states']):
+    for imult, istate, ims in itnmstates(qmout.states):
         statemap[i] = [imult, istate, ims]
         i += 1
-    QMin['statemap'] = statemap
 
-    if target == 0:
-        target_list = ['h', 'dm']
-    elif target == 1:
-        target_list = ['h']
-    else:
-        print("Target not defined.")
-        exit()
-    if options.I:
-       if options.D:
-           print("-I and -D are not compatible.")
-           exit()
-       target_list.append('ion')
+    # print header
     if not options.L:
-        sys.stderr.write('%s  %i  %i  %s\n' % (qmoutfile, QMin['nmstates'], QMin['natom'], target_list))
-    QMout = read_QMout(qmoutfile, QMin['nmstates'], QMin['natom'], target_list)
+        sys.stderr.write(f"Number of states: {states}\n")
+        sys.stderr.write(
+            f"{'State':>5s}  {'Label':>11s} {'E (E_h)':>16s} "
+            f"{'dE (eV)':>12s} {(['f_osc', 'Dys norm'][options.I]):>12s}   {'Spin':>6s}\n"
+        )
 
-    if not options.L:
-        sys.stderr.write('Number of states: %s\n' % (states))
-        sys.stderr.write('%5s  %11s %16s %12s %12s   %6s\n' % ('State', 'Label', 'E (E_h)', 'dE (eV)', ['f_osc','Dys norm'][options.I], 'Spin'))
-
+    # transform and prepare quantities
     if options.D:
-        h, dm, U = transform(QMout['h'][0], QMout['dm'], None)
-        QMout['h'] = [h]
-        QMout['dm'] = dm
+        h, dm, mdm, eqm, U = transform(qmout.h, qmout.dm, qmout.mdm, qmout.edm)
+    else:
+        h = qmout.h
+        try:
+            dm = qmout.dm
+        except AttributeError:
+            dm = np.zeros((3, nmstates, nmstates), dtype=complex)
 
-    # pprint.pprint(QMin)
-    # pprint.pprint(QMout)
+    # initialize quantum numbers
+    m = np.array([statemap[i + 1][0] for i in range(nmstates)], dtype=int)
+    s = np.array([statemap[i + 1][1] for i in range(nmstates)], dtype=int)
+    ms = np.array([statemap[i + 1][2] for i in range(nmstates)], dtype=float)
 
 
-    energies = []
+    # get a list of the to-be-printed states and their labels
+    indices = []
+    labels = []
+    if options.D:
+        # --- diagonalized representation ---
+        for istate in range(nmstates):
+
+            w = np.abs(U[:, istate]) ** 2
+            jbest = int(np.argmax(w))
+
+            m_best = int(m[jbest])
+            s_best = int(s[jbest])
+
+            label = f"{IToMult[m_best][0]:>10s}{(s_best - (m_best <= 2)):02d}"
+
+            indices.append(istate)
+            labels.append(label)
+    else:
+        # --- original representation ---
+        ok = (-2.0 * ms + 1.0) == m
+
+        for i in range(nmstates):
+            if ok[i]:
+                label = f"{IToMult[m[i]][0]:>10s}{(s[i] - (m[i] <= 2)):02d}"
+
+                indices.append(i)
+                labels.append(label)
+
+
+    # compute values
     fosc = []
-    if options.D:
-        for istate in range(QMin['nmstates']):
-            e = QMout['h'][0][istate][istate].real
-            energies.append(e)
-        for istate in range(QMin['nmstates']):
-            e = energies[istate]
-            # spin
-            spin = 0.
-            ist = 0
-            imax = 0.
-            for jstate in range(QMin['nmstates']):
-                m, s, ms = QMin['statemap'][jstate + 1]
-                c = (U[jstate][istate] * U[jstate][istate].conjugate()).real
-                spin += m * c
-                if c > imax:
-                    ist = (m, s)
-                    imax = c
-            # fosc
-            dmx = QMout['dm'][0][istate][initial].real
-            dmy = QMout['dm'][1][istate][initial].real
-            dmz = QMout['dm'][2][istate][initial].real
-            f = 2. / 3. * (e - energies[initial]) * (dmx**2 + dmy**2 + dmz**2)
-            fosc.append(f)
-            # else:
-            # dmx=dmy=dmz=0.
-            # fosc.append(0.)
-            if ezero != 0.0 or options.E:
-                de = (e - ezero) * HARTREE_TO_EV
-            else:
-                de = (e - energies[0]) * HARTREE_TO_EV
-            string = '%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate + 1, IToMult[ist[0]][0], ist[1] - (ist[0] <= 2), e, de, fosc[-1], spin)
-            if istate == initial:
-                string += ' #initial state'
-            if not options.L:
-                print(string)
-    else:
-        for istate in range(QMin['nmstates']):
-            e = QMout['h'][0][istate][istate].real
-            energies.append(e)
-        for istate in range(QMin['nmstates']):
-            e = energies[istate]
-            m, s, ms = QMin['statemap'][istate + 1]
-            #if -2 * ms + 1 != m:
-            #    continue
-            # if m==1 and s>0:
-            if options.I:
-                f = QMout['ion'][0][istate][initial].real
-            else:
-                dmx = QMout['dm'][0][istate][initial].real
-                dmy = QMout['dm'][1][istate][initial].real
-                dmz = QMout['dm'][2][istate][initial].real
-                f = 2. / 3. * (e - energies[initial]) * (dmx**2 + dmy**2 + dmz**2)
-            fosc.append(f)
-            # else:
-            # dmx=dmy=dmz=0.
-            # fosc.append(0.)
-            if ezero != 0.0 or options.E:
-                de = (e - ezero) * HARTREE_TO_EV
-            else:
-                de = (e - energies[initial]) * HARTREE_TO_EV
-            string = '%5i %10s%02i %16.10f %12.8f %12.8f   %6.4f' % (istate + 1, IToMult[m][0], s - (m <= 2), e, de, fosc[-1], m)
-            if istate == initial:
-                string += ' #initial state'
-            if not options.L:
-                if -2 * ms + 1 != m:
-                    continue
-                print(string)
+    energies = np.real(np.diag(h))
+    ref = ezero if ezero != 0.0 else energies[initial]
 
+    for idx, label in zip(indices, labels):
+
+        # energy
+        e = float(energies[idx])
+        de = (e - ref) * HARTREE_TO_EV
+
+        # spin
+        if options.D:
+            w = np.abs(U[:, idx]) ** 2
+            spin = float(m @ w)
+        else:
+            spin = float(m[idx])
+
+        # oscillator strength
+        if options.I:
+            f = float(np.real(ion[idx][initial]))
+        else:
+            d = np.real(dm[:, idx, initial])
+            f = (2.0 / 3.0) * (e - ref) * float(d @ d)
+            if options.M:
+                mdm = np.imag(qmout.mdm[:, idx, initial])
+                f += (2.0 / 3.0) * (e - ref) * float(mdm @ mdm)
+                eqm = qmout.eqm[:, :, idx, initial]
+                quad_term = np.sum(np.abs(eqm) ** 2) - (1 / 3.0) * np.abs(np.trace(eqm)) ** 2
+                f += (1.0 / 20.0) * alpha**2 * (e - ref) ** 3 * quad_term
+        fosc.append(f)
+
+        # print if not one-line output
+        if not options.L:
+            line = (
+                f"{idx+1:5d} {label} "
+                f"{e:16.10f} {de:12.8f} {f:12.8f}   {spin:6.4f}"
+            )
+            if idx == initial:
+                line += " #initial state"
+            print(line)
+
+    # print one-line output
     if options.L:
-        cwd=os.getcwd().split('/')[-1].split('_')[-1]
+        cwd = os.path.basename(os.getcwd()).split("_")[-1]
 
-        string = '%s ' % (cwd)
-        for i,e in enumerate(energies):
-            if not options.D:
-                m, s, ms = QMin['statemap'][i + 1]
-                if -2 * ms + 1 != m:
-                    continue
-            string += '%16.10f ' % e
-        for i,f in enumerate(fosc):
-            if not options.D:
-                m, s, ms = QMin['statemap'][i + 1]
-                if -2 * ms + 1 != m:
-                    continue
-            string += '%12.8f ' % f
-        #string += '\n'
-        print(string)
+        if options.D:
+            indices = range(nmstates)
+        else:
+            indices = [i for i in range(nmstates) if (-2 * statemap[i + 1][2] + 1) == statemap[i + 1][0]]
+
+        parts = [cwd]
+        parts += [f"{energies[i]:16.10f}" for i in indices]
+        parts += [f"{fosc[i]:12.8f}" for i in indices]
+
+        print(" ".join(parts))
 
 
-
-
-
-
-
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

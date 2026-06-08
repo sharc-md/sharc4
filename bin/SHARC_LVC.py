@@ -127,12 +127,16 @@ class SHARC_LVC(SHARC_FAST):
         self._G = {im: np.zeros((n, n, r3N, r3N), dtype=float) for im, n in enumerate(states) if n != 0}
         self._h = {im: np.zeros((n, n), dtype=float) for im, n in enumerate(states) if n != 0}
         self._dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
+        self._mag_dipole = np.zeros((3, nmstates, nmstates), dtype=complex)
+        self._el_quadrupole = np.zeros((3, 3, nmstates, nmstates), dtype=complex)
         self._soc = np.zeros((nmstates, nmstates), dtype=complex)
         self._U = np.zeros((nmstates, nmstates), dtype=float)
         self._Q = np.zeros(r3N, float)
         xyz = {"X": 0, "Y": 1, "Z": 2}
         soc_real = True
         dipole_real = True
+        mag_dipole_real = True
+        el_quadrupole_real = True
         line = f.readline()
         if line.startswith("charge"):
             charges = [int(x) for x in line.split()[1:]]
@@ -237,6 +241,7 @@ class SHARC_LVC(SHARC_FAST):
                 line = f.readline()
                 continue
             factor = 1j if line.split()[-1] == "I" else 1
+            
             if "SOC" in line:
                 if factor != 1:
                     soc_real = False
@@ -247,8 +252,9 @@ class SHARC_LVC(SHARC_FAST):
                     self._soc[i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
-            elif line[:2] == "DM":
-                j = xyz[line[2]]
+
+            elif "DM" in line and "MDM" not in line and "EQM" not in line:
+                j = xyz[line.split()[0][2]]
                 if factor != 1:
                     dipole_real = False
                 line = f.readline()
@@ -257,6 +263,30 @@ class SHARC_LVC(SHARC_FAST):
                     self._dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
                     i += 1
                     line = f.readline()
+
+            elif "MDM" in line:
+                j = xyz[line.split()[0][3]]
+                if factor != 1:
+                    mag_dipole_real = False
+                line = f.readline()
+                i = 0
+                while i < nmstates:
+                    self._mag_dipole[j, i, :] += np.asarray(line.split(), dtype=float) * factor
+                    i += 1
+                    line = f.readline()
+
+            elif "EQM" in line:
+                k = xyz[line.split()[0][3]]  # Readout of derivative direction EQMXY -> X
+                j = xyz[line.split()[0][6]]  # Readout of polarization direction  -> Y
+                if factor != 1:
+                    el_quadrupole_real = False
+                line = f.readline()
+                i = 0
+                while i < nmstates:
+                    self._el_quadrupole[k, j, i, :] += np.asarray(line.split(), dtype=float) * factor
+                    i += 1
+                    line = f.readline()
+
             elif "Multipolar Density Fit" in line:
                 line = f.readline()
                 n_fits = int(line)
@@ -277,6 +307,7 @@ class SHARC_LVC(SHARC_FAST):
             else:
                 line = f.readline()
         f.close()
+
         # setting type as necessary (converting type through view and reshape is a lot faster that simple astype
         # assignemnt)
         if soc_real:
@@ -285,11 +316,13 @@ class SHARC_LVC(SHARC_FAST):
             self._lambda_soc = self._lambda_soc.real.copy()
         if dipole_real:
             self._dipole = np.reshape(self._dipole.view(float), self._dipole.shape + (2,))[:, :, :, 0]
+        if mag_dipole_real and el_quadrupole_real:
+            self._mag_dipole = np.reshape(self._mag_dipole.view(float), self._mag_dipole.shape + (2,))[:, :, :, 0]
+            self._el_quadrupole = np.reshape(self._el_quadrupole.view(float), self._el_quadrupole.shape + (2,))[:, :, :, :, 0]
         if self.QMin.molecule["point_charges"] and not hasattr(self, '_fits'):
             raise RuntimeError("Point charges present but could not find 'Multipolar Density Fit' in template file.")
-
         # if self.QMin.save["init"]:
-        # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
+            # SHARC_FAST.checkscratch(self.QMin.save["savedir"])
         self._read_template = True
         return
 
@@ -338,7 +371,7 @@ class SHARC_LVC(SHARC_FAST):
                 
 
     def getQMout(self):
-        self.QMout["runtime"] = self.clock.measuretime(False)
+        self.QMout["runtime"] = self.clock.measuretime(log=self.log.debug)
         return self.QMout
 
     @staticmethod
@@ -481,9 +514,7 @@ class SHARC_LVC(SHARC_FAST):
         # sanity check for coordinates - check if centre of mass is conserved
         elif self.QMin.save["step"] == 0:
             self._Trot, self._com_ref, self._com_coords = kabsch(self._ref_coords, coords, weights)
-            if not np.allclose(self._com_ref, self._com_coords, rtol=1e-3) or not np.allclose(
-                np.diag(self._Trot), np.ones(3, dtype=float), rtol=1e-5
-            ):
+            if not np.allclose(self._com_ref, self._com_coords, atol=1e-6) or not np.allclose(self._Trot, np.eye(3), atol=1e-6):
                 raise RuntimeError(
                     "Misaligned geometry without activated Kabsch algorithm! -> check you input structure or activate Kabsch"
                 )
@@ -763,6 +794,7 @@ class SHARC_LVC(SHARC_FAST):
             else:
                 adia_soc = np.einsum('in,ij,jm->nm', self._U, self._soc, self._U, casting='safe', optimize=["einsum_path", (0,1),(0,1)])
                 self.log.debug(f"soc sanity check: {adia_soc.dtype} {self._soc.dtype}")
+            # TODO: one should actually rotate the SOCs according to the Kabsch rotation matrix
 
             if adia_soc.dtype == complex:
                 Hd = Hd.astype(complex)
@@ -774,8 +806,23 @@ class SHARC_LVC(SHARC_FAST):
             else self._dipole
         )
 
+        if self.QMin.requests['mdeqm']:
+            mag_dipole = (
+                np.einsum("in,kij,jm->knm", self._U, self._mag_dipole, self._U, casting="no", optimize=True)
+                if self._diagonalize
+                else self._mag_dipole
+            ) 
+            el_quadrupole = (
+                np.einsum("in,klij,jm->klnm", self._U, self._el_quadrupole, self._U, casting="no", optimize=True)
+                if self._diagonalize
+                else self._el_quadrupole
+            )
+
         if do_kabsch:
             dipole = np.einsum("inm,ij->jnm", dipole, self._Trot)
+            if self.QMin.requests['mdeqm']:
+                mag_dipole = np.einsum("inm,ij->jnm", mag_dipole, self._Trot)
+                el_quadrupole = np.einsum("ai,abkl,bj->ijkl", self._Trot, self._el_quadrupole, self._Trot, optimize=True)  # Trot.T @ quad @ Trot
 
         if self.QMin.requests["grad"]:
             grad = grad.T.reshape((req_nmstates, self.QMin.molecule["natom"], 3))
@@ -798,6 +845,9 @@ class SHARC_LVC(SHARC_FAST):
         self.QMout.point_charges = do_pc
         self.QMout.h = Hd
         self.QMout.dm = dipole
+        if self.QMin.requests["mdeqm"]:
+            self.QMout.mdm = mag_dipole
+            self.QMout.eqm = el_quadrupole
         if self.QMin.requests["overlap"]:
             self.QMout.overlap = overlap
         if self.QMin.requests["phases"]:
@@ -834,6 +884,7 @@ class SHARC_LVC(SHARC_FAST):
             "h",
             "soc",
             "dm",
+            "mdeqm",
             "grad",
             "nacdr",
             "overlap",
@@ -863,12 +914,15 @@ class SHARC_LVC(SHARC_FAST):
         soc_found = False
         mfit_found = False
         dm_found = False
+        mdeqm_found = False
         with open(self.template_file, "r") as f:
             for line in f:
                 if "SOC" in line or "lambda_soc" in line:
                     soc_found = True
-                if "DM" in line:
+                if "DM" in line and "MDEQM" not in line:
                     dm_found = True
+                if "MDM" in line or "EQM" in line:
+                    mdeqm_found = True 
                 if "Multipolar Density Fit" in line:
                     mfit_found = True
         if "soc" in INFOS["needed_requests"] and not soc_found:
@@ -883,6 +937,10 @@ class SHARC_LVC(SHARC_FAST):
 
         if "dm" in INFOS["needed_requests"] and not dm_found:
             self.log.error(f"Calculation of dipole moment requested but 'DM' keyword not found in {self.template_file}")
+            raise RuntimeError()
+
+        if "mdeqm" in INFOS["needed_requests"] and not mdeqm_found:
+            self.log.error(f"Calculation of second-order light matter moments requested but 'MDEQM' keyword not found in {self.template_file}")
             raise RuntimeError()
 
         if question("Do you have an LVC.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):

@@ -87,6 +87,8 @@ class SHARC_DO_NOTHING(SHARC_FAST):
             "h",
             "soc",
             "dm",
+            "mdm",
+            "eqm",
             "grad",
             "nacdr",
             "overlap",

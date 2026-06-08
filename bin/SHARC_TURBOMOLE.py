@@ -730,22 +730,30 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
         Parse determinants from CC* binary files
         """
         # Get nAO, nOCC and frozens from control
-        n_mo, n_occ, n_froz = 0, [0, 0], 0
-        restr = False
-        with open(os.path.join(workdir, "control"), "r", encoding="utf-8") as f:
+        n_virt, n_mo, n_occ, n_froz = [0, 0], 0, [0, 0], 0
+        restr = True
+        with open(os.path.join(workdir, "ricc2.out"), "r", encoding="utf-8") as f:
             while line := f.readline():
-                if "nbf(AO)" in line:
-                    n_mo = int(line.split("=")[-1])
-                if "$closed shells" in line:
-                    n_occ[0] = int(f.readline().split()[1].split("-")[-1])
-                    restr = True
-                if "$alpha shells" in line:
-                    n_occ[0] = int(f.readline().split()[1].split("-")[-1])
-                if "$beta shells" in line:
-                    n_occ[1] = int(f.readline().split()[1].split("-")[-1])
-                if "implicit core" in line:
-                    n_froz = int(line.split()[2])
-        n_virt = [n_mo - n_occ[0], (n_mo if not restr else 0) - n_occ[1]]
+                if "frozen occupied" in line:
+                    n_froz = int(line.split()[3])
+                if "active occupied" in line:
+                    tmp = line.split()
+                    n_occ[0] = int(tmp[3])
+                    if len(tmp) == 5:
+                        restr = False
+                        n_occ[1] = int(tmp[4])
+                if "active virtual" in line:
+                    tmp = line.split()
+                    n_virt[0] = int(tmp[3])
+                    if not restr:
+                        n_virt[1] = int(tmp[4])
+                if "all together" in line:
+                    n_mo = int(line.split()[3])
+                    break
+        # occupied orbitals include frozen orbitals
+        n_occ[0] += n_froz
+        if n_occ[1] > 0:
+            n_occ[1] += n_froz
 
         self.log.debug(f"Found nMO {n_mo} nOCC {n_occ} nFROZ {n_froz} and nVIRT {n_virt} in control file.")
 
@@ -767,7 +775,7 @@ class SHARC_TURBOMOLE(SHARC_ABINITIO):
                     for virt in range(n_occ[0], n_mo):
                         key = occ_str[:]
                         key[occ], key[virt] = (1, 2) if restr else (0, 1)
-                        val = next(it_coeffs) * (np.sqrt(0.5) if restr else 1.0)
+                        val = -next(it_coeffs) * (np.sqrt(0.5) if restr else 1.0)
                         tmp[tuple(key)] = val
                         if restr:
                             key[occ], key[virt] = 2, 1
