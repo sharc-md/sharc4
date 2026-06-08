@@ -656,6 +656,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         # run the child
         with InDir(self.ref_interface.QMin.resources['pwd']):
+            self.log.info("Running reference child ...")
             self.ref_interface.run()
             self.ref_interface.getQMout()
             self.ref_interface.write_step_file()

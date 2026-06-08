@@ -54,11 +54,13 @@ setup_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
     int CNSTATES_ID = define_dimension(ncdat->id, "cnstates", 2*nstates);
     int FRAME_ID = define_dimension(ncdat->id, "frame", NC_UNLIMITED);
     // define dimensions
-    int dimids[4];
+    int dimids[5];
     dimids[0] = FRAME_ID;
     dimids[1] = CNSTATES_ID;
     dimids[2] = NSTATES_ID;
     dimids[3] = THREE_ID;
+    dimids[4] = THREE_ID;
+
     // define nc variable ids
     check_nccall(iret, 
          nc_def_var(ncdat->id, "H_MCH", NC_DOUBLE, 3, &dimids[0], &ncdat->H_MCH_id)
@@ -71,6 +73,12 @@ setup_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
     );
     check_nccall(iret, 
          nc_def_var(ncdat->id, "DM", NC_DOUBLE, 4, &dimids[0], &ncdat->DM_id)
+    );
+    check_nccall(iret, 
+         nc_def_var(ncdat->id, "MDM", NC_DOUBLE, 4, &dimids[0], &ncdat->MDM_id)
+    );
+    check_nccall(iret, 
+         nc_def_var(ncdat->id, "EQM", NC_DOUBLE, 5, &dimids[0], &ncdat->EQM_id)
     );
     check_nccall(iret, 
          nc_def_var(ncdat->id, "coeff_diag", NC_DOUBLE, 2, &dimids[0], &ncdat->coeff_diag_id)
@@ -149,6 +157,8 @@ reopen_ncoutputdat(int natoms, int nstates, struct sharc_ncoutput* ncdat)
     check_nccall(iret, nc_inq_varid(ncdat->id, "U", &ncdat->U_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "Ovlap", &ncdat->overlaps_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "DM", &ncdat->DM_id));
+    check_nccall(iret, nc_inq_varid(ncdat->id, "MDM", &ncdat->MDM_id));
+    check_nccall(iret, nc_inq_varid(ncdat->id, "EQM", &ncdat->EQM_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "coeff_diag", &ncdat->coeff_diag_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "hopprob", &ncdat->hopprop_id));
     check_nccall(iret, nc_inq_varid(ncdat->id, "Energy", &ncdat->e_id));
@@ -173,6 +183,8 @@ write_sharc_ncoutputdat_istep_(
         const double* H_MCH_ss,           // complex, (frame, 2*nstates, nstates)
         const double* U_ss,               // complex, (frame, 2*nstates, nstates)
         const double* DM_print_ssd,       // complex, (frame, 2*nstates, nstates, 3)
+        const double* MDM_print_ssd,      // complex, (frame, 2*nstates, nstates, 3)
+        const double* EQM_print_ssdd,     // complex, (frame, 2*nstates, nstates, 3 ,3)
         const double* overlaps_ss,        // complex, (frame, 2*nstates, nstates)
         const double* coeff_diag_s,       // complex, (frame, 2*nstates)
         const double* E,                  // real, contains Etot, Epot and Ekin, (frame, 3)
@@ -197,9 +209,9 @@ write_sharc_ncoutputdat_istep_(
     }
 
     // counter does not change 
-    size_t count[4] = {1, 2* *nstates, *nstates, 3};
+    size_t count[5] = {1, 2* *nstates, *nstates, 3, 3};
 
-    size_t start[4] = {*istep, 0, 0, 0};
+    size_t start[5] = {*istep, 0, 0, 0, 0};
     if(*istep < 0) {
       start[0] *= -1;
     }
@@ -211,6 +223,12 @@ write_sharc_ncoutputdat_istep_(
     );
     check_nccall(iret, 
             nc_put_vara_double(ncdat->id, ncdat->DM_id, start, count, DM_print_ssd)
+    );
+    check_nccall(iret, 
+            nc_put_vara_double(ncdat->id, ncdat->MDM_id, start, count, MDM_print_ssd)
+    );
+    check_nccall(iret, 
+            nc_put_vara_double(ncdat->id, ncdat->EQM_id, start, count, EQM_print_ssdd)
     );
     check_nccall(iret, 
             nc_put_vara_double(ncdat->id, ncdat->overlaps_id, start, count, overlaps_ss)
@@ -269,6 +287,8 @@ read_sharc_ncoutputdat_istep_(
         double* H_MCH_ss,           // complex, (frame, 2*nstates, nstates)
         double* U_ss,               // complex, (frame, 2*nstates, nstates)
         double* DM_print_ssd,       // complex, (frame, 2*nstates, nstates, 3)
+        double* MDM_print_ssd,       // complex, (frame, 2*nstates, nstates, 3)
+        double* EQM_print_ssdd,       // complex, (frame, 2*nstates, nstates, 3, 3)
         double* overlaps_ss,        // complex, (frame, 2*nstates, nstates)
         double* coeff_diag_s,       // complex, (frame, 2*nstates)
         double* E,                  // real, contains Etot, Epot and Ekin, (frame, 3)
@@ -320,8 +340,8 @@ read_sharc_ncoutputdat_istep_(
         check_nccall(iret, nc_inq_varid(ncdat->id, "time_step", &ncdat->time_step_id));
     }
 
-   size_t start[4] = {*istep, 0, 0, 0};
-   size_t count[4] = {1, *nstates*2, *nstates, 3};
+   size_t start[5] = {*istep, 0, 0, 0, 0};
+   size_t count[5] = {1, *nstates*2, *nstates, 3, 3};
 
    check_nccall(iret, 
             nc_get_vara_double(ncdat->id, 
@@ -353,6 +373,22 @@ read_sharc_ncoutputdat_istep_(
                                start, 
                                count, 
                                DM_print_ssd)
+   );
+
+   check_nccall(iret, 
+            nc_get_vara_double(ncdat->id, 
+                               ncdat->MDM_id, 
+                               start, 
+                               count, 
+                               MDM_print_ssd)
+   );
+
+   check_nccall(iret, 
+            nc_get_vara_double(ncdat->id, 
+                               ncdat->EQM_id, 
+                               start, 
+                               count, 
+                               EQM_print_ssdd)
    );
 
    check_nccall(iret, 

@@ -93,6 +93,7 @@ def test_movecs():
 
     for qmin, basis, spherical, charge, mo in tests:
         test_interface = SHARC_NWCHEM()
+        test_interface._check_charge = lambda *args, **kwargs: None
         test_interface.setup_mol(os.path.join(PATH, qmin))
         test_interface.set_coords(os.path.join(PATH, qmin))
         test_interface.QMin.template["spherical"] = spherical

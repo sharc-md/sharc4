@@ -32,8 +32,8 @@ import numpy as np
 from scipy.linalg import fractional_matrix_power
 from itertools import starmap, chain
 
-from constants import IToMult
-from utils import itnmstates, readfile
+from constants import IToMult, rcm_to_Eh
+from utils import itnmstates, readfile, phase_correction
 from printing import printheader
 from qmout import QMout
 
@@ -67,7 +67,10 @@ versiondate = datetime.date(2025, 4, 1)
 
 # ======================================================================= #
 
-pthresh = 1.0e-5**2
+pthresh = 1.0e-5**2      # for lambda, kappa
+mthresh = 1.0e-10**2     # for SOCs, DMs
+lthresh = 1.0e-7         # for lambda-SOCs
+gthresh = rcm_to_Eh      # for gammas
 
 # ======================================================================= #
 
@@ -180,7 +183,6 @@ def read_QMout(path, nstates, natom, request):
 def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
     rnonzero = False
     inonzero = False
-
     rstr = header + " R\n"
     istr = header + " I\n"
     for i in range(len(mat)):
@@ -188,16 +190,20 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
             val = mat[i][j].real
             if deldiag and i == j:
                 val = 0.0
-            rstr += oformat % val
-            if val * val > pthresh:
+            if val * val <= mthresh:
+                val = 0.0
+            else:
                 rnonzero = True
+            rstr += oformat % val
 
             val = mat[i][j].imag
             if deldiag and i == j:
                 val = 0.0
-            istr += oformat % val
-            if val * val > pthresh:
+            if val * val <= mthresh:
+                val = 0.0
+            else:
                 inonzero = True
+            istr += oformat % val
 
         rstr += "\n"
         istr += "\n"
@@ -207,7 +213,6 @@ def LVC_complex_mat(header, mat, deldiag=False, oformat=" % .7e"):
         retstr += rstr
     if inonzero:
         retstr += istr
-
     return retstr
 
 
@@ -292,57 +297,57 @@ def partition_matrix(matrix, multiplicity, states):
 
 # ======================================================================= #
 
-def phase_correction_do_nothing(matrix):
-    return matrix.real.copy()
+# def phase_correction_do_nothing(matrix):
+#     return matrix.real.copy()
 
 
-def phase_correction(matrix):
-    U = matrix.real.copy()
-    det = np.linalg.det(U)
-    if det < 0:
-        U[:, 0] *= -1.0  # this row/column convention is correct
+# def phase_correction(matrix):
+#     U = matrix.real.copy()
+#     det = np.linalg.det(U)
+#     if det < 0:
+#         U[:, 0] *= -1.0  # this row/column convention is correct
 
-    # sweeps
-    l = len(U)
-    sweeps = 0
-    while True:
-        done = True
-        for j in range(l):
-            for k in range(j + 1, l):
-                delta = 3.0 * (U[j, j] ** 2 + U[k, k] ** 2)
-                delta += 6.0 * U[j, k] * U[k, j]
-                delta += 8.0 * (U[k, k] + U[j, j])
-                delta -= 3.0 * (U[j, :] @ U[:, j] + U[k, :] @ U[:, k])
-                # for i in range(l):
-                # delta -= 3.0 * (U[j, i] * U[i, j] + U[k, i] * U[i, k])
-                if delta < -1e-15:  # needs proper threshold towards 0
-                    U[:, j] *= -1.0  # this row/column convention is correct
-                    U[:, k] *= -1.0  # this row/column convention is correct
-                    done = False
-        sweeps += 1
-        if done:
-            break
-    return U
+#     # sweeps
+#     l = len(U)
+#     sweeps = 0
+#     while True:
+#         done = True
+#         for j in range(l):
+#             for k in range(j + 1, l):
+#                 delta = 3.0 * (U[j, j] ** 2 + U[k, k] ** 2)
+#                 delta += 6.0 * U[j, k] * U[k, j]
+#                 delta += 8.0 * (U[k, k] + U[j, j])
+#                 delta -= 3.0 * (U[j, :] @ U[:, j] + U[k, :] @ U[:, k])
+#                 # for i in range(l):
+#                 # delta -= 3.0 * (U[j, i] * U[i, j] + U[k, i] * U[i, k])
+#                 if delta < -1e-15:  # needs proper threshold towards 0
+#                     U[:, j] *= -1.0  # this row/column convention is correct
+#                     U[:, k] *= -1.0  # this row/column convention is correct
+#                     done = False
+#         sweeps += 1
+#         if done:
+#             break
+#     return U
 
 
-def phase_correction_old(matrix):
-    length = len(matrix)
-    # phase_corrected_matrix = [[0.0 for x in range(length)] for x in range(length)]
-    phase_corrected_matrix = np.zeros_like(matrix)
+# def phase_correction_old(matrix):
+#     length = len(matrix)
+#     # phase_corrected_matrix = [[0.0 for x in range(length)] for x in range(length)]
+#     phase_corrected_matrix = np.zeros_like(matrix)
 
-    for i in range(length):
-        diag = matrix[i][i].real
+#     for i in range(length):
+#         diag = matrix[i][i].real
 
-        # look if diag is significant and negative & switch phase
-        if diag**2 > 0.5 and diag < 0:
-            for j in range(length):
-                phase_corrected_matrix[j][i] = matrix[j][i] * -1
-        # otherwise leave values as is
-        else:
-            for j in range(length):
-                phase_corrected_matrix[j][i] = matrix[j][i]
+#         # look if diag is significant and negative & switch phase
+#         if diag**2 > 0.5 and diag < 0:
+#             for j in range(length):
+#                 phase_corrected_matrix[j][i] = matrix[j][i] * -1
+#         # otherwise leave values as is
+#         else:
+#             for j in range(length):
+#                 phase_corrected_matrix[j][i] = matrix[j][i]
 
-    return phase_corrected_matrix
+#     return phase_corrected_matrix
 
 
 # ======================================================================= #
@@ -381,7 +386,7 @@ def calculate_W_dQi(H, S, e_ref):
 
     # do loewdin orthonorm. on overlap matrix
     U = loewdin_orthonormalization(S)
-    U = phase_correction(U)
+    U, _ = phase_correction(U)
 
     # <old|new><new|new><new|old> -> <old|old>
     return np.dot(np.dot(U, H), U.T) - np.eye(H.shape[0]) * e_ref
@@ -427,6 +432,9 @@ def write_LVC_template(INFOS, template_name):
         flags.add(5)
     if INFOS["multipolar_fit"]:
         flags.add(22)
+    if INFOS["beyond_ed"]:
+        flags.add(41)  # 41=MDM 
+        flags.add(42)  # 42=EQM
     QMout_eq = QMout(path, INFOS["states"], len(INFOS["atoms"]), npc=0, flags=flags)
     lvc_template_content += "charge " + " ".join(map(str, QMout_eq.charges)) + "\n"
     print(", ".join(requests))
@@ -479,7 +487,7 @@ def write_LVC_template(INFOS, template_name):
                     if k**2 > pthresh:
                         kappa_str_list.append("%3i %3i %5i % .5e\n" % (imult + 1, i + 1, int(normal_mode), k))
                         nkappa += 1
-            start += nsi
+            start += nsi*(imult+1)
 
     # ------------------------ lambda --------------------------
     lam = 0
@@ -573,15 +581,17 @@ def write_LVC_template(INFOS, template_name):
                 if nsi == 0:
                     continue
                 part_h_pos = QMout_pos.h[start : start + nsi, start : start + nsi].real
+                part_h_pos[:] = np.diag(np.diag(part_h_pos))
                 part_ovl_pos = QMout_pos.overlap[start : start + nsi, start : start + nsi].real
                 part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
-                part_ovl_pos = phase_correction(part_ovl_pos)
+                part_ovl_pos, _ = phase_correction(part_ovl_pos)
                 pos_partition = part_ovl_pos @ part_h_pos @ part_ovl_pos.T
 
                 part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
+                part_h_neg[:] = np.diag(np.diag(part_h_neg))
                 part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
                 part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
-                part_ovl_neg = phase_correction(part_ovl_neg)
+                part_ovl_neg, _ = phase_correction(part_ovl_neg)
                 neg_partition = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
                 # checking problematic states
                 if INFOS["ignore_problematic_states"]:
@@ -638,7 +648,7 @@ def write_LVC_template(INFOS, template_name):
                                     "%3i %3i %3i %3i % .5e\n" % (imult + 1, i + 1, j + 1, int(normal_mode), lam)
                                 )
                                 nlambda += 1
-                start += nsi
+                start += nsi*(imult+1)
 
     # ------------------------ lambda_soc --------------------------
 
@@ -679,22 +689,31 @@ def write_LVC_template(INFOS, template_name):
 
             # Loop over multiplicities to get kappas and lambdas
             # Loop over multiplicities
-            start = 0
-            for imult, nsi in enumerate(INFOS["states"]):
-                if nsi != 0:
-                    for _ in range(imult + 1):
-                        QMout_pos.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
-                        if twosided:
-                            QMout_neg.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
-                        start += nsi
+            # TODO: block handling is not correct: actually, we could just remove the diagonal
+            # start = 0
+            # for imult, nsi in enumerate(INFOS["states"]):
+            #     if nsi == 0:
+            #         continue
+            #     for _ in range(imult + 1):
+            #         QMout_pos.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
+            #         if twosided:
+            #             QMout_neg.h[start : start + nsi, start : start + nsi] = 0.0 + 0.0j
+            #         start += nsi
+
+            # TODO: I think this is the correct way to do it, in order to also get M_S=M_S lambda_socs
+            np.fill_diagonal(QMout_pos.h, 0.0 + 0.0j)
+            if twosided:
+                np.fill_diagonal(QMout_neg.h, 0.0 + 0.0j)
 
             part_ovl_pos = loewdin_orthonormalization(QMout_pos.overlap)
-            part_ovl_pos = phase_correction(part_ovl_pos)
+            part_ovl_pos, phases = phase_correction(part_ovl_pos)
+            QMout_pos.h = QMout_pos.h * np.outer(phases,phases)
             pos_partition = part_ovl_pos @ QMout_pos.h @ part_ovl_pos.T
 
             if twosided:
                 part_ovl_neg = loewdin_orthonormalization(QMout_neg.overlap)
-                part_ovl_neg = phase_correction(part_ovl_neg)
+                part_ovl_neg, phases = phase_correction(part_ovl_neg)
+                QMout_neg.h = QMout_neg.h * np.outer(phases,phases)
                 neg_partition = part_ovl_neg @ QMout_neg.h @ part_ovl_neg.T
 
             if twosided:
@@ -709,7 +728,7 @@ def write_LVC_template(INFOS, template_name):
                 list(
                     starmap(
                         lambda i, j, c: f"{i+1:3d} {j+1:3d} {int(normal_mode):3d} {'RI'[c]} {lambda_soc[i,j,c]: .7e}\n",
-                        filter(lambda x: x[0] < x[1], zip(*np.where(abs(lambda_soc) > 1e-7))),
+                        filter(lambda x: x[0] < x[1], zip(*np.where(abs(lambda_soc) > lthresh))),    # here is hidden a threshold 
                     )
                 )
             )
@@ -729,10 +748,10 @@ def write_LVC_template(INFOS, template_name):
                 m = INFOS["displacement_magnitudes_gamma"][normal_mode + "_2"] / displ_mag
             print(displ_mag, m)
             freq = INFOS["frequencies"][normal_mode]
-            necessary_displ = math.sqrt(2 * 2 * 4.55633590401805e-06 / freq)  # displ necessary for energy difference of 2cm-1
+            necessary_displ = math.sqrt(2 * 2 * rcm_to_Eh / freq)  # displ necessary for energy difference of 2cm-1
             if (necessary_displ - displ_mag * m) / necessary_displ > 0.1:  # 10% tolerance for
                 print(
-                    f"skipping normal mode {normal_mode} ({freq/4.55633590401805e-06: 0.1f}cm-1)! Insufficient maximum displacment {displ_mag * m: .2f} vs {necessary_displ: .2f}!"
+                    f"skipping normal mode {normal_mode} ({freq/rcm_to_Eh: 0.1f}cm-1)! Insufficient maximum displacment {displ_mag * m: .2f} vs {necessary_displ: .2f}!"
                 )
                 continue
 
@@ -824,8 +843,8 @@ def write_LVC_template(INFOS, template_name):
 
                 if start == 0:
                     freq = INFOS["frequencies"][normal_mode]
-                    gfreq_dev = (gammas[0, 0] * 2) / 4.55633590401805e-06
-                    dev_per = gfreq_dev / (freq / 4.55633590401805e-06)
+                    gfreq_dev = (gammas[0, 0] * 2) / rcm_to_Eh
+                    dev_per = gfreq_dev / (freq / rcm_to_Eh)
                     print(
                         "sanity check: difference in S0 frequency of mode:",
                         normal_mode,
@@ -837,9 +856,9 @@ def write_LVC_template(INFOS, template_name):
                 print(
                     "Problematic gammas:",
                     [
-                        (normal_mode, imult, n, f"{(g * 2 + INFOS['frequencies'][normal_mode])/4.55633590401805e-06: .1f}cm-1")
+                        (normal_mode, imult, n, f"{(g * 2 + INFOS['frequencies'][normal_mode])/rcm_to_Eh: .1f}cm-1")
                         for n, g in enumerate(np.diag(gammas))
-                        if (g * 2 + INFOS["frequencies"][normal_mode]) / 4.55633590401805e-06 < 0
+                        if (g * 2 + INFOS["frequencies"][normal_mode]) / rcm_to_Eh < 0
                     ],
                 )
 
@@ -847,7 +866,7 @@ def write_LVC_template(INFOS, template_name):
                     list(
                         starmap(
                             lambda i, j: f"{imult + 1:3d} {states[i]+1:3d} {states[j]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i,j]: .7e}\n",
-                            zip(*np.where(abs(gammas) > 4.55633590401805e-06)),
+                            zip(*np.where(abs(gammas) > gthresh)),   # another hidden threshold
                         )
                     )
                 )
@@ -856,11 +875,11 @@ def write_LVC_template(INFOS, template_name):
                 # list(
                 # map(
                 # lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
-                # np.where(abs(gammas) > 4.55633590401805e-06)[0],
+                # np.where(abs(gammas) > rcm_to_Eh)[0],
                 # )
                 # )
                 # )
-                start += nsi
+                start += nsi*(imult+1)
 
     # approximation from second order central
     if "gammas" in INFOS and INFOS["gammas"] == "second order central":
@@ -917,7 +936,7 @@ def write_LVC_template(INFOS, template_name):
                         f"WARNING: gammas wrong for states in {imult}",
                         [states[x] for x in check],
                         np.array2string(
-                            (gammas[check] * 2) / 4.55633590401805e-06, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
+                            (gammas[check] * 2) / rcm_to_Eh, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
                         ),
                         np.array2string(gammas[check] * 2 / freq, formatter={"float": lambda x: f"{x*100: 4.1f}%"}),
                     )
@@ -925,7 +944,7 @@ def write_LVC_template(INFOS, template_name):
                     print(
                         "sanity check: difference in S0 frequency of mode:",
                         normal_mode,
-                        f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
+                        f"{(gammas[0] * 2)/rcm_to_Eh: .1f}cm-1",
                     )
                     gammas[0] = 0
                 print(
@@ -934,7 +953,7 @@ def write_LVC_template(INFOS, template_name):
                     imult,
                     [
                         [states[i], gammas[i] * 2 / freq]
-                        for i in np.where((np.abs(gammas) > 4.55633590401805e-06) & (np.abs(gammas * 2) / freq < 0.5))[0]
+                        for i in np.where((np.abs(gammas) > rcm_to_Eh) & (np.abs(gammas * 2) / freq < 0.5))[0]
                     ],
                 )
                 # gammas = np.where(np.abs(gammas * 2) / freq > 0.5, 0, gammas)
@@ -943,12 +962,12 @@ def write_LVC_template(INFOS, template_name):
                     list(
                         map(
                             lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(normal_mode):3d} {gammas[i]: .7e}\n",
-                            np.where(abs(gammas) > 4.55633590401805e-06)[0],
+                            np.where(abs(gammas) > rcm_to_Eh)[0],
                         )
                     )
                 )
 
-                start = start + nsi
+                start = start + nsi*(imult+1)
 
     # calculate gammas from approximatin the hessian through diabatized gradients at displacements and equilibrium geometry
     print("gammas", INFOS["gammas"])
@@ -1024,14 +1043,14 @@ def write_LVC_template(INFOS, template_name):
 
                     if normal_mode == derivate_mode:
                         gammas -= freq * 0.5
-                        # print(f"normal_mode {normal_mode}:", INFOS["frequencies"][normal_mode] / 4.55633590401805e-06)
+                        # print(f"normal_mode {normal_mode}:", INFOS["frequencies"][normal_mode] / rcm_to_Eh)
                         check = np.where(np.abs(gammas * 2) / freq > 0.5)[0]
                         if len(check) > 0:
                             print(
                                 f"WARNING: gammas wrong for states in {normal_mode}: {imult}",
                                 [states[x] for x in check],
                                 np.array2string(
-                                    (gammas[check] * 2) / 4.55633590401805e-06, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
+                                    (gammas[check] * 2) / rcm_to_Eh, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
                                 ),
                                 np.array2string(gammas[check] * 2 / freq, formatter={"float": lambda x: f"{x*100: 4.1f}%"}),
                             )
@@ -1040,7 +1059,7 @@ def write_LVC_template(INFOS, template_name):
                         print(
                             "sanity check: difference in S0 frequency of mode:",
                             normal_mode,
-                            f"{(gammas[0] * 2)/4.55633590401805e-06: .1f}cm-1",
+                            f"{(gammas[0] * 2)/rcm_to_Eh: .1f}cm-1",
                         )
                     if start == 0:
                         gammas[0] = 0.0
@@ -1067,7 +1086,7 @@ def write_LVC_template(INFOS, template_name):
                                 f"WARNING: gammas wrong for states in {normal_mode}: {imult}",
                                 [states[x] for x in check],
                                 np.array2string(
-                                    (gammas[check] * 2) / 4.55633590401805e-06, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
+                                    (gammas[check] * 2) / rcm_to_Eh, formatter={"float": lambda x: f"{x: 9.1f}cm-1"}
                                 ),
                                 np.array2string(gammas[check] * 2 / freq, formatter={"float": lambda x: f"{x*100: 4.1f}%"}),
                             )
@@ -1078,7 +1097,7 @@ def write_LVC_template(INFOS, template_name):
                             imult,
                             [
                                 [states[i], gammas[i] * 2 / freq]
-                                for i in np.where((np.abs(gammas) > 4.55633590401805e-06) & (np.abs(gammas * 2) / freq < 0.5))[0]
+                                for i in np.where((np.abs(gammas) > rcm_to_Eh) & (np.abs(gammas * 2) / freq < 0.5))[0]
                             ],
                         )
                         gammas = np.where(np.abs(gammas * 2) / freq > 0.5, 0, gammas)
@@ -1088,11 +1107,11 @@ def write_LVC_template(INFOS, template_name):
                         list(
                             map(
                                 lambda i: f"{imult + 1:3d} {states[i]+1:3d} {states[i]+1:3d} {int(normal_mode):3d} {int(derivate_mode):3d} {gammas[i]: .7e}\n",
-                                np.where(np.abs(gammas) > 4.55633590401805e-06)[0],
+                                np.where(np.abs(gammas) > rcm_to_Eh)[0],
                             )
                         )
                     )
-                start += nsi
+                start += nsi*(imult+1)
 
     # add results to template string
     lvc_template_content += "kappa\n"
@@ -1126,9 +1145,28 @@ def write_LVC_template(INFOS, template_name):
             lvc_template_content += LVC_complex_mat("SOC", QMout_soc.h, deldiag=True)
         else:
             lvc_template_content += LVC_complex_mat("SOC", QMout_eq.h, deldiag=True)
+    # Adding electric dipole (DM) contribution
     lvc_template_content += LVC_complex_mat("DMX", QMout_eq.dm[0])
     lvc_template_content += LVC_complex_mat("DMY", QMout_eq.dm[1])
     lvc_template_content += LVC_complex_mat("DMZ", QMout_eq.dm[2])
+    if INFOS["beyond_ed"]:
+        # Adding magnetic dipole (MDM) contribution
+        lvc_template_content += LVC_complex_mat("MDMX", QMout_eq.mdm[0])
+        lvc_template_content += LVC_complex_mat("MDMY", QMout_eq.mdm[1])
+        lvc_template_content += LVC_complex_mat("MDMZ", QMout_eq.mdm[2])
+        # Adding electric quadrupole (EQM) contribution
+        # x-polarized
+        lvc_template_content += LVC_complex_mat("EQMX_dX", QMout_eq.eqm[0][0])
+        lvc_template_content += LVC_complex_mat("EQMX_dY", QMout_eq.eqm[0][1])
+        lvc_template_content += LVC_complex_mat("EQMX_dZ", QMout_eq.eqm[0][2])
+        # y-polarized
+        lvc_template_content += LVC_complex_mat("EQMY_dX", QMout_eq.eqm[1][0])
+        lvc_template_content += LVC_complex_mat("EQMY_dY", QMout_eq.eqm[1][1])
+        lvc_template_content += LVC_complex_mat("EQMY_dZ", QMout_eq.eqm[1][2])
+        # z-polarized 
+        lvc_template_content += LVC_complex_mat("EQMZ_dX", QMout_eq.eqm[2][0])
+        lvc_template_content += LVC_complex_mat("EQMZ_dY", QMout_eq.eqm[2][1])
+        lvc_template_content += LVC_complex_mat("EQMZ_dZ", QMout_eq.eqm[2][2])
 
     # --------------------- multipolar fit ---------------------------
     if "multipolar_fit" in QMout_eq:
@@ -1145,7 +1183,6 @@ def write_LVC_template(INFOS, template_name):
             for atom in range(len(INFOS["atoms"])):  # get mults
                 n_entries += 1
                 nums = "".join(map(lambda x: f"{x: 12.8f}", fit[atom, :]))
-                # print(f"{s_i.S} {s_i.N + 1:2} {s_j.N + 1:2} {atom:3}    {nums}\n")
                 mat_string += f"{s_i.S + 1} {s_i.N:2} {s_j.N:2} {atom:3}    {nums}\n"
         lvc_template_content += f"Multipolar Density Fit {settings}\n{n_entries}\n{mat_string}"
 
@@ -1167,6 +1204,9 @@ def main():
 
     usage = """python %s""" % (script_name)
 
+    # TODO: command line options for the thresholds
+    # TODO: make the thresholds clean and use different ones for different quantities
+
     displaywelcome()
     is_other_dir = len(sys.argv) == 2 and os.path.isdir(sys.argv[1])
     # load INFOS object from file
@@ -1183,7 +1223,6 @@ def main():
     # set manually for old calcs
     # INFOS['ignore_problematic_states'] = True
     template_name = "LVC.template"
-    #print(len(sys.argv))
     if len(sys.argv) == 3:
         template_name = sys.argv[2]
     if is_other_dir:

@@ -37,6 +37,11 @@
 !> 
 !> The alternative module electronic_laser.f90 reimplements some of the subroutines 
 !> to add a laser field
+!>  
+!>                   modified 2025 June by Marco Romanelli
+!>                         Scaling of transition probability is modified if CPA is enables, check surface_hopping routine
+!>  
+!>  
 
 module electronic
   contains
@@ -523,7 +528,7 @@ subroutine Electronic_gradients_MCH(traj,ctrl)
   complex*16 :: w(ctrl%nstates,ctrl%nstates),tw(ctrl%nstates,ctrl%nstates),dw(ctrl%nstates,ctrl%nstates)
   complex*16 :: NACT(ctrl%nstates, ctrl%nstates)
   complex*16 :: Ptotal(ctrl%nstates, ctrl%nstates)
-  integer :: istate, jstate, iatom, idir
+  integer :: istate, jstate, iatom, idir, jdir
   real*8 :: pvib_ad(ctrl%natom,3)
   complex*16 :: DP(ctrl%nstates, ctrl%nstates)
   complex*16 :: gdcoeff_MCH_s(ctrl%nstates)
@@ -538,10 +543,24 @@ subroutine Electronic_gradients_MCH(traj,ctrl)
   ! include laser fields
   if (ctrl%laser==0) then
     H_ss=traj%H_MCH_ss
-  else if (ctrl%laser==2) then
-    do idir=1,3
-      H_ss=traj%H_MCH_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,idir))
-    enddo
+  elseif (ctrl%laser==2) then
+    if (ctrl%laser_e) then
+      do idir=1,3
+        H_ss=traj%H_MCH_ss-traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
+      enddo
+    endif
+    if (ctrl%laser_b) then
+      do idir=1,3
+        H_ss=H_ss-traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+      enddo 
+    endif
+    if (ctrl%laser_egrad) then
+      do idir=1,3
+        do jdir=1,3
+          H_ss=H_ss-traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+        enddo
+      enddo
+    endif
   endif
   if (printlevel>4) then
     call matwrite(ctrl%nstates,H_ss,u_log,' H_MCH with laser field','F14.9')
@@ -703,7 +722,7 @@ subroutine surface_hopping(traj,ctrl)
   type(trajectory_type) :: traj
   type(ctrl_type) :: ctrl
   integer :: istate,jstate,kstate,iatom,idir,i,ilaser
-  real*8 :: randnum, cumuprob
+  real*8 :: randnum, cumuprob, boltzmann_scaling
   real*8 :: Emax ! energy threshold for frustrated jumps
   real*8 :: Ekin_masked
   real*8 :: sum_kk, sum_vk ! temp variables for kinetic adjustment
@@ -734,6 +753,19 @@ subroutine surface_hopping(traj,ctrl)
         write(0,*) 'Unknown option ',ctrl%hopping_procedure,' to hopping_procedure!'
         stop 1
     endselect
+  endif
+
+  !Scaling transition probabilities for upwards hops according to CPA approximation if CPA is enabled. Boltzmann scaling
+  if (ctrl%boltzmann_hop) then
+    do istate=1,ctrl%nstates
+      if (real(traj%H_diag_ss(istate,istate)) > real(traj%H_diag_ss(traj%state_diag,traj%state_diag))) then
+        deltaE=0.d0
+        boltzmann_scaling=0.d0
+        deltaE=abs(real(traj%H_diag_ss(istate,istate) - traj%H_diag_ss(traj%state_diag,traj%state_diag)))
+        boltzmann_scaling=exp(-deltaE/(boltzmann_k * ctrl%boltzmann_temperature))*ctrl%boltzmann_damping
+        traj%hopprob_s(istate)=traj%hopprob_s(istate)*boltzmann_scaling 
+      endif
+    enddo
   endif
 
   ! forced hop to ground state if energy gap to state above is smaller than threshold

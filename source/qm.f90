@@ -38,6 +38,10 @@
 !>                       changed subroutines select_grad and select_nacdr - for SCP, all states are selected
 !>                       changed subroutine Mix_gradients - add the SCP gradient
 !> 
+!>                   modified 30.06.2025 by Marco Romanelli
+!>                       changed subroutine Adjust_phases to comply with complex phase factors for phase correction
+!>                       necessary for plan wave basis sets
+!> 
 !> This module implements the SHARC-QM interface.
 !> It writes the QM.in file, calls the interfaces, 
 !> and reads the QM.out file to update the electronic matrices.
@@ -157,6 +161,8 @@ module qm
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
     integer :: stat,i,j,imult,istate,jstate,iatom,idir
+    integer :: jdir
+    complex*16 :: sum 
 
     if (printlevel>3) then
       write(u_log,*) '============================================================='
@@ -215,15 +221,32 @@ module qm
     enddo
     if (printlevel>3) write(u_log,'(A31,A2)') 'Hamiltonian:                   ','OK'
 
-    ! get Dipole moments
-    if (ctrl%calc_dipole==1) then
+    ! get electric Dipole moments
+    if (ctrl%calc_dipole>=1) then
       call get_dipoles(ctrl%nstates, traj%DM_ssd)
-      if (printlevel>3) write(u_log,'(A31,A2)') 'Dipole Moments:                ','OK'
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Dipole Moments:                ','OK'
       traj%DM_print_ssd=traj%DM_ssd
       ! apply frozen-state mask 
       do i=1,ctrl%nstates
         do j=1,ctrl%nstates
           if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%DM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
+        enddo
+      enddo
+    endif
+
+    ! get magnetic DM, electric QM
+    if (ctrl%calc_dipole>=2) then
+      call get_magnetic_dipoles(ctrl%nstates, traj%MDM_ssd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Magnetic Dipole Moments:                ','OK' 
+      call get_electric_quadrupoles(ctrl%nstates, traj%EQM_ssdd)
+      if (printlevel>3) write(u_log,'(A31,A2)') 'Electric Quadrupole Moments:                ','OK' 
+      traj%MDM_print_ssd=traj%MDM_ssd
+      traj%EQM_print_ssdd=traj%EQM_ssdd
+      ! apply frozen-state mask 
+      do i=1,ctrl%nstates
+        do j=1,ctrl%nstates
+          if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%MDM_ssd(i,j,:)=dcmplx(0.d0,0.d0)
+          if (ctrl%actstates_s(i).neqv.ctrl%actstates_s(j)) traj%EQM_ssdd(i,j,:,:)=dcmplx(0.d0,0.d0)
         enddo
       enddo
     endif
@@ -288,6 +311,7 @@ module qm
     endif
     if (traj%step==0) then
       traj%phases_s=dcmplx(1.d0,0.d0)
+      traj%phases_old_s=dcmplx(1.d0,0.d0)
       if (ctrl%track_phase_at_zero==1) then
         call get_phases(ctrl%nstates,traj%phases_s,stat)
         if (stat==0) then
@@ -328,12 +352,27 @@ module qm
     ! here we need to diagonalize only for selection of gradients/couplings/...
     traj%H_diag_ss=traj%H_MCH_ss
     ! if laser field, add it here, without imaginary part
+    
     if (ctrl%laser==2) then
-      do i=1,3
-        traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,i))
-      enddo
+      if (ctrl%laser_e) then
+        do i=1,3
+          traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,i)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,i))
+        enddo
+      endif
+      if (ctrl%laser_b) then 
+        do i=1,3
+          traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,i)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,i))
+        enddo
+      endif
+      if (ctrl%laser_egrad) then
+        do i=1,3
+          do j=1,3
+            traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,i,j)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,i,j))
+          enddo
+        enddo
+      endif
     endif
-
+    
     ! diagonalize, if SHARC dynamics
     if (ctrl%surf==0) then
       call diagonalize(ctrl%nstates,traj%H_diag_ss,traj%U_ss)
@@ -343,8 +382,6 @@ module qm
         traj%U_ss(i,i)=dcmplx(1.d0,0.d0)
       enddo
     endif
-
-!     call check_allocation(u_log,ctrl,traj)
 
     ! get state in all representations
     if ((traj%step==0).and.(ctrl%staterep==1)) then
@@ -600,6 +637,9 @@ module qm
     endif
     if (ctrl%calc_dipole==1) then
       write(u_qm_qmin,'(A)') 'DM'
+    else if (ctrl%calc_dipole==2) then
+      write(u_qm_qmin,'(A)') 'DM'
+      write(u_qm_qmin,'(A)') 'MDEQM'
     endif
 
     select case (ctrl%calc_grad)
@@ -1006,6 +1046,19 @@ module qm
       call matwrite(ctrl%nstates,traj%DM_ssd(:,:,i),u,'Dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
     enddo
     write(u,*)
+    if (ctrl%calc_dipole>=2) then
+      do i=1,3
+        call matwrite(ctrl%nstates,traj%MDM_ssd(:,:,i),u,'Magnetic dipole matrix (MCH basis) '//xyz(i)//' direction','F9.4')
+      enddo 
+      write(u,*)
+      do i=1,3
+        do j=1,3
+          call matwrite(ctrl%nstates,traj%EQM_ssdd(:,:,i,j),u,'Electric quadrupole matrix (MCH basis) '//xyz(i)//''//xyz(j)//' direction','F9.4')
+        enddo
+        write(u,*)
+      enddo  
+      write(u,*)
+    endif 
     do i=1,ctrl%nstates
       write(string,'(A27,I3)') 'Gradient (MCH basis) state ',i
       call vec3write(ctrl%natom,traj%grad_MCH_sad(i,:,:),u,trim(string),'F9.4')
@@ -1077,6 +1130,10 @@ module qm
     traj%H_diag_old_ss=traj%H_diag_ss
  
     traj%DM_old_ssd=traj%DM_ssd
+    if (ctrl%calc_dipole>=2) then
+      traj%MDM_old_ssd=traj%MDM_ssd
+      traj%EQM_old_ssdd=traj%EQM_ssdd
+    endif 
     traj%U_old_ss=traj%U_ss
     traj%NACdt_old_ss=traj%NACdt_ss
     traj%NACdr_old_ssad=traj%NACdr_ssad
@@ -1100,10 +1157,12 @@ module qm
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
-    integer :: i, iatom, idir, istate, jstate, ipol
+    integer :: i, iatom, idir, istate, jdir, jstate, ipol
     complex*16 :: U_temp(ctrl%nstates,ctrl%nstates), H_temp(ctrl%nstates,ctrl%nstates)
     complex*16 :: NACdR_diag_ss(ctrl%nstates,ctrl%nstates), pNACdR_diag_ss(ctrl%nstates,ctrl%nstates)
     character(255) :: string
+    complex*16 :: sum
+    logical :: skip_transform
 
     if (printlevel>3) then
       write(u_log,*) '============================================================='
@@ -1117,14 +1176,30 @@ module qm
         U_temp=traj%U_ss
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
-        do idir=1,3
-          H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,idir))
-        enddo
+        if (ctrl%laser_e) then
+          do idir=1,3
+            H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_b) then
+          do idir=1,3
+            H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_egrad) then
+          do idir=1,3
+            do jdir=1,3
+              H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+            enddo
+          enddo
+        endif
         call diagonalize(ctrl%nstates,H_temp,U_temp)
       endif
     elseif (ctrl%surf==1) then
       U_temp=traj%U_ss
     endif
+
+    skip_transform = identity(U_temp,ctrl%nstates, 1d-12)
 
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
 
@@ -1152,13 +1227,15 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 NACdR_diag_ss(istate,jstate)=NACdR_diag_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
         endif
         ! transform NACdR_ss to diagonal basis
-        call transform(ctrl%nstates,NACdR_diag_ss,U_temp,'utau')
+        if (.not. skip_transform) then
+          call transform(ctrl%nstates,NACdR_diag_ss,U_temp,'utau')
+        end if
         ! save full NACdR_diag_ss matrix
         do istate=1,ctrl%nstates
           do jstate=1,ctrl%nstates
@@ -1198,13 +1275,15 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 pNACdR_diag_ss(istate,jstate)=pNACdR_diag_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
         endif
         ! transform pNACdR_diag_ss to diagonal basis
-        call transform(ctrl%nstates,pNACdR_diag_ss,U_temp,'utau')
+        if (.not. skip_transform) then
+          call transform(ctrl%nstates,pNACdR_diag_ss,U_temp,'utau')
+        end if
         ! save full pNACdR_diag_ss matrix
         do istate=1,ctrl%nstates
           do jstate=1,ctrl%nstates
@@ -1270,7 +1349,6 @@ module qm
     ! =============================
     if (ctrl%method==0) then !TSH
       traj%grad_ad(:,:)=real(traj%Gmatrix_ssad(traj%state_diag,traj%state_diag,:,:))
-      ! write(u_log,*) 'GRAAAAD0',(traj%grad_ad(1,1:3))
       if (printlevel>3) then
         write(u_log,*) ''
         write(u_log,*) 'Gradient of diagonal state',traj%state_diag,'picked.'
@@ -1462,6 +1540,86 @@ module qm
 
   endsubroutine
 
+
+
+
+subroutine phase_correction_zhou(n, A_ss, phases_s)
+! from Zhou et al, JCTC 16, 835-846 (2020)
+! https://pubs.acs.org/doi/10.1021/acs.jctc.9b00952
+use matrix
+implicit none
+
+integer, intent(in) :: n
+complex*16, intent(in) :: A_ss(n,n)
+complex*16, intent(out) :: phases_s(n)
+
+real*8 :: U(n,n)
+real*8 :: U_sq(n,n)
+real*8 :: delta
+real*8 :: colnorm_j, colnorm_k
+real*8 :: detU
+real*8, parameter :: num_zero_thres = -1.d-15
+integer :: i,j,k
+integer :: sweeps
+logical :: done
+
+! initialize phases
+phases_s = dcmplx(1.d0,0.d0)
+
+! copy real part
+do i=1,n
+  do j=1,n
+    U(i,j) = real(A_ss(i,j))
+  enddo
+enddo
+
+! determinant of U
+call determinant(n,U,detU)
+if (detU < 0.d0) then
+  phases_s(1) = -phases_s(1)
+  U(:,1) = -U(:,1)
+endif
+
+! initialize
+U_sq = U*U
+sweeps = 0
+done = .false.
+
+do while (.not.done)
+  done = .true.
+  do j=1,n
+    do k=j+1,n
+
+      ! compute delta
+      colnorm_j = 0.d0
+      colnorm_k = 0.d0
+      do i=1,n
+        colnorm_j = colnorm_j + U(i,j)*U(i,j)
+        colnorm_k = colnorm_k + U(i,k)*U(i,k)
+      enddo
+      delta = 3.d0*(U_sq(j,j) + U_sq(k,k))
+      delta = delta + 6.d0*U(j,k)*U(k,j)
+      delta = delta + 8.d0*(U(k,k) + U(j,j))
+      delta = delta - 3.d0*(colnorm_j + colnorm_k)
+
+      ! swap phases
+      if (delta < num_zero_thres) then
+        U(:,j) = -U(:,j)
+        U(:,k) = -U(:,k)
+        phases_s(j) = -phases_s(j)
+        phases_s(k) = -phases_s(k)
+        done = .false.
+      endif
+    enddo
+  enddo
+  sweeps = sweeps + 1
+enddo
+
+end subroutine phase_correction_zhou
+
+
+
+
 ! ===========================================================
 
   subroutine Adjust_phases(traj,ctrl)
@@ -1470,33 +1628,59 @@ module qm
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
-    integer :: istate, jstate, ixyz
-    complex*16:: scalarProd(ctrl%nstates,ctrl%nstates)
+    integer :: istate, jstate, ixyz, jxyz
+    complex*16:: scalarProd(ctrl%nstates,ctrl%nstates),correction, correction_s(ctrl%nstates)
     complex*16 :: Utemp(ctrl%nstates,ctrl%nstates), Htemp(ctrl%nstates,ctrl%nstates)
+    complex*16 :: sum
+    integer :: idir, jdir
+    real*8 :: tmp
     logical :: all_unit_norm
 
     ! if phases were not found in the QM output, try to obtain it
-    if (traj%phases_found.eqv..false.) then
+    if (.not.(traj%phases_found)) then
 
       ! from overlap matrix diagonal
       if (ctrl%calc_overlap==1) then
+        if (printlevel>4) then 
+          write(u_log,*) '============================================================================='
+          write(u_log,*) '          Calculation of phase correction based on overlaps.'
+          write(u_log,*) '============================================================================='
+        endif 
+
+        select case (ctrl%phase_correction_algo)
+          case (0)
+            ! Akimov phase correction J. Phys. Chem. Lett. 2018, 9, 6096−6102 
+            ! -> more robust for plan wave basis sets where overlap matrix is not real
+            do istate=1,ctrl%nstates
+              if (abs(traj%overlaps_ss(istate,istate))>1.d-12) then
+                correction=CONJG(traj%overlaps_ss(istate,istate)/abs(traj%overlaps_ss(istate,istate)))
+              else
+                correction=dcmplx(1.d0,0.d0)
+              endif
+              traj%phases_s(istate)=traj%phases_old_s(istate)*correction 
+            enddo
+          case (1)
+            ! Zhou 2020
+            call phase_correction_zhou(ctrl%nstates, traj%overlaps_ss, correction_s)
+            traj%phases_s = traj%phases_old_s * correction_s
+        endselect
 
         if (printlevel>4) then 
-          write(u_log,*) 'phase correction based on overlaps'
-        endif 
-        traj%phases_s=traj%phases_old_s
-        do istate=1,ctrl%nstates
-          if (real(traj%overlaps_ss(istate,istate))<0.d0) then
-            traj%phases_s(istate)=traj%phases_s(istate)*(-1.d0)
-          endif
-        enddo
+          write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
+          do istate=1,ctrl%nstates
+              write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
+          enddo
+        endif
+
 
       ! from scalar products of old and new NAC vectors
       else if (ctrl%calc_overlap==0 .and. ctrl%calc_nacdr>=0) then
 
         if (printlevel>4) then
-          write(u_log,*) 'phase correction based on NACs'
-        endif
+          write(u_log,*) '============================================================================='
+          write(u_log,*) '          Calculation of phase correction based on NACs.'
+          write(u_log,*) '============================================================================='
+        endif 
 
         scalarProd=dcmplx(0.d0,0.d0)
 
@@ -1506,9 +1690,6 @@ module qm
             &traj%nacdr_ssad(istate,jstate,:,:),traj%nacdr_old_ssad(istate,jstate,:,:) )
           enddo
         enddo
-
-        ! case of ddt couplings
-        ! TODO
 
         ! phase from SOC
         if (traj%step>1) then
@@ -1533,11 +1714,14 @@ module qm
       else if (ctrl%calc_overlap==0 .and. ctrl%calc_nacdr<0) then
 
         if (printlevel>4) then
-          write(u_log,*) 'phase correction based on TDCs'
-        endif
+          write(u_log,*) '============================================================================='
+          write(u_log,*) '          Calculation of phase correction based on TDC and SOC.'
+          write(u_log,*) '============================================================================='
+        endif 
 
         scalarProd=dcmplx(0.d0,0.d0)
 
+        ! phase from TDC
         do istate=1,ctrl%nstates
           do jstate=1,ctrl%nstates
             scalarProd(istate,jstate)=phase_from_TDC(ctrl%natom, &
@@ -1551,10 +1735,8 @@ module qm
             do jstate=1,ctrl%nstates
               if (istate==jstate) cycle
               if (scalarProd(istate,jstate)==dcmplx(0.d0,0.d0) ) then
-
                 scalarProd(istate,jstate)=phase_from_SOC(&
                 &traj%H_MCH_ss(istate,jstate),traj%H_MCH_old_ss(istate,jstate), traj%dH_MCH_ss(istate,jstate))
-
               endif
             enddo
           enddo
@@ -1562,53 +1744,97 @@ module qm
 
         call fill_phase_matrix(ctrl%nstates,scalarProd)
         if (printlevel>4) call matwrite(ctrl%nstates,scalarProd,u_log,'scalarProd matrix','F4.1')
+        ! TODO: check if this should be accumulated instead
         traj%phases_s=scalarProd(:,1)
       
       endif ! if (ctrl%calc_overlap==1) then
-    endif
 
-    ! check if phases have all norm 1
+
+    else ! phases_found is true
+
+      if (printlevel>4) then 
+        write(u_log,*) '==========================================================================='
+        write(u_log,*) '                   Applying phase correction from QMout:'
+        write(u_log,*) '==========================================================================='
+        write(u_log,'(A12, 1X, A17)') 'REAL PART','IMAGINARY PART'
+        do istate=1,ctrl%nstates
+          write(u_log,'(E14.6,1X,E14.6)') real(traj%phases_s(istate)),aimag(traj%phases_s(istate))
+        enddo
+      endif
+    
+    !This is to ensure that if phases are directly read from interface, then phases accumulation is taken into account for overlap matrices 
+    ! See also if-block above  where ctrl%calc_overlap==1 and ...traj%phases_s=traj%phases_old_s ...
+    ! if (traj%phases_found .and. (ctrl%calc_overlap==1)) then
+      do istate=1,ctrl%nstates
+          traj%phases_s(istate)=traj%phases_old_s(istate)*traj%phases_s(istate)
+      enddo
+    endif ! phases_found
+    
+    ! all the various ways to update the phases are finished now, so we have the 
+    ! old and new phases and can check them and then apply them to all matrices
+
+
+    ! check if phases have all norm 1 and are not NaN
     ! all_unit_norm = .true.
     do istate=1,ctrl%nstates
-      if ( (abs(traj%phases_s(istate)) - 1.d0) > 1.d-6  ) traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+      tmp=abs(abs(traj%phases_s(istate)) - 1.d0)
+      if ( tmp > 1.d-6  ) then
+        write(u_log,'(A,1X,I4,1X,E14.6)') 'Phase was not unity',istate,tmp
+        traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+      endif
+      if (tmp /= tmp) then
+        write(u_log,'(A,1X,I4,1X,E14.6)') 'Phase was NaN',istate,tmp
+        traj%phases_s(istate) = dcmplx(1.d0,0.d0)
+      endif
     enddo
-    ! if (.not.all_unit_norm) then
-    !   write(u_log,*) 'Not all phases have unit norm. Abort.'
-    !   stop 1
-    ! endif
 
     ! Patch phases for Hamiltonian, DM matrix ,NACs, Overlap
     ! Bra
     do istate=1,ctrl%nstates
-      traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*traj%phases_s(istate)
-      traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*traj%phases_s(istate)
-      traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*traj%phases_s(istate)
-      !this if is taken off because we add QM processing subroutine
-      !if (ctrl%calc_nacdt==1) then
-        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
-      !endif
-      if (ctrl%calc_nacdr>=0) then      ! calc_nacdr=0 computes all nacs
-        traj%NACdr_ssad(istate,:,:,:)=traj%NACdr_ssad(istate,:,:,:)*real(traj%phases_s(istate))
+      traj%H_MCH_ss(istate,:)=traj%H_MCH_ss(istate,:)*CONJG(traj%phases_s(istate))
+      traj%DM_ssd(istate,:,:)=traj%DM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+      traj%DM_print_ssd(istate,:,:)=traj%DM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+      if (ctrl%laser_b) then 
+        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
+        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*CONJG(traj%phases_s(istate))
       endif
+      if (ctrl%laser_egrad) then
+        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
+        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*CONJG(traj%phases_s(istate))
+      endif  
       !this if is taken off because we add QM processing subroutine
+      if (ctrl%calc_nacdt==1) then
+        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*CONJG(traj%phases_s(istate))
+      endif
+      if (ctrl%calc_nacdr>=0) then      ! calc_nacdr=0 computes all nacs
+        traj%NACdr_ssad(istate,:,:,:)=traj%NACdr_ssad(istate,:,:,:)*CONJG(traj%phases_s(istate))
+      endif
       if (ctrl%calc_overlap==1) then
-        traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*traj%phases_old_s(istate)
+        traj%overlaps_ss(istate,:)=traj%overlaps_ss(istate,:)*CONJG(traj%phases_old_s(istate))
       endif
     enddo
-    ! Ket: TODO: need to complex conjugate all phases in the ket (or the bra?)
+    ! Ket
     do istate=1,ctrl%nstates
       traj%H_MCH_ss(:,istate)=traj%H_MCH_ss(:,istate)*traj%phases_s(istate)
       traj%DM_ssd(:,istate,:)=traj%DM_ssd(:,istate,:)*traj%phases_s(istate)
       traj%DM_print_ssd(:,istate,:)=traj%DM_print_ssd(:,istate,:)*traj%phases_s(istate)
-      !if (ctrl%calc_nacdt==1) then
-        traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
-      !endif
-      if (ctrl%calc_nacdr>=0) then
-        traj%NACdr_ssad(:,istate,:,:)=traj%NACdr_ssad(:,istate,:,:)*real(traj%phases_s(istate))
+      if (ctrl%laser_b) then 
+        traj%MDM_ssd(istate,:,:)=traj%MDM_ssd(istate,:,:)*traj%phases_s(istate)
+        traj%MDM_print_ssd(istate,:,:)=traj%MDM_print_ssd(istate,:,:)*traj%phases_s(istate)
       endif
-      !if (ctrl%calc_overlap==1) then
+      if (ctrl%laser_egrad) then
+        traj%EQM_ssdd(istate,:,:,:)=traj%EQM_ssdd(istate,:,:,:)*traj%phases_s(istate)
+        traj%EQM_print_ssdd(istate,:,:,:)=traj%EQM_print_ssdd(istate,:,:,:)*traj%phases_s(istate)
+      endif 
+      if (ctrl%calc_nacdt==1) then
+        traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
+      endif
+      if (ctrl%calc_nacdr>=0) then
+        traj%NACdr_ssad(:,istate,:,:)=traj%NACdr_ssad(:,istate,:,:)*traj%phases_s(istate)
+      endif
+      if (ctrl%calc_overlap==1) then
         traj%overlaps_ss(:,istate)=traj%overlaps_ss(:,istate)*traj%phases_s(istate)
-      !endif
+      endif
     enddo
 
     ! electronic structure phase patching finished
@@ -1626,9 +1852,23 @@ module qm
 
       traj%H_diag_ss=traj%H_MCH_ss
       if (ctrl%laser==2) then
-        do ixyz=1,3
-          traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ixyz))
-        enddo
+         if (ctrl%laser_e) then
+           do ixyz=1,3
+             traj%H_diag_ss=traj%H_diag_ss - traj%DM_ssd(:,:,ixyz)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ixyz))
+           enddo
+         endif
+         if (ctrl%laser_b) then
+           do ixyz=1,3
+             traj%H_diag_ss=traj%H_diag_ss - traj%MDM_ssd(:,:,ixyz)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,ixyz))
+           enddo
+         endif
+         if (ctrl%laser_egrad) then
+           do ixyz=1,3
+             do jxyz=1,3
+               traj%H_diag_ss=traj%H_diag_ss - traj%EQM_ssdd(:,:,ixyz,jxyz)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,ixyz,jxyz))
+             enddo
+           enddo
+         endif
       endif
       if (ctrl%surf==0) then
         ! obtain the diagonal Hamiltonian
@@ -1905,6 +2145,8 @@ module qm
         enddo
       case(2) ! coupling using overlap, NACdt is computed by NPI
         if (printlevel>3) write(u_log,*) 'Computing time derivative coupling by Norm-Perserving Interpolation'
+        ! TODO: the sin/cos method will only work correctly for effective two-state problems. 
+        ! Otherwise, we should interpolate with S(tau)=exp( (tau-t)/\Delta t  log(S))
         traj%NACdt_ss=dcmplx(0.d0,0.d0)
         if (traj%step>=1) then
           do istate=1,ctrl%nstates
@@ -2109,12 +2351,12 @@ module qm
         enddo
       endif
       call fill_phase_matrix(ctrl%nstates,scalarProd)
-      do istate=1,ctrl%nstates
-        traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
-      enddo
-      do istate=1,ctrl%nstates
-        traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
-      enddo
+      ! do istate=1,ctrl%nstates
+      !   traj%NACdt_ss(istate,:)=traj%NACdt_ss(istate,:)*traj%phases_s(istate)
+      ! enddo
+      ! do istate=1,ctrl%nstates
+      !   traj%NACdt_ss(:,istate)=traj%NACdt_ss(:,istate)*traj%phases_s(istate)
+      ! enddo
 
       if (printlevel>3)  call matwrite(ctrl%nstates,traj%NACdt_ss,u_log,'Time Derivative Coupling in MCH basis after phase consistency...','F12.9')
 
@@ -2256,7 +2498,7 @@ module qm
     implicit none
     type(trajectory_type) :: traj
     type(ctrl_type) :: ctrl
-    integer :: stat,i,j,istate,jstate,kstate,iatom,idir,ipol
+    integer :: stat,i,j,istate,jstate,kstate,iatom,idir,jdir,ipol
     integer :: imult
 
     ! TODO: these allocations can still lead to crashes, should be checked again what can be removed
@@ -2282,6 +2524,7 @@ module qm
     real*8 :: hopping_tmp(3*ctrl%natom), phopping_tmp(3*ctrl%natom)
 
     character(255) :: string
+    logical :: skip_transform
 
     ! allocate only if needed for projection
     if (allocated(traj%trans_rot_P)) then 
@@ -2298,7 +2541,7 @@ module qm
       write(u_log,*) '    basis:'
       write(u_log,*) '    Y. Shu, L. Zhang, D. Wu, X. Chen, S. Sun, D. G. Truhlar'
       write(u_log,*) '    Submitted to J. Chem. Theory Comput. 2022'
-      write(u_log,*) '[2].Compute nulcear gradient Hamiltonian matrix and NAC and effective'
+      write(u_log,*) '[2].Compute nuclear gradient Hamiltonian matrix and NAC and effective'
       write(u_log,*) '    NAC in diagonal basis'
       write(u_log,*) '[3].Compute projected NAC and effective NAC in MCH and diagonal basis'
       write(u_log,*) '    Y. Shu, L. Zhang, Z. Varga, K. A. Parker, S. Kanchanakungwankul,'
@@ -2327,9 +2570,23 @@ module qm
         U_temp=traj%U_ss
       elseif (ctrl%laser==2) then
         H_temp=traj%H_MCH_ss
-        do idir=1,3
-          H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,idir))
-        enddo
+        if (ctrl%laser_e) then
+          do idir=1,3
+            H_temp=H_temp - traj%DM_ssd(:,:,idir)*real(ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_b) then
+          do idir=1,3 
+            H_temp=H_temp - traj%MDM_ssd(:,:,idir)*real(ctrl%laserfield_b_tp(traj%step*ctrl%nsubsteps+1,idir))
+          enddo
+        endif
+        if (ctrl%laser_egrad) then
+          do idir=1,3
+            do jdir=1,3
+              H_temp=H_temp - traj%EQM_ssdd(:,:,idir,jdir)*real(ctrl%laserfield_egrad_tpd(traj%step*ctrl%nsubsteps+1,idir,jdir))
+            enddo
+          enddo 
+        endif
         call diagonalize(ctrl%nstates,H_temp,U_temp)
       endif
     elseif (ctrl%surf==1) then
@@ -2337,6 +2594,8 @@ module qm
     endif
     if (printlevel>4) call matwrite(ctrl%nstates,U_temp,u_log,'U_ss','F12.9')
 
+    ! Check if U is unit matrix
+    skip_transform = identity(U_temp, ctrl%nstates, 1d-12)
 
     ! ===============================
     ! 1. Compute time derivative Hamiltonian matrix (Kmatrix, TDH matrix)
@@ -2371,7 +2630,9 @@ module qm
     enddo
     ! transform K matrix to diagonal basis
     K1matrix_diag_ss=K1matrix_MCH_ss
-    call transform(ctrl%nstates,K1matrix_diag_ss,U_temp,'utau')
+    if (.not. skip_transform) then
+      call transform(ctrl%nstates,K1matrix_diag_ss,U_temp,'utau')
+    end if
 
     if (printlevel>4) then
       call matwrite(ctrl%nstates,K1matrix_MCH_ss,u_log,'MCH time derivative Hamiltonian matrix','F12.9')
@@ -2457,9 +2718,9 @@ module qm
             do jstate=1,ctrl%nstates
               do ipol=1,3
                 G1matrix_ss(istate,jstate)=G1matrix_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
                 G2matrix_ss(istate,jstate)=G2matrix_ss(istate,jstate)-&
-                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
               enddo
             enddo
           enddo
@@ -2473,8 +2734,10 @@ module qm
         endif
 
         ! transform G matrix to diagonal basis
-        call transform(ctrl%nstates,G1matrix_ss,U_temp,'utau')
-        call transform(ctrl%nstates,G2matrix_ss,U_temp,'utau')
+        if (.not. skip_transform) then
+          call transform(ctrl%nstates,G1matrix_ss,U_temp,'utau')
+          call transform(ctrl%nstates,G2matrix_ss,U_temp,'utau')
+        end if
 
         ! save full G matrix
         G1matrix_ssad(:,:,iatom,idir)=G1matrix_ss
@@ -2783,7 +3046,7 @@ module qm
               do jstate=1,ctrl%nstates
                 do ipol=1,3
                   Gmatrix_ss(istate,jstate)=Gmatrix_ss(istate,jstate)-&
-                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
                 enddo
               enddo
             enddo
@@ -2795,7 +3058,9 @@ module qm
           endif
 
           ! transform G matrix to diagonal basis
-          call transform(ctrl%nstates,Gmatrix_ss,U_temp,'utau')
+          if (.not. skip_transform) then
+            call transform(ctrl%nstates,Gmatrix_ss,U_temp,'utau')
+          end if
           ! save full G matrix in traj
           traj%Gmatrix_ssad(:,:,iatom,idir)=Gmatrix_ss
 
@@ -2839,12 +3104,14 @@ module qm
               do jstate=1,ctrl%nstates
                 do ipol=1,3
                   Gmatrix_ss(istate,jstate)=Gmatrix_ss(istate,jstate)-&
-                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_td(traj%step*ctrl%nsubsteps+1,ipol)
+                  &traj%DMgrad_ssdad(istate,jstate,ipol,iatom,idir)*ctrl%laserfield_e_tp(traj%step*ctrl%nsubsteps+1,ipol)
                 enddo
               enddo
             enddo
             ! transform dipole gradient matrix to diagonal basis
-            call transform(ctrl%nstates,Gmatrix_ss,U_temp,'utau')
+            if (.not. skip_transform) then
+              call transform(ctrl%nstates,Gmatrix_ss,U_temp,'utau')
+            end if
             ! add dipole gradient part to final Gmatrix
             traj%Gmatrix_ssad(:,:,iatom,idir)=traj%Gmatrix_ssad(:,:,iatom,idir)+Gmatrix_ss(:,:)
           enddo

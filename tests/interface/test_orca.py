@@ -287,7 +287,7 @@ def test_buildjobs2():
     ]
 
     for path, template, maps in tests:
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, RuntimeError)):
             build_jobs(os.path.join(PATH, path), os.path.join(PATH, template), maps)
 
 
@@ -308,9 +308,11 @@ def test_read_mos():
         test_interface.QMin.molecule["frozcore"] = sum(map(lambda x: FROZENS[x], test_interface.QMin.molecule["elements"]))
         with open(os.path.join(PATH, mos), "r", encoding="utf-8") as file:
             ref_mos = file.read()
-            assert test_interface._get_mos(os.path.join(PATH, gbw), job) == ref_mos
-            os.remove(os.path.join(PATH, gbw, "fragovlp.out"))
-            os.remove(os.path.join(PATH, gbw, "fragovlp.err"))
+            try:
+                assert test_interface._get_mos(os.path.join(PATH, gbw), job) == ref_mos
+            finally:
+                os.remove(os.path.join(PATH, gbw, "fragovlp.out"))
+                os.remove(os.path.join(PATH, gbw, "fragovlp.err"))
 
 
 def test_get_dets():
@@ -346,9 +348,11 @@ def test_ao_matrix():
     test_interface.QMin.resources["orcadir"] = expand_path("$ORCADIR")
 
     for gbw, ovl in tests:
-        ao_overl = test_interface._get_ao_matrix(os.path.join(PATH, gbw))
-        os.remove(os.path.join(PATH, gbw, "fragovlp.out"))
-        os.remove(os.path.join(PATH, gbw, "fragovlp.err"))
+        try:
+            ao_overl = test_interface._get_ao_matrix(os.path.join(PATH, gbw))
+        finally:
+            os.remove(os.path.join(PATH, gbw, "fragovlp.out"))
+            os.remove(os.path.join(PATH, gbw, "fragovlp.err"))
         with open(os.path.join(PATH, ovl), "r") as ref:
             assert ao_overl == ref.read()
 
@@ -363,9 +367,11 @@ def test_ao_matrix_overlap():
     test_interface = SHARC_ORCA()
     test_interface.QMin.resources["orcadir"] = expand_path("$ORCADIR")
     for aooverl, gbw1, gbw2 in tests:
-        ao_overl = test_interface._get_ao_matrix(os.path.join(PATH, "inputs/orca_overlap"), gbw1, gbw2, 15, True)
-        os.remove(os.path.join(PATH, "inputs/orca_overlap", "fragovlp.out"))
-        os.remove(os.path.join(PATH, "inputs/orca_overlap", "fragovlp.err"))
+        try:
+            ao_overl = test_interface._get_ao_matrix(os.path.join(PATH, "inputs/orca_overlap"), gbw1, gbw2, 15, True)
+        finally:
+            os.remove(os.path.join(PATH, "inputs/orca_overlap", "fragovlp.out"))
+            os.remove(os.path.join(PATH, "inputs/orca_overlap", "fragovlp.err"))
         with open(os.path.join(PATH, aooverl), "r") as ref:
             assert ref.read() == ao_overl
 
@@ -465,7 +471,9 @@ def test_orb_init():
         test_interface.QMin.save["step"] = step
         test_interface.QMin.save["savedir"] = os.path.join(PATH, "inputs", "copy_gbw")
         mkdir(os.path.join(PATH, "inputs", "copy_gbw", "test"))
-        test_interface._copy_gbw(test_interface.QMin, os.path.join(PATH, "inputs", "copy_gbw", "test"))
-        file = open(os.path.join(PATH, "inputs", "copy_gbw", "test", "ORCA.gbw"), "r", encoding="utf-8").read()
-        shutil.rmtree(os.path.join(PATH, "inputs", "copy_gbw", "test"))
+        try:
+            test_interface._copy_gbw(test_interface.QMin, os.path.join(PATH, "inputs", "copy_gbw", "test"))
+            file = open(os.path.join(PATH, "inputs", "copy_gbw", "test", "ORCA.gbw"), "r", encoding="utf-8").read()
+        finally:
+            shutil.rmtree(os.path.join(PATH, "inputs", "copy_gbw", "test"))
         assert file == check

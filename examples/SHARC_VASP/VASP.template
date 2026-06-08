@@ -1,0 +1,37 @@
+##### This is a commented version of the VASP.template file #####
+  
+system random_test # Name of the calculation/system. SYSTEM keyword in VASP INCAR
+
+gga PE # DFT functional. Check VASP wiki for available options
+
+ismear -2 # Smearing parameter for VASP calculations 
+          # (check VASP wiki. Default is 0 here i.e. Gaussian smearing)
+
+ispin 1 # Only ispin=1 is accepted -> only singlet multiplicity is computed basically. Triplets are not yet implemented
+
+ediff 1e-4 # EDIFF VASP keyword. Treshold for SCF loop break. energy value in eV
+
+nelm 60 # Maximum number of SCF electronic steps (default 60)
+
+sigma 1e-4 # Smearing width in eV, real number
+
+encut 520 # Energy cutoff in eV for plan waves
+
+nbands 100 # N. of KS orbitals (bands) you want to compute. If unspecified VASP will set automatically 
+
+scale_param 1 # Scaling parameter for lattice vectors in POSCAR. 
+              # It is the number which comes right before lattice vector coordinates in POSCAR
+
+a1 10.0 0.0 0.0 # 1st lattice vector. 3 real numbers for the coordinates
+
+a2 0.0 10.0 0.0 # 2ns lattice vector. 
+
+a3 0.0 0.0 10.0 # 3rd lattice vector. 
+
+overlap_method full # Selecting pawpyseed method for overlap computations. 
+                    # Either "full" for AE overlaps or "pseudo" for PS overlaps are available.
+
+phases_method simple #Selecting method for phases correction of adiabatic states.
+                   # Either "none", "simple" (Akimov J. Phys. Chem. Lett. 2018, 9, 6096−6102)
+                   # or "robust" (Subotnik et al. JCTC 2020, 16, 835−846)
+

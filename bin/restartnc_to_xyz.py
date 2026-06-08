@@ -95,38 +95,85 @@ def center_of_mass(geom, indices, masses=None):
         return np.average(coords, axis=0, weights=m)
     
 
-def build_reorder_indices(groups, geom, qm_list, masses=None, whitelist=None):
+# def build_reorder_indices(groups, geom, qm_list, masses=None, whitelist=None):
+#     """
+#     groups: dict {signature: [(res_idx, atom_indices), ...]}
+#     geom: (natom,3) numpy array of coordinates
+#     qm_list: list of atom indices (reference COM)
+#     masses: optional list/array of atomic masses
+#     Returns: numpy array of reordered atom indices (length = natom)
+#     """
+#     ref_com = center_of_mass(geom, qm_list, masses=masses)
+#     reorder = []
+
+#     for sig, residues in groups.items():
+#         resname = sig[0]  # first element of signature = residue name
+#         can_reorder = (whitelist is None) or (resname in whitelist)
+
+#         if len(residues) == 1 or not can_reorder    :
+#             # only one residue → no reordering
+#             reorder.extend(residues[0][1])
+#         else:
+#             # compute distances
+#             dists = []
+#             for res_idx, atom_indices in residues:
+#                 res_com = center_of_mass(geom, atom_indices, masses=masses)
+#                 dist = np.linalg.norm(res_com - ref_com)
+#                 dists.append((dist, atom_indices))
+#             # sort residues by distance
+#             dists.sort(key=lambda x: x[0])
+#             # append atoms in sorted order
+#             for _, atom_indices in dists:
+#                 reorder.extend(atom_indices)
+
+#     return np.array(reorder, dtype=int)
+
+def build_reorder_indices(groups, geom, qm_list, masses=None, whitelist=None, use_min_distance=False):
     """
     groups: dict {signature: [(res_idx, atom_indices), ...]}
     geom: (natom,3) numpy array of coordinates
     qm_list: list of atom indices (reference COM)
     masses: optional list/array of atomic masses
+    whitelist: list of residue names that can be reordered (default: all)
+    use_min_distance: if True, compute min distance from residue COM to any ref atom
+                      instead of distance to ref COM.
     Returns: numpy array of reordered atom indices (length = natom)
     """
-    ref_com = center_of_mass(geom, qm_list, masses=masses)
+    # precompute reference positions
+    if use_min_distance:
+        ref_coords = geom[qm_list]
+    else:
+        ref_coords = np.array([center_of_mass(geom, qm_list, masses=masses)])
+
     reorder = []
 
     for sig, residues in groups.items():
-        resname = sig[0]  # first element of signature = residue name
+        resname = sig[0]
         can_reorder = (whitelist is None) or (resname in whitelist)
 
-        if len(residues) == 1 or not can_reorder    :
-            # only one residue → no reordering
-            reorder.extend(residues[0][1])
-        else:
-            # compute distances
-            dists = []
-            for res_idx, atom_indices in residues:
-                res_com = center_of_mass(geom, atom_indices, masses=masses)
-                dist = np.linalg.norm(res_com - ref_com)
-                dists.append((dist, atom_indices))
-            # sort residues by distance
-            dists.sort(key=lambda x: x[0])
-            # append atoms in sorted order
-            for _, atom_indices in dists:
+        if len(residues) == 1 or not can_reorder:
+            for _, atom_indices in residues:
                 reorder.extend(atom_indices)
+            continue
+
+        dists = []
+        for res_idx, atom_indices in residues:
+            res_com = center_of_mass(geom, atom_indices, masses=masses)
+            if use_min_distance:
+                # compute min distance to any reference atom
+                dist = np.min(np.linalg.norm(ref_coords - res_com, axis=1))
+            else:
+                # distance to reference COM
+                dist = np.linalg.norm(ref_coords[0] - res_com)
+            dists.append((dist, atom_indices))
+
+        # sort residues by chosen distance
+        dists.sort(key=lambda x: x[0])
+        for _, atom_indices in dists:
+            reorder.extend(atom_indices)
 
     return np.array(reorder, dtype=int)
+
 
 # =========================================================
 
@@ -144,7 +191,7 @@ def expand_str_to_list(input: str) -> list[int]:
 
 # =========================================================
 
-def main(prmtop, rst_file, dt, ang, app, gv, ini, qm_list):
+def main(prmtop, rst_file, dt, ang, app, gv, ini, qm_list, mindist):
     # get number of atoms and elements
     natom = -1
     with open(prmtop, "r") as f:
@@ -192,7 +239,7 @@ def main(prmtop, rst_file, dt, ang, app, gv, ini, qm_list):
 
         # get reordering and apply to geom and veloc
         if qm_list and parmed:
-            reorder_idx = build_reorder_indices(signatures, geom, qm_list, masses=masses)
+            reorder_idx = build_reorder_indices(signatures, geom, qm_list, masses=masses, use_min_distance=mindist)
             geom = geom[reorder_idx]
             veloc = veloc[reorder_idx]
 
@@ -261,6 +308,7 @@ if __name__ == "__main__":
         dest="qm_list",
         help="Reorder coordinates of identical residues by COM distance from given list of atoms, starting from 1 (e.g. 1~3,5,8~12,20)\ndefault=\"\"",
     )
+    parser.add_option("-m", "--mindist", dest='mindist', action='store_true', help="Reorder coordinates by minimum distance from reference atoms.")
 
     (options, args) = parser.parse_args()
     if len(args) == 0:
@@ -286,8 +334,8 @@ if __name__ == "__main__":
             qm_list = expand_str_to_list(options.qm_list)
             sys.stderr.write('Reference atoms: '+str(qm_list)+'\n')
         else:
-            sys.stderr.write("No parmed library found, -r option not available")
-    main(*args, options.dt, options.ang, options.app, options.gv, options.ini, qm_list)
+            sys.stderr.write("No parmed library found, -r option not available!\n")
+    main(*args, options.dt, options.ang, options.app, options.gv, options.ini, qm_list, options.mindist)
 
 
 

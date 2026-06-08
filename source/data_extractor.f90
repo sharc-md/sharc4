@@ -1,4 +1,4 @@
-!*****************************************
+!******************************************
 !
 !    SHARC Program Suite
 !
@@ -36,6 +36,9 @@
 !> Output files:
 !> - energy.out 
 !> - fosc.out
+!> - fosc_md2.out
+!> - fosc_eq2.out
+!> - fosc_mdeq.out
 !> - fosc_act.out
 !> - coeff_diab.out
 !> - coeff_MCH.out
@@ -50,7 +53,7 @@
 !> Additionally, the output file <input.file>.ext contains build infos of the data_extractor program
 program data_extractor
   use matrix
-  use definitions, only: au2a, au2fs, au2u, au2rcm, au2eV, au2debye
+  use definitions, only: au2a, au2fs, au2u, au2rcm, au2eV, au2debye, alpha
   use qm_out
   use string
   use input_list
@@ -59,7 +62,9 @@ program data_extractor
   !> # Parameters: unit numbers for all files
   integer, parameter :: u_dat=11          !< unit for output.dat file
   integer, parameter :: u_ener=21         !< energy.out
-  integer, parameter :: u_dm=22           !< fosc.out
+  integer, parameter :: u_dm=22           !< electric dipole fosc.out
+  integer, parameter :: u_mdm=71          !< magnetic dipole fosc_md2.out
+  integer, parameter :: u_eqm=72          !< electric quadrupole fosc_eq2.out
   integer, parameter :: u_spin=23         !< spin.out
   integer, parameter :: u_coefd=24        !< coeff_diag.out
   integer, parameter :: u_coefm=25        !< coeff_MCH.out
@@ -68,12 +73,18 @@ program data_extractor
   integer, parameter :: u_coefdiab=28     !< coeff_diab.out
   integer, parameter :: u_expec_mch=29    !< expec_MCH.out
   integer, parameter :: u_fosc_act=30     !< fosc_act.out
+  integer, parameter :: u_fosc_act_mdm=80     !< fosc_act_md2.out
+  integer, parameter :: u_fosc_act_eqm=81     !< fosc_act_eq2.out
   integer, parameter :: u_ref=31          !< Reference/QM.out
   integer, parameter :: u_info=42         !< output.dat.ext
   integer, parameter :: u_ion_diag=51     !< ion_diag.out
   integer, parameter :: u_ion_mch=52      !< ion_mch.out
   integer, parameter :: u_dm_diag=53      !< dip_mom_diag.out
+  integer, parameter :: u_mdm_diag=74      !< mag. dip_mom_diag.out
+  integer, parameter :: u_eqm_diag=75      !< el. quad_mom_diag.out
   integer, parameter :: u_dm_proj=55      !< dip_mom_proj.out
+  integer, parameter :: u_mdm_proj=77      !< mag. dip_mom_proj.out
+  integer, parameter :: u_eqm_proj=78      !< el. quad_mom_proj.out
   integer, parameter :: u_proj=56         !< projections.inp
   integer, parameter :: u_dipole=57       !< dipole.out
   integer, parameter :: u_dipole_mch=58   !< dipole_MCH.out
@@ -105,12 +116,16 @@ program data_extractor
   integer :: n_property1d                !< 
   integer :: n_property2d                !< 
   integer :: laser                        !< whether a laser field is in the dat file (0=no, 1=, 2=yes)
+  logical :: laser_e = .false.            !< false=none, true=exists (Laser E-field)
+  logical :: laser_b = .false.            !< false=none, true=exists (Laser B-field)
+  logical :: laser_egrad = .false.        !< false=none, true=exists (Laser E-field gradients)
   integer :: nsteps                       !< number of timesteps from dat file (needed to read the laser field)
   integer :: nsubsteps                    !< number of substeps (needed to read the laser field)
   integer :: nprojections                    !< number of vectors to project dipole moment onto
   integer :: adaptive                     !< whether using adaptive time step
   real*8 :: time_shift                   !< if file start.time is detected in TRAJ folder, shift the time by this float
 
+  complex*16 :: sum  
   !> # Information that is needed in adaptive timestep
   real*8 :: dtstep_adapted                !< adapted nuclear timestep
   integer :: nsteps_adapted               !< adapted total steps
@@ -126,7 +141,9 @@ program data_extractor
   !> # Information which is updated per time step
   !> Most of these are equivalent to their definition in definitions.f90
   integer :: step
-  complex*16, allocatable :: H_MCH_ss(:,:),U_ss(:,:),DM_mch_ssd(:,:,:),DM_diag_ssd(:,:,:)
+  complex*16, allocatable :: H_mch_ss(:,:),U_ss(:,:),DM_mch_ssd(:,:,:),DM_diag_ssd(:,:,:)
+  complex*16, allocatable :: MDM_mch_ssd(:,:,:),MDM_diag_ssd(:,:,:)
+  complex*16, allocatable :: EQM_mch_ssdd(:,:,:,:),EQM_diag_ssdd(:,:,:,:)
   complex*16, allocatable :: Prop2d_xss(:,:,:)
   real*8, allocatable     :: Prop1d_ys(:,:)
   complex*16, allocatable :: coeff_diag_s(:),overlaps_ss(:,:), ref_ovl_ss(:,:)
@@ -139,19 +156,29 @@ program data_extractor
   complex*16, allocatable :: H_diag_ss(:,:)       !< diagonal Hamiltonian (including laser field)
   complex*16, allocatable :: A_ss(:,:)            !< temporary matrix
   complex*16, allocatable :: coeff_MCH_s(:)       !< MCH coefficient vector
-  complex*16, allocatable :: laser_td(:,:)        !< laser field for all timesteps
+  complex*16, allocatable :: laserfield_e_tp(:,:)        !< laser field for all timesteps
+  complex*16, allocatable :: laserfield_b_tp(:,:)   !< complex valued laser field (B-field)
+  complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
   complex*16, allocatable :: coeff_diab_s(:)      !< diabatic coefficient vector
   complex*16, allocatable :: den_ss(:,:)
   real*8,allocatable :: expec_pop(:)                !< spin expectation value per state
   real*8,allocatable :: expec_s(:)                !< spin expectation value per state
   real*8,allocatable :: expec_dm(:)               !< oscillator strength per state
   real*8,allocatable :: expec_dm_mch(:)           !< oscillator strength per state in MCH basis
+  real*8,allocatable :: expec_mdm(:)               !< mag. dipole oscillator strength per state
+  real*8,allocatable :: expec_mdm_mch(:)           !< mag. dipole oscillator strength per state in MCH basis
+  real*8,allocatable :: expec_eqm(:)               !< el. quadrupole oscillator strength per state
+  real*8,allocatable :: expec_eqm_mch(:)           !< el. quadrupole oscillator strength per state in MCH basis
   real*8,allocatable :: expec_ion_diag(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_ion_mch(:)           !< oscillator strength per state in MCH basis
   real*8,allocatable :: expec_dm_act(:)           !< oscillator strength per state with active state as source state
+  real*8,allocatable :: expec_mdm_act(:)           !< mag. dipole oscillator strength per state with active state as source state
+  real*8,allocatable :: expec_eqm_act(:)           !< el. quadrupole oscillator strength per state with active state as source state
   real*8,allocatable :: dipole_mch(:)               !< static dipole moment per state in MCH basis
   real*8,allocatable :: dipole_diag(:)               !< static dipole moment per state in diagonal basis
   real*8,allocatable :: dm_proj_sp(:,:)           !< dipole moment per state projected onto vector yet to be defined
+  real*8,allocatable :: mdm_proj_sp(:,:)           !< magnetic dipole moment per state projected onto vector yet to be defined
+  real*8,allocatable :: eqm_proj_sp(:,:)           !< electric quaduprole moment per state projected onto vector yet to be defined
   real*8,allocatable :: proj_vec_pd(:,:)           !< vectors to project dipole moment onto
   real*8,allocatable :: norm_proj_vec_p(:)          !< norm of vectors to project dipole moment onto
   real*8,allocatable :: proj_point(:,:)          !< norm of vectors to project dipole moment onto
@@ -168,12 +195,14 @@ program data_extractor
   character*8000, allocatable :: args(:)
   character*8000, allocatable :: values(:)
   character*21 :: string2
-  integer :: i, io, idir,istate,jstate,kstate,imult,ims,j,n,iproj, iatom
+  integer :: i, io, idir,istate,jdir,jstate,kstate,imult,ims,j,n,iproj, iatom
   logical :: exists
   logical :: is_integer
   logical :: write_energy
-  logical :: write_dip          !< transition dipole moments
-  logical :: write_dipoles      !< static dipole moments
+  logical :: write_dip		    !< transition dipole moments
+  logical :: write_dipoles          !< static dipole moments
+  logical :: write_mag_dip
+  logical :: write_el_quad
   logical :: write_spin
   logical :: write_coeffdiag
   logical :: write_coeffmch
@@ -182,8 +211,14 @@ program data_extractor
   logical :: write_expecmch
   logical :: write_coeffdiab
   logical :: write_dipact
+  logical :: write_mag_dipact
+  logical :: write_el_quadact
   logical :: write_dm_diag
   logical :: write_dm_proj
+  logical :: write_mdm_diag
+  logical :: write_mdm_proj
+  logical :: write_eqm_diag
+  logical :: write_eqm_proj
   logical :: write_iondiag
   logical :: write_ionmch
   logical :: write_geometry
@@ -218,6 +253,8 @@ program data_extractor
   write_energy    = .false.
   write_dip       = .false.
   write_dipoles   = .false.
+  write_mag_dip   = .false.
+  write_el_quad   = .false.
   write_spin      = .false.
   write_coeffdiag = .false.
   write_coeffmch  = .false.
@@ -226,7 +263,11 @@ program data_extractor
   write_expecmch  = .false.
   write_coeffdiab = .false.
   write_dipact    = .false.
+  write_mag_dipact    = .false.
+  write_el_quadact    = .false.
   write_dm_diag   = .false.
+  write_mdm_diag   = .false.
+  write_eqm_diag   = .false.
   write_dm_proj   = .false.
   write_iondiag   = .false.
   write_ionmch    = .false.
@@ -263,6 +304,10 @@ program data_extractor
       write_energy = .true.
     elseif (trim(args(i)) == "-d") then
       write_dip = .true.
+    elseif (trim(args(i)) == "-dmd") then
+      write_mag_dip = .true.
+    elseif (trim(args(i)) == "-deq") then
+      write_el_quad = .true.
     elseif (trim(args(i)) == "-sp") then
       write_spin = .true.
     elseif (trim(args(i)) == "-cd") then
@@ -278,11 +323,19 @@ program data_extractor
     elseif (trim(args(i)) == "-cb") then
       write_coeffdiab = .true.
     elseif (trim(args(i)) == "-da") then
-      write_dipact = .true.
+      write_dipact = .true.    
+    elseif (trim(args(i)) == "-daeq") then
+      write_el_quadact = .true.
+    elseif (trim(args(i)) == "-damd") then
+      write_mag_dipact = .true.
     elseif (trim(args(i)) == "-dd") then
       write_dm_diag = .true.
-    elseif (trim(args(i)) == "-dp") then
-      write_dm_proj = .true.
+    elseif (trim(args(i)) == "-ddm") then
+      write_mdm_diag = .true.
+    elseif (trim(args(i)) == "-dde") then
+      write_eqm_diag = .true.
+    ! elseif (trim(args(i)) == "-dp") then
+    !   write_dm_proj = .true.
     elseif (trim(args(i)) == "-id") then
       write_iondiag = .true.
     elseif (trim(args(i)) == "-im") then
@@ -298,6 +351,8 @@ program data_extractor
       write_energy = .true.
       write_dipoles = .true.
       write_dip = .true.
+      write_mag_dip = .true.
+      write_el_quad = .true.
       write_spin = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
@@ -306,8 +361,12 @@ program data_extractor
       write_expecmch = .true.
       write_coeffdiab = .true.
       write_dipact = .true.
+      write_mag_dipact = .true.
+      write_el_quadact = .true.
       write_dm_diag = .true.
-      write_dm_proj = .true.
+      write_mdm_diag = .true.
+      write_eqm_diag = .true.
+      ! write_dm_proj = .true.
       write_iondiag = .true.
       write_ionmch = .true.
     ! large set of flags true
@@ -315,6 +374,8 @@ program data_extractor
       write_energy = .true.
       write_dipoles = .true.
       write_dip = .true.
+      write_mag_dip = .true.
+      write_el_quad = .true.
       write_spin = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
@@ -323,6 +384,8 @@ program data_extractor
       write_expecmch = .true.
       write_coeffdiab = .true.
       write_dipact = .true.
+      write_mag_dipact = .true.
+      write_el_quadact = .true.
       write_iondiag = .true.
       write_ionmch = .true.
       skip_geom_vel_grad_nac = .true.
@@ -331,6 +394,8 @@ program data_extractor
       write_energy = .true.
       write_dipoles = .true.
       write_dip = .true.
+      write_mag_dip = .true.
+      write_el_quad = .true.
       write_spin = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
@@ -339,11 +404,15 @@ program data_extractor
       write_expecmch = .true.
       write_coeffdiab = .true.
       write_dipact = .true.
+      write_mag_dipact = .true.
+      write_el_quadact = .true.
       skip_geom_vel_grad_nac = .true.
     ! very small set of flags true
     elseif (trim(args(i)) == "-xs") then
       write_energy = .true.
       write_dip = .true.
+      write_mag_dip = .true.
+      write_el_quad = .true.
       write_coeffdiag = .true.
       write_coeffmch = .true.
       write_prob = .true.
@@ -371,6 +440,12 @@ program data_extractor
     write_expecmch  = .true.
     write_coeffdiab = .true.
     write_dipact    = .true.
+    write_mag_dip =    .false.
+    write_mag_dipact = .false.
+    write_mdm_diag   = .false.
+    write_el_quad =    .false.
+    write_el_quadact = .false.
+    write_eqm_diag   = .false.
     write_dm_diag   = .false.
     write_dm_proj   = .false.
     write_iondiag   = .false.
@@ -534,12 +609,16 @@ program data_extractor
     read(u_dat,*) natom
 
     ! allocate everything
-    allocate( H_MCH_ss(nstates,nstates), H_diag_ss(nstates,nstates) )
+    allocate( H_mch_ss(nstates,nstates), H_diag_ss(nstates,nstates) )
     allocate( U_ss(nstates,nstates) )
     allocate( Prop2d_xss(n_property2d,nstates,nstates),Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
     allocate( DM_mch_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
+    allocate ( MDM_mch_ssd(nstates,nstates,3) )
+    allocate ( MDM_diag_ssd(nstates,nstates,3) )
+    allocate ( EQM_mch_ssdd(nstates,nstates,3,3) )
+    allocate ( EQM_diag_ssdd(nstates,nstates,3,3) )
     allocate( dm_proj_sp(nstates,nprojections) )
     allocate( proj_vec_pd(nprojections,3) )
     allocate( norm_proj_vec_p(nprojections) )
@@ -548,6 +627,8 @@ program data_extractor
     allocate( hopprob_s(nstates) )
     allocate( A_ss(nstates,nstates) )
     allocate( expec_s(nstates),expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
+    allocate( expec_mdm(nstates),expec_mdm_mch(nstates),expec_mdm_act(nstates) )
+    allocate( expec_eqm(nstates),expec_eqm_mch(nstates),expec_eqm_act(nstates) )
     allocate( expec_ion_diag(nstates),expec_ion_mch(nstates),expec_pop(nstates) )
     allocate( dipole_mch(nstates), dipole_diag(nstates) )
     allocate( spin0_s(nstates) )
@@ -645,12 +726,16 @@ program data_extractor
     endif
 
     ! allocate everything
-    allocate( H_MCH_ss(nstates,nstates), H_diag_ss(nstates,nstates) )
+    allocate( H_mch_ss(nstates,nstates), H_diag_ss(nstates,nstates) )
     allocate( U_ss(nstates,nstates) )
-    allocate( Prop2d_xss(n_property2d,nstates,nstates),Prop1d_ys(n_property1d,nstates) )
+    allocate( Prop2d_xss(n_property2d,nstates,nstates), Prop1d_ys(n_property1d,nstates) )
     allocate( overlaps_ss(nstates,nstates), ref_ovl_ss(nstates,nstates) )
     allocate( DM_mch_ssd(nstates,nstates,3) )
     allocate( DM_diag_ssd(nstates,nstates,3) )
+    allocate( MDM_mch_ssd(nstates,nstates,3) )
+    allocate( MDM_diag_ssd(nstates,nstates,3) )
+    allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
+    allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
     allocate( dm_proj_sp(nstates,nprojections) )
     allocate( proj_vec_pd(nprojections,3) )
     allocate( norm_proj_vec_p(nprojections) )
@@ -729,6 +814,48 @@ program data_extractor
     else
       laser=0
     endif
+    
+    if (laser==2) then
+      ! look up laser b-field keyword
+      line=get_value_from_key('laser_b',io)
+      if (io==0) then
+        read(line,*) laser_b
+      else
+        laser_b=.false.
+      endif
+      
+      ! look up laser e-field gradient keyword
+      line=get_value_from_key('laser_egrad',io)
+      if (io==0) then
+        read(line,*) laser_egrad
+      else
+        laser_egrad=.false.! look up laser e-field gradient keyword
+      endif
+      
+      if (laser_b) then
+        write_mag_dip = .true.
+        write_mag_dipact = .true.
+      endif
+      if (laser_egrad) then
+        write_el_quad = .true.
+        write_el_quadact = .true.
+      endif
+            !for laser file without explicit definition of laser_x variables
+            ! look up laser e-field keyword
+      line=get_value_from_key('laser_e',io)
+      if (io==0) then
+        read(line,*) laser_e
+      else if (laser_b==.false. .and. laser_egrad==.false.) then
+        laser_e=.true.   
+      else
+        laser_e=.false.
+      endif
+      if (laser_e==.true.) then
+        write_dip  = .true.
+        write_dipact = .true.
+      endif
+    endif 
+        
 
     line=get_value_from_key('nsteps',io)
     if (io==0) then
@@ -781,10 +908,43 @@ program data_extractor
     ! if an explicit laser file is in the dat file, read it now
     ! laser field comes before the time step data
     if (laser==2) then
-      allocate( laser_td(nsteps*nsubsteps+1,3) )
-      call vec3read(nsteps*nsubsteps+1,laser_td,u_dat,string1)
+      if (laser_e) then
+        allocate( laserfield_e_tp(nsteps*nsubsteps+1,3) )
+        call vec3read(nsteps*nsubsteps+1,laserfield_e_tp,u_dat,string1)
+      endif
+      if (laser_b) then 
+        allocate( laserfield_b_tp(nsteps*nsubsteps+1,3) )
+        call vec3read(nsteps*nsubsteps+1,laserfield_b_tp,u_dat,string1) 
+      endif
+      if (laser_egrad) then
+        allocate( laserfield_egrad_tpd(nsteps*nsubsteps+1,3,3) )
+        do idir=1,3 
+          call vec3read(nsteps*nsubsteps+1,laserfield_egrad_tpd(:,:,idir),u_dat,string1)
+        enddo
+      endif
+      ! write(*,*) "Reading of fields"
     endif
 
+    ! if (write_dip) then
+      ! allocate( DM_mch_ssd(nstates,nstates,3) )
+      ! allocate( DM_diag_ssd(nstates,nstates,3) )
+      ! allocate( dm_proj_sp(nstates,nprojections) )
+      ! allocate( expec_dm(nstates),expec_dm_mch(nstates),expec_dm_act(nstates) )
+    ! endif
+    if (write_mag_dip) then
+      ! allocate( MDM_mch_ssd(nstates,nstates,3) )
+      ! allocate( MDM_diag_ssd(nstates,nstates,3) )
+      allocate( mdm_proj_sp(nstates,nprojections) ) 
+      allocate( expec_mdm(nstates),expec_mdm_mch(nstates),expec_mdm_act(nstates) )
+      !MDM_mch_ssd=dcmplx(0.d0,0.d0)
+    endif
+    if (write_el_quad) then
+      ! allocate( EQM_mch_ssdd(nstates,nstates,3,3) )
+      ! allocate( EQM_diag_ssdd(nstates,nstates,3,3) )
+      allocate( eqm_proj_sp(nstates,nprojections) )  
+      allocate( expec_eqm(nstates),expec_eqm_mch(nstates),expec_eqm_act(nstates) )
+      !EQM_mch_ssdd=dcmplx(0.d0,0.d0)
+    endif
     ! skip the "End of header array data" separator line
     read(u_dat,*) string1
     ! write(*,*) "END OF HEADER", string1
@@ -809,6 +969,8 @@ program data_extractor
   ! open output files
   if (write_energy)    open(unit=u_ener, file='output_data/energy.out', status='replace', action='write')           ! -e
   if (write_dip)       open(unit=u_dm, file='output_data/fosc.out', status='replace', action='write')               ! -d
+  if (write_mag_dip)   open(unit=u_mdm, file='output_data/fosc_md2.out', status='replace', action='write')               ! -dmd
+  if (write_el_quad)   open(unit=u_eqm, file='output_data/fosc_eq2.out', status='replace', action='write')               ! -deq
   if (write_spin)      open(unit=u_spin, file='output_data/spin.out', status='replace', action='write')             ! -s
   if (write_geometry)  open(unit=u_xyz, file='output.xyz', status='replace', action='write')           ! -xyz
   
@@ -831,12 +993,16 @@ program data_extractor
   if (write_expec)     open(unit=u_expec, file='output_data/expec.out', status='replace', action='write')           ! -x
   if (write_expecmch)  open(unit=u_expec_mch, file='output_data/expec_MCH.out', status='replace', action='write')   ! -xm
   if (write_dipact)    open(unit=u_fosc_act, file='output_data/fosc_act.out', status='replace', action='write')     ! -da
+  if (write_mag_dipact)    open(unit=u_fosc_act_mdm, file='output_data/fosc_act_md2.out', status='replace', action='write')     !-damd
+  if (write_el_quadact)    open(unit=u_fosc_act_eqm, file='output_data/fosc_act_eq2.out', status='replace', action='write')     !-daeq
   if (write_iondiag)   open(unit=u_ion_diag, file='output_data/ion_diag.out', status='replace', action='write')     ! -id
   if (write_ionmch)    open(unit=u_ion_mch, file='output_data/ion_mch.out', status='replace', action='write')       ! -im
   if (write_dm_diag)   open(unit=u_dm_diag, file='output_data/dip_mom_diag.out', status='replace', action='write')   ! -dd
   if (write_dm_proj)   open(unit=u_dm_proj, file='output_data/dip_mom_proj.out', status='replace', action='write')   ! -dd
-                                                                                                                    ! -a
-
+  if (write_mdm_diag)   open(unit=u_mdm_diag, file='output_data/mag_dip_mom_diag.out', status='replace', action='write')   ! -ddm
+  ! if (write_mdm_proj)   open(unit=u_mdm_proj, file='output_data/mag_dip_mom_proj.out', status='replace', action='write')   ! -dd                                                                                                                   ! -a
+  if (write_eqm_diag)   open(unit=u_eqm_diag, file='output_data/el_quad_mom_diag.out', status='replace', action='write')   ! -dde
+  ! if (write_eqm_proj)   open(unit=u_dm_proj, file='output_data/dip_mom_proj.out', status='replace', action='write')   ! -dd                                                                                                                   ! -a 
 
 
   ! write output file headers
@@ -860,6 +1026,18 @@ program data_extractor
     write(u_dipole,'(A1,1X,3(A20,1X))') '#','Time |','|DM| (state) |','=== |DM| ===>'
     write(u_dipole,'(A1,1X,3(A20,1X))') '#','[fs] |','[Debye] |','[Debye] |'
   endif
+  
+  if (write_mag_dip) then
+    write(u_mdm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_mdm,'(A1,1X,3(A20,1X))') '#','Time |','mag. dip. f_osc (state) |','=== mag. dip. f_osc ===>'
+    write(u_mdm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif
+  
+  if (write_el_quad) then
+    write(u_eqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,nstates+2)
+    write(u_eqm,'(A1,1X,3(A20,1X))') '#','Time |','el. quad. f_osc (state) |','=== el. quad. f_osc ===>'
+    write(u_eqm,'(A1,1X,3(A20,1X))') '#','[fs] |','[] |','[] |'
+  endif 
 
   if (write_dipact) then
     write(u_fosc_act,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
@@ -884,7 +1062,52 @@ program data_extractor
     enddo
     write(u_fosc_act,'(A)') trim(string1)
   endif
-  
+  if (write_mag_dipact) then
+    write(u_fosc_act_mdm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
+    do i=1,nstates
+      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdm,'(A)') trim(string1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','[fs] |'
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[eV] |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[] |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_mdm,'(A)') trim(string1)
+  endif 
+  if (write_el_quadact) then
+    write(u_fosc_act_eqm,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','Time |'
+    do i=1,nstates
+      write(string2,'(1X,A8,I10,A2)') 'dE ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A6,I12,A2)') 'f_osc ',i,' |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_eqm,'(A)') trim(string1)
+    write(string1, '(A1,1X,1(A20,1X))') '#','[fs] |'
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[eV] |'
+      string1=trim(string1)//string2
+    enddo
+    do i=1,nstates
+      write(string2,'(1X,A20)') '[] |'
+      string1=trim(string1)//string2
+    enddo
+    write(u_fosc_act_eqm,'(A)') trim(string1)
+  endif 
   if (write_iondiag) then
     write(u_ion_diag,'(A1,1X,1000(I20,1X))') '#',(i,i=1,2*nstates+2)
     write(string1, '(A1,1X,2(A20,1X))') '#','Time |','State (diag) |'
@@ -1104,11 +1327,27 @@ program data_extractor
       microtime=microtime+time_shift
       ! write(*,*) 'Applied time shift (adaptive step)'
     endif
-    call matread(nstates,H_MCH_ss,u_dat,string1)
+    call matread(nstates,H_mch_ss,u_dat,string1)
     call matread(nstates,U_ss,u_dat,string1)
     do idir=1,3
       call matread(nstates,DM_mch_ssd(:,:,idir),u_dat,string1)
     enddo
+    if (write_mag_dip) then 
+      do idir=1,3
+        call matread(nstates,MDM_mch_ssd(:,:,idir),u_dat,string1)
+      enddo
+    endif
+    if (write_el_quad) then 
+      do idir=1,3
+        do jdir=1,3
+          call matread(nstates,EQM_mch_ssdd(:,:,idir,jdir),u_dat,string1)
+        enddo
+      enddo
+    endif
+    !call matwrite(nstates, H_mch_ss,u_log,'Hrunning','F12.9')
+    !call matwrite(nstates, DM_mch_ssd,u_log,'DMrunning','F12.9')
+    !call matwrite(nstates, MDM_mch_ssd,u_log,'MDrunning','F12.9')
+    !call matwrite(nstates, EQM_mch_ssdd,u_log,'EQMrunning','F12.9')
     if (have_overlap==1) then
       call matread(nstates,overlaps_ss,u_dat,string1)
     endif
@@ -1172,15 +1411,43 @@ program data_extractor
 
 
     ! calculate Hamiltonian including laser field
-    H_diag_ss=H_MCH_ss
+    H_diag_ss=H_mch_ss
     if (laser==2) then
-      do idir=1,3
-        H_diag_ss=H_diag_ss - DM_mch_ssd(:,:,idir)*real(laser_td(step*nsubsteps+1,idir))
-      enddo
+      if (laser_e) then
+        do idir=1,3
+          H_diag_ss=H_diag_ss - DM_mch_ssd(:,:,idir)*real(laserfield_e_tp(step*nsubsteps+1,idir))
+        enddo
+      endif
+      if (laser_b) then
+        do idir=1,3
+          H_diag_ss=H_diag_ss - MDM_mch_ssd(:,:,idir)*real(laserfield_b_tp(step*nsubsteps+1,idir))
+        enddo 
+      endif 
+      if (laser_egrad) then
+        do idir=1,3
+          do jdir=1,3
+            H_diag_ss=H_diag_ss - EQM_mch_ssdd(:,:,idir,jdir)*real(laserfield_egrad_tpd(step*nsubsteps+1,idir,jdir))
+          enddo
+        enddo
+      endif
     endif
 !     call matwrite(nstates,H_diag_ss,0,'Hbefore','F12.9')
 !     call matwrite(nstates,U_ss,0,'U','F12.9')
     call transform(nstates,H_diag_ss,U_ss,'utau')
+    !call diagonalize(nstates, H_diag_ss, U_ss)
+    !call matwrite(nstates,H_diag_ss,6,'Hafter','F12.9')
+    sum = (0.0,0.)
+    do idir=1,nstates
+        do jdir=1,nstates 
+            ! write(*,*) "HDIAG", H_diag_ss(idir, jdir), idir, jdir
+            ! write(*,*) "EQM", EQM_mch_ssdd(idir, jdir, :, :)
+            ! write(*,*) "LASER", real(laserfield_egrad_tpd(step*nsubsteps+1,:,:)) 
+            if (idir /= jdir) then
+                sum = sum + H_diag_ss(idir, jdir)
+            endif
+        enddo
+    enddo 
+    ! write(*,*) "SUM_data_ext", sum
 !     call matwrite(nstates,H_diag_ss,0,'Hafter','F12.9')
 
 !     compute density matrix
@@ -1232,11 +1499,60 @@ program data_extractor
       expec_dm_act=expec_dm_act*2./3.
       do i=1,nstates
         expec_dm(i)=expec_dm(i)*real(H_diag_ss(i,i)-H_diag_ss(1,1))
-        expec_dm_mch(i)=expec_dm_mch(i)*real(H_MCH_ss(i,i)-H_MCH_ss(1,1))
+        expec_dm_mch(i)=expec_dm_mch(i)*real(H_mch_ss(i,i)-H_mch_ss(1,1))
         expec_dm_act(i)=expec_dm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
       enddo
     endif
+
+    ! calculate oscillator strengths for magnetic dipoles
+    if (write_mag_dip .or. write_mag_dipact .or. write_mdm_diag) then
+      expec_mdm=0.d0
+      expec_mdm_mch=0.d0
+      expec_mdm_act=0.d0 
+      do idir=1,3
+        A_ss=MDM_mch_ssd(:,:,idir)
+
+        expec_mdm_mch=expec_mdm_mch+real(A_ss(:,1)*A_ss(1,:))
+        call transform(nstates,A_ss,U_ss,'utau')
+        MDM_diag_ssd(:,:,idir)=A_ss
+        expec_mdm=expec_mdm+real(A_ss(:,1)*A_ss(1,:))
+        expec_mdm_act=expec_mdm_act+real(A_ss(:,state_diag)*A_ss(state_diag,:))
+      enddo 
+      expec_mdm=expec_mdm*2./3.
+      expec_mdm_mch=expec_mdm_mch*2./3.
+      expec_mdm_act=expec_mdm_act*2./3.  
+      do i=1,nstates
+        expec_mdm(i)=expec_mdm(i)*real(H_diag_ss(i,i)-H_diag_ss(1,1))
+        expec_mdm_mch(i)=expec_mdm_mch(i)*real(H_mch_ss(i,i)-H_mch_ss(1,1))
+        expec_mdm_act(i)=expec_mdm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
+      enddo 
+    endif
     
+    ! calculate oscillator strengths for electric quadrupoles
+    if (write_el_quad==.true. .or. write_el_quadact==.true. .or. write_eqm_diag==.true.) then
+      expec_eqm=0.d0
+      expec_eqm_mch=0.d0
+      expec_eqm_act=0.d0 
+      do idir=1,3
+        do jdir=1,3
+          A_ss=EQM_mch_ssdd(:,:,idir,jdir)
+          expec_eqm_mch=expec_eqm_mch+real(A_ss(:,1)*A_ss(1,:))
+          call transform(nstates,A_ss,U_ss,'utau')
+          EQM_diag_ssdd(:,:,idir,jdir)=A_ss
+          expec_eqm=expec_eqm+real(A_ss(:,1)*A_ss(1,:))
+          expec_eqm_act=expec_eqm_act+real(A_ss(:,state_diag)*A_ss(state_diag,:))  
+        enddo
+      enddo 
+      expec_eqm=expec_eqm*1./20.*alpha**2
+      expec_eqm_mch=expec_eqm_mch*1./20.*alpha**2
+      expec_eqm_act=expec_eqm_act*1./20.*alpha**2 
+      do i=1,nstates
+        expec_eqm(i)=expec_eqm(i)*real(H_diag_ss(i,i)-H_diag_ss(1,1))
+        expec_eqm_mch(i)=expec_eqm_mch(i)*real(H_mch_ss(i,i)-H_mch_ss(1,1))
+        expec_eqm_act(i)=expec_eqm_act(i)*real(H_diag_ss(i,i)-H_diag_ss(state_diag,state_diag))
+      enddo
+    endif
+
     ! compute static dipole moments for all states
     if (write_dipoles) then
       dipole_mch = 0.d0
@@ -1332,6 +1648,21 @@ program data_extractor
       &microtime, expec_dm(state_diag),&
       (expec_dm(istate),istate=1,nstates)
     endif
+    if (write_mag_dip) then
+      ! write to fosc_md2.out
+      write(u_mdm,'(2X,1000(ES20.12E3,1X))') &
+      &microtime, expec_mdm(state_diag),&
+      (expec_mdm(istate),istate=1,nstates)
+    endif 
+    if (write_el_quad) then
+      ! write to fosc_eq2.out
+      write(u_eqm,'(2X,1000(ES20.12E3,1X))') &
+      &microtime, expec_eqm(state_diag),&
+      (expec_eqm(istate),istate=1,nstates)
+    endif
+
+
+
     if (write_dipact)  then
       ! write to fosc_act.out
       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
@@ -1341,7 +1672,15 @@ program data_extractor
 !       &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
 !       (expec_dm_act(istate),istate=1,nstates)
     endif
-
+    if (write_mag_dipact)  then
+      ! write to fosc_act.out
+      write(u_fosc_act_mdm,'(2X,1000(ES20.12E3,1X))') &
+      &microtime,(abs(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag)))*au2eV,istate=1,nstates),&
+      (expec_mdm_act(istate),istate=1,nstates)
+!       write(u_fosc_act,'(2X,1000(ES20.12E3,1X))') &
+!       &step*dtstep,(real(H_diag_ss(istate,istate)-H_diag_ss(state_diag,state_diag))*au2eV,istate=1,nstates),&
+!       (expec_dm_act(istate),istate=1,nstates)
+    endif
     if (write_dipoles) then
       write(u_dipole_mch,'(2X,1000(ES20.12E3,1X))') &
       &microtime, dipole_diag(state_diag),&
@@ -1350,7 +1689,6 @@ program data_extractor
       &microtime, dipole_diag(state_diag),&
       (dipole_diag(istate),istate=1,nstates)
     endif 
-
 
 
     if (write_iondiag) then
@@ -1503,7 +1841,7 @@ program data_extractor
     if (write_expecmch) then
       write(u_expec_mch,'(2X,1000(ES20.12E3,1X))') &
       &microtime, Ekin*au2eV, Epot*au2eV, (Epot+Ekin)*au2eV,&
-      &(real(H_MCH_ss(istate,istate)*au2eV),istate=1,nstates),&
+      &(real(H_mch_ss(istate,istate)*au2eV),istate=1,nstates),&
       &(spin0_s(istate),istate=1,nstates),&
       &(expec_dm_mch(istate),istate=1,nstates)
     endif
@@ -1515,7 +1853,26 @@ program data_extractor
       call matwrite(nstates, DM_diag_ssd(:,:,2), u_dm_diag, '! 1 Dipole moments Y (diag) in a.u.', 'F12.8')
       call matwrite(nstates, DM_diag_ssd(:,:,3), u_dm_diag, '! 1 Dipole moments Z (diag) in a.u.', 'F12.8')
     endif
-    
+    if (write_mdm_diag) then
+      write(u_mdm_diag,'(A)') '! 0 Step'
+      write(u_mdm_diag,'(I12)') step
+      call matwrite(nstates, DM_diag_ssd(:,:,1), u_mdm_diag, '! 2 Magnetic dipole moments X (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, DM_diag_ssd(:,:,2), u_mdm_diag, '! 2 Magnetic dipole moments Y (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, DM_diag_ssd(:,:,3), u_mdm_diag, '! 2 Magnetic dipole moments Z (diag) in a.u.', 'F12.8')
+    endif
+    if (write_eqm_diag) then
+      write(u_eqm_diag,'(A)') '! 0 Step'
+      write(u_eqm_diag,'(I12)') step
+      call matwrite(nstates, EQM_diag_ssdd(:,:,1,1), u_eqm_diag, '! 3 Electric quadrupole moments XX (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, EQM_diag_ssdd(:,:,1,2), u_eqm_diag, '! 3 Electric quadrupole moments XY (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, EQM_diag_ssdd(:,:,1,3), u_eqm_diag, '! 3 Electric quadrupole moments XZ (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, EQM_diag_ssdd(:,:,2,1), u_eqm_diag, '! 3 Electric quadrupole moments YX (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, EQM_diag_ssdd(:,:,2,2), u_eqm_diag, '! 3 Electric quadrupole moments YY (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, EQM_diag_ssdd(:,:,2,3), u_eqm_diag, '! 3 Electric quadrupole moments YZ (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, EQM_diag_ssdd(:,:,3,1), u_eqm_diag, '! 3 Electric quadrupole moments ZX (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, EQM_diag_ssdd(:,:,3,2), u_eqm_diag, '! 3 Electric quadrupole moments ZY (diag) in a.u.', 'F12.8')
+      call matwrite(nstates, EQM_diag_ssdd(:,:,3,3), u_eqm_diag, '! 3 Electric quadrupole moments ZZ (diag) in a.u.', 'F12.8') 
+    endif    
     if (write_dm_proj) then
       write(u_dm_proj,'(A,I12)') '# ',step
       do i=1,nstates
@@ -1535,9 +1892,13 @@ program data_extractor
   write(*,*)
 
   ! close output files
-  if (write_energy)    close(u_ener)      ! -e
-  if (write_dip)       close(u_dm)        ! -d
-  if (write_spin)      close(u_spin)      ! -s
+  if (write_energy)             close(u_ener)      ! -e
+  
+  !flush(0)
+  if (write_dip)                close(u_dm)        ! -d
+  if (write_mag_dip)            close(u_mdm)       ! -dmd
+  if (write_el_quad)            close(u_eqm)       ! -deq
+  if (write_spin)               close(u_spin)      ! -s
  
   if (write_coeffdiag) close(u_coefd)     ! -cd
   if (write_coeffmch)  close(u_coefm)     ! -cm 
@@ -1555,9 +1916,13 @@ program data_extractor
   if (write_expec)     close(u_expec)     ! -x
   if (write_expecmch)  close(u_expec_mch) ! -xm
   if (write_dipact)    close(u_fosc_act)  ! -da
+  if (write_mag_dipact)    close(u_fosc_act_mdm)  ! -damd
+  if (write_el_quadact)    close(u_fosc_act_eqm)  ! -daeq
   if (write_iondiag)   close(u_ion_diag)  ! -id
   if (write_ionmch)    close(u_ion_mch)   ! -im 
   if (write_dm_diag)   close(u_dm_diag)   ! -dd
+  if (write_mdm_diag)   close(u_mdm_diag) ! -ddm
+  if (write_eqm_diag)   close(u_eqm_diag) ! -dde
   if (write_dm_proj)   close(u_dm_proj)   ! -dd 
   if (write_geometry)   close(u_xyz)      ! -xyz
 
@@ -1645,6 +2010,71 @@ program data_extractor
       deallocate(tmp_out_matrix)
     endif
 
+    !if (write_mag_dip) then
+    !  ! nstates, expected_mdm, time
+    !  total_columns=nstates+2
+    !  allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+    !  allocate(tmp_out_matrix(nsteps+1,total_columns))
+    !  open(unit=u_mdm, file='output_data/fosc_md2.out', status='old', action='read')
+    !    read(u_mdm,'(A)') header1
+    !    read(u_mdm,'(A)') header2
+    !    read(u_mdm,'(A)') header3
+    !    do i=1,nsteps_adapted+1
+    !      read(u_mdm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+    !    enddo
+    !  close(u_mdm)
+    !  filename1='output_data/fosc_md2.out'
+    !  filename2='output_data/fosc_md2.original.out'
+    !  call system("mv "//trim(filename1)//" "//trim(filename2))
+    !  timeline_adapted(:)=tmp_in_matrix(:,1)
+    !  do istate=2,total_columns ! starts with column 2 because first column is time.
+    !    call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+    !  enddo
+    !  tmp_out_matrix(:,1)=timeline(:)
+    !  open(unit=u_mdm, file='output_data/fosc_md2.out', status='replace', action='write')
+    !    write(u_mdm,'(A)') trim(header1)
+    !    write(u_mdm,'(A)') trim(header2)
+    !    write(u_mdm,'(A)') trim(header3)
+    !    do i=1,nsteps+1
+    !      write(u_mdm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+    !    enddo
+    !  close(u_mdm)
+    !  deallocate(tmp_in_matrix)
+    !  deallocate(tmp_out_matrix)
+    !endif
+ 
+    !if (write_el_quad) then
+    !  ! nstates, expected_eqm, time
+    !  total_columns=nstates+2
+    !  allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+    !  allocate(tmp_out_matrix(nsteps+1,total_columns))
+    !  open(unit=u_eqm, file='output_data/fosc_eq2.out', status='old', action='read')
+    !    read(u_eqm,'(A)') header1
+    !    read(u_eqm,'(A)') header2
+    !    read(u_eqm,'(A)') header3
+    !    do i=1,nsteps_adapted+1
+    !      read(u_eqm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+    !    enddo
+    !  close(u_eqm)
+    !  filename1='output_data/fosc_eq2.out'
+    !  filename2='output_data/fosc_eq2.original.out'
+    !  call system("mv "//trim(filename1)//" "//trim(filename2))
+    !  timeline_adapted(:)=tmp_in_matrix(:,1)
+    !  do istate=2,total_columns ! starts with column 2 because first column is time.
+    !    call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+    !  enddo
+    !  tmp_out_matrix(:,1)=timeline(:)
+    !  open(unit=u_eqm, file='output_data/fosc_eq2.out', status='replace', action='write')
+    !    write(u_eqm,'(A)') trim(header1)
+    !    write(u_eqm,'(A)') trim(header2)
+    !    write(u_eqm,'(A)') trim(header3)
+    !    do i=1,nsteps+1
+    !      write(u_eqm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+    !    enddo
+    !  close(u_eqm)
+    !  deallocate(tmp_in_matrix)
+    !  deallocate(tmp_out_matrix)
+    !endif 
 
     if (write_dipact)  then
       ! nstates, nstates, time
@@ -1677,8 +2107,73 @@ program data_extractor
       close(u_fosc_act)
       deallocate(tmp_in_matrix)
       deallocate(tmp_out_matrix)
+    endif   
+
+    if (write_mag_dipact)  then
+      ! nstates, nstates, time
+      total_columns=2*nstates+1
+      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+      allocate(tmp_out_matrix(nsteps+1,total_columns))
+      open(unit=u_fosc_act_mdm, file='output_data/fosc_act_md2.out', status='old', action='read')
+        read(u_fosc_act_mdm,'(A)') header1
+        read(u_fosc_act_mdm,'(A)') header2
+        read(u_fosc_act_mdm,'(A)') header3
+        do i=1,nsteps_adapted+1
+          read(u_fosc_act_mdm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act_mdm)
+      filename1='output_data/fosc_act_md2.out'
+      filename2='output_data/fosc_act_md2.original.out'
+      call system("mv "//trim(filename1)//" "//trim(filename2))
+      timeline_adapted(:)=tmp_in_matrix(:,1)
+      do istate=2,total_columns ! starts with column 2 because first column is time.
+        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+      enddo
+      tmp_out_matrix(:,1)=timeline(:)
+      open(unit=u_fosc_act_mdm, file='output_data/fosc_act_md2.out', status='replace', action='write')
+        write(u_fosc_act_mdm,'(A)') trim(header1)
+        write(u_fosc_act_mdm,'(A)') trim(header2)
+        write(u_fosc_act_mdm,'(A)') trim(header3)
+        do i=1,nsteps+1
+          write(u_fosc_act_mdm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act_mdm)
+      deallocate(tmp_in_matrix)
+      deallocate(tmp_out_matrix)
     endif
 
+    if (write_el_quadact)  then
+      ! nstates, nstates, time
+      total_columns=2*nstates+1
+      allocate(tmp_in_matrix(nsteps_adapted+1,total_columns))
+      allocate(tmp_out_matrix(nsteps+1,total_columns))
+      open(unit=u_fosc_act_eqm, file='output_data/fosc_act_eq2.out', status='old', action='read')
+        read(u_fosc_act_eqm,'(A)') header1
+        read(u_fosc_act_eqm,'(A)') header2
+        read(u_fosc_act_eqm,'(A)') header3
+        do i=1,nsteps_adapted+1
+          read(u_fosc_act_eqm,*) (tmp_in_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act_eqm)
+      filename1='output_data/fosc_act_eq2.out'
+      filename2='output_data/fosc_act_eq2.original.out'
+      call system("mv "//trim(filename1)//" "//trim(filename2))
+      timeline_adapted(:)=tmp_in_matrix(:,1)
+      do istate=2,total_columns ! starts with column 2 because first column is time.
+        call linear_interp(nsteps_adapted+1, nsteps+1, timeline_adapted, tmp_in_matrix(:,istate), timeline, tmp_out_matrix(:,istate))
+      enddo
+      tmp_out_matrix(:,1)=timeline(:)
+      open(unit=u_fosc_act_eqm, file='output_data/fosc_act_eq2.out', status='replace', action='write')
+        write(u_fosc_act_eqm,'(A)') trim(header1)
+        write(u_fosc_act_eqm,'(A)') trim(header2)
+        write(u_fosc_act_eqm,'(A)') trim(header3)
+        do i=1,nsteps+1
+          write(u_fosc_act_eqm,'(2X,1000(ES20.12E3,1X))') (tmp_out_matrix(i,istate),istate=1,total_columns)
+        enddo
+      close(u_fosc_act_eqm)
+      deallocate(tmp_in_matrix)
+      deallocate(tmp_out_matrix)
+    endif
 
     if (write_iondiag) then
       ! nstates, nstates, state_diag, time
@@ -2257,8 +2752,10 @@ program data_extractor
     write(u,*) '       -s  : small = write all output files except ionization data, diagonal dipole/projection'
     write(u,*) '       -xs : extrasmall = energy (-e), coeffdiag (-cd), coeffmch (-cm), prob (-p), expec (-x), dip (-d), skip (-sk)'
     write(u,*) '       -e  : write energy file              (output_data/energy.out)'
-    write(u,*) '       -d  : write dipole file              (output_data/fosc.out)'
-    write(u,*) '       -dm : write static dipole moments    (output_data/dipoles_MCH.out'
+    write(u,*) '       -d       : write dipole file              (output_data/fosc.out)'
+    write(u,*) '       -dmd     : write magnetic dipole file              (output_data/fosc_md2.out)'
+    write(u,*) '       -deq     : write electric quadrupole file              (output_data/fosc_eq2.out)'
+   write(u,*) '       -dm : write static dipole moments    (output_data/dipoles_MCH.out'
     write(u,*) '                                             output_data/dipoles_diag.out),'
     write(u,*) '       -sp : write spin expec file          (output_data/spin.out)'
     write(u,*) '       -cd : write diag coefficient file    (output_data/coeff_diag.out,'
@@ -2274,6 +2771,9 @@ program data_extractor
     write(u,*) '       -x  : write expec (E,S^2,mu) file    (output_data/expec.out)'
     write(u,*) '       -xm : write MCH expec file           (output_data/expec_MCH.out)'
     write(u,*) '       -da : write dip of active state file (output_data/fosc_act.out)'
+    write(u,*) '       -damd : write mag. dip of active state file (output_data/fosc_act_md2.out)'
+    write(u,*) '       -daeq : write el. quad of active state file (output_data/fosc_act_eq2.out)'
+    write(u,*) '       -damdeq : write mag. dip - el. quad of active state file (output_data/fosc_act_mdeq.out)'
     write(u,*) '       -dd : write dip in diag. represent.  (output_data/dip_mom_diag.out)'
 !     write(u,*) '       -dp : write projection of dip diag   (output_data/dip_mom_proj.out)'
     write(u,*) '       -id : write diag ion file            (output_data/ion_diag.out)'

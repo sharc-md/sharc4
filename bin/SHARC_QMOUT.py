@@ -52,6 +52,7 @@ all_features = set(
         "h",
         "soc",
         "dm",
+        "mdeqm",
         "grad",
         "nacdr",
         "overlap",
@@ -172,16 +173,37 @@ class SHARC_QMOUT(SHARC_FAST):
             requests,
         )
         if self.QMin.requests["h"] or self.QMin.requests["soc"]:
-            self.QMout["h"] = self.QMout2["h"]
+            if self.QMout2["h"] is not None:
+                self.QMout["h"] = self.QMout2["h"]
+            else:
+                self.log.error("No h in QM.out file!")
+                raise RuntimeError()
 
         if self.QMin.requests["dm"]:
-            self.QMout["dm"] = self.QMout2["dm"]
+            if self.QMout2["dm"] is not None:
+                self.QMout["dm"] = self.QMout2["dm"]
+            else:
+                self.log.error("No dm in QM.out file!")
+                raise RuntimeError()
 
         if self.QMin.requests["overlap"]:
             np.fill_diagonal(self.QMout["overlap"], 1.0)
 
         if self.QMin.requests["phases"]:
             self.QMout["phases"] = [complex(1.0, 0.0) for i in range(self.QMout.nmstates)]
+
+        if self.QMin.requests["mdeqm"]:
+            if self.QMout2["mdm"] is not None:
+                self.QMout["mdm"] = self.QMout2["mdm"]
+            else:
+                self.log.error("No mdm in QM.out file!")
+                raise RuntimeError()
+            
+            if self.QMout2["eqm"] is not None:
+                self.QMout["eqm"] = self.QMout2["eqm"]
+            else:
+                self.log.error("No eqm in QM.out file!")
+                raise RuntimeError()
 
         # if self.QMin.requests["ion"]:
         # self.QMout["prop2d"] = self.QMout2["prop2d"]

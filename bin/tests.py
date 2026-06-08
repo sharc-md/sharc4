@@ -62,6 +62,7 @@ def package_check():
         "threadpoolctl": "SHARC_ECI.py and ab initio interfaces will not work.",
         "opt_einsum": "SHARC_ECI.py will not work.",
         "parmed": "setup_from_prmtop.py will not work.",
+        "pawpyseed" : "SHARC_VASP.py will not work.",
         "tequila": "SHARC_TEQUILA.py will not work."
     }
 
@@ -98,6 +99,8 @@ versiondate = datetime.date(2025, 4, 1)
 
 OTHERENVS = set(['THEODORE', 'orca', 'molcas'])
 
+REQUIREDENVS = {"VASP": ("VASPHDF5",)}
+
 INTERFACES = {'MOLPRO': 'MOLPRO',
               'MOLCAS': 'MOLCAS',
               'COLUMBUS': 'COLUMBUS',
@@ -113,6 +116,7 @@ INTERFACES = {'MOLPRO': 'MOLPRO',
               'MNDO': 'MNDO',
               'MOPACPI': 'MOPACPI',
               'PYSCF': 'PYSCF',
+              'VASP': 'CPA',
               "TEQUILA": "TEQUILA"
               }
 
@@ -313,6 +317,8 @@ def get_infos():
     for index, i in enumerate(testlist):
         if 'scripts' in i:
             sys.stdout.write('%5i  ' % (index + 1) + i[0] + ' ' * (35 - len(i[0])) + '\n')
+        elif 'VASP' in i:
+            sys.stdout.write('%5i  ' % (index + 1) + i[0] + ' ' * (35 - len(i[0])) + 'via SHARC_%s.py (calling SHARC_VASP.py)\n' % (INTERFACES[i[1]]))
         else:
             sys.stdout.write('%5i  ' % (index + 1) + i[0] + ' ' * (35 - len(i[0])) + 'via SHARC_%s.py\n' % (INTERFACES[i[1]]))
     sys.stdout.write('\n')
@@ -327,6 +333,10 @@ def get_infos():
         for i in OTHERENVS:
             if i in testlist[j - 1][0]:
                 INFOS['otherenvs'].add(i)
+    for j in jobs:
+        for i in REQUIREDENVS:
+            if i in testlist[j - 1][0]:
+                INFOS['otherenvs'].update(REQUIREDENVS[i])
 
     # collect environment variables
     string = '\n  ' + '=' * 80 + '\n'

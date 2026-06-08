@@ -65,6 +65,15 @@
 !>                   modified 2024 by Severin Polonius
 !>                         added keywords for no_write_restart and split netCDF files
 !>
+!>                   modified 2025 by Marco Romanelli
+!>                         added ctrl%boltzmann_hop and ctrl%boltzmann_temperature for scaling
+!>                         upwards hops probability. CPA approximation for excited-state dynamics.
+!>                         added Boltzmann constant as well as parameter
+!>
+!>                   modified 28/07/2025 by Marco Romanelli
+!>                         definition of traj%phases_s has been extended to pointer if PYSHARC is enabled.
+!>                         pysharc can now correctly pass phases from QMOut to Fortran driver.
+!>
 !> This module defines the trajectory and control types.
 !>
 !> All arrays defined here have their order and meaning of the
@@ -165,10 +174,11 @@ module definitions
     real*8,allocatable :: mass_a(:)                        !< atomic mass in a.u. (1 a.u. = rest mass of electron m_e)
 #ifdef __PYSHARC__
     real*8,pointer :: geom_ad(:,:)                         !< Cartesian coordinates of atom in a.u. (bohr)
+    real*8,pointer :: veloc_ad(:,:)                    !< Cartesian velocity in a.u. (bohr/atu)
 #else
     real*8,allocatable :: geom_ad(:,:)                     !< Cartesian coordinates of atom in a.u. (bohr)
-#endif
     real*8,allocatable :: veloc_ad(:,:)                    !< Cartesian velocity in a.u. (bohr/atu)
+#endif
     real*8,allocatable :: veloc_old_ad(:,:)                !< Cartesian velocity in a.u. (bohr/atu) of last timestep
     real*8,allocatable :: veloc_app_ad(:,:)                !< Forward verlet approximated Cartesian velocity in a.u. (bohr/atu)
   
@@ -200,18 +210,36 @@ module definitions
     complex*16, pointer :: overlaps_ss(:,:)                !< overlaps for LD propagation
     complex*16, pointer :: DM_ssd(:,:,:)                   !< (transition) dipole moment matrix
                                                            !< transition dipoles between active and inactive states are zero.
+    complex*16, pointer :: MDM_ssd(:,:,:)                  !< (transition) magnetic dipole moment matrix
+                                                           !< transition magnetic transition dipoles between active and inactive states are zero.
+    complex*16, pointer :: EQM_ssdd(:,:,:,:)               !< (transition) electric quadrupole moment matrix
+                                                           !< transition electric quadrupoles between active and inactive states are zero.
 #else
     complex*16, allocatable :: overlaps_ss(:,:)            !< overlaps for LD propagation
     complex*16, allocatable :: DM_ssd(:,:,:)               !< (transition) dipole moment matrix
                                                            !< transition dipoles between active and inactive states are zero.
+    complex*16, allocatable :: MDM_ssd(:,:,:)               !< (transition) magnetic dipole moment matrix
+                                                           !< transition  magnetic dipoles between active and inactive states are zero.
+    complex*16, allocatable :: EQM_ssdd(:,:,:,:)           !< (transition) electric quadrupole moment matrix
+                                                           !< transition electric quadrupole between active and inactive states are zero.
 #endif
     complex*16,allocatable :: DM_old_ssd(:,:,:)            !< old dipole moment matrix
     complex*16,allocatable :: DM_print_ssd(:,:,:)          !< dipole moment matrix used for the output routines
                                                            !< transition dipoles between active and inactive states are not zero.
+    complex*16,allocatable :: MDM_old_ssd(:,:,:)           !< old magnetic dipole moment matrix
+    complex*16,allocatable :: MDM_print_ssd(:,:,:)         !< magnetic dipole moment matrix used for the output routines
+                                                           !< transition magnetic dipoles between active and inactive states are not zero.
+    complex*16,allocatable :: EQM_old_ssdd(:,:,:,:)           !< old electric quadrupole moment matrix
+    complex*16,allocatable :: EQM_print_ssdd(:,:,:,:)         !< electric quadrupole moment matrix used for the output routines
+                                                           !< transition electric quadruples between active and inactive states are not zero.
     complex*16,allocatable :: Rtotal_ss(:,:)               !< total propagator for the current timestep
     complex*16,allocatable :: RDtotal_ss(:,:)              !< total propagator with decay of mixing for the current timestep
     complex*16,allocatable :: Dtotal_ss(:,:)               !< total decoherent propagator for the current timestep
+#ifdef __PYSHARC__
+    complex*16, pointer :: phases_s(:)                  !< electronic state phases of the current step
+#else
     complex*16,allocatable :: phases_s(:)                  !< electronic state phases of the current step
+#endif
     complex*16,allocatable :: phases_old_s(:)              !< electronic state phases of the last step
     real*8, allocatable :: hopprob_s(:)                    !< hopping probabilities
     real*8, allocatable :: switchprob_s(:)                 !< switching probabilities
@@ -411,6 +439,10 @@ module definitions
     integer :: staterep                       !< 0=initial state is given in diag representation, 1=in MCH representation
     integer :: initcoeff                      !< 0=initial coefficients are diag, 1=initial coefficients are MCH, 2=auto diag, 3=auto MCH
     integer :: laser                          !< 0=none, 1=internal, 2=external
+    logical :: laser_e = .false.                  !< false=none, true=exists (Laser E-field)
+    logical :: laser_b = .false.                  !< false=none, true=exists/ (Laser B-field)
+    logical :: laser_egrad = .false.              !< false=none, true=exists (Laser E-field gradients)
+    character*1023 :: laser_freq_path = "None"     !< Laser frequency file path - default is "None"
     integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
     integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation
     integer :: kmatrix_method                 !< 0=gradient based approximation, 1=energy based approximation
@@ -435,11 +467,12 @@ module definitions
     integer :: zpe_correction                 !< method to control ZPE correction in nonadiabatic dynamics, 0=no correction, 1=pumping, 2=lp
     integer :: pointer_basis                  !< compute pointer basis, 0=adiabatic/diagonal basis, 1=mch basis, 2=optimized pointer basis
     integer :: pointer_maxiter                !< maximum iterations allowed in pointer state optimization
+    integer :: phase_correction_algo          !< 0=Akimov (default), 1=Zhou real
     
     integer :: thermostat                     !< 0=none, 1=Langevin thermostat
     logical :: restart_thermostat_random      !< F=no, T=yes (default) to use same random number sequence if restarted
   logical :: remove_trans_rot               !< whether to remove the total translational and rotational components during thermostatting
-  integer :: restrictive_potential          !< 0=none, 1=restricted droplet, 2=tethering of an atom, 3=restricted atom + tethering
+  ! integer :: restrictive_potential          !< 0=none, 1=restricted droplet, 2=tethering of an atom, 3=restricted atom + tethering
   
   ! lp-zpe
     integer :: lpzpe_scheme                   !< correction_scheme=0 skip correction if BC bonds do not have enough kinetic energy; 1=forced correction by moving all kinetic energies of BC bonds to AH bonds
@@ -480,6 +513,9 @@ module definitions
     integer :: track_phase                    !< 0=no, 1=track phase of U matrix through the propagation (turn off only for debugging purposes)
     integer :: track_phase_at_zero            !< 0=nothing, 1=at time zero, get phases from whatever is in the savedir
     integer :: hopping_procedure              !< 0=no hops, 1=hops (standard formula), 2=GFSH
+    logical :: boltzmann_hop                  !< if .true. it activates boltzmann scaling for upwards hops -> CPA approximation
+    real*8  :: boltzmann_temperature          !< temperature value for Boltzmann scaling of hops probability. default will be 300K
+    real*8  :: boltzmann_damping              !< To furher damp upwards hops. This is for testing the effect of different supercell sizes approximately 
     integer :: switching_procedure            !< 0=no switches, 1=CSDM, 2=SCDM, 3=NDM
     integer :: army_ants                      !< 0=no army ants,i.e. anteater algorithm, 1=army ants algorithm
     integer :: output_format                  !< 0 ASCII, 1 NetCDF
@@ -499,7 +535,9 @@ module definitions
     ! laser
     real*8 :: laser_bandwidth                       !< for detecting induced hops (in a.u.)
     integer :: nlasers
-    complex*16, allocatable :: laserfield_td(:,:)   !< complex valued laser field
+    complex*16, allocatable :: laserfield_e_tp(:,:)   !< complex valued laser field (E-field)
+    complex*16, allocatable :: laserfield_b_tp(:,:)   !< complex valued laser field (B-field)
+    complex*16, allocatable :: laserfield_egrad_tpd(:,:,:)   !< complex valued laser field gradient ( E-field)
     complex*16, allocatable :: laserenergy_tl(:,:)  !< momentary central energy of laser (for detecting induced hops)
   
     ! thermostat
@@ -509,13 +547,13 @@ module definitions
   real*8,allocatable :: thermostat_const(:,:) !< constants needed for thermostat. Langevin: friction coeffitient
   real*8,allocatable :: rotation_tot(:,:)     !< unit vectors for rotation of whole system (used to prevent such a rotation)
 
-  ! restrictive potentials
-  real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
-  real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
-  real*8 :: tethering_force                 !< force constant for tethering of atom
-  real*8 :: tethering_radius                !< radius of beyond which tethering potential is not zero
-  logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
-  integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
+  ! ! restrictive potentials
+  ! real*8 :: restricted_droplet_force        !< force constant for restricted droplet potential
+  ! real*8 :: restricted_droplet_radius       !< radius of primary water sphere for restricted droplet potential
+  ! real*8 :: tethering_force                 !< force constant for tethering of atom
+  ! real*8 :: tethering_radius                !< radius of beyond which tethering potential is not zero
+  ! logical,allocatable :: sel_restricted_droplet(:)       !< selection mask for restricted droplet
+  ! integer,allocatable :: tether_at(:)                    !< selection of indices for tethering of center of mass of these atoms
   
   endtype
   
@@ -549,6 +587,7 @@ module definitions
   complex*16,parameter:: ii=dcmplx(0.d0,1.d0)       !< imaginary unit
   real*8,parameter:: pi=4.d0*datan(1.d0)            !< pi
   real*8,parameter:: alpha=7.2973525693d-3          !< fine-structure constant
+  real*8,parameter:: boltzmann_k=3.1668115634564263e-06   !< boltzmann constant in Hartree * K^-1
   
   logical :: debug
   integer :: allocatestatus
@@ -576,7 +615,7 @@ module definitions
   integer, parameter :: u_i_frozen=19          !< which atoms are active for verlocity verlet (i.e. not frozen)
   integer, parameter :: u_i_thermostat=20      !< thermostat settings (number of regions, temperatures, constants, regions)
   integer, parameter :: u_i_droplet=21         !< which atoms are part of the restrictive droplet (i.e. feel the corresponding potential)
-  
+  integer, parameter :: u_i_laser_freq=51      !< numerical laser field freq
   integer, parameter :: u_qm_QMin=41           !< here SHARC writes information for the QM interface (like geometry, number of states, what kind of data is requested)
   integer, parameter :: u_qm_QMout=42          !< here SHARC retrieves the results of the QM run (Hamiltonian, gradients, couplings, etc.)
   
@@ -728,6 +767,30 @@ module definitions
         allocate(traj%DM_print_ssd(nstates,nstates,3),stat=status)
         if (status/=0) stop 'Could not allocate DM_print_ssd'
         traj%DM_print_ssd=-123.d0
+        
+        allocate(traj%MDM_ssd(nstates,nstates,3),stat=status)
+        if (status/=0) stop 'Could not allocate MDM_ssd'
+        traj%MDM_ssd=-123.d0
+  
+        allocate(traj%MDM_old_ssd(nstates,nstates,3),stat=status)
+        if (status/=0) stop 'Could not allocate MDM_old_ssd'
+        traj%MDM_old_ssd=-123.d0
+  
+        allocate(traj%MDM_print_ssd(nstates,nstates,3),stat=status)
+        if (status/=0) stop 'Could not allocate MDM_print_ssd'
+        traj%MDM_print_ssd=-123.d0
+        
+        allocate(traj%EQM_ssdd(nstates,nstates,3,3),stat=status)
+        if (status/=0) stop 'Could not allocate EQM_ssdd'
+        traj%EQM_ssdd=-123.d0
+  
+        allocate(traj%EQM_old_ssdd(nstates,nstates,3,3),stat=status)
+        if (status/=0) stop 'Could not allocate EQM_old_ssdd'
+        traj%EQM_old_ssdd=-123.d0
+  
+        allocate(traj%EQM_print_ssdd(nstates,nstates,3,3),stat=status)
+        if (status/=0) stop 'Could not allocate EQM_print_ssdd'
+        traj%EQM_print_ssdd=-123.d0
   
         allocate(traj%Rtotal_ss(nstates,nstates),stat=status)
         if (status/=0) stop 'Could not allocate Rtotal_ss'
@@ -1049,7 +1112,11 @@ module definitions
         ! in TSH, if one is using projected NAC, the vector is given in
         ! traj%hopping_direction_ssad and traj%frustrated_hop_vec_ssad
         allocate_pNACdR_GB_ssad=0
-        if (ctrl%method==1 .and. ctrl%nac_projection==1) then
+        if ((ctrl%method==1 .and. ctrl%nac_projection==1) .or. &
+          &(ctrl%method==0 .and. (ctrl%ekincorrect==2 .or. ctrl%ekincorrect==5 .or. ctrl%ekincorrect==6 .or. ctrl%ekincorrect==8)) .or. &
+          &(ctrl%method==0 .and. (ctrl%reflect_frustrated==2 .or. ctrl%reflect_frustrated==5 .or. ctrl%reflect_frustrated==6 .or. &
+          &ctrl%reflect_frustrated==8 .or. ctrl%reflect_frustrated==92 .or. ctrl%reflect_frustrated==95 .or. &
+          &ctrl%reflect_frustrated==96 .or. ctrl%reflect_frustrated==98))) then
           allocate_pNACdR_GB_ssad=1
         endif
   
@@ -1105,8 +1172,11 @@ module definitions
         if (allocated(ctrl%actstates_s))                deallocate(ctrl%actstates_s)
         if (allocated(ctrl%atommask_a))                 deallocate(ctrl%atommask_a)
       if (allocated(ctrl%atommask_b))                 deallocate(ctrl%atommask_b)
-        if (allocated(ctrl%laserfield_td))              deallocate(ctrl%laserfield_td)
+        if (allocated(ctrl%laserfield_e_tp))            deallocate(ctrl%laserfield_e_tp)
+        if (allocated(ctrl%laserfield_b_tp))            deallocate(ctrl%laserfield_b_tp)
+        if (allocated(ctrl%laserfield_egrad_tpd))       deallocate(ctrl%laserfield_egrad_tpd)
         if (allocated(ctrl%laserenergy_tl))             deallocate(ctrl%laserenergy_tl)
+        !if (allocated(ctrl%laser_freq_file_path))       deallocate(ctrl%laser_freq_file_path)
         if (allocated(ctrl%lpzpe_ah))                   deallocate(ctrl%lpzpe_ah)
         if (allocated(ctrl%lpzpe_bc))                   deallocate(ctrl%lpzpe_bc)
         if (allocated(ctrl%lpzpe_ke_zpe_ah))            deallocate(ctrl%lpzpe_ke_zpe_ah)
@@ -1115,8 +1185,8 @@ module definitions
       if (allocated(ctrl%temperature))                deallocate(ctrl%temperature)
         if (allocated(ctrl%thermostat_const))           deallocate(ctrl%thermostat_const)
       if (allocated(ctrl%rotation_tot))               deallocate(ctrl%rotation_tot)
-      if (allocated(ctrl%sel_restricted_droplet))     deallocate(ctrl%sel_restricted_droplet)
-      if (allocated(ctrl%tether_at))                  deallocate(ctrl%tether_at)
+      ! if (allocated(ctrl%sel_restricted_droplet))     deallocate(ctrl%sel_restricted_droplet)
+      ! if (allocated(ctrl%tether_at))                  deallocate(ctrl%tether_at)
   
       endsubroutine
   
@@ -1129,23 +1199,30 @@ module definitions
       ! Pointer routines
       if (associated(traj%H_MCH_ss))                  deallocate(traj%H_MCH_ss)
       if (associated(traj%DM_ssd))                    deallocate(traj%DM_ssd)
+      if (associated(traj%MDM_ssd))                   deallocate(traj%MDM_ssd)
+      if (associated(traj%EQM_ssdd))                  deallocate(traj%EQM_ssdd)
       if (associated(traj%overlaps_ss))               deallocate(traj%overlaps_ss)
+      if (associated(traj%phases_s))                  deallocate(traj%phases_s)
       if (associated(traj%grad_MCH_sad))              deallocate(traj%grad_MCH_sad)
       if (associated(traj%NACdR_ssad))                deallocate(traj%NACdR_ssad)
       if (associated(traj%geom_ad))                   deallocate(traj%geom_ad)
+      if (associated(traj%veloc_ad))                   deallocate(traj%veloc_ad)
 #else
       if (allocated(traj%H_MCH_ss))                   deallocate(traj%H_MCH_ss)
       if (allocated(traj%DM_ssd))                     deallocate(traj%DM_ssd)
+      if (allocated(traj%MDM_ssd))                    deallocate(traj%MDM_ssd)
+      if (allocated(traj%EQM_ssdd))                   deallocate(traj%EQM_ssdd)
       if (allocated(traj%overlaps_ss))                deallocate(traj%overlaps_ss)
+      if (allocated(traj%phases_s))                   deallocate(traj%phases_s)
       if (allocated(traj%grad_MCH_sad))               deallocate(traj%grad_MCH_sad)
       if (allocated(traj%NACdR_ssad))                 deallocate(traj%NACdR_ssad)
       if (allocated(traj%geom_ad))                    deallocate(traj%geom_ad)
+      if (allocated(traj%veloc_ad))                   deallocate(traj%veloc_ad)
 #endif
   
       if (allocated(traj%atomicnumber_a))             deallocate(traj%atomicnumber_a)
       if (allocated(traj%element_a))                  deallocate(traj%element_a)
       if (allocated(traj%mass_a))                     deallocate(traj%mass_a)
-      if (allocated(traj%veloc_ad))                   deallocate(traj%veloc_ad)
       if (allocated(traj%veloc_old_ad))               deallocate(traj%veloc_old_ad)
       if (allocated(traj%veloc_app_ad))               deallocate(traj%veloc_app_ad)
       if (allocated(traj%accel_ad))                   deallocate(traj%accel_ad)
@@ -1175,13 +1252,17 @@ module definitions
       if (allocated(traj%pNACdR_MCH_ssad))            deallocate(traj%pNACdR_MCH_ssad)
       if (allocated(traj%pNACdR_diag_ssad))           deallocate(traj%pNACdR_diag_ssad)
       if (allocated(traj%DM_old_ssd))                 deallocate(traj%DM_old_ssd)
+      if (allocated(traj%MDM_old_ssd))                deallocate(traj%MDM_old_ssd)
+      if (allocated(traj%EQM_old_ssdd))               deallocate(traj%EQM_old_ssdd)
       if (allocated(traj%DM_print_ssd))               deallocate(traj%DM_print_ssd)
+      if (allocated(traj%MDM_print_ssd))              deallocate(traj%MDM_print_ssd)
+      if (allocated(traj%EQM_print_ssdd))             deallocate(traj%EQM_print_ssdd)
       if (allocated(traj%Rtotal_ss))                  deallocate(traj%Rtotal_ss)
       if (allocated(traj%RDtotal_ss))                 deallocate(traj%RDtotal_ss)
       if (allocated(traj%Dtotal_ss))                  deallocate(traj%Dtotal_ss)
       if (allocated(traj%Kmatrix_MCH_ss))             deallocate(traj%Kmatrix_MCH_ss)
       if (allocated(traj%Kmatrix_diag_ss))            deallocate(traj%Kmatrix_diag_ss)
-      if (allocated(traj%phases_s))                   deallocate(traj%phases_s)
+      !if (allocated(traj%phases_s))                   deallocate(traj%phases_s)
       if (allocated(traj%phases_old_s))               deallocate(traj%phases_old_s)
       if (allocated(traj%hopprob_s))                  deallocate(traj%hopprob_s)
       if (allocated(traj%switchprob_s))               deallocate(traj%switchprob_s)
@@ -1260,24 +1341,31 @@ module definitions
       ! Pointer routines
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        associated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          associated(traj%DM_ssd          )
+      write(u,'(A20,1X,L1)') 'MDM_ssd',         associated(traj%MDM_ssd         )
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',        associated(traj%EQM_ssdd        )
       write(u,'(A20,1X,L1)') 'overlaps_ss',     associated(traj%overlaps_ss     )
+      write(u,'(A20,1X,L1)') 'phases_s',        associated(traj%phases_s     )
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    associated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      associated(traj%NACdR_ssad      )
       write(u,'(A20,1X,L1)') 'geom_ad',         associated(traj%geom_ad         )
+      write(u,'(A20,1X,L1)') 'veloc_ad',        associated(traj%veloc_ad        )
 #else
       write(u,'(A20,1X,L1)') 'H_MCH_ss',        allocated(traj%H_MCH_ss        )
       write(u,'(A20,1X,L1)') 'DM_ssd',          allocated(traj%DM_ssd          )
+      write(u,'(A20,1X,L1)') 'MDM_ssd',         allocated(traj%MDM_ssd         )
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',        allocated(traj%EQM_ssdd        )
       write(u,'(A20,1X,L1)') 'overlaps_ss',     allocated(traj%overlaps_ss     )
+      write(u,'(A20,1X,L1)') 'phases_s',        allocated(traj%phases_s     )
       write(u,'(A20,1X,L1)') 'grad_MCH_sad',    allocated(traj%grad_MCH_sad    )
       write(u,'(A20,1X,L1)') 'NACdR_ssad',      allocated(traj%NACdR_ssad      )
       write(u,'(A20,1X,L1)') 'geom_ad',         allocated(traj%geom_ad         )
+      write(u,'(A20,1X,L1)') 'veloc_ad',        allocated(traj%veloc_ad        )
 #endif
   
   
       write(u,'(A20,1X,L1)') 'atomicnumber_a',  allocated(traj%atomicnumber_a  )
       write(u,'(A20,1X,L1)') 'element_a',       allocated(traj%element_a       )
       write(u,'(A20,1X,L1)') 'mass_a',          allocated(traj%mass_a          )
-      write(u,'(A20,1X,L1)') 'veloc_ad',        allocated(traj%veloc_ad        )
       write(u,'(A20,1X,L1)') 'veloc_old_ad',    allocated(traj%veloc_old_ad    )
       write(u,'(A20,1X,L1)') 'veloc_app_ad',    allocated(traj%veloc_app_ad    )
       write(u,'(A20,1X,L1)') 'accel_ad',        allocated(traj%accel_ad        )
@@ -1313,13 +1401,17 @@ module definitions
       write(u,'(A20,1X,L1)') 'dendt_MCH_ss',    allocated(traj%dendt_MCH_ss    )
       write(u,'(A20,1X,L1)') 'dendt_diag_ss',   allocated(traj%dendt_diag_ss   )
       write(u,'(A20,1X,L1)') 'DM_old_ssd',      allocated(traj%DM_old_ssd      )
+      write(u,'(A20,1X,L1)') 'MDM_old_ssd',     allocated(traj%MDM_old_ssd     )
+      write(u,'(A20,1X,L1)') 'EQM_old_ssdd',    allocated(traj%EQM_old_ssdd    )
       write(u,'(A20,1X,L1)') 'DM_print_ssd',    allocated(traj%DM_print_ssd    )
+      write(u,'(A20,1X,L1)') 'MDM_print_ssd',   allocated(traj%MDM_print_ssd   )
+      write(u,'(A20,1X,L1)') 'EQM_print_ssdd',  allocated(traj%EQM_print_ssdd  )
       write(u,'(A20,1X,L1)') 'Rtotal_ss',       allocated(traj%Rtotal_ss       )
       write(u,'(A20,1X,L1)') 'RDtotal_ss',      allocated(traj%RDtotal_ss      )
       write(u,'(A20,1X,L1)') 'Dtotal_ss',       allocated(traj%Dtotal_ss       )
       write(u,'(A20,1X,L1)') 'Kmatrix_MCH_ss',  allocated(traj%Kmatrix_MCH_ss  )
       write(u,'(A20,1X,L1)') 'Kmatrix_diag_ss', allocated(traj%Kmatrix_diag_ss )
-      write(u,'(A20,1X,L1)') 'phases_s',        allocated(traj%phases_s        )
+      !write(u,'(A20,1X,L1)') 'phases_s',        allocated(traj%phases_s        )
       write(u,'(A20,1X,L1)') 'phases_old_s',    allocated(traj%phases_old_s    )
       write(u,'(A20,1X,L1)') 'hopprob_s',       allocated(traj%hopprob_s       )
       write(u,'(A20,1X,L1)') 'switchprob_s',    allocated(traj%switchprob_s    )
@@ -1446,10 +1538,16 @@ module definitions
       write(u,'(A20,1X,L1)') 'NACdR_diag_ssad', any((real(traj%NACdR_diag_ssad )).ne.(real(traj%NACdR_diag_ssad )))
       write(u,'(A20,1X,L1)') 'overlaps_ss',     any((real(traj%overlaps_ss     )).ne.(real(traj%overlaps_ss     )))
       write(u,'(A20,1X,L1)') 'DM_ssd',          any((real(traj%DM_ssd          )).ne.(real(traj%DM_ssd          )))
+      write(u,'(A20,1X,L1)') 'MDM_ssd',         any((real(traj%MDM_ssd         )).ne.(real(traj%MDM_ssd         )))
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',        any((real(traj%EQM_ssdd        )).ne.(real(traj%EQM_ssdd        )))
       write(u,'(A20,1X,L1)') 'DM_old_ssd',      any((real(traj%DM_old_ssd      )).ne.(real(traj%DM_old_ssd      )))
+      write(u,'(A20,1X,L1)') 'MDM_old_ssd',     any((real(traj%MDM_old_ssd     )).ne.(real(traj%MDM_old_ssd     )))
+      write(u,'(A20,1X,L1)') 'EQM_old_ssdd',    any((real(traj%EQM_old_ssdd   )).ne.(real(traj%EQM_old_ssdd     )))
       write(u,'(A20,1X,L1)') 'Property2d_xss',  any((real(traj%Property2d_xss  )).ne.(real(traj%Property2d_xss  )))
       write(u,'(A20,1X,L1)') 'Property1d_ys',   any((real(traj%Property1d_ys   )).ne.(real(traj%Property1d_ys   )))
       write(u,'(A20,1X,L1)') 'DM_print_ssd',    any((real(traj%DM_print_ssd    )).ne.(real(traj%DM_print_ssd    )))
+      write(u,'(A20,1X,L1)') 'MDM_print_ssd',   any((real(traj%MDM_print_ssd   )).ne.(real(traj%MDM_print_ssd   )))
+      write(u,'(A20,1X,L1)') 'EQM_print_ssdd',  any((real(traj%EQM_print_ssdd  )).ne.(real(traj%EQM_print_ssdd  )))
       write(u,'(A20,1X,L1)') 'Rtotal_ss',       any((real(traj%Rtotal_ss       )).ne.(real(traj%Rtotal_ss       )))
       write(u,'(A20,1X,L1)') 'RDtotal_ss',      any((real(traj%RDtotal_ss      )).ne.(real(traj%RDtotal_ss      )))
       write(u,'(A20,1X,L1)') 'Dtotal_ss',       any((real(traj%Dtotal_ss       )).ne.(real(traj%Dtotal_ss       )))
@@ -1500,6 +1598,12 @@ module definitions
       write(u,'(A20,1X,L1)') 'DM_ssd',          any((aimag(traj%DM_ssd          )).ne.(aimag(traj%DM_ssd          )))
       write(u,'(A20,1X,L1)') 'DM_old_ssd',      any((aimag(traj%DM_old_ssd      )).ne.(aimag(traj%DM_old_ssd      )))
       write(u,'(A20,1X,L1)') 'DM_print_ssd',    any((aimag(traj%DM_print_ssd    )).ne.(aimag(traj%DM_print_ssd    )))
+      write(u,'(A20,1X,L1)') 'MDM_ssd',          any((aimag(traj%MDM_ssd          )).ne.(aimag(traj%MDM_ssd          )))
+      write(u,'(A20,1X,L1)') 'MDM_old_ssd',      any((aimag(traj%MDM_old_ssd      )).ne.(aimag(traj%MDM_old_ssd      )))
+      write(u,'(A20,1X,L1)') 'MDM_print_ssd',    any((aimag(traj%MDM_print_ssd    )).ne.(aimag(traj%MDM_print_ssd    )))
+      write(u,'(A20,1X,L1)') 'EQM_ssdd',          any((aimag(traj%EQM_ssdd          )).ne.(aimag(traj%EQM_ssdd          )))
+      write(u,'(A20,1X,L1)') 'EQM_old_ssdd',      any((aimag(traj%EQM_old_ssdd      )).ne.(aimag(traj%EQM_old_ssdd      )))
+      write(u,'(A20,1X,L1)') 'EQM_print_ssdd',    any((aimag(traj%EQM_print_ssdd    )).ne.(aimag(traj%EQM_print_ssdd    )))
       write(u,'(A20,1X,L1)') 'Property2d_xss',  any((aimag(traj%Property2d_xss  )).ne.(aimag(traj%Property2d_xss  )))
   !     write(u,'(A20,1X,L1)') 'Property1d_ys',   any((aimag(traj%Property1d_ys   )).ne.(aimag(traj%Property1d_ys   )))
       write(u,'(A20,1X,L1)') 'Rtotal_ss',       any((aimag(traj%Rtotal_ss       )).ne.(aimag(traj%Rtotal_ss       )))

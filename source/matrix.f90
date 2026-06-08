@@ -67,6 +67,7 @@ real*8, save :: diagonalize_degeneracy_diff=1.d-12
 
 ! this routines can't be called from outside
 
+private didentity,zidentity
 private dnormalize,znormalize
 private dlowdin,zlowdin
 private dtransform,ztransform
@@ -86,9 +87,12 @@ private disunitary,zisunitary
 private z_project_recursive
 private d3project_a_on_b, z3project_a_on_b
 private zintruder
+private ddeterminant
+private zdeterminant
 
 ! this routines can be called from outside
 
+public identity
 public normalize
 public lowdin
 public transform
@@ -115,10 +119,15 @@ public project_recursive
 public project_a_on_b
 public intruder
 public mat3invert
+public determinant
 
 ! =================================================================== !
 
 ! Overloading all procedures for use with real*8 and complex*16 matrices
+
+interface identity
+  module procedure didentity,zidentity
+endinterface
 
 interface normalize
   module procedure dnormalize,znormalize
@@ -212,6 +221,10 @@ interface intruder
   module procedure zintruder
 endinterface
 
+interface determinant
+  module procedure ddeterminant, zdeterminant
+endinterface
+
 ! =================================================================== !
 ! interfaces to lapack routines
 
@@ -242,6 +255,18 @@ interface
     INTEGER            M, N, K, LDA, LDB, LDC
     COMPLEX*16         ALPHA, BETA
     COMPLEX*16         A( LDA, * ), B( LDB, * ), C( LDC, * )
+  endsubroutine
+
+  subroutine DGETRF(M,N,A,LDA,IPIV,INFO)
+    integer :: M,N,LDA,INFO
+    integer :: IPIV(*)
+    double precision :: A(LDA,*)
+  endsubroutine
+
+  subroutine ZGETRF(M,N,A,LDA,IPIV,INFO)
+    integer :: M,N,LDA,INFO
+    integer :: IPIV(*)
+    complex*16 :: A(LDA,*)
   endsubroutine
 
 endinterface
@@ -304,6 +329,63 @@ subroutine deallocate_lapack
   deallocate( lapack_work_z, lapack_rwork_z )
 
 endsubroutine
+
+! ChatGPT suggestion of check a matrix in Fortran
+pure logical function didentity(A, n, tol) result(ok)
+  implicit none
+  integer,  intent(in) :: n
+  real(8),  intent(in) :: A(n,n)
+  real(8),  intent(in) :: tol
+  integer :: i, j
+
+  ! Default: assume false until proven otherwise
+  ok = .false.
+
+  ! Scan columns (j), inner loop over rows (i): unit-stride access
+  do j = 1, n
+    do i = 1, n
+      if (i == j) then
+        ! diagonal should be 1
+        if (abs(A(i,j) - 1.0d0) > tol) return
+      else
+        ! off-diagonal should be 0
+        if (abs(A(i,j)) > tol) return
+      end if
+    end do
+  end do
+
+  ok = .true.
+end function didentity
+
+pure logical function zidentity(A, n, tol) result(ok)
+  implicit none
+  integer,  intent(in) :: n
+  complex(8), intent(in) :: A(n,n)
+  real(8), intent(in) :: tol
+  integer :: i, j
+  real(8) :: a_re, a_im
+
+  ! Default: assume false until proven otherwise
+  ok = .false.
+
+  ! Scan columns (j), inner loop over rows (i): unit-stride access
+  do j = 1, n
+    do i = 1, n
+      a_re = dble(A(i,j))
+      a_im = dimag(A(i,j))
+
+      if (i == j) then
+        ! diagonal should be 1 + 0i
+        if (abs(a_re - 1.0d0) > tol .or. abs(a_im) > tol) return
+      else
+        ! off-diagonal should be 0 + 0i
+        if (abs(a_re) > tol .or. abs(a_im) > tol) return
+      end if
+    end do
+  end do
+
+  ok = .true.
+end function zidentity
 
 ! =================================================================== !
 ! =================================================================== !
@@ -369,7 +451,7 @@ endsubroutine
 ! =================================================================== !
 
 subroutine zintruder(n,A_ss)
-  use definitions, only: u_log
+  use definitions, only: u_log, printlevel
   implicit none
   integer, intent(in) :: n
   complex*16, intent(inout) :: A_ss(n,n)
@@ -389,9 +471,14 @@ subroutine zintruder(n,A_ss)
       if (sums < intr_thrs) then
         write(u_log,'(A)') '! ======== INTRUDER STATE PROBLEM ======== !'
         write(u_log,'(A,I4)') 'State: ',i
-        do k=1,n
-          write(u_log,'(1000(F8.5,1X))') (A_ss(k,j),j=1,n)
-        enddo
+        if (printlevel > 4) then
+          ! Print row i
+          write(u_log,'(A,I0,A)') 'Row ', i, ' of overlap matrix'
+          write(u_log,'(1000(F12.6,1X))') (A_ss(i,j), j=1,n)
+          ! Print column i
+          write(u_log,'(A,I0,A)') 'Column ', i, ' of overlap matrix'
+          write(u_log,'(1000(F12.6,1X))') (A_ss(j,i), j=1,n)
+        endif
 
         A_ss(i,:)=dcmplx(0.d0,0.d0)
         A_ss(:,i)=dcmplx(0.d0,0.d0)
@@ -1249,9 +1336,9 @@ subroutine zwrite(n,A,wrunit,title,precstring)
   ! internal variables
   character*100 :: fmtstring
   integer :: i,j
-
+  
   write(wrunit,'(A)') trim(title)
-
+  
   write(fmtstring,'(I10)') n
   fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X,'//trim(adjustl(precstring))//',4X))'
   do i=1,n
@@ -1424,6 +1511,68 @@ endsubroutine
 
 ! =================================================================== !
 
+!> writes vector c of dimension 3x3xn to unit wrunit
+!> writes the title before the vector
+!> uses precstring as format string
+subroutine d33vecwrite(n,c,wrunit,title,precstring)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  real*8,intent(in) :: c(n,3,3)
+  integer, intent(in) :: wrunit
+  character(len=*), intent(in) :: title
+  character(len=*), intent(in) :: precstring
+  ! internal variables
+  integer :: i,j,k
+  character*255 :: fmtstring
+
+  write(wrunit,'(A)') trim(title)
+
+  write(fmtstring,'(I10)') 9
+  fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X))'
+  do i=1,n
+    do j=1,3
+      do k=1,3
+        write(wrunit,fmtstring) c(i,j,k)
+      enddo 
+    enddo
+  enddo
+
+endsubroutine
+
+! =================================================================== !
+
+!> writes vector c of dimension 3x3xn to unit wrunit
+!> writes the title before the vector
+!> uses precstring as format string
+subroutine z33vecwrite(n,c,wrunit,title,precstring)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  complex*16,intent(in) :: c(n,3,3)
+  integer, intent(in) :: wrunit
+  character(len=*), intent(in) :: title
+  character(len=*), intent(in) :: precstring
+  ! internal variables
+  integer :: i,j,k
+  character*255 :: fmtstring
+
+  write(wrunit,'(A)') trim(title)
+
+  write(fmtstring,'(I10)') 9
+  fmtstring='('//trim(adjustl(fmtstring))//'('//trim(adjustl(precstring))//',1X,'//trim(adjustl(precstring))//',4X))'
+  do i=1,n
+     do j=1,3
+       do k=1,3
+         write(wrunit,fmtstring) c(i,j,k)
+       enddo 
+     enddo
+   enddo 
+
+endsubroutine
+
+! =================================================================== !
+
 !> writes vector c of dimension 2xn to unit wrunit
 !> writes the title before the vector
 !> uses precstring as format string
@@ -1528,9 +1677,9 @@ subroutine zread(n,A,runit,title)
 !   real*8 :: re, im
 
   read(runit,'(A)', iostat=io) title
-
   do i=1,n
     read(runit,*,iostat=io) (line(j),j=1,2*n)
+
     if (io/=0) then
       write(*,*) 'Could not read matrix'
       write(*,*) 'routine=zread(), n=',n,', unit=',runit
@@ -1538,7 +1687,7 @@ subroutine zread(n,A,runit,title)
       stop 1
     endif
     do j=1,n
-      A(i,j)=dcmplx(line(2*j-1),line(2*j))
+       A(i,j)=dcmplx(line(2*j-1),line(2*j))
     enddo
   enddo
 
@@ -1559,7 +1708,6 @@ subroutine iread(n,A,runit,title)
   integer :: i,j, io
 
   read(runit,'(A)', iostat=io) title
-
   do i=1,n
     read(runit,*, iostat=io) (A(i,j),j=1,n)
     if (io/=0) then
@@ -1710,6 +1858,69 @@ subroutine z3vecread(n,c,runit,title)
     enddo
   enddo
 
+endsubroutine
+
+! =================================================================== !! =================================================================== !
+
+!> reads a 3x3-vector c from unit runit
+!> also reads the title, THIS MEANS THAT the current line of runit has to be the title line
+subroutine d33vecread(n,c,runit,title)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  real*8,intent(out) :: c(n,3,3)
+  integer, intent(in) :: runit
+  character(len=8000), intent(out) :: title
+  ! internal variables
+  integer :: i,j,k, io
+
+  read(runit,'(A)', iostat=io) title
+
+  do i=1,n
+    do j=1,3
+      do k=1,3
+        read(runit,*, iostat=io) c(i,j,k)
+        if (io/=0) then
+          write(*,*) 'Could not read 3x3-matrix'
+          write(*,*) 'routine=d33vecread(), n=',n,', unit=',runit
+          write(*,*) 'title=',trim(title)
+       endif
+      enddo
+    enddo
+  enddo
+endsubroutine
+
+! =================================================================== !
+
+!> reads a 3x3-vector c from unit runit
+!> also reads the title, THIS MEANS THAT the current line of runit has to be the title line
+subroutine z33vecread(n,c,runit,title)
+  implicit none
+  ! parameters
+  integer, intent(in) :: n
+  complex*16,intent(out) :: c(n,3,3)
+  integer, intent(in) :: runit
+  character(len=8000), intent(out) :: title
+  ! internal variables
+  integer :: i,j,k, io
+  real*8 :: re_im(18)
+
+  read(runit,'(A)', iostat=io) title
+
+  do i=1,n 
+    read(runit,*) (re_im(j),j=1,18)
+    if (io/=0) then
+      write(*,*) 'Could not read 3x3-vector'
+      write(*,*) 'routine=d3vecread(), n=',n,', unit=',runit
+      write(*,*) 'title=',trim(title)
+    endif
+    do j=1,3
+      do k=1,3
+        c(i,j,k)=dcmplx(re_im(6*j+2*k-7),re_im(6*j+2*k-6))
+      enddo
+    enddo
+  enddo
+    
 endsubroutine
 
 ! =================================================================== !
@@ -1973,5 +2184,76 @@ subroutine mat3invert(a,b)
  b(3,3) = +detinv * (a(1,1)*a(2,2) - a(1,2)*a(2,1))
 
 endsubroutine
+
+! =================================================================== !
+
+subroutine ddeterminant(n,A_ss,detA)
+  implicit none
+
+  integer, intent(in) :: n
+  real*8, intent(in) :: A_ss(n,n)
+  real*8, intent(out) :: detA
+
+  real*8 :: LU(n,n)
+  integer :: ipiv(n)
+  integer :: i,info
+  integer :: swaps
+
+  LU = A_ss
+
+  call dgetrf(n,n,LU,n,ipiv,info)
+
+  if (info /= 0) then
+     write(0,*) 'Error in ddeterminant: dgetrf failed, info=',info
+     stop
+  endif
+
+  detA = 1.d0
+  swaps = 0
+
+  do i=1,n
+     detA = detA * LU(i,i)
+     if (ipiv(i) /= i) swaps = swaps + 1
+  enddo
+
+  if (mod(swaps,2) /= 0) detA = -detA
+
+end subroutine ddeterminant
+
+! =================================================================== !
+
+subroutine zdeterminant(n,A_ss,detA)
+  implicit none
+
+  integer, intent(in) :: n
+  complex*16, intent(in) :: A_ss(n,n)
+  complex*16, intent(out) :: detA
+
+  complex*16 :: LU(n,n)
+  integer :: ipiv(n)
+  integer :: i,info
+  integer :: swaps
+
+  LU = A_ss
+
+  call zgetrf(n,n,LU,n,ipiv,info)
+
+  if (info /= 0) then
+     write(0,*) 'Error in zdeterminant: zgetrf failed, info=',info
+     stop
+  endif
+
+  detA = dcmplx(1.d0,0.d0)
+  swaps = 0
+
+  do i=1,n
+     detA = detA * LU(i,i)
+     if (ipiv(i) /= i) swaps = swaps + 1
+  enddo
+
+  if (mod(swaps,2) /= 0) detA = -detA
+
+end subroutine zdeterminant
+
 
 endmodule matrix

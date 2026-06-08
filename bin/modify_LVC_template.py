@@ -184,10 +184,10 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
         selected_nmstates = [(im + 1, s + 1) for im, ns in enumerate(states) for s in range((im + 1) * ns)]
         idx = [i for i, (im, s) in enumerate(all) if (im, s) in selected_nmstates]
 
-        print(template_nmstates)
-        print(all)
-        print(selected_nmstates)
-        print(idx)
+        # print(template_nmstates)
+        # print(all)
+        # print(selected_nmstates)
+        # print(idx)
 
         keywords = {'dm', 'soc', 'multi'}
         while line:
@@ -300,8 +300,9 @@ usage: python3 {sys.argv[0]} -s='<states>' -m='<modes>' LVC.template > LVC_mod.t
     )
 
     (options, args) = parser.parse_args()
-    if len(args) == 0:
+    if len(args) < 1:
         parser.print_usage()
+        exit(0)
     main(
         args[0],
         options.states,

@@ -456,7 +456,7 @@ def get_general():
     INFOS["thres1"] = question("Threshold for File 1", float, [0.5])[0]
 
 
-    # ---------------------------------------- Assign 1 Threshold --------------------------------------
+    # ---------------------------------------- Assign 2 Threshold --------------------------------------
 
     print("\n" + "{:-^60}".format("Event detection for File 2") + "\n")
 
@@ -466,6 +466,40 @@ def get_general():
 
     INFOS["thres2"] = question("Threshold for File 2", float, [0.5])[0]
 
+
+    # ---------------------------------------- Event detection method --------------------------------------
+
+    INFOS["options"] = {"mode": "simple"}
+    print("\n" + "{:-^60}".format("Event detection Method") + "\n")
+
+    # print list
+    print("\nChoose an option for the event detection.")
+    methods = {"simple": {}, "persistence": {"persistence_time": (float, [20.], "in fs")}}
+    print("Possible methods:")
+    for key in methods:
+        options = methods[key]
+        options_string = ','.join(options) if options else "none"
+        print("- '%s' (options: %s)" % (key, options_string))
+
+    # ask for method
+    while True:
+        key = question("Method", str, "simple", autocomplete=False)
+        if not key in methods:
+            print("Not a valid method")
+            continue
+        break
+    INFOS["options"] = {"mode": key}
+
+    # ask for options
+    for option in methods[key]:
+        parts = methods[key][option]
+        if len(parts) > 2:
+            a = question("Set option '%s' (%s)" % (option, ','.join(parts[2:])), parts[0], parts[1])
+        else:
+            a = question("Set option '%s'" % option, parts[0], parts[1])
+        if parts[0] is int or parts[0] is float:
+            a = a[0]
+        INFOS["options"][option] = a
 
     return INFOS
 
@@ -599,8 +633,9 @@ def detect_event(Tarray, Xarray, threshold, options):
 
 def do_calc(INFOS):
 
-    options = {"mode": "simple"}
-    options = {"mode": "persistence", "persistence_time": 20.0}
+    # options = {"mode": "simple"}
+    # options = {"mode": "persistence", "persistence_time": 20.0}
+    options = INFOS["options"]
 
     # initialize results
     results = []

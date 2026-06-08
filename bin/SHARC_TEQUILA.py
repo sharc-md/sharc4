@@ -41,6 +41,14 @@ import json
 from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
 
+try:
+    import qulacs
+except ImportError:
+    raise RuntimeError(
+        "The Qulacs backend is required for SHARC-Tequila calculations. "
+        "Install it with: pip install qulacs"
+    )
+
 # internal
 from SHARC_FAST import SHARC_FAST
 from utils import question, mkdir, readfile, writefile, InDir, link
@@ -403,20 +411,17 @@ class SHARC_TEQUILA(SHARC_FAST):
                 if step == 0:
                     path = os.path.join(qmin.resources["pwd"], f"angles_json.{istate}.init")
                 else:
-                    path = os.path.join(savedir, f"angles_json.{istate}.{step}")
+                    path = os.path.join(savedir, f"angles_json.{istate}.{step-1}")
                 if not os.path.isfile(path):
                     path = None
                 if path:
                     with open(path) as f:
                         data = json.load(f)
                     angles = {}
+                    varmap = {str(v): v for v in active_vars}
                     for k, v in data.items():
-                        try:
-                            new_key = eval(k)   # works for tuple-like keys
-                        except NameError:
-                            new_key = k         # keep as string
-                        angles[new_key] = v
-                    # angles = {eval(k): v for k, v in data.items()}
+                        if k in varmap:
+                            angles[varmap[k]] = v
                 else:
                     angles = {angle: 0.0 for angle in active_vars}
 
@@ -723,6 +728,21 @@ class SHARC_TEQUILA(SHARC_FAST):
 
 # ======================================================================= #
 
+    def wfn_to_dict(self,w) -> dict[str, complex]:
+        """
+        Convert a QubitWaveFunction to {binary_string: amplitude} dictionary.
+        Works for both dense and sparse wavefunctions.
+        """
+        n_qubits = w.n_qubits
+        # use raw_items to get integer index and amplitude
+        return {
+            format(idx, f'0{n_qubits}b'): amp.real
+            for idx, amp in w.raw_items()
+            if abs(amp) > 1e-14
+        }
+
+# ======================================================================= #
+
     def save_wfn_infos(self, C, Us, wfn, variables):
 
         # fetch infos
@@ -756,8 +776,7 @@ class SHARC_TEQUILA(SHARC_FAST):
         # get CI coefficients as dictionary
         ci_coefs_dict = {}
         for i, w in enumerate(wfn):
-            w_data = w._state  # dictionary
-            ci_coefs_dict[i] = {k.binary: v.real for k, v in w_data.items()}
+            ci_coefs_dict[i] = self.wfn_to_dict(w)
 
         # get list of determinants for the file
         all_det_set = set()

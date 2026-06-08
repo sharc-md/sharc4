@@ -89,7 +89,6 @@ initial_step(PyObject * self, PyObject * args)
         int IRestart = 0;
         if (!PyArg_ParseTuple(args, "i", &IRestart))
             return NULL;
-        //do_initial_step_2_(&IRestart);
         initial_step_(&IRestart);
         Py_RETURN_NONE;
 }

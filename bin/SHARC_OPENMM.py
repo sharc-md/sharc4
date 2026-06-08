@@ -108,6 +108,11 @@ class SHARC_OPENMM(SHARC_FAST):
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set:
         return {"h", "grad", "overlap", "dm", "multipolar_fit"}
+    
+    def _check_charge(self):
+        """
+        Do not check charge for total system
+        """
 
     def get_infos(self, INFOS: dict, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         self.log.info("=" * 80)
@@ -142,6 +147,7 @@ class SHARC_OPENMM(SHARC_FAST):
             self.QMout["grad"] = gradients._value[np.newaxis, ...]
 
         if self.QMin.requests["multipolar_fit"]:
+            self.QMout.multipolar_fit_settings = f" order: 0, grid: default, firstlayer: default, density: default, layers: default"
             self.QMout["multipolar_fit"] = {}
             self.QMout["multipolar_fit"][(self.states[0], self.states[0])] = self._charges.reshape(-1,1)
         if self.QMin.requests["dm"]:

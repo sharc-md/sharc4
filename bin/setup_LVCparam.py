@@ -383,6 +383,7 @@ def get_interface() -> SHARC_INTERFACE:
     log.info("")
     log.info("The following interface was selected:")
     log.info("% 3i %-20s %s" % (num, Interfaces[num-1][0], Interfaces[num-1][1].description()))
+    log.info("")
     return Interfaces[num-1][1]
 
 
@@ -487,6 +488,9 @@ def get_V0_and_states():
 
 def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     features = interface.get_features(KEYSTROKES)
+    log.info("\nThe following features are available from this interface:")
+    log.info(features)
+    log.info("")
     states = INFOS["states"]
 
     INFOS["needed_requests"] = set()
@@ -516,10 +520,29 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     if INFOS["soc"]:
         INFOS["needed_requests"].add("soc")
 
+    ## -------------------- Magnetic and Electric multipoles -------------------- ##
+    print("{:-^60}".format("Magnetic Dipole and Electric Quadrupole interaction") + "\n")
+    beyond_ed = False
+    if "mdeqm" in features:
+        print("Do you want to compute magnetic dipole moments and electric quadrupole moments?\n")
+        beyond_ed = question("Magnetic dipoles and electric quadrupoles?", bool, False)
+    else:
+        print("Interface cannot provide multipole moments beyond the electric dipoles: not calculating magnetic dipole and electric quadrupole contribution.")
+        beyond_ed = False
+    print("")
+
+    # save input
+    INFOS["beyond_ed"] = beyond_ed
+    if INFOS["beyond_ed"]:
+        INFOS["needed_requests"].add("MDEQM")
+
     ## -------------------- whether to do gradients or numerical -------------------- ##
     print("{:-^60}".format("Analytical gradients") + "\n")
 
-    INFOS["ana_grad"] = question("Do you want to use analytical gradients for kappa terms?", bool, True)
+    if "grad" in features:
+        INFOS["ana_grad"] = question("Do you want to use analytical gradients for kappa terms?", bool, True)
+    else:
+        INFOS["ana_grad"] = False
 
     print("\nAnalytical gradients for kappas: %r\n" % INFOS["ana_grad"])
 
@@ -697,9 +720,10 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
         print("\nOne-sided derivation will be used on: %s\n" % (reduce_big_list_to_short_str(one_sided_derivations.keys())))
 
     ## ----------------------Multipolar fit ---------------------------- ##
-    INFOS["multipolar_fit"] = question(
-        "Do you want to fit an atomwise multipolar density representation for each state?", bool, False
-    )
+    if "multipolar_fit" in features:
+        INFOS["multipolar_fit"] = question("Do you want to fit an atomwise multipolar density representation for each state?", bool, False)
+    else:
+        INFOS["multipolar_fit"] = False
 
     ## -------------------- Calculate displacements -------------------- ##
     INFOS = calculate_displacements(INFOS)
@@ -960,6 +984,10 @@ def write_QM_in(INFOS, displacement_key, displacement_value, displacement_dir):
 
     # dipole moment
     string += "DM\n"
+    if INFOS["beyond_ed"]:
+        # magnetic dipole  and electric quadrupuole moment
+        string += "MDEQM\n"
+
 
     # gradient
     if displacement_key == "000_eq" and INFOS["ana_grad"]:

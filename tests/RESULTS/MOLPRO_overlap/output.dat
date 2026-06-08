@@ -16,6 +16,10 @@ SHARC_version   4.0
  n_property1d           1
  n_property2d           1
  laser           0
+ laser_e F
+ laser_b F
+ laser_egrad F
+ laser_freq_path None
 ************************************* End of settings *************************************
 ! Atomic numbers
  0.6000000000000E+001
