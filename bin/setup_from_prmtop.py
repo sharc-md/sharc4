@@ -30,6 +30,7 @@ except ModuleNotFoundError:
     raise
 import re
 import os
+import sys
 from constants import au2a
 
 
@@ -186,3 +187,11 @@ if __name__ == "__main__":
     if not options.file:
         parser.error("Filename not given")
     main(options.file, options.qm_list, options.rattle_hx, options.atommask)
+
+    # save the shell command
+    command = 'python ' + ' '.join(sys.argv)
+    f = open('KEYSTROKES.setup_from_prmtop', 'w')
+    f.write(command)
+    f.close()
+
+    
