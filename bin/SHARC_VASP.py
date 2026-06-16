@@ -26,10 +26,10 @@ NAME = "VASP"
 DESCRIPTION ="AB INITIO interface for the Vienna Ab Initio Simulation Package (VASP)"
 
 CHANGELOGSTRING = """
-01.04.2025:    Very basic VASP interface relying on CPA approximation
+01.04.2025:   VASP interface relying on CPA approximation
 (i.e. ground state gradients only) + Kohn-Sham excitation energies from 
 ground-state periodic DFT calculations with VASP.
-Refinements will follow.
+Improvements will follow.
 """
 
 all_features = set(
@@ -200,34 +200,40 @@ class SHARC_VASP(SHARC_ABINITIO):
         if not isinstance(self.QMin.template["encut"],float):
             self.log.error("encut in template has to be a real number, check ENCUT vasp wiki")
             raise ValueError()
-
+        
         if not isinstance(self.QMin.template["ispin"],int):
             self.log.error("ispin in template has to be an integer, check ISPIN vasp wiki")
             raise ValueError()
         else:
-            if self.QMin.template["ispin"] != 1 and self.QMin.template["ispin"] != 2:
-                self.log.error("ispin has to be set to 1 or 2. Check ISPIN vasp wiki.")
+            if self.QMin.template["ispin"] != 1:
+                self.log.error("this interface only supports ispin=1 currently! ")
                 raise ValueError()
-        
-        # #Temporay if (to be removed later) to prevent usage of UKS until proper testing is finished.
-        # if self.QMin.template["ispin"] ==2:
-        #     self.log.error("ispin has to be set to 1. Spin-polarized (UKS) calculations are not yet supported.")
+
+        ###This will be activated later upon finishing proepr testing!!###
+    
+        # if not isinstance(self.QMin.template["ispin"],int):
+        #     self.log.error("ispin in template has to be an integer, check ISPIN vasp wiki")
         #     raise ValueError()
+        # else:
+        #     if self.QMin.template["ispin"] != 1 and self.QMin.template["ispin"] != 2:
+        #         self.log.error("ispin has to be set to 1 or 2. Check ISPIN vasp wiki.")
+        #         raise ValueError()
+        
 
-        if self.QMin.template["ispin"] == 2 and self.QMin.template["magmom"] is None:
-            self.log.warning("ISPIN=2 was selected but no MAGMOM was given. VASP will use its default but it is advisable to specify on-site magnetization ")
+        # if self.QMin.template["ispin"] == 2 and self.QMin.template["magmom"] is None:
+        #     self.log.warning("ISPIN=2 was selected but no MAGMOM was given. VASP will use its default but it is advisable to specify on-site magnetization ")
 
-        if self.QMin.template["magmom"] is not None:
-            if  not isinstance(self.QMin.template["magmom"],list):
-                self.log.error("magmom has to be a list of numbers in the following manner: n_atoms magnetization n_atoms magnetization ...etc.")
-                raise ValueError()
-            else:
-                for i in self.QMin.template["magmom"][::2]:
-                    if not float(i).is_integer():
-                        self.log.error("The n.of atoms for each specified magnetization must be an integer following POSCAR-like ordering. Check your magmom in VASP.template.")
-                for i in self.QMin.template["magmom"][1::2]:
-                    if not isinstance(i,(float,int)):
-                        self.log.error("The magnetization (every second number) in magmom must be a number, either int or float. Check your magmom in VASP.template.")
+        # if self.QMin.template["magmom"] is not None:
+        #     if  not isinstance(self.QMin.template["magmom"],list):
+        #         self.log.error("magmom has to be a list of numbers in the following manner: n_atoms magnetization n_atoms magnetization ...etc.")
+        #         raise ValueError()
+        #     else:
+        #         for i in self.QMin.template["magmom"][::2]:
+        #             if not float(i).is_integer():
+        #                 self.log.error("The n.of atoms for each specified magnetization must be an integer following POSCAR-like ordering. Check your magmom in VASP.template.")
+        #         for i in self.QMin.template["magmom"][1::2]:
+        #             if not isinstance(i,(float,int)):
+        #                 self.log.error("The magnetization (every second number) in magmom must be a number, either int or float. Check your magmom in VASP.template.")
             
         if self.QMin.template["nbands"] is not None and not isinstance(self.QMin.template["nbands"],int):
             self.log.error("nbands in template has to be an integer, check NBANDS vasp wiki")
@@ -261,13 +267,23 @@ class SHARC_VASP(SHARC_ABINITIO):
             self.log.error("scale_param in template has to be an integer, check vasp wiki")
             raise ValueError()
 
+
         if not isinstance(self.QMin.template["overlap_method"],str):
-            self.log.error("overlap_method has to be a string. Only 'pawpyseed' or 'vasp' are supported. It selects pawpyseed or vasp codes for performing overlap calculation")
+            self.log.error("overlap_method has to be a string. Only 'pawpyseed' is supported. It selects the pawpyseed codes for performing overlap calculation")
             raise ValueError()
         else:
-            if self.QMin.template["overlap_method"] != "pawpyseed" and self.QMin.template["overlap_method"] != "vasp":
-                self.log.error("overlap_method can only be either 'pawpyseed' or 'vasp'")
+            if self.QMin.template["overlap_method"] != "pawpyseed":
+                self.log.error("overlap_method can only be 'pawpyseed'")
                 raise ValueError()
+        
+        ### VASP overlaps will only be activated later upon finishing proper testing ###
+        # if not isinstance(self.QMin.template["overlap_method"],str):
+        #     self.log.error("overlap_method has to be a string. Only 'pawpyseed' or 'vasp' are supported. It selects pawpyseed or vasp codes for performing overlap calculation")
+        #     raise ValueError()
+        # else:
+        #     if self.QMin.template["overlap_method"] != "pawpyseed" and self.QMin.template["overlap_method"] != "vasp":
+        #         self.log.error("overlap_method can only be either 'pawpyseed' or 'vasp'")
+        #         raise ValueError()
 
         if not isinstance(self.QMin.template["phases_method"],str):
             self.log.error("phases_method has to be a string. Only 'none', 'simple' or 'robust' are supported. It selects phase correction method using overlap matrix")
