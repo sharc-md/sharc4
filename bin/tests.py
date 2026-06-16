@@ -43,6 +43,10 @@ import subprocess as sp
 import filecmp
 import time
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as get_version
+from packaging.version import Version
+
 # =========================================================
 
 def package_check():
@@ -65,6 +69,21 @@ def package_check():
         "pawpyseed" : "SHARC_VASP.py will not work.",
         "tequila": "SHARC_TEQUILA.py will not work."
     }
+    version_checks = {
+        "numpy": [
+            (
+                lambda v: v >= Version("2.3"),
+                "RI-ECI is currently incompatible with NumPy >= 2.3."
+            ),
+        ],
+        "scipy": [
+            (
+                lambda v: v >= Version("1.16"),
+                "ParmEd is currently incompatible with SciPy >= 1.16. "
+                "Therefore setup_from_prmtop.py may not work."
+            ),
+        ],
+    }
 
     fails = 0
     for pkg, detail in required_packages.items():
@@ -80,6 +99,21 @@ def package_check():
             )
             sys.stdout.write(full_warning)
             fails += 1
+    for pkg, checks in version_checks.items():
+        try:
+            pkg_version = Version(get_version(pkg))
+        except PackageNotFoundError:
+            continue
+        for condition, warning in checks:
+            if condition(pkg_version):
+                full_warning = (
+                    "*" * 80 + "\n" +
+                    f"*** Python package {pkg} version {pkg_version} detected ***\n" +
+                    f"{warning}\n" +
+                    "*" * 80 + "\n"
+                )
+                sys.stdout.write(full_warning)
+                fails += 1
     if fails > 0:
         time.sleep(1)
 
