@@ -4,9 +4,9 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2025 University of Vienna
-#    Copyright (c) 2025 University of Minnesota
-#    Copyright (c) 2025 University of Chicago
+#    Copyright (c) 2026 University of Vienna
+#    Copyright (c) 2026 University of Minnesota
+#    Copyright (c) 2026 University of Chicago
 #
 #    This file is part of SHARC.
 #

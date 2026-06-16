@@ -8,7 +8,7 @@ and the same reference state into a TDM between the two excited states.
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2025 University of Vienna
+#    Copyright (c) 2026 University of Vienna
 #
 #    This file is part of SHARC.
 #
