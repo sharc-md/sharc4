@@ -171,7 +171,7 @@ QMout_set_gradient(QMout * self, PyObject * args)
     PyObject * value;
     int icall;
     long pos = 0;
-    double * state_gradient;
+    double * state_gradient = NULL;
 
     double scale = 0.0;
     double soc_scale = 0.0;
@@ -613,7 +613,7 @@ QMout_set_nacdr(QMout * self, PyObject * args)
     PyObject * value_2;
     int icall = 0;
     long ipos_1 = 0;
-    double * state_state_nac;
+    double * state_state_nac = NULL;
 
     if (!PyArg_ParseTuple(args, "Oi", &nacdr, &icall))
         return NULL;
