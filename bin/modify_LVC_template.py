@@ -28,6 +28,7 @@ from optparse import OptionParser
 import numpy as np
 from utils import itnmstates
 
+# TODO: fix for lambda_socs and probably other things!
 
 def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no_es2es_trans_mult_for_mult=None):
     # read the V0-file
@@ -74,7 +75,14 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
             raise ValueError(f"{states} not compatible with {template_states} from template file!")
 
         selected_states = {(im + 1, s + 1) for im, ns in enumerate(states) for s in range(ns) if ns != 0}
-        statemap = {i+1: (im, s) for i, (im, s, _) in enumerate(itnmstates(template_states))}
+        statemap = {i+1: (im, s, ms) for i, (im, s, ms) in enumerate(itnmstates(template_states))}
+        statemap_new = {i+1: (im, s, ms) for i, (im, s, ms) in enumerate(itnmstates(states))}
+        reverse_new = {v: k for k, v in statemap_new.items()}
+        index_map = {
+            old_idx: reverse_new[state]
+            for old_idx, state in statemap.items()
+            if state in reverse_new
+        }
 
         line = f.readline()
         while line != "epsilon\n":
@@ -154,10 +162,12 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
                 return (int(v[0]), int(v[1]), int(v[2]), v[3][:-1])
 
             for si, sj, i, v in map(c, range(z)):
-                im, s_i = statemap[si]
-                jm, s_j = statemap[sj]
+                im, s_i, _ = statemap[si]
+                jm, s_j, _ = statemap[sj]
                 if (im, s_i) in selected_states and (jm, s_j) in selected_states and i in selected_modes:
-                    selected.append(f"{si:3d} {sj:3d} {i:3d} {v}")
+                    new_si = index_map[si]
+                    new_sj = index_map[sj]
+                    selected.append(f"{new_si:3d} {new_sj:3d} {i:3d} {v}")
             new_template.append(f"{len(selected)}")
             new_template.extend(selected)
             line = f.readline()
@@ -262,14 +272,14 @@ def main(file, states, modes, no_trans_mult=False, no_es2es_trans_mult=False, no
 if __name__ == "__main__":
     parser = OptionParser()
     parser.set_usage(
-        """
+        f"""
 ============================================================================
-                            modify LVC-template
+                            modify LVC.template
 
                         author: Severin Polonius
 ============================================================================
 
-usage: python3 {sys.argv[0]} -s='<states>' -m='<modes>' LVC.template > LVC_mod.template
+usage: python3 modify_LVC_template.py -s='<states>' -m='<modes>' LVC.template > LVC_mod.template
 
     states is a string e.g.: '2 0 2' for 2 Singlets and 2 Triplets
     modes is a string e.g.: '7~12,14,15~89' (range expressions allowed)
