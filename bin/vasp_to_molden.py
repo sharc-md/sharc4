@@ -56,37 +56,43 @@ def vibration_from_outcar(file_outcar,file_poscar,file_out,remove_rotations):
         sys.exit()
     freqs=[]
     modes=[]
-    counter=0
+    modes_to_discard=[]
     for n,i in enumerate(index):
-        pattern1=r"\s*"+str(n+1)+r"\s+f"
-        pattern2=r"\s*"+str(n+1)+r"\s+f/i"
+        pattern1=r"\s*"+str(n+1)+r"\s+f\s*="
+        pattern2=r"\s*"+str(n+1)+r"\s+f/i\s*="
         if re.search(pattern1,data[i]) is not None:
             match=r".*2PiTHz (.*?) cm-1"
             freqs.append(float(re.search(match,data[i]).group(1)))
             modes.append(data[i+2:i+chunk])
-        elif re.search(pattern2,data[i]) is not None: 
-            counter=counter+1
+        elif re.search(pattern2,data[i]) is not None:
+            modes_to_discard.append(n)
             match=r".*2PiTHz (.*?) cm-1"
             freqs.append(float(re.search(match,data[i]).group(1)))
             modes.append(data[i+2:i+chunk])
         else:
             print(f"Something went wrong with frequency mode n.{n}. Please check your VASP freq calculation. Check OUTCAR")
             sys.exit()
-    if counter > 3:
-        print("You have more than 3 imaginary frequencies in your VASP output." \
-                "Something went wrong, check your OUTCAR." \
-                "Only 3 (translational modes) are expected with imaginary frequencies because of numerical errors.")
-        sys.exit()
+    #Sorting out mode blocks and generating numpy arrays out of lists.
     modes_tmp=modes.copy()
     modes=[]
     for i in range(len(modes_tmp)):
         tmp=[j.split() for j in modes_tmp[i]]
         modes.append(tmp)
-    #Setting to zero the 3 translational modes 
-    freqs.reverse() #reordering from lowest frequency first
-    modes.reverse()
+
     freqs=np.array(freqs,dtype=np.float64) 
     modes=np.array(modes,dtype=np.float64)
+
+    # Checking for more than 3 imaginary freuquencies, meaning that the calculation went wrong.
+    if len(modes_to_discard) > 3:
+        print("WARNING: You have more than 3 imaginary frequencies in your VASP output. \nThese modes will be ignored but" \
+                " something went wrong in your calculation, check your OUTCAR.\n" \
+                "Only 3 (translational modes) are expected with imaginary frequencies because of finite difference errors.\n")
+        for i in modes_to_discard:
+            freqs[i]=0.0
+            modes[i,:,3:]=0.0
+    #Setting to zero the 3 translational modes 
+    freqs = np.flip(freqs, axis=0)
+    modes = np.flip(modes, axis=0)
     freqs[0:3]=0.0 #3 translations to zero
     modes[0:3,:,3:]=0.0
     #Remove rotarions if selected. Only for isolated system in a vacuum box.

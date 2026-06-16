@@ -6,8 +6,7 @@ gga PE # DFT functional. Check VASP wiki for available options
 
 ismear 0 # Smearing parameter for VASP calculations 
 
-ispin 1 # Only ispin=1 is accepted -> only singlet multiplicity is computed basically. Triplets are not yet implemented
-        # Also, non-collinear calculations may come at some point.
+ispin 1 # Only ispin=1 is accepted -> only restricted VASP calculations are possible at present.
 
 ediff 1e-4 # EDIFF VASP keyword. Treshold for SCF loop break. energy value in eV
 
@@ -25,8 +24,7 @@ a2 0.0 10.0 0.0 # 2ns lattice vector.
 
 a3 0.0 0.0 10.0 # 3rd lattice vector. 
 
-overlap_method full # Selecting pawpyseed method for overlap computations. 
-                    # Either "full" for AE overlaps or "pseudo" for PS overlaps are available.
+overlap_method pawpyseed # Selecting pawpyseed method for overlap computations, which is default anyway
 
 phases_method simple #Selecting method for phases correction of adiabatic states.
                    # Either "none", "simple" (Akimov J. Phys. Chem. Lett. 2018, 9, 6096−6102)
