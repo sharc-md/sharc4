@@ -1911,13 +1911,13 @@ module input
         endif
       endif
       !  ---------------------
-      if (ctrl%laser_b==.false.) then
+      if (.not.ctrl%laser_b) then
         write(u_log,'(a)') 'Not writing magnetic dipole moments.'
       else
         write(u_log,'(a)') 'Writing magnetic dipole moments.'
       endif
       ! ---------------------
-      if (ctrl%laser_egrad==.false.) then
+      if (.not.ctrl%laser_egrad) then
         write(u_log,'(a)') 'Not writing electric quadrupole moments.'
       else
         write(u_log,'(a)') 'Writing electric quadrupole moments.'
@@ -3244,7 +3244,7 @@ module input
           allocate(ctrl%laserenergy_tl(ctrl%nsteps*ctrl%nsubsteps+1,ctrl%nlasers))
         endif
         if (ctrl%nsteps*ctrl%nsubsteps+1 /= line_number-com_line_number) then
-          write(0,*) 'Number of lines in laserfile does not match requested steps! (Found/Required)', (line_number-com_line_number, ctrl%nsteps*ctrl%nsubsteps+1) 
+          write(0,*) 'Number of lines in laserfile does not match requested steps! (Found/Required)', line_number-com_line_number, ctrl%nsteps*ctrl%nsubsteps+1 
           stop 1
         endif
       else if (laser_file_version==1.0) then

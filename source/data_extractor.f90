@@ -845,12 +845,12 @@ program data_extractor
       line=get_value_from_key('laser_e',io)
       if (io==0) then
         read(line,*) laser_e
-      else if (laser_b==.false. .and. laser_egrad==.false.) then
+      else if ((.not. laser_b) .and. (.not. laser_egrad)) then
         laser_e=.true.   
       else
         laser_e=.false.
       endif
-      if (laser_e==.true.) then
+      if (laser_e) then
         write_dip  = .true.
         write_dipact = .true.
       endif
@@ -1529,7 +1529,7 @@ program data_extractor
     endif
     
     ! calculate oscillator strengths for electric quadrupoles
-    if (write_el_quad==.true. .or. write_el_quadact==.true. .or. write_eqm_diag==.true.) then
+    if (write_el_quad .or. write_el_quadact .or. write_eqm_diag) then
       expec_eqm=0.d0
       expec_eqm_mch=0.d0
       expec_eqm_act=0.d0 

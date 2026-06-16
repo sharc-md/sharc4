@@ -288,13 +288,13 @@ subroutine LD_propagator_laser(n, SOin, SOold, U, Uold, overlap, DMin, DMold, MD
   integer, intent(in) :: n, nsubsteps
   real*8, intent(in) :: dt
   complex*16, intent(in) :: U(n,n), Uold(n,n),SOin(n,n),SOold(n,n), DMin(n,n,3),DMold(n,n,3)
-  complex*16, intent(in) :: MDMin(n,n,3),MDMold(n,n,3),EQMin(n,n,3),EQMold(n,n,3,3)
+  complex*16, intent(in) :: MDMin(n,n,3),MDMold(n,n,3),EQMin(n,n,3,3),EQMold(n,n,3,3)
   complex*16, intent(in) :: laserfield_e(nsubsteps,3), laserfield_b(nsubsteps,3), laserfield_egrad(nsubsteps,3,3)
   complex*16, intent(inout) :: overlap(n,n)
   complex*16, intent(inout) :: Rtotal(n,n)
 
   integer :: i,j,k, ixyz
-  complex*16 :: H(n,n), SO(n,n), DM(n,n,3), Rprod(n,n)
+  complex*16 :: H(n,n), SO(n,n), DM(n,n,3), Rprod(n,n), MDM(n,n,3),EQM(n,n,3,3)
   real*8 :: sums, dtsubstep
 
   real*8,parameter :: intr_thrs=1.d-1
