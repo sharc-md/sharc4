@@ -1,11 +1,10 @@
-name: sharc4.0
+name: sharc4.1_compat
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - python=3.12
-  - numpy
-  - scipy
+  - numpy=2.2
+  - scipy=1.15
   - h5py
   - matplotlib
   - pyparsing
@@ -21,4 +20,6 @@ dependencies:
   - ase
   - opt_einsum
   - threadpoolctl
+  - pip
+  - joblib
 
