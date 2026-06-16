@@ -429,6 +429,78 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                     self.setupINFOS['theodore.frag'].append(f)
                 self.setupINFOS['theodore.count'] = len(self.setupINFOS['theodore.prop']) + len(self.setupINFOS['theodore.frag'])**2
 
+            if "multipolar_fit" in INFOS["needed_requests"]:
+                self.setupINFOS["resp"] = {}
+                defaults = {
+                    "resp_target": "zero",
+                    "resp_layers": [4],
+                    "resp_first_layer": [1.4],
+                    "resp_density": [10.0],
+                    "resp_fit_order": [2],
+                    "resp_grid": "lebedev",
+                    "resp_betas": [0.0005, 0.0015, 0.003],
+                    "resp_mk_radii": False,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
+                    "resp_vdw_radii": [],
+                    "resp_vdw_radii_symbol": {},
+                    "resp_block_size": [5000],
+                    "resp_nuke_ram": False,  # Old, memory heavy fitting
+                }
+                self.log.info('\n' + '{:-^60}'.format('Multipolar RESP fit setup') + '\n')
+                self.log.info("Please set the options for the RESP multipolar fit.")
+                # ---
+                valid = ["zero", "mulliken", "lowdin"]
+                while True:
+                    answer = question("RESP restraint target:", str, default = defaults["resp_target"], autocomplete = False, KEYSTROKES=KEYSTROKES)
+                    if answer in valid:
+                        self.setupINFOS["resp"]["resp_target"] = answer
+                        break
+                    self.log.info("Must be 'zero', 'mulliken', or 'lowdin'!")
+                # ---
+                while True:
+                    answer = question("RESP layer count:", int, default = defaults["resp_layers"], KEYSTROKES=KEYSTROKES)[0]
+                    if answer >= 1:
+                        self.setupINFOS["resp"]["resp_layers"] = answer
+                        break
+                    self.log.info("Must be positive!")
+                # ---
+                answer = question("RESP first layer:", float, default = defaults["resp_first_layer"], KEYSTROKES=KEYSTROKES)[0]
+                self.setupINFOS["resp"]["resp_first_layer"] = answer
+                # ---
+                answer = question("RESP point density:", float, default = defaults["resp_density"], KEYSTROKES=KEYSTROKES)[0]
+                self.setupINFOS["resp"]["resp_density"] = answer
+                # ---
+                while True:
+                    answer = question("RESP fitting order:", int, default = defaults["resp_fit_order"], KEYSTROKES=KEYSTROKES)[0]
+                    if 0<=answer<=2:
+                        self.setupINFOS["resp"]["resp_fit_order"] = answer
+                        break
+                    self.log.info("Must be 0, 1, or 2!")
+                # ---
+                valid = ["lebedev", "random", "golden_spiral", "gamess", "marcus_deserno"]
+                while True:
+                    answer = question("RESP spherical grid:", str, default = defaults["resp_grid"], autocomplete = False, KEYSTROKES=KEYSTROKES)
+                    if answer in valid:
+                        self.setupINFOS["resp"]["resp_grid"] = answer
+                        break
+                    self.log.info('Must be "lebedev", "random", "golden_spiral", "gamess", or "marcus_deserno"!')
+                # ---
+                while True:
+                    answer = question("RESP constraint parameters (betas):", int, default = defaults["resp_betas"], KEYSTROKES=KEYSTROKES)[0:3]
+                    if all( i>0. for i in answer ):
+                        self.setupINFOS["resp"]["resp_betas"] = answer
+                        break
+                    self.log.info("All must be positive!")
+                # ---
+                self.log.info("WARNING: This setup routine does not handle manual adjustments of VdW radii.")
+                self.log.info("Please manually adjust VdW radii in the resource file if necessary!")
+                # ---
+                while True:
+                    answer = question("RESP block size:", int, default = defaults["resp_block_size"], KEYSTROKES=KEYSTROKES)[0]
+                    if answer >= 1:
+                        self.setupINFOS["resp"]["resp_block_size"] = answer
+                        break
+                    self.log.info("Must be positive!")
+
         return INFOS
 
     def prepare(self, INFOS: dict, workdir: str):
@@ -456,6 +528,18 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
                 string += 'theodir %s\n' % (self.setupINFOS['gaussian.theodore'])
                 string += 'theodore_prop %s\n' % (self.setupINFOS['theodore.prop'])
                 string += 'theodore_fragment %s\n' % (self.setupINFOS['theodore.frag'])
+            if "multipolar_fit" in INFOS['needed_requests']:
+                string += "resp_target %s\n" % (self.setupINFOS['resp']["resp_target"])
+                string += "resp_layers %i\n" % (self.setupINFOS['resp']["resp_layers"])
+                string += "resp_first_layer %f\n" % (self.setupINFOS['resp']["resp_first_layer"])
+                string += "resp_density %f\n" % (self.setupINFOS['resp']["resp_density"])
+                string += "resp_fit_order %i\n" % (self.setupINFOS['resp']["resp_fit_order"])
+                string += "resp_grid %s\n" % (self.setupINFOS['resp']["resp_grid"])
+                string += "resp_betas %i %i %i\n" % tuple(self.setupINFOS['resp']["resp_betas"])
+                string += "resp_block_size %i\n" % (self.setupINFOS['resp']["resp_block_size"])
+                string += "# resp_mk_radii False\n"
+                string += "# resp_vdw_radii {}\n"
+                string += "# resp_vdw_radii_symbols {}\n"
             resources_file.write(string)
             resources_file.close()
 

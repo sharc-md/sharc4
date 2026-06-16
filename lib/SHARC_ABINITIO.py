@@ -112,7 +112,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                 "resp_first_layer": 1.4,
                 "resp_density": 10.0,
                 "resp_fit_order": 2,
-                "resp_mk_radii": True,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
+                "resp_mk_radii": False,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
                 "resp_grid": "lebedev",
                 "resp_target": "zero",
                 "resp_block_size": 5000,

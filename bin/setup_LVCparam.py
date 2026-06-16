@@ -567,19 +567,26 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
                 if len(selected) == 0:
                     selected = INFOS["states"]
                 INFOS["gamma_selected_states"][str(imult)] = selected
-
             print("\nGamma terms will be calculated for the following states:", INFOS["gamma_selected_states"])
+    print("")
 
     ## -------------------- whether to do gradients or numerical -------------------- ##
     print("{:-^60}".format("Analytical nonadiabatic coupling vectors") + "\n")
     if "nacdr" in features:
         INFOS["ana_nac"] = question("Do you want to use analytical nonadiabatic coupling vectors for lambda terms?", bool, False)
+        INFOS["needed_requests"].add("nacdr")
     else:
         INFOS["ana_nac"] = False
+    print("Using analytical nonadiabatic coupling vectors for lambda terms: %r\n" % INFOS["ana_nac"])
 
-    print("Do you want to use analytical nonadiabatic coupling vectors for lambdas: %r\n" % INFOS["ana_nac"])
-    if INFOS["ana_nac"]:
-        INFOS["needed_requests"].add("nacdr")
+    ## ----------------------Multipolar fit ---------------------------- ##
+    if "multipolar_fit" in features:
+        print("{:-^60}".format("Multipolar RESP fit for LVC/MM") + "\n")
+        INFOS["multipolar_fit"] = question("Do you want to fit an atomwise multipolar density representation for each state?", bool, False)
+        INFOS["needed_requests"].add("multipolar_fit")
+    else:
+        INFOS["multipolar_fit"] = False
+    print("Doing multipolar RESP fit: %r\n" % INFOS["multipolar_fit"])
 
     ## -------------------- Whether to do overlaps -------------------- ##
     if (not INFOS["ana_grad"]) or (not INFOS["ana_nac"]):
@@ -718,12 +725,6 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
 
         # output to user
         print("\nOne-sided derivation will be used on: %s\n" % (reduce_big_list_to_short_str(one_sided_derivations.keys())))
-
-    ## ----------------------Multipolar fit ---------------------------- ##
-    if "multipolar_fit" in features:
-        INFOS["multipolar_fit"] = question("Do you want to fit an atomwise multipolar density representation for each state?", bool, False)
-    else:
-        INFOS["multipolar_fit"] = False
 
     ## -------------------- Calculate displacements -------------------- ##
     INFOS = calculate_displacements(INFOS)

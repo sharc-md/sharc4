@@ -266,12 +266,18 @@ class SHARC_ECI(SHARC_HYBRID):
         self.log.info("=" * 80)
         self.log.info("\n")
 
+
         file = question("Please specify path to the resource file of the ECI interface:", str, default="ECI.resources", KEYSTROKES=KEYSTROKES)
         self.setupINFOS["resources_file"] = expand_path(file)
         #  INFOS["children_infos"] = {label:{} for label in self._kindergarden.keys()}
-        for label, child in self._kindergarden.items():
+        for (label,z,Z), child in self._kindergarden.items():
             print("Getting infos of the child "+str(label))
-            child.get_infos(INFOS,KEYSTROKES=KEYSTROKES)
+            # TODO: handle needed_requests in copies of INFOS when passing to children
+            local_INFOS = copy(INFOS)
+            if z == "embedding":
+                if "needed_requests" in local_INFOS:
+                    local_INFOS["needed_requests"].add("multipolar_fit")
+            child.get_infos(local_INFOS,KEYSTROKES=KEYSTROKES)
             #child.get_infos(INFOS["children_infos"][label],KEYSTROKES=KEYSTROKES)
         return INFOS
 
