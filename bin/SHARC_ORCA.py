@@ -4,7 +4,7 @@
 #
 #    SHARC Program Suite
 #
-#    Copyright (c) 2026 University of Vienna
+#    Copyright (c) 2025 University of Vienna
 #
 #    This file is part of SHARC.
 #
@@ -25,6 +25,7 @@
 
 
 import datetime
+import json
 import math
 import os
 import re
@@ -32,12 +33,13 @@ import shutil
 import struct
 import subprocess as sp
 from copy import deepcopy
+from functools import cmp_to_key
 from io import TextIOWrapper
 from itertools import chain, count
 
 import numpy as np
 from constants import IToMult, au2a
-from pyscf import tools
+from pyscf import gto, tools
 from qmin import QMin
 from SHARC_ABINITIO import SHARC_ABINITIO
 from utils import batched, convert_list, expand_path, itmult, link, mkdir, question, readfile, writefile
@@ -65,6 +67,8 @@ all_features = set(
         "phases",
         "molden",
         "point_charges",
+        "multipolar_fit",
+        "density_matrices",
         # "grad_pc",
     ]
 )
@@ -101,6 +105,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
         self.template_file = None
         self.resources_file = None
+        self.order = None
+        self.ao_labels = None
+        self.ao_sign = None
 
         # Add resource keys
         self.QMin.resources.update(
@@ -130,6 +137,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "basis_per_element": None,
                 "basis_per_atom": None,
                 "ecp_per_element": None,
+                "alltrans": None,
             }
         )
         self.QMin.template.types.update(
@@ -151,6 +159,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 "basis_per_element": list,
                 "basis_per_atom": list,
                 "ecp_per_element": list,
+                "alltrans": bool,
             }
         )
 
@@ -247,18 +256,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
             self.resources_file = resources_file
         else:
             self.log.info(f"{'ORCA Ressource usage':-^60}\n")
-            self.log.info(
-                """Please specify the number of CPUs to be used by EACH calculation.
-        """
-            )
+            self.log.info("""Please specify the number of CPUs to be used by EACH calculation.
+        """)
             self.setupINFOS["ncpu"] = abs(question("Number of CPUs:", int, default=[1], KEYSTROKES=KEYSTROKES)[0])
 
             if self.setupINFOS["ncpu"] > 1:
-                self.log.info(
-                    """Please specify how well your job will parallelize.
+                self.log.info("""Please specify how well your job will parallelize.
         A value of 0 means that running in parallel will not make the calculation faster, a value of 1 means that the speedup scales perfectly with the number of cores.
-        Typical values for ORCA are 0.90-0.98."""
-                )
+        Typical values for ORCA are 0.90-0.98.""")
                 self.setupINFOS["scaling"] = max(
                     0.0, question("Parallel scaling:", float, default=[0.9], KEYSTROKES=KEYSTROKES)[0]
                 )
@@ -338,6 +343,78 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     len(self.setupINFOS["theodore_prop"]) + len(self.setupINFOS["theodore_fragment"]) ** 2
                 )
 
+            if "multipolar_fit" in INFOS["needed_requests"]:
+                self.setupINFOS["resp"] = {}
+                defaults = {
+                    "resp_target": "zero",
+                    "resp_layers": [4],
+                    "resp_first_layer": [1.4],
+                    "resp_density": [10.0],
+                    "resp_fit_order": [2],
+                    "resp_grid": "lebedev",
+                    "resp_betas": [0.0005, 0.0015, 0.003],
+                    "resp_mk_radii": False,  # use radii for original Merz-Kollmann-Singh scheme for HCNOSP
+                    "resp_vdw_radii": [],
+                    "resp_vdw_radii_symbol": {},
+                    "resp_block_size": [5000],
+                    "resp_nuke_ram": False,  # Old, memory heavy fitting
+                }
+                self.log.info('\n' + '{:-^60}'.format('Multipolar RESP fit setup') + '\n')
+                self.log.info("Please set the options for the RESP multipolar fit.")
+                # ---
+                valid = ["zero", "mulliken", "lowdin"]
+                while True:
+                    answer = question("RESP restraint target:", str, default = defaults["resp_target"], autocomplete = False, KEYSTROKES=KEYSTROKES)
+                    if answer in valid:
+                        self.setupINFOS["resp"]["resp_target"] = answer
+                        break
+                    self.log.info("Must be 'zero', 'mulliken', or 'lowdin'!")
+                # ---
+                while True:
+                    answer = question("RESP layer count:", int, default = defaults["resp_layers"], KEYSTROKES=KEYSTROKES)[0]
+                    if answer >= 1:
+                        self.setupINFOS["resp"]["resp_layers"] = answer
+                        break
+                    self.log.info("Must be positive!")
+                # ---
+                answer = question("RESP first layer:", float, default = defaults["resp_first_layer"], KEYSTROKES=KEYSTROKES)[0]
+                self.setupINFOS["resp"]["resp_first_layer"] = answer
+                # ---
+                answer = question("RESP point density:", float, default = defaults["resp_density"], KEYSTROKES=KEYSTROKES)[0]
+                self.setupINFOS["resp"]["resp_density"] = answer
+                # ---
+                while True:
+                    answer = question("RESP fitting order:", int, default = defaults["resp_fit_order"], KEYSTROKES=KEYSTROKES)[0]
+                    if 0<=answer<=2:
+                        self.setupINFOS["resp"]["resp_fit_order"] = answer
+                        break
+                    self.log.info("Must be 0, 1, or 2!")
+                # ---
+                valid = ["lebedev", "random", "golden_spiral", "gamess", "marcus_deserno"]
+                while True:
+                    answer = question("RESP spherical grid:", str, default = defaults["resp_grid"], autocomplete = False, KEYSTROKES=KEYSTROKES)
+                    if answer in valid:
+                        self.setupINFOS["resp"]["resp_grid"] = answer
+                        break
+                    self.log.info('Must be "lebedev", "random", "golden_spiral", "gamess", or "marcus_deserno"!')
+                # ---
+                while True:
+                    answer = question("RESP constraint parameters (betas):", int, default = defaults["resp_betas"], KEYSTROKES=KEYSTROKES)[0:3]
+                    if all( i>0. for i in answer ):
+                        self.setupINFOS["resp"]["resp_betas"] = answer
+                        break
+                    self.log.info("All must be positive!")
+                # ---
+                self.log.info("WARNING: This setup routine does not handle manual adjustments of VdW radii.")
+                self.log.info("Please manually adjust VdW radii in the resource file if necessary!")
+                # ---
+                while True:
+                    answer = question("RESP block size:", int, default = defaults["resp_block_size"], KEYSTROKES=KEYSTROKES)[0]
+                    if answer >= 1:
+                        self.setupINFOS["resp"]["resp_block_size"] = answer
+                        break
+                    self.log.info("Must be positive!")
+
         return INFOS
 
     def prepare(self, INFOS: dict, dir_path: str):
@@ -361,6 +438,19 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         file.write(f"{key} {self.setupINFOS[key]}\n")
                 if "scratchdir" in self.setupINFOS:
                     file.write(f"scratchdir {os.path.join(self.setupINFOS['scratchdir'], dir_path)}\n")
+                if "multipolar_fit" in INFOS['needed_requests']:
+                    string = "resp_target %s\n" % (self.setupINFOS['resp']["resp_target"])
+                    string += "resp_layers %i\n" % (self.setupINFOS['resp']["resp_layers"])
+                    string += "resp_first_layer %f\n" % (self.setupINFOS['resp']["resp_first_layer"])
+                    string += "resp_density %f\n" % (self.setupINFOS['resp']["resp_density"])
+                    string += "resp_fit_order %i\n" % (self.setupINFOS['resp']["resp_fit_order"])
+                    string += "resp_grid %s\n" % (self.setupINFOS['resp']["resp_grid"])
+                    string += "resp_betas %i %i %i\n" % tuple(self.setupINFOS['resp']["resp_betas"])
+                    string += "resp_block_size %i\n" % (self.setupINFOS['resp']["resp_block_size"])
+                    string += "# resp_mk_radii False\n"
+                    string += "# resp_vdw_radii {}\n"
+                    string += "# resp_vdw_radii_symbols {}\n"
+                    file.write(string)
         else:
             create_file(expand_path(self.resources_file), os.path.join(dir_path, "ORCA.resources"))
         create_file(expand_path(self.template_file), os.path.join(dir_path, "ORCA.template"))
@@ -422,11 +512,16 @@ class SHARC_ORCA(SHARC_ABINITIO):
             if self.QMin.requests["ion"] and qmin.control["jobid"] == 1:
                 writefile(os.path.join(self.QMin.save["savedir"], "AO_overl"), self._get_ao_matrix(workdir))
 
-            # Delete files not needed
-            work_files = os.listdir(workdir)
-            for file in work_files:
-                if not re.search(r"\.log$|\.cis$|\.engrad|A\.err$|\.molden\.input$|\.gbw$|\.pc$|\.pcgrad.*$", file):
-                    os.remove(os.path.join(workdir, file))
+            if self.QMin.requests["density_matrices"] or self.QMin.requests["multipolar_fit"]:
+                jsonstr = '{\n"Densities": ["all"]\n}'
+                writefile(os.path.join(workdir, "ORCA.json.conf"), jsonstr)
+                gbwfile = "ORCA.gbw" if self.QMin.resources["orcaversion"] >= (6, 0) else "ORCA"
+                self.run_program(
+                    workdir,
+                    f"{os.path.join(self.QMin.resources['orcadir'],'orca_2json')} {gbwfile}",
+                    os.path.join(workdir, "json.log"),
+                    os.path.join(workdir, "json.err"),
+                )
 
         return exit_code, endtime - starttime
 
@@ -466,7 +561,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         gbw_first = os.path.join(workdir, gbw_first)
         gbw_second = os.path.join(workdir, gbw_second)
 
-        match = re.fullmatch(r"(?:STO|[\d+]+(?:-[\d+]+)?[Gg](?:\*{0,2}|\([^)]+\))?)",  self.QMin.template["basis"])
+        match = re.fullmatch(r"(?:STO|[\d+]+(?:-[\d+]+)?[Gg](?:\*{0,2}|\([^)]+\))?)", self.QMin.template["basis"])
         if match:
             self.log.error("Detected a Pople basis set. These are not compatible with wfoverlap.x!")
             raise ValueError("Detected a Pople basis set. These are not compatible with wfoverlap.x!")
@@ -545,7 +640,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
             self.log.debug("Write MO coefficients to savedir")
             writefile(os.path.join(savedir, f"mos.{jobid}.{step}"), self._get_mos(workdir, jobid))
             writefile(os.path.join(savedir, f"mos_allelec.{jobid}.{step}"), self._get_mos(workdir, jobid, ignore_frozcore=True))
-            if os.path.isfile(os.path.join(workdir, "ORCA.cis")):
+            if self.QMin.molecule["states"][jobid - 1] > 1 and os.path.isfile(os.path.join(workdir, "ORCA.cis")):
                 self.log.debug("Write CIS determinants to savedir")
                 cis_dets = self.get_dets_from_cis(os.path.join(workdir, "ORCA.cis"), jobid)
                 for det_file, cis_det in cis_dets.items():
@@ -694,7 +789,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     if self.QMin.resources["orcaversion"] >= (6, 0):
                         # Diagonal elements
                         dipole_dict = self._get_dipole_moment_orca6(log_file)
-                        self.log.info(dipole_dict)
                         total_states = sum(job_states)
                         dipoles = np.zeros((total_states, 3))
                         start_idx = 0
@@ -790,6 +884,83 @@ class SHARC_ORCA(SHARC_ABINITIO):
                                         + len(self.QMin.resources["theodore_fragment"]) ** 2
                                     ):
                                         theodore_arr[j][1][i] = props[(m1, s1)][j]
+            if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
+                if not self.QMout.mol:
+                    mol2, _, _, _, _, _ = tools.molden.load(
+                        os.path.join(self.QMin.resources["scratchdir"], f"master_{job}/ORCA.molden.input")
+                    )
+                    basis = {}
+                    el_basis = {}
+                    if self.QMin.template["basis_per_element"]:
+                        for el, bas in batched(self.QMin.template["basis_per_element"]):
+                            el_basis[el] = bas
+                    for idx, atom in enumerate(self.QMin.molecule["elements"], 1):
+                        if atom in el_basis:
+                            basis[atom + str(idx)] = el_basis[atom]
+                        else:
+                            basis[atom + str(idx)] = self.QMin.template["basis"]
+                    if self.QMin.template["basis_per_atom"]:
+                        for idx, bas in batched(self.QMin.template["basis_per_atom"]):
+                            basis[self.QMin.molecule["elements"][int(idx) - 1] + idx] = bas
+                    mol = gto.Mole()
+                    mol.atom = [[e[0], c] for e, c in zip(mol2.atom, self.QMin.coords["coords"].tolist())]
+                    mol.unit = "Bohr"
+                    mol.cart = False
+                    mol.basis = basis
+                    try:
+                        mol.build()
+                    except RuntimeError:
+                        mol.spin = 1
+                        mol.build()
+                    self.QMout.mol = mol
+                    self.QMin.molecule["SAO"] = mol.intor("int1e_ovlp")
+
+                    self.ao_labels = [i.split()[::2] for i in mol2.ao_labels()]
+                    self.order = sorted(list(range(len(self.ao_labels))), key=cmp_to_key(self._sort_ao))
+                    self.ao_sign = []
+                    for i, l in enumerate(self.ao_labels):
+                        for j in ("f+3", "f-3", "g+3", "g-3", "g+4", "g-4", "h+3", "h-3", "h+4", "h-4"):
+                            if j in l[1]:
+                                self.ao_sign.append(i)
+                with open(os.path.join(scratchdir, f"master_{job}/ORCA.json"), "r", encoding="utf-8") as f:
+                    orca_json = json.load(f)
+                restricted = job == 1 and not self.QMin.template["unrestricted_triplets"]
+                for idx, s1 in enumerate(self.states):
+                    if self.QMin.template["functional"] == "mp2":
+                        dens = np.array(orca_json["Molecule"]["Densities"]["pmp2re"])
+                        self.QMout.density_matrices[(self.states[0], self.states[0], "tot")] = dens[
+                            np.ix_(self.order, self.order)
+                        ]
+                        break
+
+                    if s1.S + 1 not in self.QMin.control["jobs"][job]["mults"]:
+                        continue
+                    for s2 in self.states[idx:]:
+                        if s2.S + 1 not in self.QMin.control["jobs"][job]["mults"]:
+                            continue
+                        if s1 == s2:
+                            if s1.N == 1:
+                                if s1.S != 2 or (not restricted):
+                                    dens = np.array(orca_json["Molecule"]["Densities"]["scfp"])
+                                    self.log.debug(f"({s1}, {s2}) mult: {job} density: scfp")
+                                    self.QMout.density_matrices[(s1, s2, "tot")] = dens[np.ix_(self.order, self.order)]
+                                    continue
+                            m = "triplet" if (s1.S == 2 and restricted) else "singlet"
+                            try:
+                                spin = 1 if m == "triplet" else 0
+                                dens = np.array(orca_json["Molecule"]["Densities"][f"cispre.{m}.iroot{s1.N-1+spin}"])
+                                self.QMout.density_matrices[(s1, s2, "tot")] = dens[np.ix_(self.order, self.order)]
+                                self.log.debug(f"({s1}, {s2}) mult: {job} density: cispre.{m}.iroot{s1.N-1+spin}")
+                            except KeyError:
+                                self.log.warning(f"No relaxed density for ({s1}, {s2}, tot)")
+                        elif s1.M == s2.M and s1.S == s2.S:
+                            try:
+                                spin = 1 if restricted and s1.S == 2 else 0
+                                dens = np.array(orca_json["Molecule"]["Densities"][f"Tdens-CIS-0-{spin}-{s1.N-1}-{s2.N-1}"])
+                                self.QMout.density_matrices[(s1, s2, "tot")] = dens[np.ix_(self.order, self.order)]
+                                self.log.debug(f"({s1}, {s2}) mult: {job} density: Tdens-CIS-0-{spin}-{s1.N-1}-{s2.N-1}")
+                            except KeyError:
+                                self.log.warning(f"No density for ({s1}, {s2}, tot)")
 
         if self.QMin.requests["theodore"]:
             self.QMout["prop1d"].extend(theodore_arr)
@@ -886,7 +1057,68 @@ class SHARC_ORCA(SHARC_ABINITIO):
                         ion_mat[i, j] = dyson_mat[s1 - 1, s2 - 1] * factor
             self.QMout["prop2d"].append(("ion", ion_mat))
         self.QMout["runtime"] = self.clock.measuretime(False)
+
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
+            for dens in self.QMout.density_matrices.values():
+                dens[:, self.ao_sign] *= -1
+                dens[self.ao_sign, :] *= -1
+            self.get_densities()
+            if self.QMin.requests["multipolar_fit"]:
+                self.QMout.multipolar_fit = self._resp_fit_on_densities()
         return self.QMout
+
+    def _sort_ao(self, ao1: int, ao2: int) -> int:
+        """
+        ORCA AO order to PySCF order
+        """
+        first = self.ao_labels[ao1]
+        second = self.ao_labels[ao2]
+
+        label_to_int = {"s": 1, "p": 2, "d": 3, "f": 4, "g": 5}
+        angular_to_int = {
+            "s": 1,
+            "px": 3,
+            "py": 1,
+            "pz": 2,
+            "dxy": 3,
+            "dyz": 4,
+            "dz^2": 2,
+            "dxz": 5,
+            "dx2-y2": 1,
+            "f-3": 4,
+            "f-2": 5,
+            "f-1": 3,
+            "f+0": 6,
+            "f+1": 2,
+            "f+2": 7,
+            "f+3": 1,
+            "g-4": 5,
+            "g-3": 6,
+            "g-2": 4,
+            "g-1": 7,
+            "g+0": 3,
+            "g+1": 8,
+            "g+2": 2,
+            "g+3": 9,
+            "g+4": 1,
+            "h-5": 6,
+            "h-4": 7,
+            "h-3": 5,
+            "h-2": 8,
+            "h-1": 4,
+            "h+0": 9,
+            "h+1": 3,
+            "h+2": 10,
+            "h+3": 2,
+            "h+4": 11,
+            "h+5": 1,
+        }
+        return (
+            (int(first[0]) - int(second[0])) * 10000  # Atom
+            + (int(first[1][0]) - int(second[1][0])) * 100  # Shell
+            + (label_to_int[first[1][1]] - label_to_int[second[1][1]]) * 1000  # Function
+            + (angular_to_int[first[1][1:]] - angular_to_int[second[1][1:]]) * 1  # Angular
+        )
 
     def _get_pc_grad(self, grad_path: str) -> np.ndarray:
         """
@@ -1109,7 +1341,7 @@ class SHARC_ORCA(SHARC_ABINITIO):
         if self.QMin.resources["orcaversion"] >= (6, 0):
             sub_states = states_extract[gsmult - 1]
         if use_rpa:
-            sub_states = 0  
+            sub_states = 0
         for imult in mults:
             nstates = states_extract[imult - 1]
             for state, energy in iter_states:
@@ -1142,6 +1374,11 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 if self.QMin.template["unrestricted_triplets"]:
                     self.log.error("SOCs are not possible with unrestricted_triplets")
                     raise RuntimeError
+                
+        if self.QMin.requests["multipolar_fit"] or self.QMin.requests["density_matrices"]:
+            if self.QMin.resources["orcaversion"] < (6, 0):
+                self.log.error("multipolar_fit and density_matrices are only possible with ORCA 6")
+                raise RuntimeError
 
     def read_resources(self, resources_file: str = "ORCA.resources", kw_whitelist: list[str] | None = None) -> None:
         if kw_whitelist is None:
@@ -1199,18 +1436,21 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 self.log.error("Charges of singlets and triplets differ. Please enable the unrestricted_triplets option!")
                 raise ValueError()
 
+        if self.QMin.requests["soc"] and len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
+            self.log.error("Request SOC is not compatible with unrestricted_triplets!")
+            raise ValueError()
+
         # Check if valid paste_input_file path is given
         if self.QMin.template["paste_input_file"]:
             self.QMin.template["paste_input_file"] = expand_path(self.QMin.template["paste_input_file"])
             if not os.path.isfile(self.QMin.template["paste_input_file"]):
                 self.log.error(f"paste_input_file {self.QMin.template['paste_input_file']} does not exist!")
                 raise FileNotFoundError()
-            
+
         # Warn from Pople basis sets
-        match = re.fullmatch(r"(?:STO|[\d+]+(?:-[\d+]+)?[Gg](?:\*{0,2}|\([^)]+\))?)",  self.QMin.template["basis"])
+        match = re.fullmatch(r"(?:STO|[\d+]+(?:-[\d+]+)?[Gg](?:\*{0,2}|\([^)]+\))?)", self.QMin.template["basis"])
         if match:
             self.log.warning("Detected a Pople basis set! Overlap calculations will not work properly")
-            
 
     def run(self) -> None:
         """
@@ -1273,10 +1513,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
             req = max(self.QMin.molecule["states"][0] - 1, self.QMin.molecule["states"][2])
             states_to_do[0] = req + 1
             states_to_do[2] = req
-        # TODO: setup_interface should not check for requests
-        elif self.QMin.requests["soc"] and len(self.QMin.molecule["states"]) >= 3 and self.QMin.molecule["states"][2] > 0:
-            self.log.error("Request SOC is not compatible with unrestricted_triplets!")
-            raise ValueError()
         self.QMin.control["states_to_do"] = states_to_do
 
         self._build_jobs()
@@ -1318,6 +1554,14 @@ class SHARC_ORCA(SHARC_ABINITIO):
                     break
         # Populate initial orbitals dict
         self.QMin.control["initorbs"] = self._get_initorbs()
+
+        for s in self.states:
+            s.C["is_gs"] = False
+            s.C["its_gs"] = None
+            if s.N == 1:
+                s.C["is_gs"] = True
+                if s.S == 2:
+                    s.C["is_gs"] = False
 
     def _build_jobs(self) -> None:
         """
@@ -1653,6 +1897,8 @@ class SHARC_ORCA(SHARC_ABINITIO):
 
             elif egrad:
                 string += f"\tiroot {egrad[1] - (gsmult == egrad[0])}\n"
+            if not qmin.requests["soc"] and qmin.template["alltrans"]:
+                string += "\tDOTRANS ALL\n"
             string += "end\n\n"
 
         # Output
@@ -1690,77 +1936,6 @@ class SHARC_ORCA(SHARC_ABINITIO):
         return string
 
     @staticmethod
-    def get_pyscf_order_from_orca(atom_symbols: list[str], basis_dict: dict[str, list[int, tuple]]) -> list[int]:
-        """
-        Generates the reorder list to reorder atomic orbitals (from ORCA) to pyscf.
-
-        Sources:
-        ORCA: https://orcaforum.kofo.mpg.de/viewtopic.php?f=8&p=23158&t=5433&sid=f41177ec0888075a3b1e7fa438b77bd2
-        pyscf:  https://pyscf.org/user/gto.html#ordering-of-basis-function
-
-        Parameters
-        ----------
-        atom_symbols : list[str]
-            list of element symbols for all atoms (same order as AOs)
-        basis_dict : dict[str, list]
-            basis set for each atom in pyscf format
-        """
-        #  return matrix
-
-        # in the case of P(S=P) coefficients the order is 1S, 2S, 2Px, 2Py, 2Pz, 3S in gaussian and pyscf
-        # from orca order: z, x, y
-        # to  pyscf order: x, y, z
-        p_order = [1, 2, 0]
-        n_p = 3
-
-        # from orca order: z2, xz, yz, x2-y2, xy
-        # to  pyscf order: xy, yz, z2, xz, x2-y2
-        d_order = [4, 2, 0, 1, 3]
-        nd = 5
-
-        # F shells spherical:
-        # orca  order: zzz, xzz, yzz, xxz-yyz, xyz, xxx-xyy, xxy
-        # pyscf order: xxy, xyz, yzz, zzz, xzz, xxz-yyz, xxx-xyy
-        f_order = [6, 4, 2, 0, 1, 3, 5]
-        nf = 7
-
-        # compile the new_order for the whole matrix
-        new_order = []
-        it = 0
-        for i, a in enumerate(atom_symbols):
-            key = f"{a}{i+1}"
-            #       s  p  d  f
-            n_bf = [0, 0, 0, 0]
-
-            # count the shells for each angular momentun
-            for shell in basis_dict[key]:
-                n_bf[shell[0]] += 1
-
-            s, p = n_bf[0:2]
-            new_order.extend([it + n for n in range(s)])
-
-            it += s
-            assert it == len(new_order)
-
-            # do p shells
-            for _ in range(p):
-                new_order.extend([it + n for n in p_order])
-                it += n_p
-
-            # do d shells
-            for _ in range(n_bf[2]):
-                new_order.extend([it + n for n in d_order])
-                it += nd
-
-            # do f shells
-            for _ in range(n_bf[3]):
-                new_order.extend([it + n for n in f_order])
-                it += nf
-            assert it == len(new_order)
-
-        return new_order
-
-    @staticmethod
     def get_orca_version(path: str) -> tuple[int, ...]:
         """
         Get ORCA version number of given path
@@ -1772,6 +1947,49 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 raise ValueError("ORCA version not found!")
             version = re.findall(r"Program Version (\d.\d.\d)", comm)[0].split(".")
             return tuple(int(i) for i in version)
+
+    def get_readable_densities(self):
+        return {}
+
+    def read_and_append_densities(self):
+        pass
+
+    def read_dets_and_mos(self, directory, s, step):
+        file = f"{directory}/dets_allelec.{s + 1}.{step}"
+        if not os.path.isfile(file):
+            file = f"{directory}/dets.{s + 1}.{step}"
+        nst = np.loadtxt(file, usecols=(0,), max_rows=1, dtype=int)
+        nst = int(nst)
+        dets = np.loadtxt(file, usecols=(0,), skiprows=1, dtype=str, ndmin=1).tolist()
+        ci = np.loadtxt(file, skiprows=1, usecols=list(range(1, nst + 1)), ndmin=2, dtype=float)
+        mo_mult = s
+        if not self.QMin.template["unrestricted_triplets"] and s == 2:
+            mo_mult = 0
+        file = f"{directory}/mos_allelec.{mo_mult + 1}.{step}"
+        if not os.path.isfile(file):
+            file = f"{directory}/mos.{mo_mult + 1}.{step}"
+        nao = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(0,), dtype=int)
+        nmo = np.loadtxt(file, skiprows=5, max_rows=1, usecols=(1,), dtype=int)
+        mos = np.zeros((nao, nmo))
+        nr = nao // 3
+        if nao % 3 != 0:
+            nr += 1
+        for i in range(nmo):
+            mos[:, i] = np.concatenate(
+                (
+                    np.loadtxt(file, skiprows=9 + i * nr, max_rows=nr - 1).flatten(),
+                    np.loadtxt(file, skiprows=9 + i * nr + nr - 1, max_rows=1, ndmin=1),
+                )
+            )
+        mos = np.ascontiguousarray(mos)
+        dets = np.char.replace(dets, old="d", new="7,")
+        dets = np.char.replace(dets, old="a", new="5,")
+        dets = np.char.replace(dets, old="b", new="1,")
+        dets = np.char.replace(dets, old="e", new="-1,")
+        dets = np.array([np.fromstring(i, dtype=int, sep=",") for i in dets])
+        mos = mos[self.order]
+        mos[self.ao_sign, :] *= -1
+        return nst, dets, ci, mos
 
 
 if __name__ == "__main__":
