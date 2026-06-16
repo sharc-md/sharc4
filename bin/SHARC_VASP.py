@@ -1209,7 +1209,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         n0 = len(det_t0)
         nt = len(det_t)
         det_length=len(det_t0[0]) #Length of each SD string
-        njobs=int(os.environ['OMP_NUM_THREADS']) 
+        njobs=int(self.QMin.resources["ncpu"]) 
         S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(i, S, S_GS, det_t, det_t0, lu_gs, piv_gs, det_beta, det_gs,det_length, nt) for i in range(n0)))
 
         #Löwdin's orthogonalization -> we need to make S_{ij}(r,t+dt) unitary for local-diabatization, see Granucci JCP 2001
@@ -1486,7 +1486,7 @@ class SHARC_VASP(SHARC_ABINITIO):
         n0 = len(det_t0)
         nt = len(det_t)
         det_length=len(det_t0[0]) #Length of each SD string
-        njobs=int(os.environ['OMP_NUM_THREADS']) 
+        njobs=int(self.QMin.resources["ncpu"]) 
         S_ij = np.array(Parallel(n_jobs=njobs)(delayed(compute_row)(
                     i, S_alpha, S_beta, S_GS_alpha, S_GS_beta, ind_beta,
                     det_t, det_t0, lu_gs_alpha, lu_gs_beta,
