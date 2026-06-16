@@ -4,10 +4,10 @@ system random_test # Name of the calculation/system. SYSTEM keyword in VASP INCA
 
 gga PE # DFT functional. Check VASP wiki for available options
 
-ismear -2 # Smearing parameter for VASP calculations 
+ismear 0 # Smearing parameter for VASP calculations 
           # (check VASP wiki. Default is 0 here i.e. Gaussian smearing)
 
-ispin 1 # Only ispin=1 is accepted -> only singlet multiplicity is computed basically. Triplets are not yet implemented
+ispin 1 # Only ispin=1 is accepted -> only restricted VASP calculations are possible at present.
 
 ediff 1e-4 # EDIFF VASP keyword. Treshold for SCF loop break. energy value in eV
 
@@ -28,10 +28,10 @@ a2 0.0 10.0 0.0 # 2ns lattice vector.
 
 a3 0.0 0.0 10.0 # 3rd lattice vector. 
 
-overlap_method pawpyseed #By default overlap computation is provided by pawpyseed. "vasp" could also be selected to 
-                         #provide vasp overlap among KS orbitals. This is option is still under testing! 
+overlap_method pawpyseed #By default overlap computation is provided by pawpyseed. Only available method at present.
 
 phases_method simple #Selecting method for phases correction of adiabatic states.
                    # Either "none", "simple" (Akimov J. Phys. Chem. Lett. 2018, 9, 6096−6102)
                    # or "robust" (Subotnik et al. JCTC 2020, 16, 835−846)
 
+#Check the SHARC manual for additiona possible keywords.

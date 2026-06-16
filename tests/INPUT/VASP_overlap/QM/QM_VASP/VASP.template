@@ -6,8 +6,7 @@ gga PE # DFT functional. Check VASP wiki for available options
 
 ismear 0 # Smearing parameter for VASP calculations 
 
-ispin 1 # Only ispin=1 is accepted -> only singlet multiplicity is computed basically. Triplets are not yet implemented
-        # Also, non-collinear calculations may come at some point.
+ispin 1 # Only ispin=1 is accepted -> only restricted VASP calculations are possible at present.
 
 ediff 1e-4 # EDIFF VASP keyword. Treshold for SCF loop break. energy value in eV
 
