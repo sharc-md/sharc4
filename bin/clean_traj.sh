@@ -32,7 +32,7 @@ fi
 echo "In TRAJ_* directory. Proceeding with deletions..."
 
 # Delete files with prefixes output.* and restart.*
-rm -v output.* restart.*
+rm -v output.* restart.* driver.log
 
 # Delete output_data folder
 rm -vr output_data/
