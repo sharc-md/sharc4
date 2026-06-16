@@ -66,7 +66,7 @@ def package_check():
         "threadpoolctl": "SHARC_ECI.py and ab initio interfaces will not work.",
         "opt_einsum": "SHARC_ECI.py will not work.",
         "parmed": "setup_from_prmtop.py will not work.",
-        "pawpyseed" : "SHARC_VASP.py will not work.",
+        "pawpyseed" : "SHARC_VASP.py: Wave function overlaps will not work.",
         "tequila": "SHARC_TEQUILA.py will not work."
     }
     version_checks = {

@@ -95,7 +95,7 @@ def prompt_path(prompt_text, default_path):
 
 def prompt_state(prompt_text, default=None, choices=None):
     if choices:
-        print(f"Available final states: {choices}")
+        print(f"Available states: {choices}")
     while True:
         choice = question(prompt_text, int, default=[default])[0]
         if choice in choices:
