@@ -27,33 +27,31 @@
 # IMPORTS
 # external
 import datetime
+import itertools
 import os
 import shutil
 from copy import deepcopy
 from io import TextIOWrapper
-import numpy as np
 from typing import Optional
-import itertools
+
+import numpy as np
 
 # internal
-from constants import ATOMCHARGE, FROZENS
-# from factory import factory
 from SHARC_HYBRID import SHARC_HYBRID
-from utils import InDir, mkdir, question, cleandir, writefile
+from SHARC_INTERFACE import SHARC_INTERFACE
+from utils import InDir, expand_path, mkdir, question, writefile
 
-version = '4.0'
+version = "4.0"
 versiondate = datetime.datetime(2025, 4, 1)
 
-changelogstring = '''
-'''
-np.set_printoptions(linewidth=400)
-
-numdiff_debug = False
-
-# TODO: define __all__
+changelogstring = """
+"""
 
 
-def phase_correction(matrix):
+__all__ = ["SHARC_NUMDIFF"]
+
+
+def phase_correction(log, matrix: np.ndarray) -> tuple[np.ndarray]:
     """
     Do a phase correction of a matrix.
     Follows algorithm from J. Chem. Theory Comput. 2020, 16, 2, 835-846 (https://doi.org/10.1021/acs.jctc.9b00952)
@@ -88,9 +86,8 @@ def phase_correction(matrix):
                     phases[k] *= -1.0
                     done = False
         sweeps += 1
-    
-    if numdiff_debug:
-        print(f"Finished phase correction after {sweeps} sweeps.")
+
+    log.debug(f"Finished phase correction after {sweeps} sweeps.")
 
     return U, phases
 
@@ -102,9 +99,11 @@ def loewdin_orthonormalization(A):
     S = A.T @ A
     eigenvals, eigenvecs = np.linalg.eigh(S)
     idx = eigenvals > 1e-15
-    S_sqrt = np.dot(eigenvecs[:, idx] / np.sqrt(eigenvals[idx]), eigenvecs[:, idx].conj().T)
+    S_sqrt = np.dot(
+        eigenvecs[:, idx] / np.sqrt(eigenvals[idx]), eigenvecs[:, idx].conj().T
+    )
     A_ortho = A @ S_sqrt
-    
+
     # Normalize the matrix
     A_lo = A_ortho.T
     length = len(A_lo)
@@ -112,30 +111,25 @@ def loewdin_orthonormalization(A):
 
     for i in range(length):
         norm_of_col = np.linalg.norm(A_lo[i])
-        A_lon[i] = [e / (norm_of_col ** 0.5) for e in A_lo[i]]
-    
-    return A_lon.T
-    
+        A_lon[i] = [e / (norm_of_col**0.5) for e in A_lo[i]]
 
-def post_process_overlap_matrix(overlap_matrix):
+    return A_lon.T
+
+
+def post_process_overlap_matrix(log, overlap_matrix):
     """
     Process an overlap matrix to ensure that it has correct phases
     and in orthonormal.
     """
     # First fix phases
-    phase_corrected_overlap, phases = phase_correction(overlap_matrix)
+    phase_corrected_overlap, phases = phase_correction(log, overlap_matrix)
 
     # Do a Loewdin orthonormalization
     orthogonal_overlap = loewdin_orthonormalization(phase_corrected_overlap)
 
     # Extra phase correction (probably not needed)
-    final, phases2 = phase_correction(orthogonal_overlap)
-    return final, phases*phases2
-
-
-
-
-
+    final, phases2 = phase_correction(log, orthogonal_overlap)
+    return final, phases * phases2
 
 
 class SHARC_NUMDIFF(SHARC_HYBRID):
@@ -150,70 +144,74 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # Update resource keys
         self.QMin.resources.update(
             {
-                "use_all_cores_for_ref" : True,
+                "use_all_cores_for_ref": True,
             }
         )
         self.QMin.resources.types.update(
             {
-                "use_all_cores_for_ref" : bool,
+                "use_all_cores_for_ref": bool,
             }
         )
 
         # Add template keys
         self.QMin.template.update(
             {
-                "qm-program"            :   None,
-                "qm-dir"                :   None,             # that's where the QM template/resource are
-                "numdiff_method"        :   "central-diff",   # or "central-quad"
-                'numdiff_representation':   "adiabatic",      # or "diabatic"
-                "numdiff_stepsize"      :   0.01,             # TODO: should be a list of displacements per-DOF
-                "coord_type"            :   "cartesian",      # or 'displacement' -> 'normal_modes'
-                "normal_modes_file"     :   None,
-                "whitelist"             :   [],
+                "qm-program": None,
+                "qm-dir": None,  # that's where the QM template/resource are
+                "numdiff_method": "central-diff",  # or "central-quad"
+                "numdiff_representation": "adiabatic",  # or "diabatic"
+                "numdiff_stepsize": 0.01,  # TODO: should be a list of displacements per-DOF
+                "coord_type": "cartesian",  # or 'displacement' -> 'normal_modes'
+                "normal_modes_file": None,
+                "whitelist": [],
             }
         )
         self.QMin.template.types.update(
             {
-                "qm-program"            :   str,
-                "qm-dir"                :   str,
-                "numdiff_method"        :   str,
-                "numdiff_representation":   str,
-                "numdiff_stepsize"      :   float,
-                "coord_type"            :   str,
-                "normal_modes_file"     :   None,
-                "whitelist"             :   list,
+                "qm-program": str,
+                "qm-dir": str,
+                "numdiff_method": str,
+                "numdiff_representation": str,
+                "numdiff_stepsize": float,
+                "coord_type": str,
+                "normal_modes_file": None,
+                "whitelist": list,
             }
         )
 
-    @ staticmethod
+        self.do_numerically = None
+        self.do_numerically_now = None
+        self.ref_interface: SHARC_INTERFACE = None
+
+    @staticmethod
     def authors() -> str:
-        return 'Nicolai Machholdt Høyer and Sebastian Mai'
+        return "Nicolai Machholdt Høyer and Sebastian Mai"
 
     @staticmethod
     def version():
         return SHARC_NUMDIFF._version
-    
-    @ staticmethod
+
+    @staticmethod
     def versiondate():
         return SHARC_NUMDIFF._versiondate
-    
+
     @staticmethod
     def name() -> str:
         return "NUMDIFF"
-    
+
     @staticmethod
     def description():
-        return "   HYBRID interface for numerical derivatives (grad, NACdr, SOCdr, DMdr)"
-    
-    @ staticmethod
+        return (
+            "   HYBRID interface for numerical derivatives (grad, NACdr, SOCdr, DMdr)"
+        )
+
+    @staticmethod
     def changelogstring():
         return SHARC_NUMDIFF._changelogstring
-    
 
-
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     def get_features(self, KEYSTROKES: TextIOWrapper | None = None):
         """return availble features
@@ -230,46 +228,46 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # if in setup mode, ask for the template file, read it, and instantiate a child to get features
         # if not in setup mode, reference child is already there
         if not self._read_template:
-            self.template_file =  question(
-                "Please specify the path to your NUMDIFF.template file", 
-                str, 
-                KEYSTROKES=KEYSTROKES, 
-                default="NUMDIFF.template"
+            self.template_file = question(
+                "Please specify the path to your NUMDIFF.template file",
+                str,
+                KEYSTROKES=KEYSTROKES,
+                default="NUMDIFF.template",
             )
             self.read_template(self.template_file)
-        if not hasattr(self,"ref_interface"):
-            qm_program = self.QMin.template['qm-program']
+        if not hasattr(self, "ref_interface"):
+            qm_program = self.QMin.template["qm-program"]
             self.ref_interface = self._load_interface(qm_program)()
             # self.ref_interface.QMin.molecule['states'] = self.QMin.molecule['states']
             if isinstance(self.ref_interface, SHARC_HYBRID):
-                self.log.error('Currently, Hybrid interfaces cannot be used as children of SHARC_NUMDIFF.py')
+                self.log.error(
+                    "Currently, Hybrid interfaces cannot be used as children of SHARC_NUMDIFF.py"
+                )
                 raise NotImplementedError
-        
 
         ref_features = self.ref_interface.get_features(KEYSTROKES=KEYSTROKES)
-        needed = {'grad': set(['h']),
-                  'socdr': set(['soc']),
-                  'dmdr': set(['dm']),
-                  'nacdr': set(['h','overlap']),
-                  }
-        if self.QMin.template["numdiff_representation"] == 'diabatic':
+        needed = {
+            "grad": set(["h"]),
+            "socdr": set(["soc"]),
+            "dmdr": set(["dm"]),
+            "nacdr": set(["h", "overlap"]),
+        }
+        if self.QMin.template["numdiff_representation"] == "diabatic":
             for i in needed:
-                needed[i].add('overlap')
+                needed[i].add("overlap")
         possible = set()
         for i in needed:
-            if all([ j in ref_features for j in needed[i] ]):
+            if all([j in ref_features for j in needed[i]]):
                 possible.add(i)
         qm_features = ref_features.union(possible)
 
         # NUMDIFF cannot displace point charges
-        not_supported = {'point_charges'}
+        not_supported = {"point_charges"}
         qm_features -= not_supported
 
         # Make QM features into a set a return these
-        self.log.debug(qm_features) # log features
+        self.log.debug(qm_features)  # log features
         return set(qm_features)
-
-
 
     def get_infos(self, INFOS, KEYSTROKES: Optional[TextIOWrapper] = None) -> dict:
         """communicate requests from setup and asks for additional paths or info
@@ -299,35 +297,51 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         # Interactive setting of file
         # TODO: add options
-        if question("Do you have an NUMDIFF.resources file?", bool, KEYSTROKES=KEYSTROKES, autocomplete=False, default=False):
-            self.resources_file = question("Specify path to NUMDIFF.resources", str, KEYSTROKES=KEYSTROKES, autocomplete=True)
+        if question(
+            "Do you have an NUMDIFF.resources file?",
+            bool,
+            KEYSTROKES=KEYSTROKES,
+            autocomplete=False,
+            default=False,
+        ):
+            self.resources_file = question(
+                "Specify path to NUMDIFF.resources",
+                str,
+                KEYSTROKES=KEYSTROKES,
+                autocomplete=True,
+            )
         else:
             self.log.info(f"{'NUMDIFF Ressource usage':-^60}\n")
             self.log.info(
                 """Please specify the number of CPUs to be used by EACH trajectory.
         """
             )
-            self.setupINFOS["ncpu_numdiff"] = abs(question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0])
-            self.setupINFOS["scratchdir_numdiff"] = question("Path to scratch directory:", str, KEYSTROKES=KEYSTROKES)
+            self.setupINFOS["ncpu_numdiff"] = abs(
+                question("Number of CPUs:", int, KEYSTROKES=KEYSTROKES)[0]
+            )
+            self.setupINFOS["scratchdir_numdiff"] = question(
+                "Path to scratch directory:", str, KEYSTROKES=KEYSTROKES
+            )
             # self.setupINFOS["scratchdir_numdiff"] += '/$$/'
 
             # TODO: could use schedule scaling and Amdahl, but SHARC_HYBRID does not have it
 
         # if we need overlaps, we need to modify the INFOS['needed_requests'] to tell children to prepare for that
-        needed_copy = deepcopy(INFOS['needed_requests'])
-        if self.QMin.template["numdiff_representation"] == 'diabatic' or "nacdr" in INFOS['needed_requests']:
-            INFOS['needed_requests'].add('overlap')
-        
+        needed_copy = deepcopy(INFOS["needed_requests"])
+        if (
+            self.QMin.template["numdiff_representation"] == "diabatic"
+            or "nacdr" in INFOS["needed_requests"]
+        ):
+            INFOS["needed_requests"].add("overlap")
+
         # Get the infos from the child
         self.log.info(f"{' Setting up QM-interface ':=^80s}\n")
         self.ref_interface.get_infos(INFOS, KEYSTROKES=KEYSTROKES)
 
         # reset the needed requests
-        INFOS['needed_requests'] = needed_copy
+        INFOS["needed_requests"] = needed_copy
 
         return INFOS
-
-
 
     def prepare(self, INFOS: dict, dir_path: str):
         """
@@ -341,15 +355,21 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             str: *relative* path to the directory to setup (can be appended to `scratchdir`)
         """
         # Copy files to the nummdiff dir
-        shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".template"))
+        shutil.copy(
+            self.template_file, os.path.join(dir_path, self.name() + ".template")
+        )
         # shutil.copy(self.template_file, os.path.join(dir_path, self.name() + ".resources"))
 
         # write resource file
-        string = 'ncpu %i\nscratchdir %s/%s\nuse_all_cores_for_ref True\n' % (self.setupINFOS['ncpu_numdiff'], self.setupINFOS["scratchdir_numdiff"], dir_path)
+        string = "ncpu %i\nscratchdir %s/%s\nuse_all_cores_for_ref True\n" % (
+            self.setupINFOS["ncpu_numdiff"],
+            self.setupINFOS["scratchdir_numdiff"],
+            dir_path,
+        )
         writefile(os.path.join(dir_path, self.name() + ".resources"), string)
 
         # Setup sub-dir for the QM calcs
-        if self.QMin.template['qm-dir'] is None:
+        if self.QMin.template["qm-dir"] is None:
             raise ValueError("Keyword 'qm-dir' not found in template file!")
         qmdir = dir_path + f"/{self.QMin.template['qm-dir']}"
         mkdir(qmdir)
@@ -361,77 +381,62 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
             )
             self.QMin.save["savedir"] = os.getcwd()
 
-        ref_savedir = os.path.join(dir_path, self.QMin.save["savedir"], 'QM_' + self.QMin.template["qm-program"].upper())
+        ref_savedir = os.path.join(
+            dir_path,
+            self.QMin.save["savedir"],
+            "QM_" + self.QMin.template["qm-program"].upper(),
+        )
         self.log.debug(f"ref_savedir {ref_savedir}")
-        # if not os.path.isdir(ref_savedir):
-        #     mkdir(ref_savedir)
-        
-        ref_scratchdir = os.path.join(self.QMin.resources["scratchdir"],   'QM_' + self.QMin.template["qm-program"].upper())
+        if not os.path.isdir(ref_savedir):
+            mkdir(ref_savedir)
+
+        ref_scratchdir = os.path.join(
+            self.QMin.resources["scratchdir"],
+            "QM_" + self.QMin.template["qm-program"].upper(),
+        )
         self.log.debug(f"ref_scratchdir {ref_scratchdir}")
-        # if not os.path.isdir(ref_scratchdir):
-        #     mkdir(ref_scratchdir)
+        if not os.path.isdir(ref_scratchdir):
+            mkdir(ref_scratchdir)
 
         self.ref_interface.QMin.save["savedir"] = ref_savedir
         self.ref_interface.QMin.resources["scratchdir"] = ref_scratchdir
 
         # if we need overlaps, we need to modify the INFOS['needed_requests'] to tell children to prepare for that
-        needed_copy = deepcopy(INFOS['needed_requests'])
-        if self.QMin.template["numdiff_representation"] == 'diabatic' or "nacdr" in INFOS['needed_requests']:
-            INFOS['needed_requests'].add('overlap')
-        
+        needed_copy = deepcopy(INFOS["needed_requests"])
+        if (
+            self.QMin.template["numdiff_representation"] == "diabatic"
+            or "nacdr" in INFOS["needed_requests"]
+        ):
+            INFOS["needed_requests"].add("overlap")
+
         # Call prepare for the reference interface
         self.ref_interface.prepare(INFOS, qmdir)
 
         # reset the needed requests
-        INFOS['needed_requests'] = needed_copy
+        INFOS["needed_requests"] = needed_copy
 
         return
 
-
-
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-
-
-
-
-
-
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     def read_template(self, template_file="NUMDIFF.template") -> None:
-        # Call the read_template() from the base (Simply reads all entries in the .template file and adds them to the self.Qmin.template)
         super().read_template(template_file)
-        
+
         # If we use normal mode coordinates we read them in here
         if self.QMin.template["coord_type"] == "normal_modes":
-            self.read_displacement_coordinates(os.path.abspath(self.QMin.template["normal_modes_file"]))
+            self.read_displacement_coordinates(
+                os.path.abspath(self.QMin.template["normal_modes_file"])
+            )
             # TODO: change to V0.txt format!
 
-        # Sanitize (should be setup in another way I guess)
-        # self.QMin.template["numdiff_stepsize"] = float(self.QMin.template["numdiff_stepsize"])
-
-        # Set _read_template to True
-        self._read_template = True
-        return
-
+        self.QMin.template["numdiff_stepsize"] = float(
+            self.QMin.template["numdiff_stepsize"]
+        )
 
     def read_resources(self, resources_file="NUMDIFF.resources") -> None:
-        # TODO: only uses scratchdir currently. Anything else? ncpu/memory?
-        # Do we need to throw a RunTimeError if the resource file is not there?
-        # Search for resource file
-        if not os.path.isfile(resources_file):
-            err_str = f"File '{resources_file}' not found!"
-            self.log.error(err_str)
-            raise RuntimeError(err_str)
-        
-        # Call the read_resources() from the base
         super().read_resources(resources_file)
-        self._read_resources = True
-        
-        return
-
-
 
     def read_displacement_coordinates(self, disp_coord_filename):
         # TODO: replace with V0.txt format
@@ -440,7 +445,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         # Read the coord file
         disp_coords = []
-        with open(disp_coord_filename, 'r') as f:
+        with open(disp_coord_filename, "r") as f:
             for line in f:
                 if "units" in line:
                     line = f.readline()
@@ -450,20 +455,19 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                     for i_coord in range(n_coords):
                         line = f.readline()
                         line = line.split()
-                        disp_coords.append(np.resize(np.asarray(line, dtype=float), (self.QMin.molecule["natom"], 3)))
+                        disp_coords.append(
+                            np.resize(
+                                np.asarray(line, dtype=float),
+                                (self.QMin.molecule["natom"], 3),
+                            )
+                        )
 
         self.QMin.disp_coords = disp_coords
         return
 
-
-
-
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-
-
-
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     def setup_interface(self) -> None:
         """
@@ -472,106 +476,119 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # --- reference child ---
 
         # paths
-        self.QMin.resources["scratchdir"] = os.path.abspath(os.path.expanduser(os.path.expandvars(self.QMin.resources["scratchdir"])))
-        if self.QMin.template['qm-dir'] is None:
+        self.QMin.resources["scratchdir"] = expand_path(
+            self.QMin.resources["scratchdir"]
+        )
+
+        if self.QMin.template["qm-dir"] is None:
             raise ValueError("Keyword 'qm-dir' not found in template file!")
-        self.qmdir = os.path.abspath(os.path.expanduser(os.path.expandvars(self.QMin.template['qm-dir'])))
-        qm_program = self.QMin.template['qm-program']
+        qmdir = expand_path(self.QMin.template["qm-dir"])
+        qm_program = self.QMin.template["qm-program"]
 
         # Create reference child
-        ref_logname = "Reference:%s" % qm_program
-        pwd = os.path.join(self.QMin.resources["scratchdir"],'PWD','reference')
-        mkdir(pwd)
-        ref_logfile = os.path.join(pwd,'QM.log')
-        self.ref_interface = self._load_interface(qm_program)(logfile = ref_logfile, logname=ref_logname, loglevel = self.log.level, persistent = False)
-        if isinstance(self.ref_interface, SHARC_HYBRID):
-            self.log.error('Currently, Hybrid interfaces cannot be used as children of SHARC_NUMDIFF.py')
-            raise NotImplementedError
+        ref_logname = f"Reference:{qm_program}"
+        pwd = os.path.join(self.QMin.resources["scratchdir"], "PWD", "reference")
+
+        self.ref_interface = self._load_interface(qm_program)(
+            logname=ref_logname,
+            loglevel=self.log.level,
+            persistent=False,
+            fast_queue=True,
+        )
 
         # do setup molecule
-        self.ref_interface.setup_mol(self.QMin)
-        
+        local_QMin = deepcopy(self.QMin)
+        local_QMin.molecule["factor"] = 1.0
+        local_QMin.molecule["unit"] = "bohr"
+        self.ref_interface.setup_mol(local_QMin)
+
         ## then do setup_mol/template/resources
-        with InDir(self.qmdir):
+        with InDir(qmdir):
             self.ref_interface.read_resources()
             self.ref_interface.read_template()
             ## reassign scratchdir and savedir
-            scratchdir = os.path.join(self.QMin.resources["scratchdir"],'SCRA','reference')
-            savedir = os.path.join(self.QMin.save["savedir"],'children','reference')
-            mkdir(scratchdir)
-            if not os.path.isdir(savedir):
-                mkdir(savedir)
-            self.ref_interface.QMin.resources['scratchdir'] = scratchdir
-            self.ref_interface.QMin.save['savedir'] = savedir
-            self.ref_interface.QMin.resources['pwd'] = pwd
-            self.ref_interface.QMin.resources['cwd'] = pwd
+            scratchdir = os.path.join(
+                self.QMin.resources["scratchdir"], "SCRA", "reference"
+            )
+            savedir = os.path.join(self.QMin.save["savedir"], "children", "reference")
+            self.ref_interface.QMin.resources["scratchdir"] = scratchdir
+            self.ref_interface.QMin.save["savedir"] = savedir
+            self.ref_interface.QMin.resources["pwd"] = pwd
+            self.ref_interface.QMin.resources["cwd"] = pwd
             if self.QMin.resources["use_all_cores_for_ref"]:
                 self.ref_interface.QMin.resources["ncpu"] = self.QMin.resources["ncpu"]
             self.ref_interface.setup_interface()
-        
+
         # --- kindergarden ---
 
         # figure out how many children we have in the kindergarden and make labels
         labels = []
         match self.QMin.template["coord_type"]:
             case "cartesian":
-                labels.append( ["cartesian"] )
-                labels.append( [ i for i in range(self.QMin.molecule["natom"]) ] )
-                labels.append( [ "x", "y", "z"] )
+                labels.append(["cartesian"])
+                labels.append(list(range(self.QMin.molecule["natom"])))
+                labels.append(["x", "y", "z"])
             case "normal_modes":
-                labels.append( ["normal_modes"] )
-                labels.append( [ i for i in range(len(self.QMin.disp_coords)) ] )
+                labels.append(["normal_modes"])
+                labels.append(list(range(len(self.QMin.disp_coords))))
                 raise NotImplementedError
             case _:
-                raise RuntimeError(f"Input 'coord_type': {self.QMin.template['coord_type']} is not valid.")
+                raise RuntimeError(
+                    f"Input 'coord_type': {self.QMin.template['coord_type']} is not valid."
+                )
         match self.QMin.template["numdiff_method"]:
-            case 'central-diff':
-                labels.append( ['p', 'n'] )
-            case 'central-quad':
-                labels.append( ['pp', 'p', 'n', 'nn'] )
+            case "central-diff":
+                labels.append(["p", "n"])
+            case "central-quad":
+                labels.append(["pp", "p", "n", "nn"])
             case _:
-                raise RuntimeError(f"Input 'numdiff_method': {self.QMin.template['numdiff_method']} is not valid.") 
-        # self.log.info(labels) 
+                raise RuntimeError(
+                    f"Input 'numdiff_method': {self.QMin.template['numdiff_method']} is not valid."
+                )
+
         # make full labels as direct product of the labels:
         full_labels = list(itertools.product(*labels))
-        # self.log.info(full_labels)
-
 
         # make child_dict: define logfiles
         child_dict = {}
         for label in full_labels:
-            name = '_'.join(str(i) for i in label)
-            pwd = os.path.join(self.QMin.resources["scratchdir"],'PWD',name)
-            mkdir(pwd)
-            logfile = os.path.join(pwd,'QM.log')
-            logname = 'Displacement:%s:%s' % (qm_program,name)
-            child_dict[label] = (qm_program, [], {"logfile": logfile, "logname": logname, 'loglevel': self.log.level, 'persistent': False})
-        #self.log.info(child_dict)
+            name = "_".join(str(i) for i in label)
+            pwd = os.path.join(self.QMin.resources["scratchdir"], "PWD", name)
+            logname = f"Displacement:{qm_program}:{name}"
+            child_dict[label] = (
+                qm_program,
+                [],
+                {
+                    "logname": logname,
+                    "loglevel": self.log.level,
+                    "persistent": False,
+                },
+            )
         self.instantiate_children(child_dict)
-        
 
         # do full setup for all children
-        for label in self._kindergarden:
-            child = self._kindergarden[label]
-            # self.log.info(label)
-            name = '_'.join(str(i) for i in label)
-            child.setup_mol(self.QMin)
-            with InDir(self.qmdir):
+        for label, child in self._kindergarden.items():
+            name = "_".join(str(i) for i in label)
+            child.setup_mol(local_QMin)
+            with InDir(qmdir):
                 child.read_resources()
                 child.read_template()
                 # scratch
-                scratchdir = os.path.join(self.QMin.resources["scratchdir"],'SCRA',name)
-                mkdir(scratchdir)
-                child.QMin.resources['scratchdir'] = scratchdir
+                scratchdir = os.path.join(
+                    self.QMin.resources["scratchdir"], "SCRA", name
+                )
+                child.QMin.resources["scratchdir"] = scratchdir
                 # save
-                savedir = os.path.join(self.QMin.save["savedir"],'children',name)
-                mkdir(savedir)
-                child.QMin.save['savedir'] = savedir
+                savedir = os.path.join(self.QMin.save["savedir"], "children", name)
+                child.QMin.save["savedir"] = savedir
                 # pwd
-                pwd = os.path.join(self.QMin.resources["scratchdir"],'PWD',name)
-                child.QMin.resources['pwd'] = pwd
-                child.QMin.resources['cwd'] = pwd
+                pwd = os.path.join(self.QMin.resources["scratchdir"], "PWD", name)
+                child.QMin.resources["pwd"] = pwd
+                child.QMin.resources["cwd"] = pwd
                 child.setup_interface()
+            if not os.path.isfile(os.path.join(self.QMin.save["savedir"], "STEP")):
+                child.read_requests({"step": 0})
+                child.write_step_file()
 
         # --- feature setup ---
 
@@ -581,194 +598,133 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         self.log.info(ref_features)
         self.log.info(own_features)
         self.do_numerically = set()
-        check_these = ['grad', 'socdr', 'dmdr', 'nacdr']
+        check_these = ["grad", "socdr", "dmdr", "nacdr"]
         for i in check_these:
             if i in self.QMin.template["whitelist"]:
                 if i in ref_features:
-                    self.log.info('Request %s white-listed and available from child, will be passed to reference' % i)
+                    self.log.info(
+                        f"Request {i} white-listed and available from child, will be passed to reference"
+                    )
                 else:
                     self.do_numerically.add(i)
-                    self.log.info('Request %s white-listed but not available from child, will be done numerically' % i)
+                    self.log.info(
+                        f"Request {i} white-listed but not available from child, will be done numerically"
+                    )
             elif i in own_features:
                 self.do_numerically.add(i)
-                self.log.info('Request %s will be done numerically' % i)
+                self.log.info(f"Request {i} will be done numerically")
             else:
-                self.log.info('Request %s not available' % i)
+                self.log.info(f"Request {i} not available")
 
-        return
+    def read_requests(self, requests_file="QM.in"):
+        super().read_requests(requests_file)
 
+        all_requests = {k: v for (k, v) in self.QMin.requests.items() if v is not None}
+        self.log.debug(f"{all_requests}")
+        ref_requests = {"step": self.QMin.save["step"], "h": True}
+        num_requests = {
+            "step": self.QMin.save["step"] + 1,
+            "h": True,
+            "overlap": self.QMin.template["numdiff_representation"] == "diabatic",
+        }
+        self.log.debug(f"num_requests before loop: {num_requests}")
 
-# ----------------------------------------------------------------------------------------------
-
-    # def _step_logic(self):
-    #     super()._step_logic()
-    #     self.ref_interface._step_logic()
-
-    def write_step_file(self):
-        super().write_step_file()
-        self.ref_interface.write_step_file()
-        
-    # def update_step(self, step: int = None):
-    #     super().update_step(step)
-    #     self.ref_interface.update_step(step)
-
-    def clean_savedir(self):
-        super().clean_savedir()
-        self.ref_interface.clean_savedir()
-
-    def create_restart_files(self):
-        self.ref_interface.create_restart_files()
-
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-
-    def run(self) -> None:
-        """
-        """
-
-        # --- reference child calculation ---
-
-        # coordinates
-        self.ref_interface.QMin.coords["coords"] = self.QMin.coords["coords"].copy()
-    
-        # requests
-        self.all_requests = {k: v for (k, v) in self.QMin.requests.items() if v is not None}
-        self.ref_requests = {}
-        self.num_requests = {}
-        for key, value in self.all_requests.items():
-            if key in self.do_numerically:
-                if bool(value):
-                    self.num_requests[key] = value
+        self.do_numerically_now = set()
+        for k, v in all_requests.items():
+            if k in self.do_numerically:
+                match k:
+                    case "grad":
+                        self.do_numerically_now.add(k)
+                        # h and overlaps are already included
+                    case "dmdr":
+                        if v:
+                            self.do_numerically_now.add(k)
+                            num_requests["dm"] = True
+                            self.log.debug(f"Adding 'dm' due to {k} and {self.do_numerically}")
+                    case "socdr":
+                        if v:
+                            self.do_numerically_now.add(k)
+                            num_requests["soc"] = True
+                            self.log.debug(f"Adding 'soc' due to {k} and {self.do_numerically}")
+                    case "nacdr":
+                        if v:
+                            self.do_numerically_now.add(k)
+                            num_requests["overlap"] = True
+                            self.log.debug(f"Adding 'overlap' due to {k} and {self.do_numerically}")
             else:
-                self.ref_requests[key] = value
-        for key, value in self.ref_requests.items():
-            self.ref_interface.QMin.requests[key] = value
+                ref_requests[k] = v
 
-        # inherit current step
-        self.ref_interface.QMin.save["step"] = self.QMin.save["step"]
-        self.ref_interface._step_logic()
-        self.ref_interface._request_logic()
+        self.log.debug(f"Passing the following requests to the reference child: {ref_requests}")
+        self.ref_interface.read_requests(ref_requests)
+        for child in self._kindergarden.values():
+            self.log.debug(f"Passing the following requests to displaced child {child}: {num_requests}")
+            child.read_requests(num_requests)
+
+    def set_coords(self, xyz, pc=False):
+        if pc:
+            raise NotImplementedError("Numdiff interface cannot deal with point charges!")
+        super().set_coords(xyz, pc)
         
-        # mandatory requests
-        self.ref_interface.QMin.requests['nooverlap'] = False
-        self.ref_interface.QMin.requests['cleanup'] = False
+        coords = self.QMin.coords["coords"].copy()
+        self.ref_interface.set_coords(coords, pc)
 
-        # run the child
-        with InDir(self.ref_interface.QMin.resources['pwd']):
-            self.log.info("Running reference child ...")
-            self.ref_interface.run()
-            self.ref_interface.getQMout()
-            self.ref_interface.write_step_file()
-
-        # --- displaced child calculations ---
-
-        # figure out whether to do displacements
-        do_numerically = bool(self.num_requests)
-
-        # go ahead and set up children
-        if do_numerically:
-            self.log.info('Doing numerical differentiation for requests:')
-            self.log.info(self.num_requests)
-
-            # set coordinates of all kindergardners, based on their labels
+        if self.do_numerically:
             cart_directions = {"x": 0, "y": 1, "z": 2}
-            displacements = {"pp": +2., "p": +1., "n": -1., "nn": -2.}          # for other differentiation than central, new labels are needed, e.g., "pp" or "nn"
-            for label in self._kindergarden:
+            displacements = {
+                "pp": +2.0,
+                "p": +1.0,
+                "n": -1.0,
+                "nn": -2.0,
+            }  # for other differentiation than central, new labels are needed, e.g., "pp" or "nn"
+            for label, child in self._kindergarden.items():
+                coords = self.QMin.coords["coords"].copy()
                 match label[0]:
                     case "cartesian":
                         iatom, idir, idisp = label[1:4]
                         idir = cart_directions[idir]
                         idisp = displacements[idisp]
-                        coords = self.QMin.coords["coords"].copy()
-                        coords[iatom,idir] += idisp * self.QMin.template["numdiff_stepsize"]
+                        coords[iatom, idir] += (
+                            idisp * self.QMin.template["numdiff_stepsize"]
+                        )
                     case "normal_modes":
                         raise NotImplementedError
-                        # # Normal coordinates => This is old code from Nikolai for whenever we implement normal mode displacements
-                        # elif self.QMin.template["coord_type"] == "normal_modes":
-                        #     dispmat = self.QMin.disp_coords[displacement_index]
-                        #     if numdiff_debug:
-                        #         print("Input structure:")
-                        #         print(coords["coords"])
-                        #         print("Displacement coordinate:")
-                        #         print(dispmat)
-                        #         print("Displacement step size:")
-                        #         print(self.QMin.template["numdiff_stepsize"])
-                        #     # Displace the coordinate
-                        #     if   displacement_sign == '+':
-                        #         coords["coords"] = coords["coords"] + self.QMin.template["numdiff_stepsize"] * dispmat
-                        #     elif displacement_sign == '-':
-                        #         coords["coords"] = coords["coords"] - self.QMin.template["numdiff_stepsize"] * dispmat
-                        #     else:
-                        #         raise RuntimeError("Argument 'displacement_sign' is invalid in call to 'displace_coordinates'. Argument must be '+' or '-'.")
-                        #     if numdiff_debug:
-                        #         print("Displaced structure:")
-                        #         print(coords["coords"])
-                self._kindergarden[label].QMin.coords["coords"] = coords
-            
-            # set requests
-            child_requests = {}
-            for req in self.num_requests:
-                match req:
-                    case "grad":
-                        child_requests["h"] = True
-                    case "socdr":
-                        child_requests["soc"] = True
-                    case "dmdr":
-                        child_requests["dm"] = True
-                    case "nacdr":
-                        child_requests["h"] = True
-                        child_requests["overlap"] = True
-            if self.QMin.template["numdiff_representation"] == 'diabatic':
-                child_requests["overlap"] = True
-            for label in self._kindergarden:
-                for key, value in child_requests.items():
-                    self._kindergarden[label].QMin.requests[key] = value
-            
+                child.set_coords(coords)
+
+    def write_step_file(self):
+        super().write_step_file()
+        self.ref_interface.write_step_file()
+
+    def run(self) -> None:
+        # --- reference child calculation ---
+
+        # run the child
+        with InDir(self.ref_interface.QMin.resources["pwd"]):
+            self.ref_interface.run()
+            self.ref_interface.getQMout()
+
+        if self.do_numerically_now:
             # take savedir of reference child and copy to all displaced children and set step
-            for label in self._kindergarden:
-                # delete savedir content
-                cleandir(self._kindergarden[label].QMin.save['savedir'])
-                # copy all files from reference child to displaced child
-                ls = os.listdir(self.ref_interface.QMin.save['savedir'])
-                for f in ls:
-                    base, ext = os.path.splitext(f)
-                    if not ext[1:].isdigit():
-                        continue
-                    if not int(ext[1:]) == self.ref_interface.QMin.save['step']:
-                        continue
-                    fromfile = os.path.join(self.ref_interface.QMin.save['savedir'],f)
-                    tofile = os.path.join(self._kindergarden[label].QMin.save['savedir'],f)
-                    shutil.copy(fromfile,tofile)
-                # TODO: extra copy rules for LEGACY interface
-                if self.QMin.template['qm-program'].upper() == "LEGACY":
-                    self.log.info("Copying subdirectories for LEGACY interface...")
-                    for f in ["MOLPRO", "COLUMBUS", "AMS_ADF", "BAGEL", "PYSCF"]:
-                        fromdir = os.path.join(self.ref_interface.QMin.save['savedir'],f)
-                        if os.path.isdir(fromdir):
-                            self.log.info(f"Copying subdirectories for LEGACY interface {f}")
-                            todir = os.path.join(self._kindergarden[label].QMin.save['savedir'],f)
-                            shutil.copytree(fromdir, todir)
-                # set step for displaced child
-                self._kindergarden[label].QMin.save['step'] = self.ref_interface.QMin.save['step'] + 1
-                stepfile = os.path.join(self._kindergarden[label].QMin.save["savedir"], "STEP")
-                writefile(stepfile, str(self.ref_interface.QMin.save['step']))
-                self._kindergarden[label]._step_logic()
-                self._kindergarden[label]._request_logic()
-            
+            for child in self._kindergarden.values():
+                if child.persistent:
+                    child.savedict = deepcopy(self.ref_interface.savedict)
+                else:
+                    # copy all files from reference child to displaced child
+                    shutil.copytree(
+                        self.ref_interface.QMin.save["savedir"],
+                        child.QMin.save["savedir"],
+                        dirs_exist_ok=True,
+                    )
+
             # run the children
             t1 = datetime.datetime.now()
-            self.log.info('\nSTART:\t%s' % (t1))
-            self.run_children(self.log, 
-                              self._kindergarden, 
-                              self.QMin.resources['ncpu'])
+            self.log.info("\nSTART:\t%s" % (t1))
+            self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
             t2 = datetime.datetime.now()
-            self.log.info('FINISH:\t%s\tRuntime: %s\n' % (t2, t2 - t1))
-        
+            self.log.info("FINISH:\t%s\tRuntime: %s\n" % (t2, t2 - t1))
 
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     def getQMout(self) -> dict[str, np.ndarray]:
         """
@@ -784,45 +740,48 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         )
 
         # Set QMout with stuff from the reference calculation
-        for key,val in self.ref_interface.QMout.items():
+        for key, val in self.ref_interface.QMout.items():
             self.QMout[key] = deepcopy(val)
-        self.QMout.charges = [0 for i in self.QMin.molecule["states"]]  # TODO: remove later
+        self.QMout.charges = [
+            0 for i in self.QMin.molecule["states"]
+        ]  # TODO: remove later
 
         # do all the numerical requests
-        do_numerically = bool(self.num_requests)
-        if do_numerically:
+        if self.do_numerically_now:
 
             # make phase corrections if overlaps are present
             any_child = self._kindergarden[next(iter(self._kindergarden))]
-            if any_child.QMin.requests['overlap']:
-                self.log.info('Doing phase correction ...')
-                for label in self._kindergarden:
-                    self._kindergarden[label].QMout['overlap'], phases = post_process_overlap_matrix(self._kindergarden[label].QMout['overlap'])
-                    phases2 = phases[:,None] * phases[None,:]
-                    if self._kindergarden[label].QMout['h'] is not None:
-                        self._kindergarden[label].QMout['h'] *= phases2
-                    if self._kindergarden[label].QMout['dm'] is not None:
-                        self._kindergarden[label].QMout['dm'] *= phases2[None,:,:]
-            
-            # preparation 
+            if any_child.QMin.requests["overlap"]:
+                self.log.info("Doing phase correction ...")
+                for child in self._kindergarden.values():
+                    child.QMout["overlap"], phases = post_process_overlap_matrix(
+                        self.log, child.QMout["overlap"]
+                    )
+                    phases2 = phases[:, None] * phases[None, :]
+                    if child.QMout["h"] is not None:
+                        child.QMout["h"] *= phases2
+                    if child.QMout["dm"] is not None:
+                        child.QMout["dm"] *= phases2[None, :, :]
+
+            # preparation
             cart_directions = {"x": 0, "y": 1, "z": 2}
-            displacements = {"pp": +2., "p": +1., "n": -1., "nn": -2.} 
+            displacements = {"pp": +2.0, "p": +1.0, "n": -1.0, "nn": -2.0}
             stepsize = self.QMin.template["numdiff_stepsize"]
-            nstates = self.QMin.molecule['nmstates']
+            nstates = self.QMin.molecule["nmstates"]
 
             # compute derivatives
-            match self.QMin.template['coord_type']:
+            match self.QMin.template["coord_type"]:
                 case "cartesian":
                     for iatom in range(self.QMin.molecule["natom"]):
-                        for idir in ["x","y","z"]:
+                        for idir in ["x", "y", "z"]:
 
                             # pick the involved children for this direction
                             # the run() function would decide how many children per direction, depending on numdiff_method
                             # and here we only pick those that correspond to the current direction
                             children = {}
-                            for label in self._kindergarden:
+                            for label, child in self._kindergarden.items():
                                 if ("cartesian", iatom, idir) == label[:-1]:
-                                    children[label[-1]] = self._kindergarden[label]
+                                    children[label[-1]] = child
 
                             # the trafo matrices for this direction
                             match self.QMin.template["numdiff_representation"]:
@@ -831,74 +790,125 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                                     for label in children:
                                         S[label] = np.identity(nstates)
                                 case "diabatic":
-                                    S= {}
-                                    for label in children:
-                                        S[label] = children[label].QMout["overlap"]
+                                    S = {}
+                                    for label, child in children.items():
+                                        S[label] = child.QMout["overlap"]
 
                             # go through the requests for this direction
-                            for request in self.num_requests:
+                            for request in self.do_numerically_now:
+                                # self.log.info(f"{request}")
 
                                 # pick quantity for this request
                                 match request:
-                                    case "grad": # differentiate the energies, i.e., the diagonal elements of the Hamiltonian
+                                    case (
+                                        "grad"
+                                    ):  # differentiate the energies, i.e., the diagonal elements of the Hamiltonian
                                         A = {}
-                                        for label in children:
-                                            A[label] = np.diag(np.diag(children[label].QMout["h"]))
-                                    case "socdr": # differentiate the off-diagonal elements of the Hamiltonian
+                                        for label, child in children.items():
+                                            A[label] = np.diag(np.diag(child.QMout["h"]))
+                                    case (
+                                        "socdr"
+                                    ):  # differentiate the off-diagonal elements of the Hamiltonian
                                         A = {}
-                                        for label in children:
-                                            A[label] = children[label].QMout["h"] - np.diag(np.diag(children[label].QMout["h"]))
-                                    case "dmdr": # differentiate the dipole moment matrix
+                                        for label, child in children.items():
+                                            A[label] = child.QMout["h"] - np.diag(np.diag(child.QMout["h"]))
+                                    case (
+                                        "dmdr"
+                                    ):  # differentiate the dipole moment matrix
                                         A = {}
-                                        for label in children:
-                                            A[label] = children[label].QMout["dm"]
-                                    case "nacdr": # NACs are a bit more complicated
+                                        for label, child in children.items():
+                                            A[label] = child.QMout["dm"]
+                                    case "nacdr":  # NACs are a bit more complicated
                                         match self.QMin.template["numdiff_representation"]:
-                                            case "adiabatic": # differentiate the overlap matrix elements 
+                                            case (
+                                                "adiabatic"
+                                            ):  # differentiate the overlap matrix elements
                                                 A = {}
-                                                for label in children:
-                                                    A[label] = children[label].QMout["overlap"]
-                                            case "diabatic": # differentiate the diabatized diagonal of the Hamiltonian
+                                                for label, child in children.items():
+                                                    A[label] = child.QMout["overlap"]
+                                            case (
+                                                "diabatic"
+                                            ):  # differentiate the diabatized diagonal of the Hamiltonian
                                                 A = {}
-                                                for label in children:
-                                                    A[label] = np.diag(np.diag(children[label].QMout["h"]))
+                                                for label, child in children.items():
+                                                    A[label] = np.diag(np.diag(child.QMout["h"]))
 
                                 # make the transformation and differentiation for this request and direction
-                                # if other differentiation schemes will be implemented, here one can simply 
+                                # if other differentiation schemes will be implemented, here one can simply
                                 # use them based on their labels. In this way, this is the only block that depends on numdiff_method
-                                match self.QMin.template['numdiff_method']:
+                                match self.QMin.template["numdiff_method"]:
                                     case "central-diff":
-                                        numerator = S['p'].T@A['p']@S['p'] - S['n'].T@A['n']@S['n']
-                                        denomimator = stepsize * (displacements['p'] - displacements['n'])
+                                        numerator = (
+                                            S["p"].T @ A["p"] @ S["p"]
+                                            - S["n"].T @ A["n"] @ S["n"]
+                                        )
+                                        denomimator = stepsize * (
+                                            displacements["p"] - displacements["n"]
+                                        )
                                         result = numerator / denomimator
                                     case "central-quad":
-                                        numerator = -S['pp'].T@A['pp']@S['pp'] + 8.*S['p'].T@A['p']@S['p'] - 8.*S['n'].T@A['n']@S['n'] + S['nn'].T@A['nn']@S['nn']
-                                        denomimator = 6. * stepsize * (displacements['p'] - displacements['n'])
+                                        numerator = (
+                                            -S["pp"].T @ A["pp"] @ S["pp"]
+                                            + 8.0 * S["p"].T @ A["p"] @ S["p"]
+                                            - 8.0 * S["n"].T @ A["n"] @ S["n"]
+                                            + S["nn"].T @ A["nn"] @ S["nn"]
+                                        )
+                                        denomimator = (
+                                            6.0
+                                            * stepsize
+                                            * (displacements["p"] - displacements["n"])
+                                        )
                                         result = numerator / denomimator
                                     case _:
-                                        raise NotImplementedError("Only central differences implemented")
-                                    
+                                        raise NotImplementedError(
+                                            "Only central differences implemented"
+                                        )
+
                                 # assign correctly the resulting request elements
                                 match request:
-                                    case "grad":  # QMout['grad'] has shape (nstates, natom, 3)
-                                        self.QMout['grad'][:,iatom,cart_directions[idir]] = np.diag(result)
-                                    case "socdr": # QMout['socdr'] has shape (nstates, nstates, natom, 3)
-                                        self.QMout['socdr'][:,:,iatom,cart_directions[idir]] = result
-                                    case "dmdr":  # QMout['socdr'] has shape (3, nstates, nstates, natom, 3)
-                                        self.QMout['dmdr'][:,:,:,iatom,cart_directions[idir]] = result
-                                    case "nacdr": # QMout['socdr'] has shape (nstates, nstates, natom, 3)
-                                        match self.QMin.template["numdiff_representation"]:
+                                    case (
+                                        "grad"
+                                    ):  # QMout['grad'] has shape (nstates, natom, 3)
+                                        self.QMout["grad"][
+                                            :, iatom, cart_directions[idir]
+                                        ] = np.diag(result)
+                                    case (
+                                        "socdr"
+                                    ):  # QMout['socdr'] has shape (nstates, nstates, natom, 3)
+                                        self.QMout["socdr"][
+                                            :, :, iatom, cart_directions[idir]
+                                        ] = result
+                                    case (
+                                        "dmdr"
+                                    ):  # QMout['socdr'] has shape (3, nstates, nstates, natom, 3)
+                                        self.QMout["dmdr"][
+                                            :, :, :, iatom, cart_directions[idir]
+                                        ] = result
+                                    case (
+                                        "nacdr"
+                                    ):  # QMout['socdr'] has shape (nstates, nstates, natom, 3)
+                                        match self.QMin.template[
+                                            "numdiff_representation"
+                                        ]:
                                             case "adiabatic":
                                                 # we only make properly anti-Hermitian
-                                                self.QMout['nacdr'][:,:,iatom,cart_directions[idir]] = (result - result.T)/2.
-                                            case "diabatic": 
+                                                self.QMout["nacdr"][
+                                                    :, :, iatom, cart_directions[idir]
+                                                ] = (result - result.T) / 2.0
+                                            case "diabatic":
                                                 # result contains dH/dR. To get the NAC, we need to scale by the energy gaps
-                                                result = (result + result.T)/2. # maybe unnecessary
-                                                E = np.diag(self.QMout['h'])
+                                                result = (
+                                                    result + result.T
+                                                ) / 2.0  # maybe unnecessary
+                                                E = np.diag(self.QMout["h"])
                                                 denominator = E[:, None] - E[None, :]
-                                                denominator[np.diag_indices_from(denominator)] = np.inf
-                                                denominator[denominator == 0.] = np.inf
-                                                self.QMout['nacdr'][:,:,iatom,cart_directions[idir]] = result / denominator
+                                                denominator[
+                                                    np.diag_indices_from(denominator)
+                                                ] = np.inf
+                                                denominator[denominator == 0.0] = np.inf
+                                                self.QMout["nacdr"][
+                                                    :, :, iatom, cart_directions[idir]
+                                                ] = (result / denominator)
                                                 # TODO: comparing to OpenMolcas we have to multiply the NAC from here by the energy gap to get consistent results...
                 case "normal_modes":
                     raise NotImplementedError("Normal mode displacements not allowed")
@@ -906,25 +916,19 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                     # because the interface should always return Cartesian derivatives
                 case _:
                     raise NotImplementedError("Only Cartesian displacements allowed")
-        
-        self.QMout.runtime = self.clock.measuretime()
+
+        self.QMout.runtime = self.clock.measuretime(False)
         return self.QMout
 
+
 # ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
 
 
 if __name__ == "__main__":
     from logger import loglevel
+
     try:
         num_diff = SHARC_NUMDIFF(loglevel=loglevel)
         num_diff.main()

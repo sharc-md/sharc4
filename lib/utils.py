@@ -49,6 +49,7 @@ class InDir:
         self.dir = dir
 
     def __enter__(self):
+        mkdir(self.dir, force=False)
         os.chdir(self.dir)
         return self
 
