@@ -389,6 +389,7 @@ class SHARC_DROPLET(SHARC_HYBRID):
         """
 
     def setup_interface(self):
+        super().setup_interface()
         # prepare info for child interface
         # setup mol for qm
         self.child_interface.setup_mol(self.QMin)
@@ -396,11 +397,15 @@ class SHARC_DROPLET(SHARC_HYBRID):
         qm_savedir = os.path.join(self.QMin.save["savedir"], "QM_" + self.QMin.template["child"]["name"].upper())
         if not os.path.isdir(qm_savedir):
             mkdir(qm_savedir)
+        qm_scratchdir = os.path.join(self.QMin.resources["scratchdir"], "QM_" + self.QMin.template["child"]["name"].upper())
+        if not os.path.isdir(qm_scratchdir):
+            mkdir(qm_scratchdir)
         # read template and resources
         self.log.debug(self.QMin.template["child"]["dir"])
         with InDir(self.QMin.template["child"]["dir"]) as _:
             self.child_interface.read_resources()
             self.child_interface.QMin.save["savedir"] = qm_savedir  # overwrite savedir
+            self.child_interface.QMin.resources["scratchdir"] = qm_scratchdir  # overwrite scratchdir
             self.child_interface.read_template()
             self.child_interface.setup_interface()
 
