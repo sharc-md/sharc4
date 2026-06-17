@@ -651,16 +651,29 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.log.error("nactel must contain either 1 or 3 numbers!")
                 raise ValueError()
 
-        for idx, charge in enumerate(self.QMin.molecule["charge"], 1):
-            nactel = self.QMin.template["nactel"][0]
-            if (
-                (nactel - idx - charge) % 2 == 0
-                or nactel - charge < 1
-                or nactel - charge >= self.QMin.template["ras2"] * 2
-            ) and self.QMin.molecule["states"][idx-1] > 0:
-                self.log.error(f"Charge {charge} not compatible with multiplicity {idx}")
+        for idx, charge in enumerate(self.QMin.molecule["charge"]):
+            if self.QMin.molecule["states"][idx] <= 0:
+                continue
+            nactel = self.QMin.template["nactel"][0] - charge
+            nspace = self.QMin.template['ras2'] * 2
+            if self.QMin.template['ras1']:
+                nspace += self.QMin.template['ras1'] * 2
+            # Check: for idx=0,2,... (singlet, triplet, ...) nactel must be even, for idx=1,3,... it must be odd
+            # hence, the sum of nactel and idx must be even, otherwise the calculation is inconsistent
+            if (nactel + idx) % 2 != 0:
+                self.log.error(f"Charge {charge} with nactel {nactel} not compatible with multiplicity {idx+1}")
                 self.log.error("Please provide the nactel as if the charge was neutral!")
                 raise ValueError()
+            if nactel < 1:
+                self.log.error(f"Number of active electrons for mult {idx+1} charge {charge} is smaller than 1")
+                self.log.error("Please provide the nactel as if the charge was neutral!")
+                raise ValueError()
+            if nactel > nspace:
+                self.log.error(f"Number of active electrons for mult {idx+1} charge {charge} exceeds RAS1+RAS2")
+                self.log.error("Please provide the nactel as if the charge was neutral!")
+                raise ValueError()
+            if (nactel == nspace) and (self.QMin.template['ras1'] is None):
+                self.log.warning(f"Number of active electrons for mult {idx+1} charge {charge} completely fills RAS1+RAS2")
 
         # Validate method
         self.QMin.template["method"] = self.QMin.template["method"].lower()
