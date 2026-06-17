@@ -147,7 +147,8 @@ def main(file, qm_list, rattle_hx=False, atommask=False):
 
     truncated_prmtop = prmtop[atoms_to_keep]
     # in at least some cases, the box dimensions are zero, which leads to div-by-zero in QMMM interface 
-    truncated_prmtop.parm_data["BOX_DIMENSIONS"] = prmtop.parm_data["BOX_DIMENSIONS"]  
+    if "BOX_DIMENSIONS" in prmtop.parm_data:
+        truncated_prmtop.parm_data["BOX_DIMENSIONS"] = prmtop.parm_data["BOX_DIMENSIONS"]  
     # set charges for link atoms to zero
     for i in range(len(truncated_prmtop.atoms)):
         truncated_prmtop.atoms[i].charge = 0.0
