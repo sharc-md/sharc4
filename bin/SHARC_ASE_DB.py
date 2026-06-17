@@ -138,6 +138,10 @@ class SHARC_ASE_DB(SHARC_HYBRID):
             self._kindergarden["reference"].read_resources()
             self._kindergarden["reference"].read_template()
             self._kindergarden["reference"].setup_interface()
+            self._kindergarden["reference"].QMin.resources["scratchdir"] = os.path.join(
+                self.QMin.resources["scratchdir"], "reference"
+            )
+            self._kindergarden["reference"].QMin.save["savedir"] = os.path.join(self.QMin.save["savedir"], "reference")
 
     def create_restart_files(self):
         self._kindergarden["reference"].create_restart_files()
