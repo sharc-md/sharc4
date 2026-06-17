@@ -503,6 +503,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         self.ref_interface.setup_mol(local_QMin)
 
         ## then do setup_mol/template/resources
+        self.log.info(f"Setting up reference child ...")
         with InDir(qmdir):
             self.ref_interface.read_resources()
             self.ref_interface.read_template()
@@ -569,6 +570,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         # do full setup for all children
         for label, child in self._kindergarden.items():
             name = "_".join(str(i) for i in label)
+            self.log.info(f"Setting up displaced child {label} ...")
             child.setup_mol(local_QMin)
             with InDir(qmdir):
                 child.read_resources()
@@ -699,6 +701,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
         # run the child
         with InDir(self.ref_interface.QMin.resources["pwd"]):
+            self.log.info("Running reference child ...")
             self.ref_interface.run()
             self.ref_interface.getQMout()
 
@@ -717,6 +720,7 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
 
             # run the children
             t1 = datetime.datetime.now()
+            self.log.info(f"Running displaced children with {self.QMin.resources['ncpu']} CPU cores ...")
             self.log.info("\nSTART:\t%s" % (t1))
             self.run_children(self.log, self._kindergarden, self.QMin.resources["ncpu"])
             t2 = datetime.datetime.now()
@@ -909,7 +913,6 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
                                                 self.QMout["nacdr"][
                                                     :, :, iatom, cart_directions[idir]
                                                 ] = (result / denominator)
-                                                # TODO: comparing to OpenMolcas we have to multiply the NAC from here by the energy gap to get consistent results...
                 case "normal_modes":
                     raise NotImplementedError("Normal mode displacements not allowed")
                     # TODO: probably the same as for Cartesian, but afterwards we have to do a coordinate transformation of all derivatives

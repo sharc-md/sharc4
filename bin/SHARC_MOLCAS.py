@@ -844,11 +844,13 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Execute MOLCAS
         starttime = datetime.datetime.now()
+        self.log.info(f"  Starting job in {workdir} at {starttime}")
         while qmin.template["gradaccudefault"] < qmin.template["gradaccumax"]:
             if (code := self.run_program(workdir, f"{qmin.resources['driver']} MOLCAS.input", "MOLCAS.out", "MOLCAS.err")) != 96:
                 break
             qmin.template["gradaccudefault"] *= 10
         endtime = datetime.datetime.now()
+        self.log.info(f"  Finished job in {workdir} took {endtime-starttime}")
 
         # Check if output shows Happy landing (seems sometimes the exit code is non-zero on a successful job)
         output = os.path.join(workdir, 'MOLCAS.out')
@@ -1225,7 +1227,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str = ""
 
         for task in tasks:
-            self.log.info(str(task))
             match task[0]:
                 case "gateway":
                     input_str += self._write_gateway(qmin)
