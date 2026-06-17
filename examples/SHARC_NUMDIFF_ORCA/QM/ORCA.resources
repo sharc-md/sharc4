@@ -1,0 +1,7 @@
+orcadir $ORCADIR
+scratchdir $TMPDIR
+ncpu 1
+memory 1000
+scaling 0.9
+wfoverlap $SHARC/wfoverlap.x
+wfthres 0.998

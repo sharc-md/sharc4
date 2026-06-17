@@ -1,0 +1,10 @@
+qm-program ORCA
+qm-dir QM 
+numdiff_method central-diff
+numdiff_representation diabatic
+numdiff_stepsize 0.01
+coord_type cartesian
+#normal_modes_file V0.txt
+#whitelist  #nacdr      # grad nacdr socdr dmdr
+#whitelist grad
+
