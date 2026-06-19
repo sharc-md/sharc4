@@ -818,12 +818,13 @@ module qm
             traj%selg_s(traj%state_MCH)=.true. 
         endselect
       endif
-      if (ctrl%coupling==3 .and. ctrl%ktdc_method==0) then ! kTDC computed by gradients
+      if (ctrl%coupling==3 .and. (ctrl%ktdc_method==0 .or. ctrl%ktdc_method==2)) then ! kTDC computed by gradients
         traj%selg_s(:)=.true.
       endif
       if (ctrl%gradcorrect==2 .and. ctrl%kmatrix_method==0) then ! Kmatrix computed by gradients
         traj%selg_s(:)=.true.
       endif
+
       ! never calculate gradients of frozen states
       traj%selg_s=traj%selg_s.and.ctrl%actstates_s
     else if (ctrl%method==1) then !SCP
@@ -2075,7 +2076,10 @@ end subroutine phase_correction_zhou
     complex*16 :: de_old(ctrl%nstates,ctrl%nstates)
     complex*16 :: de_old2(ctrl%nstates,ctrl%nstates)
     complex*16 :: de_old3(ctrl%nstates,ctrl%nstates)
-    real*8 :: fmag
+    real*8 :: fmag, deltaE, v_avg, f_dyn
+    real*8 :: grad_now, grad_old, grad_diff
+
+
     integer :: sum_state, first_state, final_state
     complex*16:: scalarProd(ctrl%nstates,ctrl%nstates)
     ! effective NAC variables
@@ -2330,6 +2334,47 @@ end subroutine phase_correction_zhou
               enddo
             enddo
           endif ! if (ctrl%integrator==2) then 
+        else if (ctrl%ktdc_method==2) then
+          if (printlevel>4) write(u_log,*) 'Curvature TDC is computed by first order difference of gradients at mid-point velocity'
+          if (traj%step >= 1) then
+            sum_state=0
+            do imult=1, ctrl%maxmult
+              first_state=1+sum_state
+              sum_state=sum_state+ctrl%nstates_m(imult)
+              final_state=sum_state
+              do istate=first_state, final_state
+                do jstate=istate+1, final_state
+                  deltaE=traj%H_MCH_ss(jstate,jstate)-traj%H_MCH_ss(istate,istate)
+                  if (abs(deltaE) < 1.d-8) deltaE = sign(1.d-8, deltaE)
+                  f_dyn = 0.d0
+                  do iatom=1, ctrl%natom
+                    do idir=1, 3
+                      grad_now=traj%grad_MCH_sad(jstate,iatom,idir)-traj%grad_MCH_sad(istate,iatom,idir)
+                      grad_old=traj%grad_MCH_old_sad(jstate,iatom,idir)-traj%grad_MCH_old_sad(istate,iatom,idir)
+                      grad_diff=grad_now-grad_old
+                      v_avg=0.5d0*(traj%veloc_app_ad(iatom,idir)+traj%veloc_old_ad(iatom,idir))
+                      f_dyn=f_dyn+grad_diff*v_avg
+                    enddo
+                  enddo
+                  f_dyn=f_dyn/ctrl%dtstep
+                  fmag=f_dyn/deltaE
+                  fmag=max(fmag, 0.d0)
+                  if (fmag > 0.d0) then
+                    traj%NACdt_ss(istate,jstate)=0.5d0*sqrt(fmag)
+                  else
+                    traj%NACdt_ss(istate,jstate)=dcmplx(0.d0, 0.d0)
+                  endif
+                enddo
+              enddo
+            enddo
+            do istate=1, ctrl%nstates
+              do jstate=1, ctrl%nstates
+                if (jstate<istate) then
+                  traj%NACdt_ss(istate,jstate)=-traj%NACdt_ss(jstate,istate)
+                endif
+              enddo
+            enddo
+          endif !if (traj%step>=1) then
         endif ! if (ctrl%ktdc_method==0) then
     endselect
  
