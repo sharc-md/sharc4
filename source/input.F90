@@ -916,6 +916,8 @@ module input
             ctrl%ktdc_method=0
           case ('energy')
             ctrl%ktdc_method=1
+          case ('gradient k-only')
+            ctrl%ktdc_method=2
           case default
             write(0,*) 'Unknown keyword ',trim(line),' to "ktdc_method"!'
             stop 1
