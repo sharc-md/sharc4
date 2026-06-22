@@ -572,7 +572,7 @@ setup_ncxyz(int natoms, struct sharc_ncxyz* ncxyz)
 void
 write_sharc_ncxyz_traj_(const int* istep, const int* natoms, const int* IAn, double* Crd, double* Veloc, int* time_step, struct sharc_ncxyz* ncxyz)
 {
-    printf("processing step = %d\n", *istep);
+//     printf("processing step = %d\n", *istep);
     if (*istep == 0) {
         setup_ncxyz(*natoms, ncxyz);
     }
