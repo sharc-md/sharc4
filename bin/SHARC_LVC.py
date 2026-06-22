@@ -36,13 +36,15 @@ import sys
 import datetime
 import numpy as np
 import re
+import itertools
 
 # internal
 from SHARC_FAST import SHARC_FAST
-from utils import readfile, writefile, question, expand_path, phase_correction
+from utils import readfile, writefile, question, expand_path, phase_correction, convert_list
 from io import TextIOWrapper
-from constants import U_TO_AMU
-from kabsch import kabsch_w as kabsch, kabsch_w_with_deriv
+from constants import U_TO_AMU, ATOMIC_RADII, BOHR_TO_ANG
+from kabsch import kabsch_w as kabsch, kabsch_w, kabsch_w_with_deriv
+from permutation_handling import make_bond_graph, find_special_groups
 from numba import njit
 
 authors = "Sebastian Mai and Severin Polonius"
@@ -63,12 +65,22 @@ class SHARC_LVC(SHARC_FAST):
         super().__init__(*args, **kwargs)
 
         # Add resource keys
-        self.QMin.resources.update({"do_kabsch": False, "diagonalize": True, "keep_U": False})
+        self.QMin.resources.update(
+            {
+                "do_kabsch": False, 
+                "do_permutation": False,
+                "diagonalize": True, 
+                "keep_U": False,
+                "equivalent_groups_of_atoms": [],
+            }
+        )
         self.QMin.resources.types.update(
             {
                 "do_kabsch": bool,
+                "do_permutation": bool,
                 "diagonalize": bool,
                 "keep_U": bool,
+                "equivalent_groups_of_atoms": list,
             }
         )
 
@@ -354,6 +366,8 @@ class SHARC_LVC(SHARC_FAST):
             self.log.warning("LVC.resources not found; continuing without further settings.")
             self._read_resources = True
             return
+        if self.QMin.resources["equivalent_groups_of_atoms"]:
+            self.QMin.resources["equivalent_groups_of_atoms"] = convert_list(self.QMin.resources["equivalent_groups_of_atoms"], int)
 
         super().read_resources(resources_filename)
         self._do_kabsch = self.QMin.resources["do_kabsch"]
@@ -477,6 +491,78 @@ class SHARC_LVC(SHARC_FAST):
         ) + np.einsum("xm,ijaxy,kyn->kijamn", Trot, quad, dTrot, casting="no", optimize=["einsum_path", (0, 1), (0, 1)])
         return np.concatenate((dip, quad[..., [0, 1, 2], [0, 1, 2]], 2 * quad[..., [0, 0, 1], [1, 2, 2]]), axis=-1)
 
+    def _request_logic(self):
+        super()._request_logic()
+        if self.QMin.requests["multipolar_fit"]:
+            requested_dmes = set()
+            for s1 in self.states:
+                for s2 in self.states:
+                    if s1.S == s2.S and s1.M == s2.M and s1.S == s1.M and s2.S == s2.M:
+                        requested_dmes.add((s1, s2))
+            self.QMin.requests["multipolar_fit"] = list(requested_dmes)
+
+    def find_permutation_maps(self):
+        forward_map = np.arange(self.QMin.molecule["natom"]) # maps MD atoms to reference atoms
+        backward_map = np.arange(self.QMin.molecule["natom"]) # maps reference atoms to MD atoms
+
+        equivalent_groups = self.QMin.resources["equivalent_groups_of_atoms"]
+        
+        # align reference + geometry without equivalent atoms
+        eq = np.array(equivalent_groups).flatten()
+        atom_mask = np.ones(self.QMin.molecule["natom"], dtype=float)
+        atom_mask[eq] = 0.
+        reference_coords = self._ref_coords
+        current_coords = self.QMin.coords["coords"]
+        B, a_s, b_s = kabsch_w(reference_coords, current_coords, atom_mask)
+        rotated_current_coords = (current_coords - b_s) @ B.T + a_s
+
+        # loop over groups and permute them to minimize group RMSDs
+        equivalent_groups_permuted = []
+        for i, group in enumerate(equivalent_groups):
+            group = np.asarray(group, dtype=int)
+            ref_group = reference_coords[group]
+            cur_group = rotated_current_coords[group]
+            best_rmsd = np.inf
+            best_perm = None
+            for perm in itertools.permutations(range(len(group))):
+                perm = np.array(perm, dtype=int)
+                cur_perm = cur_group[perm]
+                rmsd = np.sqrt(np.mean(np.sum((cur_perm - ref_group) ** 2, axis=1)))
+                self.log.info(
+                    f"group {group[perm].tolist()} "
+                    f"RMSD={rmsd:.6f}"
+                    )
+                if rmsd < best_rmsd:
+                    best_rmsd = rmsd
+                    best_perm = perm
+
+            equivalent_groups_permuted.append(group[best_perm].tolist())
+            self.log.info(
+                f"group {group.tolist()} "
+                f"best permutation {group[best_perm].tolist()} "
+                f"RMSD={best_rmsd:.6f}"
+            )
+        self.log.info(f"Best permutations: {equivalent_groups_permuted}")
+            
+        # make global atom mappings
+        # apply the found group mappings
+        for ref_group, perm_group in zip(
+                equivalent_groups,
+                equivalent_groups_permuted):
+
+            for ref_atom, md_atom in zip(ref_group, perm_group):
+                forward_map[ref_atom] = md_atom
+
+        # inverse mapping
+        backward_map = np.argsort(forward_map)
+
+        self.log.info(f"MD  -> ref permutation: {forward_map}")
+        self.log.info(f"ref -> MD  permutation: {backward_map}")
+        
+        # save the mappings
+        return forward_map, backward_map
+    
+
     def run(self):
         do_pc = self.QMin.molecule["point_charges"]
         do_derivs = self.QMin.requests["grad"] or self.QMin.requests["nacdr"]
@@ -488,14 +574,42 @@ class SHARC_LVC(SHARC_FAST):
         nmstates = self.parsed_states["nmstates"]
         states = self.parsed_states["states"]
 
+        # find permutation groups
+        if self.QMin.save["step"] == 0:
+            if self.QMin.resources["do_permutation"]:
+                self.forward_map, self.backward_map = self.find_permutation_maps()
+            else:
+                self.forward_map = np.arange(self.QMin.molecule["natom"])
+                self.backward_map = self.forward_map.copy()
+            # happens only once, so we can store it no matter whether it is persistent or not
+            with open(os.path.join(self.QMin.save["savedir"], f"forward_map.npy"), 'wb') as f:
+                np.save(f, self.forward_map)
+            with open(os.path.join(self.QMin.save["savedir"], f"backward_map.npy"), 'wb') as f:
+                np.save(f, self.forward_map)
+        else:
+            if not hasattr(self, "forward_map"):
+                try:
+                    self.forward_map = np.load(os.path.join(self.QMin.save["savedir"], "forward_map.npy"))
+                except IOError:
+                    self.log.error("Error while loading the forward atom index maps!")
+                    raise IOError("Error while loading the forward atom index maps!")
+            if not hasattr(self, "backward_map"):
+                try:
+                    self.backward_map = np.load(os.path.join(self.QMin.save["savedir"], "backward_map.npy"))
+                except IOError:
+                    self.log.error("Error while loading the backward atom index maps!")
+                    raise IOError("Error while loading the backward atom index maps!")
+
         # conditionally turn on kabsch as flag (do_pc for additional logic)
         do_kabsch = True if do_pc else self._do_kabsch
+        need_fits = do_pc or self.QMin.requests["multipolar_fit"]
         self.clock.starttime = datetime.datetime.now()
         self._U = np.zeros((nmstates, req_nmstates), dtype=float)
         Hd = np.zeros((req_nmstates, req_nmstates), dtype=float)
         natom = self.QMin.molecule["natom"]
         r3N = 3 * self.QMin.molecule["natom"]
-        coords: np.ndarray = self.QMin.coords["coords"].copy()
+        # permute atoms according to forward map
+        coords: np.ndarray = self.QMin.coords["coords"].copy()[self.forward_map]
         coords_ref_basis = coords
         if do_kabsch:
             if do_derivs:
@@ -520,8 +634,9 @@ class SHARC_LVC(SHARC_FAST):
                 )
 
         # kabsch is necessary with point charges
-        if do_pc:
+        if need_fits:
             fits_rot = {im: self.rotate_multipoles(fits, self._Trot) for im, fits in self._fits.items()}
+        if do_pc:
             self.pc_chrg = np.array(self.QMin.coords["pccharge"])  # n_pc, 1
             pc_coord = np.array(self.QMin.coords["pccoords"])  # n_pc, 1
 
@@ -535,7 +650,7 @@ class SHARC_LVC(SHARC_FAST):
             mult_prefactors_pc = np.einsum("b,yab->ay", self.pc_chrg, mult_prefactors)
             del mult_prefactors
 
-        # Build full H and diagonalize
+        # Build full H and diagonalize, get self._U
         self._Q = np.sqrt(self._Om) * (self._Km @ (coords_ref_basis.flatten() - self._ref_coords.flatten()))
         self._V = self._Om * self._Q
         V0 = 0.5 * (self._V @ self._Q)
@@ -571,33 +686,36 @@ class SHARC_LVC(SHARC_FAST):
                     np.einsum("ii->i", Hd)[s1_req:s2_req] = eigen_values[:n_req]
                 else:
                     Hd[s1_req:s2_req, s1_req:s2_req] = H[:n_req, :n_req]
-
             start += n * (im + 1)
             start_req += n_req * (im + 1)
+
+        # handle multipolar fit and gradients of Kabsch transformation
+        dfits = {}
+        dfits_deriv = {}
 
         if do_kabsch:
             if do_pc and do_derivs:
                 pc_grad = np.zeros((self.pc_chrg.shape[0] * 3, req_nmstates))
-
                 mult_prefactors_deriv = self.get_mult_prefactors_deriv(pc_coord_diff, pc_inv_dist_A_B, r_inv3, r_inv5)
-
                 fits_deriv = {}
                 for im, n in filter(lambda x: x[1] != 0, enumerate(states)):
                     fits_deriv[im] = self.rotate_multipoles_deriv(self._fits[im], self._Trot, dTrot)
-
                 mult_prefactors_deriv_pc = np.einsum("xyab,b->abxy", mult_prefactors_deriv, self.pc_chrg)
                 del mult_prefactors_deriv
-
             if do_derivs:
                 dQ_dr = np.sqrt(self._Om)[..., None] * (self._Km @ coords_deriv.T)
                 dQ_dr = dQ_dr.T
                 del coords_deriv
+        else:
+            if do_derivs:
+                dQ_dr = np.sqrt(self._Om)[None, ...] * self._Km.T
 
-            # rotate and diagonalize the fits already to decrease comp effort in case of less adia states
-            if do_pc and (do_derivs or self.QMin.requests["multipolar_fit"]):
-                if self._diagonalize:
-                    dfits = {}
-                    dfits_deriv = {}
+        if need_fits:
+            if do_kabsch:
+                fits_rot = fits_rot
+            else:
+                fits_rot = self._fits 
+            if self._diagonalize:
                     start_req = 0
                     start = 0
                     for im, n_req in filter(lambda x: x[1] != 0, enumerate(req_states)):
@@ -606,22 +724,15 @@ class SHARC_LVC(SHARC_FAST):
                         stop = start + n
                         u = self._U[start:stop, start_req:stop_req]
                         dfits[im] = np.einsum("ijay,in,jm->mnay", fits_rot[im], u, u, optimize=True)
-                        if do_derivs:
+                        if do_pc and do_derivs:
                             dfits_deriv[im] = np.einsum("kijay,in,jm->kmnay", fits_deriv[im], u, u, optimize=True)
                         start += n * (im + 1)
                         start_req += n_req * (im + 1)
-                else:
-                    dfits = {}
-                    dfits_deriv = {}
-                    for im, n_req in filter(lambda x: x[1] != 0, enumerate(req_states)):
-                        dfits[im] = fits_rot[im][..., :n_req, :n_req]
-                        if do_derivs:
-                            dfits_deriv[im] = fits_deriv[im][:, :n_req, :n_req, ...]
-
-        elif do_derivs:
-            dQ_dr = np.sqrt(self._Om)[None, ...] * self._Km.T
-        elif self.QMin.requests["multipolar_fit"]:
-            dfits = self._fits
+            else:
+                for im, n_req in filter(lambda x: x[1] != 0, enumerate(req_states)):
+                    dfits[im] = fits_rot[im][..., :n_req, :n_req]
+                    if do_pc and do_derivs:
+                        dfits_deriv[im] = fits_deriv[im][:, :n_req, :n_req, ...]
 
         # GRADS and NACS
         if self.QMin.requests["nacdr"]:
@@ -826,14 +937,17 @@ class SHARC_LVC(SHARC_FAST):
 
         if self.QMin.requests["grad"]:
             grad = grad.T.reshape((req_nmstates, self.QMin.molecule["natom"], 3))
+            grad = grad[:, self.backward_map, :]
         if self.QMin.requests["nacdr"]:
             nacdr = np.einsum("kij->ijk", nacdr).reshape((req_nmstates, req_nmstates, self.QMin.molecule["natom"], 3))
+            nacdr = nacdr[:, :, self.backward_map, :]
 
         if self.QMin.requests["multipolar_fit"]:
             multipolar_fit = {}
             for s1, s2 in self.QMin.requests["multipolar_fit"]:
                 im = s1.S
                 multipolar_fit[(s1, s2)] = dfits[im][s1.N - 1, s2.N - 1, ...]
+                multipolar_fit[(s1, s2)] = multipolar_fit[(s1, s2)][self.backward_map, :]
 
         # ======================================== assign to QMout =========================================
         self.log.debug(f"requests: {self.QMin.requests}")
