@@ -444,7 +444,7 @@ module definitions
     logical :: laser_egrad = .false.              !< false=none, true=exists (Laser E-field gradients)
     character*1023 :: laser_freq_path = "None"     !< Laser frequency file path - default is "None"
     integer :: coupling                       !< 0=ddt, 1=ddr, 2=overlap, 3=ktdc
-    integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation
+    integer :: ktdc_method                    !< 0=gradient based approximation, 1=energy based approximation, 2=curvature-only gradient based approximation
     integer :: kmatrix_method                 !< 0=gradient based approximation, 1=energy based approximation
     integer :: eeom                           !< method to control the electronic eom for both tsh and scp, 0=constant interpolation, 1=linear interpolation, 2=local diabatization, 3=norm perserving interpolation
     integer :: neom                           !< method to control the nuclear eom for scp, 0=ddr, 1=gradient difference
