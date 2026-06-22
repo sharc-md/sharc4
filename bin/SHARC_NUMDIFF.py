@@ -238,12 +238,11 @@ class SHARC_NUMDIFF(SHARC_HYBRID):
         if not hasattr(self, "ref_interface"):
             qm_program = self.QMin.template["qm-program"]
             self.ref_interface = self._load_interface(qm_program)()
-            # self.ref_interface.QMin.molecule['states'] = self.QMin.molecule['states']
-            if isinstance(self.ref_interface, SHARC_HYBRID):
-                self.log.error(
-                    "Currently, Hybrid interfaces cannot be used as children of SHARC_NUMDIFF.py"
-                )
-                raise NotImplementedError
+        # if isinstance(self.ref_interface, SHARC_HYBRID):
+        #     self.log.error(
+        #         "Currently, Hybrid interfaces cannot be used as children of SHARC_NUMDIFF.py"
+        #     )
+        #     raise NotImplementedError
 
         ref_features = self.ref_interface.get_features(KEYSTROKES=KEYSTROKES)
         needed = {
