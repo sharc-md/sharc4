@@ -512,9 +512,9 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'laser_e',          ctrl%laser_e
     write(u,'(a)') '************************************* End of settings *************************************'
     if (ctrl%output_format == 2) then
-        call vecwrite(1,traj%atomicnumber_a(1:2),u,'! Atomic numbers','E21.13e3')
-        call vecwrite(1,traj%element_a(1:2),     u,'! Elements',      'A3'  )
-        call vecwrite(1,traj%mass_a(1:2),        u,'! Atomic masses', 'E21.13e3')
+        call vecwrite(1,traj%atomicnumber_a(1:1),u,'! Atomic numbers','E21.13e3')
+        call vecwrite(1,traj%element_a(1:1),     u,'! Elements',      'A3'  )
+        call vecwrite(1,traj%mass_a(1:1),        u,'! Atomic masses', 'E21.13e3')
     else
         call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
         call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
@@ -534,7 +534,11 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'integrator',                 ctrl%integrator
     write(u,*) 'maxmult',                    ctrl%maxmult
     write(u,'(1X,A9,64(1X,I4))') 'nstates_m',ctrl%nstates_m
-    write(u,*) 'natom',                      ctrl%natom
+    if (ctrl%output_format == 2) then
+        write(u,*) 'natom',            1
+    else
+        write(u,*) 'natom',            ctrl%natom
+    endif
     write(u,*) 'dtstep',                     ctrl%dtstep
     write(u,*) 'nsteps',                     ctrl%nsteps
     write(u,*) 'nsubsteps',                  ctrl%nsubsteps
@@ -552,9 +556,15 @@ subroutine write_dat_initial(u, ctrl, traj)
     write(u,*) 'laser_egrad',                ctrl%laser_egrad
     write(u,*) 'laser_freq_path ',           trim(ctrl%laser_freq_path)
     write(u,'(a)') '************************************* End of settings *************************************'
-    call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
-    call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
-    call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E21.13e3')
+    if (ctrl%output_format == 2) then
+        call vecwrite(1,traj%atomicnumber_a(1:1),u,'! Atomic numbers','E21.13e3')
+        call vecwrite(1,traj%element_a(1:1),     u,'! Elements',      'A3'  )
+        call vecwrite(1,traj%mass_a(1:1),        u,'! Atomic masses', 'E21.13e3')
+    else
+        call vecwrite(ctrl%natom,traj%atomicnumber_a,u,'! Atomic numbers','E21.13e3')
+        call vecwrite(ctrl%natom,traj%element_a,     u,'! Elements',      'A3'  )
+        call vecwrite(ctrl%natom,traj%mass_a,        u,'! Atomic masses', 'E21.13e3')
+    endif
     if (ctrl%laser==2) then
         if (ctrl%laser_e) then  
             call vec3write(ctrl%nsteps*ctrl%nsubsteps+1, ctrl%laserfield_e_tp, u, '! Laser E-field','E21.13e3')    

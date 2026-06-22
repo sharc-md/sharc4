@@ -1905,7 +1905,7 @@ module input
         write(u_log,'(a)') 'Not writing gradients.'
       else
         write(u_log,'(a)') 'Writing gradients.'
-        if (ctrl%output_format==1) then
+        if (ctrl%output_format >= 1) then
           write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_grad'
           stop 1
         endif
@@ -1927,7 +1927,7 @@ module input
         write(u_log,'(a)') 'Not writing nonadiabatic couplings.'
       else
         write(u_log,'(a)') 'Writing nonadiabatic couplings.'
-        if (ctrl%output_format==1) then
+        if (ctrl%output_format >= 1) then
           write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_NACdr'
           stop 1
         endif
@@ -1941,7 +1941,7 @@ module input
         else
           write(u_log,'(a)') 'Writing property vectors.'
         endif
-        if (ctrl%output_format==1) then
+        if (ctrl%output_format >= 1) then
           write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_property1d'
           stop 1
         endif
@@ -1955,7 +1955,7 @@ module input
         else
           write(u_log,'(a)') 'Writing property matrices.'
         endif
-        if (ctrl%output_format==1) then
+        if (ctrl%output_format >= 1) then
           write(u_log,'(a)') 'Error: Currently, NetCDF output is not compatible with write_property2d'
           stop 1
         endif
@@ -1970,10 +1970,9 @@ module input
         &' steps if step is >= ',ctrl%output_steps_limits(3)
       write(u_log,*)
       if (ctrl%output_format == 2) then
-          write(u_log,*)
             write(u_log,'(a,i6,a,i6)') 'First,   writing to output_NUC.dat.nc every ',ctrl%output_steps_stride_nuc(1),&
             &' steps if step is >= ',ctrl%output_steps_limits_nuc(1)
-            write(u_log,'(a,i6,a,i6)') 'Then,    writing to output_NUC.dat.nc  every ',ctrl%output_steps_stride_nuc(2),&
+            write(u_log,'(a,i6,a,i6)') 'Then,    writing to output_NUC.dat.nc every ',ctrl%output_steps_stride_nuc(2),&
             &' steps if step is >= ',ctrl%output_steps_limits_nuc(2)
             write(u_log,'(a,i6,a,i6)') 'Finally, writing to output_NUC.dat.nc every ',ctrl%output_steps_stride_nuc(3),&
             &' steps if step is >= ',ctrl%output_steps_limits_nuc(3)
