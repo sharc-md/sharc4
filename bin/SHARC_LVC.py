@@ -44,7 +44,6 @@ from utils import readfile, writefile, question, expand_path, phase_correction, 
 from io import TextIOWrapper
 from constants import U_TO_AMU, ATOMIC_RADII, BOHR_TO_ANG
 from kabsch import kabsch_w as kabsch, kabsch_w, kabsch_w_with_deriv
-from permutation_handling import make_bond_graph, find_special_groups
 from numba import njit
 
 authors = "Sebastian Mai and Severin Polonius"
@@ -528,7 +527,7 @@ class SHARC_LVC(SHARC_FAST):
                 perm = np.array(perm, dtype=int)
                 cur_perm = cur_group[perm]
                 rmsd = np.sqrt(np.mean(np.sum((cur_perm - ref_group) ** 2, axis=1)))
-                self.log.info(
+                self.log.debug(
                     f"group {group[perm].tolist()} "
                     f"RMSD={rmsd:.6f}"
                     )
@@ -542,7 +541,7 @@ class SHARC_LVC(SHARC_FAST):
                 f"best permutation {group[best_perm].tolist()} "
                 f"RMSD={best_rmsd:.6f}"
             )
-        self.log.info(f"Best permutations: {equivalent_groups_permuted}")
+        self.log.debug(f"Best permutations: {equivalent_groups_permuted}")
             
         # make global atom mappings
         # apply the found group mappings
@@ -556,8 +555,8 @@ class SHARC_LVC(SHARC_FAST):
         # inverse mapping
         backward_map = np.argsort(forward_map)
 
-        self.log.info(f"MD  -> ref permutation: {forward_map}")
-        self.log.info(f"ref -> MD  permutation: {backward_map}")
+        self.log.debug(f"MD  -> ref permutation: {forward_map}")
+        self.log.debug(f"ref -> MD  permutation: {backward_map}")
         
         # save the mappings
         return forward_map, backward_map
