@@ -2195,7 +2195,7 @@ end subroutine phase_correction_zhou
         if (printlevel>3) write(u_log,*) 'Computing time derivative coupling by Curvature Approximation'
         traj%NACdt_ss=dcmplx(0.d0,0.d0)
         if (ctrl%ktdc_method==0) then
-          if (printlevel>4) write(u_log,*) 'Curvature TDC is computed by first order difference of gradients'
+          if (printlevel>4) write(u_log,*) 'Curvature TDC is computed by first order difference of gradients-velocity scalar products'
           ! Compute d(deltaV)/dt = d(deltaV)/dR * velocity for old and current step
           if (traj%step>=1) then
             gv_old(:)=0.d0
@@ -2335,7 +2335,7 @@ end subroutine phase_correction_zhou
             enddo
           endif ! if (ctrl%integrator==2) then 
         else if (ctrl%ktdc_method==2) then
-          if (printlevel>4) write(u_log,*) 'Curvature TDC is computed by first order difference of gradients at mid-point velocity'
+          if (printlevel>4) write(u_log,*) 'Curvature TDC is computed by first order difference of gradients times midpoint velocity'
           if (traj%step >= 1) then
             sum_state=0
             do imult=1, ctrl%maxmult
