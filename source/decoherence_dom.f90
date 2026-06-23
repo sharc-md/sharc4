@@ -1657,7 +1657,7 @@ subroutine decoherent_propagator(ns, dt, nsub, tau, tauold, k, C, Dtotal)
   complex*16 :: C_in(ns)
   complex*16 :: ii=dcmplx(0.d0,1.d0)
   real*8 :: taumid(ns)
-
+  real*8 :: sumc
   integer :: istate, jstate
 
   dtsubstep=dt/nsub
@@ -1674,11 +1674,9 @@ subroutine decoherent_propagator(ns, dt, nsub, tau, tauold, k, C, Dtotal)
     DP(:,:)=dcmplx(0.d0,0.d0)
     do istate=1,ns
       if (istate.ne.k) then
-        DP(k,k)=DP(k,k)+(1.d0,0.d0)*tau(istate)*real(Ctmp1(istate)*conjg(Ctmp1(istate)))
         DP(istate,istate)=-0.5d0*(1.d0,0.d0)*tau(istate)
       endif
     enddo
-    DP(k,k)=0.5d0*DP(k,k)/(real(Ctmp1(k)*conjg(Ctmp1(k))))
 
     Rexpd=dtsubstep*(DP)
     call exponentiate(ns,Rexpd,(1.d0,0.d0))
@@ -1689,6 +1687,16 @@ subroutine decoherent_propagator(ns, dt, nsub, tau, tauold, k, C, Dtotal)
     Rtmp=Dtotal
     call matvecmultiply(ns, Rtmp, C_in, Ctmp1, 'n')
   enddo
+
+    sumc = 0.d0
+    do istate=1,ns
+      if (istate.ne.k) then
+        sumc = sumc + abs(Ctmp1(istate))**2
+      endif
+    enddo
+    DP(k,k)=sqrt((1.d0 - sumc) / abs(Ctmp1(k))**2)
+    Dtotal(k,k)=DP(k,k)
+
 
   ! propagate the coefficients
   call matvecmultiply(ns, Dtotal, C_in, C, 'n')
