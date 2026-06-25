@@ -507,7 +507,7 @@ class SHARC_LVC(SHARC_FAST):
         equivalent_groups = self.QMin.resources["equivalent_groups_of_atoms"]
         
         # align reference + geometry without equivalent atoms
-        eq = np.array(equivalent_groups).flatten()
+        eq = np.array( [atom for group in equivalent_groups for atom in group], dtype=int)
         atom_mask = np.ones(self.QMin.molecule["natom"], dtype=float)
         atom_mask[eq] = 0.
         reference_coords = self._ref_coords
