@@ -146,6 +146,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "cholesky_accu": 1e-4,
                 "rasscf_thrs": [1e-8, 1e-4, 1e-4],
                 "density_calculation_methods": [],
+                "auto_tighten_convergence": True,
             }
         )
 
@@ -178,6 +179,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "iterations": list,
                 "cholesky_accu": float,
                 "rasscf_thrs": list,  # e, rot egrd
+                "auto_tighten_convergence": bool,
             }
         )
 
@@ -1348,17 +1350,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         if qmin.template["ras3"]:
             input_str += f"RAS3={qmin.template['ras3']}\n"
         input_str += f"CIROOT={task[2]} {task[2]} 1\n"
-        if qmin.template["method"] not in ("ms-caspt2", "xms-caspt2", "rms-caspt2"):
-            # TODO: check if needed
-            input_str += "ORBLISTING=NOTHING\nPRWF=1.0e-12\n"
-            # input_str += "ORBLISTING=NOTHING\n"
-        else:
-            input_str += "ORBLISTING=NOTHING\n"
+        input_str += "ORBLISTING=NOTHING\n"
+        if qmin.template["method"] in ("casscf", "caspt2", "cms-pdft"):
+            # for ms/xms/rms, we cannot extract the Slater determinant expansion, so cannot serve "ion"
+            if qmin.requests["ion"]:
+                input_str += "PRWF=1.0e-12\n"
+                input_str += "PRSD\n"
         if qmin.template["method"] == "cms-pdft":
             input_str += "CMSInter\n"
-        # TODO: The next piece of code makes the calculation quite a bit more expensive
-        # and if it is used, it should also be used for NACs, not only for gradients
-        if qmin.maps["gradmap"] and len(qmin.maps["gradmap"]) > 0:
+        tighten_needed = (qmin.maps["gradmap"] and len(qmin.maps["gradmap"]) > 0) or (qmin.maps["nacmap"] and len(qmin.maps["nacmap"]) > 0)
+        if tighten_needed and qmin.template["auto_tighten_convergence"]:
             input_str += "THRS=1.0e-10 1.0e-06 1.0e-06\n"
         else:
             input_str += "THRS=" + " ".join(f"{i:14.12f}" for i in qmin.template["rasscf_thrs"]) + "\n"
@@ -1375,8 +1376,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 input_str += f"RFROOT = {qmin.template['pcmstate'][1]}\n"
             else:
                 input_str += "NONEQUILIBRIUM\n"
-        if qmin.requests["ion"]:
-            input_str += "PRSD\n"
         input_str += "\n"
         return input_str
 
@@ -1525,14 +1524,6 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                         self.log.error(f"(X)MS-CASPT2 with NACs/grad. Number of roots must equal number of states in mult {mult}.")
                         raise ValueError
 
-        # if (
-        #     self.QMin.template["method"] in ("ms-caspt2", "xms-caspt2")
-        #     and self.QMin.template["ipea"] > 0
-        #     and (self.QMin.requests["grad"] or self.QMin.requests["nacdr"])
-        # ):
-        #     self.log.error("Analytical gradients/NACs are not possible with pt2 methods and ipea shift!")
-        #     raise ValueError()
-
         if (
             self.QMin.template["pcmset"]
             and (self.QMin.requests["grad"] or self.QMin.requests["nacdr"])
@@ -1552,11 +1543,16 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             if not self._hdf5:
                 self.log.error("Densities, basis_set and multipolar_fit request require HDF5 support in OpenMolcas!")
                 raise ValueError()
-        # if self.QMin.requests["multipolar_fit"] and self.QMin.molecule["point_charges"]:
-        #     self.log.error("Multipolar fit not compatible with point charges!")
-            # raise ValueError()
+            
         if self.QMin.requests["phases"]:
             self.QMin.requests["overlap"] = True
+
+        if self.QMin.requests["ion"]:
+            if self.QMin.template["method"] in ("ms-caspt2", "xms-caspt2", "rms-caspt2"):
+                self.log.error("Dyson norms currently not available with MS/XMS/RMS-CASPT2!")
+                raise ValueError()
+
+
 
     def _get_molcas_features(self) -> None:
         """
