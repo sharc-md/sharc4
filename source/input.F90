@@ -264,7 +264,7 @@ module input
       if (ctrl%restart) then
         write(u_log,*) 'RESTART requested. Reading the dump file...'
       else
-        write(u_log,*) 'NO RESTART requested. Setting up the initial data from input files...'
+        write(u_log,*) 'RESTART not requested. Setting up the initial data from input files...'
       endif
       write(u_log,*)
     endif
@@ -273,6 +273,13 @@ module input
     if (ctrl%restart) then
 !       close(u_i_input)
       call read_restart(u_resc,u_rest,ctrl,traj)
+
+      write(u_log,*) '============================================================='
+      write(u_log,*) '                       Resume Step'
+      write(u_log,*) '============================================================='
+      write(u_log,*) 'TIME STEP read from RESTART file:', traj%step
+      write(u_log,*) 'Will continue with new time step:', traj%step+1
+      write(u_log,*) 
 
       if (ctrl%integrator==2) then
         ! if explicit laser field is used, the simulation time cannot be changed
