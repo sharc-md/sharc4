@@ -591,6 +591,7 @@ def check_runtime(path, trajectories, INFOS):
         if 'found nsteps=' in line.lower():
             trajectories[path]['maxsteps'] = int(line.split()[2])
             trajectories[path]['dtstep'] = float(line.split()[5])
+            break
     # print(trajectories[path]['maxsteps'])
     # print(trajectories[path]['dtstep'])
     s = '    Progress:         ['
@@ -631,7 +632,7 @@ def check_termination(path, trajectories, INFOS, f):
         #f = reversed(f)
         timesteps = []
         count = 0
-        print("IM HERE1")
+        # print("IM HERE1")
         countmax = min(10, trajectories[path]['laststep'])
         for line in range(len(f)):
             if 'entering timestep' in f[line].lower():
@@ -911,8 +912,10 @@ def check_intruders(path, trajectories, INFOS, lis, tana, problem_length):
                     ok = False
                     problem = problem_length
                     break
-            if 'RESTART requested.' in line and 'NO RESTART requested.' not in line:
-                prevstep -= 1
+            # if 'RESTART requested.' in line:
+            #     prevstep -= 1
+            if 'TIME STEP read from RESTART file' in line:
+                prevstep = int(line.split()[-1])
             if 'State: ' in line and "INTRUDER STATE PROBLEM" in prev_line:
                 intruder = int(line.split()[1])
                 if not notpossible:

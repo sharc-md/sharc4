@@ -484,6 +484,7 @@ class SHARC_DROPLET(SHARC_HYBRID):
         self.child_interface.read_requests(requests_file)
 
     def create_restart_files(self):
+        super().create_restart_files()
         self.child_interface.create_restart_files()
 
     def clean_savedir(self):
