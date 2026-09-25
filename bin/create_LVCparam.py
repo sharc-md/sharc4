@@ -587,12 +587,13 @@ def write_LVC_template(INFOS, template_name):
                 part_ovl_pos, _ = phase_correction(part_ovl_pos)
                 pos_partition = part_ovl_pos @ part_h_pos @ part_ovl_pos.T
 
-                part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
-                part_h_neg[:] = np.diag(np.diag(part_h_neg))
-                part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
-                part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
-                part_ovl_neg, _ = phase_correction(part_ovl_neg)
-                neg_partition = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
+                if twosided:
+                    part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
+                    part_h_neg[:] = np.diag(np.diag(part_h_neg))
+                    part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
+                    part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
+                    part_ovl_neg, _ = phase_correction(part_ovl_neg)
+                    neg_partition = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
                 # checking problematic states
                 if INFOS["ignore_problematic_states"]:
                     if str(normal_mode) + "p" in INFOS["problematic_mults"]:
