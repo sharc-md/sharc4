@@ -1582,6 +1582,43 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
             stdev_g = stdev_geom(data, mean_g)
             final_errors[key] = stdev_a
 
+            # get different confidence intervals from percentiles
+            confidence_levels = [
+                0.500,
+                0.683, # 1 sigma
+                0.800,
+                0.900,
+                0.950, # 2 sigma
+                0.990,
+                0.997, # 3 sigma
+            ]
+            intervals = []
+            sorted_data = sorted(data)
+            minimum_tail = 5  # there should be 5 observations each in the lower and upper tail
+
+            for p in confidence_levels:
+                lower_fraction = (1.0 - p) / 2.0
+                upper_fraction = (1.0 + p) / 2.0
+                n_tail = len(data) * (1.0 - p) / 2.0
+                if n_tail < minimum_tail:
+                    continue
+                # Convert fractional percentile positions to indices.
+                # Linear interpolation between neighboring observations.
+                def percentile(fraction):
+                    position = fraction * (len(sorted_data) - 1)
+                    lower_index = int(position)
+                    upper_index = min(lower_index + 1, len(sorted_data) - 1)
+                    weight = position - lower_index
+                    return (
+                        sorted_data[lower_index] * (1.0 - weight)
+                        + sorted_data[upper_index] * weight
+                    )
+
+                lower = percentile(lower_fraction)
+                upper = percentile(upper_fraction)
+                intervals.append((p, lower, upper))
+
+
             string += '''
     Arithmetic analysis:          %12.4f +/- %12.4f
                                             ( +/-   %8.2f %%)
@@ -1590,9 +1627,7 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                                             (  +    %8.2f %%  -    %8.2f %%)
 
     Minimum and maximum:          %12.4f      and       %12.4f
-
-    Histogram:
-    ==========''' % (mean_a,
+''' % (mean_a,
                      stdev_a,
                      stdev_a / mean_a * 100.,
                      mean_g,
@@ -1604,6 +1639,15 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                      maxi
                      )
             print(string)
+
+            # print confidence intervals
+            print("    Confidence intervals:")
+            for p, lower, upper in intervals:
+                print(
+                    '        %5.1f %% CI: %12.4f   -   %12.4f'
+                    % (p * 100.0, lower, upper)
+                )
+
             string_all += string + '\n'
 
             # make histogram
@@ -1619,7 +1663,10 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
             # draw histogram
             height = 12
             dx = float(height) / max(hout)
-            string = ''
+            string = '''
+    Histogram:
+    ==========
+'''
             for ih in range(height):
                 for ib in hout:
                     x = ib * dx
