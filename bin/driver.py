@@ -41,6 +41,7 @@ except:
 from error import Error
 from logger import log
 from logger import loglevel as loglevel_env
+import logger
 from qmout import QMout
 from SHARC_INTERFACE import SHARC_INTERFACE
 from utils import InDir
@@ -208,11 +209,11 @@ def main():
 
     loglevel = loglevel_env
     if options.silent:
-        loglevel = log.ERROR
+        loglevel = logger.ERROR
     if options.verbose:
-        loglevel = log.SHARCPRINT
+        loglevel = logger.SHARCPRINT
     if options.debug:
-        loglevel = log.DEBUG
+        loglevel = logger.DEBUG
     if not options.name:
         raise Error('please specifiy the interface with "-i <name>"')
     if not options.input_file:
