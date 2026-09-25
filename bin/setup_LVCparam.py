@@ -899,7 +899,7 @@ def calculate_displacements(INFOS):
             displacements[f"{k:03d}_p"] = [nm * INFOS["displacement_magnitudes"][k] for nm in normal_mode]
 
             # for two sided derivation
-            if k not in INFOS["one-sided_derivations"] or str(k) in INFOS["gamma_normal_modes"]:
+            if k not in INFOS["one-sided_derivations"] or (INFOS["gammas"] and  str(k) in INFOS["gamma_normal_modes"]):
                 displacements[f"{k:03d}_n"] = [nm * INFOS["displacement_magnitudes"][k] * (-1) for nm in normal_mode]
             if INFOS["gammas"] == "five-point stencil" and str(k) in INFOS["gamma_normal_modes"]:
                 displacements[f"{k:03d}_p2"] = [2 * nm * INFOS["displacement_magnitudes"][k] for nm in normal_mode]
