@@ -294,10 +294,12 @@ def get_general():
 def do_calc(INFOS):
 
     # make list of files and get dimensions
+    print("Checking all files for consistency ...")
     natoms = set()
     nsteps = set()
     filename_list_and_steps = {}
-    for ipath in INFOS['valid_paths']:
+    for i,ipath in enumerate(INFOS['valid_paths']):
+        sys.stdout.write('\r%6i/%6i ' % (i+1, len(INFOS['valid_paths'])))
         f = os.path.join(ipath, INFOS['coord_files'])
         if os.path.isfile(f):
             with Dataset(f) as file:
@@ -315,6 +317,7 @@ def do_calc(INFOS):
     natom = next(iter(natoms))
     nstep = max(nsteps)
     nfile = len(filename_list_and_steps)
+    print("\n... consistency check successful.\n")
 
     # prepare reference in numpy
     T_mats_0 = np.repeat(np.eye(3)[np.newaxis, :, :], nfile, axis=0) # rotation matrices initialized to unit matrices
