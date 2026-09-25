@@ -828,8 +828,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Write files
         self.log.debug(f"Writing input files to {workdir}")
-        writefile(os.path.join(workdir, "MOLCAS.xyz"), self._write_geom(qmin.molecule["elements"], qmin.coords["coords"]))
-        writefile(os.path.join(workdir, "MOLCAS.input"), self._write_input(self._gen_tasklist(qmin), qmin))
+        path = os.path.join(workdir, "MOLCAS.xyz")
+        string = self._write_geom(qmin.molecule["elements"], qmin.coords["coords"])
+        self.log.debug(string)
+        writefile(path, string)
+        path = os.path.join(workdir, "MOLCAS.input")
+        string = self._write_input(self._gen_tasklist(qmin), qmin)
+        self.log.debug(string)
+        writefile(path, string)
 
         # Set env variable for master path
         os.environ["master_path"] = os.path.join(qmin.resources["scratchdir"], "master")
