@@ -33,18 +33,19 @@
 # external
 import numpy as np
 from openmm.app import Simulation, AmberPrmtopFile
-from openmm import System, State, NonbondedForce, Platform, CustomIntegrator
+from openmm import System, State, NonbondedForce, CustomNonbondedForce ,Platform, CustomIntegrator, unit
 from openmm.app.forcefield import NoCutoff
 import datetime
 from typing import Optional
 from io import TextIOWrapper
 import os
 from qmin import QMinBase
+import logging
 
 # internal
 from SHARC_FAST import SHARC_FAST
 from utils import question
-from constants import au2a, kJpermol_per_Eh
+from constants import au2a, kJpermol_per_Eh, coulomb_kJpermol
 
 date = datetime.date
 
@@ -72,11 +73,13 @@ class SHARC_OPENMM(SHARC_FAST):
         self.QMin.template.update(
             {
                 "prmtop": None,
+                "coulomb_constant": "default"   # options: default, openmm, amber, si
             }
         )
         self.QMin.template.types.update(
             {
                 "prmtop": str,
+                "coulomb_constant": str
             }
         )
         self.QMin.resources.update({"ncpu": 1, "cuda_device": None})
@@ -138,6 +141,21 @@ class SHARC_OPENMM(SHARC_FAST):
     def run(self):
         self.simulation.context.setPositions(self.QMin.coords["coords"] * (au2a / 10))
         state: State = self.simulation.context.getState(getEnergy=self.QMin.requests["h"], getForces=self.QMin.requests["grad"])
+
+        # Debug: print energy contribution from each OpenMM force
+        if self.log.isEnabledFor(logging.DEBUG):
+            for i, force in enumerate(self.simulation.system.getForces()):
+                debug_state = self.simulation.context.getState(
+                    getEnergy=True,
+                    groups={i}
+                )
+                energy_kjmol = debug_state.getPotentialEnergy()._value
+                energy_Eh = energy_kjmol / kJpermol_per_Eh
+
+                self.log.debug(
+                    f"Energy {i:2d} {force.__class__.__name__:25s}: "
+                    f"{energy_kjmol:16.8f} kJ/mol = {energy_Eh:16.8f} Hartree"
+                )
 
         energy: float = state.getPotentialEnergy()._value / kJpermol_per_Eh  # kJ/mol -> Hartree
         self.QMout["h"] = np.full((1, 1), energy, dtype=float)
@@ -203,6 +221,62 @@ class SHARC_OPENMM(SHARC_FAST):
         # standard params http://docs.openmm.org/latest/api-python/generated/openmm.app.amberprmtopfile.AmberPrmtopFile.html#openmm.app.amberprmtopfile.AmberPrmtopFile.createSystem
         # nonbondedMethod=ff.NoCutoff, nonbondedCutoff=1.0*u.nanometer, constraints=None, rigidWater=True, implicitSolvent=None, implicitSolventSaltConc=0.0*(u.moles/u.liter), implicitSolventKappa=None, temperature=298.15*u.kelvin, soluteDielectric=1.0, solventDielectric=78.5, removeCMMotion=True, hydrogenMass=None, ewaldErrorTolerance=0.0005, switchDistance=0.0*u.nanometer, gbsaModel='ACE'
         system: System = prmtop.createSystem(nonbondedMethod=NoCutoff, rigidWater=False, removeCMMotion=False)
+
+        if QMin.template["coulomb_constant"].lower() != "default":
+            # ---------------------------------------------------------------------
+            # START COULOMB OVERWRITE MODIFICATION
+            # ---------------------------------------------------------------------
+            # define custom Coulomb function for separate debug printout and to match Amber units
+            
+            # 1. Locate the native NonbondedForce
+            nonbonded = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+            
+            # 2. Define the Custom Nonbonded expression using Amber's exact constant in kJ*nm/mol/e^2
+            match QMin.template["coulomb_constant"].lower():
+                case "amber":
+                    coulomb_constant = 138.9306477184  
+                case "openmm":
+                    coulomb_constant = 138.935457532
+                case "si":
+                    coulomb_constant = coulomb_kJpermol # 138.9354576444
+            coulomb_expr = f"{coulomb_constant} * q1 * q2 / r"
+            
+            custom_electrostatics = CustomNonbondedForce(coulomb_expr)
+            custom_electrostatics.addPerParticleParameter("q")
+            custom_electrostatics.setNonbondedMethod(CustomNonbondedForce.NoCutoff)
+            
+            # 3. Transfer charges to custom force and neutralize original force charges
+            # (This leaves the original NonbondedForce to compute ONLY Lennard-Jones vdW)
+            npart = system.getNumParticles()
+            for idx in range(npart):
+                charge, sigma, epsilon = nonbonded.getParticleParameters(idx)
+                
+                # Add charge to our new custom constant engine
+                custom_electrostatics.addParticle([charge])
+                
+                # Clear charge from standard engine to avoid double-counting
+                # Keeping sigma and epsilon intact preserves standard vdW math
+                nonbonded.setParticleParameters(idx, 0.0 * unit.elementary_charge, sigma, epsilon)
+                
+            # 4. Handle exclusion pairs (like 1-2, 1-3, and water intramolecular pairs)
+            # CustomNonbondedForce ignores exclusions by default unless added here
+            for idx in range(nonbonded.getNumExceptions()):
+                p1, p2, q_prod, vdw_sig, vdw_eps = nonbonded.getExceptionParameters(idx)
+                # Add an exclusion to the custom electrostatic engine for these specific pairs
+                custom_electrostatics.addExclusion(p1, p2)
+                
+            # 5. Push the new custom force back into the system topology
+            system.addForce(custom_electrostatics)
+            # ---------------------------------------------------------------------
+            # END COULOMB OVERWRITE MODIFICATION
+            # ---------------------------------------------------------------------
+
+        # Debug print of force groups
+        for i, force in enumerate(system.getForces()):
+            force.setForceGroup(i)
+            self.log.debug(
+                f"OpenMM force group {i}: {force.__class__.__name__}"
+            )
 
         # 'Do nothing' integrator
         integrator = CustomIntegrator(0.0005)
