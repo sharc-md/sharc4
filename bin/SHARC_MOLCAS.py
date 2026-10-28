@@ -147,6 +147,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "rasscf_thrs": [1e-8, 1e-4, 1e-4],
                 "density_calculation_methods": [],
                 "auto_tighten_convergence": True,
+                "relativistic": None,
             }
         )
 
@@ -180,6 +181,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "cholesky_accu": float,
                 "rasscf_thrs": list,  # e, rot egrd
                 "auto_tighten_convergence": bool,
+                "relativistic": str,
             }
         )
 
@@ -621,6 +623,17 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 self.QMin.template["iterations"] = [int(self.QMin.template["iterations"][0]), 100]
             case _:
                 self.log.error(f"{self.QMin.template['iterations']} is not a valid iteration value!")
+                raise ValueError()
+            
+        # Check relativistic keyword
+        if self.QMin.template["relativistic"] is not None:
+            relativistic = self.QMin.template["relativistic"]
+            match = re.fullmatch(r"R(\d{2})([OESMC])(\d{2})", relativistic)
+            if not match:
+                self.log.error("Invalid relativistic keyword '%s'." %  relativistic)
+                raise ValueError()
+            if int(match.group(3)) > int(match.group(1)):
+                self.log.error("Invalid relativistic keyword '%s' because the second order is larger than the first." %  relativistic)
                 raise ValueError()
 
         # PCM
@@ -1392,6 +1405,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str = "&SEWARD\n"
         if qmin.template["method"] == "cms-pdft":
             input_str += "GRID INPUT\nNOSC\nEND OF GRID INPUT\n"
+        if qmin.template["relativistic"] is not None:
+            input_str += "RELATIVISTIC\n%s\n" % qmin.template["relativistic"]
         input_str += "\n"
         if qmin.template["origin"].lower() == "none":
             pass
