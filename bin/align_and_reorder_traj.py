@@ -294,10 +294,12 @@ def get_general():
 def do_calc(INFOS):
 
     # make list of files and get dimensions
+    print("Checking all files for consistency ...")
     natoms = set()
     nsteps = set()
     filename_list_and_steps = {}
-    for ipath in INFOS['valid_paths']:
+    for i,ipath in enumerate(INFOS['valid_paths']):
+        sys.stdout.write('\r%6i/%6i ' % (i+1, len(INFOS['valid_paths'])))
         f = os.path.join(ipath, INFOS['coord_files'])
         if os.path.isfile(f):
             with Dataset(f) as file:
@@ -315,14 +317,16 @@ def do_calc(INFOS):
     natom = next(iter(natoms))
     nstep = max(nsteps)
     nfile = len(filename_list_and_steps)
+    print("\n... consistency check successful.\n")
 
     # prepare reference in numpy
     T_mats_0 = np.repeat(np.eye(3)[np.newaxis, :, :], nfile, axis=0) # rotation matrices initialized to unit matrices
     com_coord_0 = np.zeros((nfile, 3))  # COM shift
     com_ref_0 = np.zeros((nfile, 3))    # COM shift reference
-    masses = [MASSES[s.title()] / U_TO_AMU for s in INFOS['ref_sym']]
-    ref_geom = INFOS['ref_xyz']
-    ref_map = np.array(INFOS['ref_map']) - 1
+    if INFOS['align']:
+        masses = [MASSES[s.title()] / U_TO_AMU for s in INFOS['ref_sym']]
+        ref_geom = INFOS['ref_xyz']
+        ref_map = np.array(INFOS['ref_map']) - 1
 
     # timing
     start_time = perf_counter_ns()
@@ -357,10 +361,13 @@ def do_calc(INFOS):
 
         if INFOS['write_coord']:
             # all geometries acquired, now write them
-            if INFOS['mol_persp']:
-                out_filename = f"frame_coord_mol_pers_{istep:05d}.nc"
+            if not INFOS['align']:
+                out_filename = f"frame_coord_unaligned_{istep:05d}.nc"
             else:
-                out_filename = f"frame_coord_sol_pers_{istep:05d}.nc"
+                if INFOS['mol_persp']:
+                    out_filename = f"frame_coord_mol_pers_{istep:05d}.nc"
+                else:
+                    out_filename = f"frame_coord_sol_pers_{istep:05d}.nc"
             sys.stdout.write("%40s" % out_filename)
             with Dataset(out_filename, "w", format="NETCDF3_64BIT_OFFSET") as out:
                 out.title = "SHARCTRAJ to AMBERTRAJ"
@@ -400,10 +407,13 @@ def do_calc(INFOS):
                     all_geom[itraj, ...] = veloc @ T_mats_0[itraj, ...].T # COM shifts are not applied to velocities
             
             # all geometries acquired, now write them
-            if INFOS['mol_persp']:
-                out_filename = f"frame_veloc_mol_pers_{istep:05d}.nc"
+            if not INFOS['align']:
+                out_filename = f"frame_veloc_unaligned_{istep:05d}.nc"
             else:
-                out_filename = f"frame_veloc_sol_pers_{istep:05d}.nc"
+                if INFOS['mol_persp']:
+                    out_filename = f"frame_veloc_mol_pers_{istep:05d}.nc"
+                else:
+                    out_filename = f"frame_veloc_sol_pers_{istep:05d}.nc"
             sys.stdout.write("%40s" % out_filename)
             with Dataset(out_filename, "w", format="NETCDF3_64BIT_OFFSET") as out:
                 out.title = "SHARCTRAJ to AMBERTRAJ"

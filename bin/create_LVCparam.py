@@ -587,12 +587,13 @@ def write_LVC_template(INFOS, template_name):
                 part_ovl_pos, _ = phase_correction(part_ovl_pos)
                 pos_partition = part_ovl_pos @ part_h_pos @ part_ovl_pos.T
 
-                part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
-                part_h_neg[:] = np.diag(np.diag(part_h_neg))
-                part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
-                part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
-                part_ovl_neg, _ = phase_correction(part_ovl_neg)
-                neg_partition = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
+                if twosided:
+                    part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
+                    part_h_neg[:] = np.diag(np.diag(part_h_neg))
+                    part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
+                    part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
+                    part_ovl_neg, _ = phase_correction(part_ovl_neg)
+                    neg_partition = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
                 # checking problematic states
                 if INFOS["ignore_problematic_states"]:
                     if str(normal_mode) + "p" in INFOS["problematic_mults"]:
@@ -785,27 +786,31 @@ def write_LVC_template(INFOS, template_name):
                 states = INFOS["gamma_selected_states"][str(imult)]
                 # states = list(range(INFOS["states"][imult]))
                 part_h_pos = QMout_pos.h[start : start + nsi, start : start + nsi].real
+                part_h_pos[:] = np.diag(np.diag(part_h_pos))
                 part_ovl_pos = QMout_pos.overlap[start : start + nsi, start : start + nsi].real
                 part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
-                part_ovl_pos = phase_correction(part_ovl_pos)
+                part_ovl_pos, _ = phase_correction(part_ovl_pos)
                 diab_h_pos = part_ovl_pos @ part_h_pos @ part_ovl_pos.T
 
                 part_h_pos2 = QMout_pos2.h[start : start + nsi, start : start + nsi].real
+                part_h_pos2[:] = np.diag(np.diag(part_h_pos2))
                 part_ovl_pos2 = QMout_pos2.overlap[start : start + nsi, start : start + nsi].real
                 part_ovl_pos2 = loewdin_orthonormalization(part_ovl_pos2)
-                part_ovl_pos2 = phase_correction(part_ovl_pos2)
+                part_ovl_pos2, _ = phase_correction(part_ovl_pos2)
                 diab_h_pos2 = part_ovl_pos2 @ part_h_pos2 @ part_ovl_pos2.T
 
                 part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
+                part_h_neg[:] = np.diag(np.diag(part_h_neg))
                 part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
                 part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
-                part_ovl_neg = phase_correction(part_ovl_neg)
+                part_ovl_neg, _ = phase_correction(part_ovl_neg)
                 diab_h_neg = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
 
                 part_h_neg2 = QMout_neg2.h[start : start + nsi, start : start + nsi].real
+                part_h_neg2[:] = np.diag(np.diag(part_h_neg2))
                 part_ovl_neg2 = QMout_neg2.overlap[start : start + nsi, start : start + nsi].real
                 part_ovl_neg2 = loewdin_orthonormalization(part_ovl_neg2)
-                part_ovl_neg2 = phase_correction(part_ovl_neg2)
+                part_ovl_neg2, _ = phase_correction(part_ovl_neg2)
                 diab_h_neg2 = part_ovl_neg2 @ part_h_neg2 @ part_ovl_neg2.T
 
                 part_eq_h = QMout_eq.h[start : start + nsi, start : start + nsi].real
@@ -904,24 +909,26 @@ def write_LVC_template(INFOS, template_name):
                     continue
                 states = INFOS["gamma_selected_states"][str(imult)]
                 part_h_pos = QMout_pos.h[start : start + nsi, start : start + nsi].real
+                part_h_pos[:] = np.diag(np.diag(part_h_pos))
                 part_ovl_pos = QMout_pos.overlap[start : start + nsi, start : start + nsi].real
 
                 # do loewdin orthonorm. on overlap matrix
 
                 part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
 
-                part_ovl_pos = phase_correction(part_ovl_pos)
+                part_ovl_pos, _ = phase_correction(part_ovl_pos)
 
                 diab_h_pos = part_ovl_pos @ part_h_pos @ part_ovl_pos.T
                 # diab_h_pos = calculate_W_dQi(part_h_pos, part_ovl_pos, e_ref)
 
                 part_h_neg = QMout_neg.h[start : start + nsi, start : start + nsi].real
+                part_h_neg[:] = np.diag(np.diag(part_h_neg))
                 part_ovl_neg = QMout_neg.overlap[start : start + nsi, start : start + nsi].real
 
                 # do loewdin orthonorm. on overlap matrix
                 part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
 
-                part_ovl_neg = phase_correction(part_ovl_neg)
+                part_ovl_neg, _ = phase_correction(part_ovl_neg)
 
                 diab_h_neg = part_ovl_neg @ part_h_neg @ part_ovl_neg.T
                 # diab_h_neg = calculate_W_dQi(part_h_neg, part_ovl_neg, e_ref)
@@ -1000,7 +1007,7 @@ def write_LVC_template(INFOS, template_name):
 
                 # do loewdin orthonorm. on overlap matrix
                 part_ovl_pos = loewdin_orthonormalization(part_ovl_pos)
-                part_ovl_pos = phase_correction(part_ovl_pos)
+                part_ovl_pos, _ = phase_correction(part_ovl_pos)
 
                 diab_grad_pos = np.einsum("in,nmk,im->ik", part_ovl_pos, nac_grad_pos, part_ovl_pos)
 
@@ -1013,7 +1020,7 @@ def write_LVC_template(INFOS, template_name):
 
                 # do loewdin orthonorm. on overlap matrix
                 part_ovl_neg = loewdin_orthonormalization(part_ovl_neg)
-                part_ovl_neg = phase_correction(part_ovl_neg)
+                part_ovl_neg, _ = phase_correction(part_ovl_neg)
 
                 diab_grad_neg = np.einsum("in,nmk,im->ik", part_ovl_neg, nac_grad_neg, part_ovl_neg)
 

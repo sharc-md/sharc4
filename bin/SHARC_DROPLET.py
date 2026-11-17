@@ -226,6 +226,7 @@ class SHARC_DROPLET(SHARC_HYBRID):
         return INFOS
 
     def prepare(self, INFOS, dir_path) -> None:
+        # TODO: Link files
 
         QMin = self.QMin
 
@@ -320,11 +321,11 @@ class SHARC_DROPLET(SHARC_HYBRID):
             # --- Rcut ---
             Rcut = droplet.get("Rcut")/au2a
             if not isinstance(Rcut, (int, float)) or Rcut < 0:
-                raise ValueError(f"Droplet potential '{name}': Rcut must be a nonnegative float")
+                raise ValueError(f"Droplet potential '{name}': Rcut must be a nonnegative float in Angstrom")
             # --- k ---
             k = droplet.get("k")
             if not isinstance(k, (int, float)):
-                raise ValueError(f"Droplet potential '{name}': k must be a float")
+                raise ValueError(f"Droplet potential '{name}': k must be a float in Hartree/Bohr^2")
             if k < 0:
                 self.log.warning(f"Droplet potential '{name}': k is negative!")
 

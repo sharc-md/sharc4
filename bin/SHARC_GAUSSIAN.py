@@ -40,6 +40,7 @@ import ast
 import numpy as np
 from constants import IAn2AName, IToMult, au2eV, au2a
 from pyscf import gto
+from numba import njit
 
 # internal
 from logger import DEBUG
@@ -1821,6 +1822,27 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
     # =============================================================================================== #
     # =============================================================================================== #
 
+    @staticmethod
+    @njit(cache=True)
+    def coulomb_energy(coords, charges):
+        n = len(charges)
+        energy = 0.0
+        for i in range(n - 1):
+            xi = coords[i, 0]
+            yi = coords[i, 1]
+            zi = coords[i, 2]
+            qi = charges[i]
+            for j in range(i + 1, n):
+                dx = xi - coords[j, 0]
+                dy = yi - coords[j, 1]
+                dz = zi - coords[j, 2]
+                r2 = dx * dx + dy * dy + dz * dz
+                if r2 == 0.0:
+                    raise ValueError("Coincident point charges")
+                energy += qi * charges[j] / np.sqrt(r2)
+        return energy
+
+
     def getQMout(self):
         self.log.print(">>>>>>>>>>>>> Reading output files")
         starttime = datetime.datetime.now()
@@ -1846,15 +1868,18 @@ class SHARC_GAUSSIAN(SHARC_ABINITIO):
 
             if self.QMin.requests["h"]:  # or 'soc' in self.QMin:
                 if self.QMin.molecule['point_charges']:
-                    pccoords = self.QMin.coords['pccoords']
-                    pccharge = self.QMin.coords['pccharge']
-                    npc = len(pccharge) 
-                    Eexternal = 0.0
-                    for a in range(npc - 1):
-                        d = pccoords[a+1:] - pccoords[a]
-                        r = np.sqrt(np.einsum('ij,ij->i', d, d))
-                        Eexternal += pccharge[a] * np.dot(pccharge[a+1:], 1.0 / r)
-
+                    Eexternal = self.coulomb_energy(
+                        self.QMin.coords['pccoords'],
+                        self.QMin.coords['pccharge'],
+                        )
+                    # pccoords = self.QMin.coords['pccoords']
+                    # pccharge = self.QMin.coords['pccharge']
+                    # npc = len(pccharge) 
+                    # Eexternal = 0.0
+                    # for a in range(npc - 1):
+                    #     d = pccoords[a+1:] - pccoords[a]
+                    #     r = np.sqrt(np.einsum('ij,ij->i', d, d))
+                    #     Eexternal += pccharge[a] * np.dot(pccharge[a+1:], 1.0 / r)
                 else:
                     Eexternal = 0.
                 logfile = os.path.join(self.QMin.resources["scratchdir"], "master_%i/GAUSSIAN.log" % (job))

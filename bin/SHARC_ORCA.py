@@ -972,8 +972,9 @@ class SHARC_ORCA(SHARC_ABINITIO):
                 grad_mult, _ = self.QMin.control["jobs"][int(job_path.split("_")[1])].values()
                 grad_ext = f"{'singlet' if grad[0] == grad_mult[0] else IToMult[grad[0]].lower()}.root{grad[1] - (grad[0] == grad_mult[0])}"
                 if ground_state:
-                    if self.QMin.resources["orcaversion"] >= (6, 0):
-                        gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad.ground.grad.tmp"))
+                    grad_tmp = os.path.join(scratchdir, job_path, "ORCA.engrad.ground.grad.tmp")
+                    if self.QMin.resources["orcaversion"] >= (6, 0) and os.path.isfile(grad_tmp):
+                        gradients = self._get_grad(grad_tmp)
                     else:
                         gradients = self._get_grad(os.path.join(scratchdir, job_path, "ORCA.engrad"), True)
                 else:

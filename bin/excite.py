@@ -809,7 +809,8 @@ def excite(INFOS, initlist):
         if INFOS["excite"] == 3:
             # get the maximum oscillator strength
             maxprob = 0
-            probs = np.zeros((len(initlist), len(initlist[0].statelist)), dtype=float)
+            nstates = max([len(i.statelist) for i in initlist], default=1)
+            probs = np.zeros((len(initlist), nstates), dtype=float)
             for i, icond in enumerate(initlist):
                 if icond.statelist == []:
                     continue

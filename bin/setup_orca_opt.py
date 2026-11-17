@@ -304,6 +304,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
             alpha = question('Alpha: ', float, [0.02])[0]
             INFOS['sigma'] = sigma
             INFOS['alpha'] = alpha
+            INFOS["use_nacs"] = False
         else:
             requests.append("nacdr")
             INFOS["use_nacs"] = True

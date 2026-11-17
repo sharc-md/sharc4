@@ -47,6 +47,7 @@ kcal_to_Eh         = const.calorie*1E3/const.Avogadro/const.physical_constants["
 speed_of_light_au  = 1./const.alpha
 kJpermol_per_Eh    = const.Avogadro*const.physical_constants["Hartree energy"][0]*1E-3
 kJpermol_to_Eh     = 1./kJpermol_per_Eh
+coulomb_kJpermol   = 1 / (4 * const.pi * const.epsilon_0) * 1e-3 * 1e9 * const.N_A * (const.e ** 2)
 kj2Eh              = kJpermol_to_Eh
 lande_g_factor     = const.physical_constants["electron g factor"][0]
 alpha              = 1./speed_of_light_au
