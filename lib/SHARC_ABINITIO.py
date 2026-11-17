@@ -398,6 +398,7 @@ class SHARC_ABINITIO(SHARC_INTERFACE):
                     f"specified grid {self.QMin.resources['resp_grid']} not available.\n Possible options are 'lebedev', 'random', 'golden_spiral', 'gamess', 'marcus_deserno'"
                 )
 
+        # TODO: This should somehow be possible to switch off, as there are ab initio interfaces that don't need it!
         if (self.QMin.requests["ion"] or self.QMin.requests["overlap"]) and self.QMin.resources["wfoverlap"] != "":
             self.log.debug(self.QMin.resources["wfoverlap"])
             if not is_exec(self.QMin.resources["wfoverlap"]):
