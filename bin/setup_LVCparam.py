@@ -124,6 +124,7 @@ def close_keystrokes():
     shutil.move("KEYSTROKES.tmp", "KEYSTROKES.setup_LVCparam")
 
 
+# TODO: check which functions can be taken from lib
 def question(question, typefunc, default=None, autocomplete=True, ranges=False):
     if typefunc == int or typefunc == float:
         if default is not None and not isinstance(default, list):
@@ -550,6 +551,7 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     if question("Do you want to calculate second order terms (gammas)?", bool, False):
         if question("Gammas from five-point stencils (two more displacements at 2*h per normal mode)?", bool, False):
             INFOS["gammas"] = "five-point stencil"
+        # TODO: for next option, need to check for gradients
         elif question("Gammas from hessian of diabatized gradients at displacements?", bool, False):
             INFOS["gammas"] = "hessian from diabatized gradients"
         elif question("Gammas from hessian from second-order central of energies?", bool, False):
@@ -993,6 +995,7 @@ def write_QM_in(INFOS, displacement_key, displacement_value, displacement_dir):
     # gradient
     if displacement_key == "000_eq" and INFOS["ana_grad"]:
         string += "GRAD\n"
+    # TODO: the next should include gamma_selected_states:
     elif INFOS["gammas"] == "hessian from diabatized gradients":
         string += "GRAD\n"
     if displacement_key == "000_eq" and INFOS["ana_nac"]:
