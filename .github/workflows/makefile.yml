@@ -15,6 +15,6 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: compile
-      run: cd source && make
+      run: cd source && source /opt/intel/oneapi/2025.3/oneapi-vars.sh && make
 
 
