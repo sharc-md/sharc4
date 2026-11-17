@@ -627,7 +627,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             
         # Check relativistic keyword
         if self.QMin.template["relativistic"] is not None:
-            relativistic = self.QMin.template["relativistic"]
+            relativistic = self.QMin.template["relativistic"].uppercase()
             match = re.fullmatch(r"R(\d{2})([OESMC])(\d{2})", relativistic)
             if not match:
                 self.log.error("Invalid relativistic keyword '%s'." %  relativistic)
