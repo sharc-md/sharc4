@@ -110,7 +110,7 @@ class SHARC_OPENMM(SHARC_FAST):
         return "     FAST interface for OpenMM for MM force fields (based on Amber prmtop)"
 
     def get_features(self, KEYSTROKES: Optional[TextIOWrapper] = None) -> set:
-        return {"h", "grad", "overlap", "dm", "multipolar_fit"}
+        return {"h", "grad", "overlap", "dm", "multipolar_fit", "nacdr"}
     
     def _check_charge(self):
         """
@@ -168,9 +168,13 @@ class SHARC_OPENMM(SHARC_FAST):
             self.QMout.multipolar_fit_settings = f" order: 0, grid: default, firstlayer: default, density: default, layers: default"
             self.QMout["multipolar_fit"] = {}
             self.QMout["multipolar_fit"][(self.states[0], self.states[0])] = self._charges.reshape(-1,1)
+
         if self.QMin.requests["dm"]:
             chrg = np.array(self._charges)
             self.QMout["dm"] = np.einsum("ix,i->x", self.QMin.coords["coords"], chrg).reshape((3, 1, 1))
+
+        if self.QMin.requests["nacdr"]:
+            self.QMout["nacdr"] = np.zeros( (1, 1, self.QMin.molecule["natom"], 3), dtype=float )
 
         self.QMout["overlap"] = np.ones((1, 1), dtype=float)
 
@@ -313,7 +317,7 @@ class SHARC_OPENMM(SHARC_FAST):
             self.log.error(f"No tasks found! Tasks are {possibletasks}.")
             raise RuntimeError(f"No tasks found! Tasks are {possibletasks}.")
 
-        not_allowed = {"soc", "dmdr", "socdr", "ion", "nacdr", "theodore"}
+        not_allowed = {"soc", "dmdr", "socdr", "ion", "theodore"}
         if not requests.isdisjoint(not_allowed):
             self.log.error("Cannot perform tasks: {}".format(" ".join(requests & not_allowed)))
             raise RuntimeError("Cannot perform tasks: {}".format(" ".join(requests & not_allowed)))
