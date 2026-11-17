@@ -14,10 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: configure
-      run: cd source
-
-    - name: Install dependencies
-      run: make
+    - name: compile
+      run: cd source && make
 
 
