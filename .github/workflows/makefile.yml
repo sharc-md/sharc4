@@ -15,6 +15,11 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: compile
-      run: cd source && source /opt/intel/oneapi/2025.3/oneapi-vars.sh && make
+      run: source /opt/intel/oneapi/2025.3/oneapi-vars.sh
+           cd pysharc && make
+           cd ..
+           cd source && make
+           ls -l sharc.x
+           
 
 
