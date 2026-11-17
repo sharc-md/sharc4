@@ -519,14 +519,16 @@ class QMout:
     def __getitem__(self, key):
         if key in self.__dict__:
             return self.__dict__[key]
-        elif key not in QMout.__dict__["__annotations__"].keys():
-            raise KeyError
+        # elif key not in QMout.__dict__["__annotations__"].keys():
+        elif key not in QMout.__annotations__:
+            raise KeyError(f"{key} not a valid entry to get in QMout! (Bug)")
         else:
             return None
 
     def __setitem__(self, key, value):
-        if key not in QMout.__dict__["__annotations__"].keys():
-            raise KeyError(f"{key} not a valid entry in QMout! (Bug)")
+        # if key not in QMout.__dict__["__annotations__"].keys():
+        if key not in QMout.__annotations__:
+            raise KeyError(f"{key} not a valid entry to set in QMout! (Bug)")
         self.__dict__[key] = value
 
     def __contains__(self, key):

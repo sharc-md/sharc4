@@ -2274,14 +2274,18 @@ def writeSHARCinput(INFOS, initobject, iconddir, istate, ask=False):
     geomfname = iconddir + "/geom"
     geomf = open(geomfname, "w")
     for atom in initobject.atomlist:
-        geomf.write(atom[:60] + "\n")
+        s = atom.split()
+        line = ' '.join(s[0:6])
+        geomf.write(line + "\n")
     geomf.close()
 
     # velocity file
     velocfname = iconddir + "/veloc"
     velocf = open(velocfname, "w")
     for atom in initobject.atomlist:
-        velocf.write(atom[60:])
+        s = atom.split()
+        line = ' '.join(s[6:9])
+        velocf.write(line + "\n")
     velocf.close()
     
     if INFOS["coeff_bool"]:

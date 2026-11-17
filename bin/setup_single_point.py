@@ -148,6 +148,7 @@ def get_requests(INFOS, interface: SHARC_INTERFACE) -> list[str]:
         "theodore": "THEODORE analysis",
         "ion": "Dyson norms",
     }
+    interface.QMin.molecule['states'] = INFOS['states']
     int_features = interface.get_features(KEYSTROKES=KEYSTROKES)
     available_requests = sorted(set(standard_requests.keys()).intersection(int_features))
     log.debug(available_requests)

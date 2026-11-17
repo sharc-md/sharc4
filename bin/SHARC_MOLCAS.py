@@ -147,6 +147,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "rasscf_thrs": [1e-8, 1e-4, 1e-4],
                 "density_calculation_methods": [],
                 "auto_tighten_convergence": True,
+                "relativistic": None,
             }
         )
 
@@ -180,6 +181,7 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
                 "cholesky_accu": float,
                 "rasscf_thrs": list,  # e, rot egrd
                 "auto_tighten_convergence": bool,
+                "relativistic": str,
             }
         )
 
@@ -622,6 +624,17 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
             case _:
                 self.log.error(f"{self.QMin.template['iterations']} is not a valid iteration value!")
                 raise ValueError()
+            
+        # Check relativistic keyword
+        if self.QMin.template["relativistic"] is not None:
+            relativistic = self.QMin.template["relativistic"].uppercase()
+            match = re.fullmatch(r"R(\d{2})([OESMC])(\d{2})", relativistic)
+            if not match:
+                self.log.error("Invalid relativistic keyword '%s'." %  relativistic)
+                raise ValueError()
+            if int(match.group(3)) > int(match.group(1)):
+                self.log.error("Invalid relativistic keyword '%s' because the second order is larger than the first." %  relativistic)
+                raise ValueError()
 
         # PCM
         if isinstance(self.QMin.template["pcmset"], list):
@@ -828,8 +841,14 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
 
         # Write files
         self.log.debug(f"Writing input files to {workdir}")
-        writefile(os.path.join(workdir, "MOLCAS.xyz"), self._write_geom(qmin.molecule["elements"], qmin.coords["coords"]))
-        writefile(os.path.join(workdir, "MOLCAS.input"), self._write_input(self._gen_tasklist(qmin), qmin))
+        path = os.path.join(workdir, "MOLCAS.xyz")
+        string = self._write_geom(qmin.molecule["elements"], qmin.coords["coords"])
+        self.log.debug(string)
+        writefile(path, string)
+        path = os.path.join(workdir, "MOLCAS.input")
+        string = self._write_input(self._gen_tasklist(qmin), qmin)
+        self.log.debug(string)
+        writefile(path, string)
 
         # Set env variable for master path
         os.environ["master_path"] = os.path.join(qmin.resources["scratchdir"], "master")
@@ -1386,6 +1405,8 @@ class SHARC_MOLCAS(SHARC_ABINITIO):
         input_str = "&SEWARD\n"
         if qmin.template["method"] == "cms-pdft":
             input_str += "GRID INPUT\nNOSC\nEND OF GRID INPUT\n"
+        if qmin.template["relativistic"] is not None:
+            input_str += "RELATIVISTIC\n%s\n" % qmin.template["relativistic"]
         input_str += "\n"
         if qmin.template["origin"].lower() == "none":
             pass

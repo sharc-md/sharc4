@@ -420,7 +420,7 @@ class SHARC_QMMM(SHARC_HYBRID):
                     "NAtoms": self._num_qm + n_link,
                     "IAn": [NUMBERS[a] for a in mms_el],
                     "retain": f"retain {self.QMin.requests['retain']}",
-                    "savedir": mml_savedir,
+                    "savedir": mms_savedir,
                 }
             )
 
