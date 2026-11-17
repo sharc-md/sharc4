@@ -551,16 +551,15 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     if question("Do you want to calculate second order terms (gammas)?", bool, False):
         if question("Gammas from five-point stencils (two more displacements at 2*h per normal mode)?", bool, False):
             INFOS["gammas"] = "five-point stencil"
-        # TODO: for next option, need to check for gradients
-        elif question("Gammas from hessian of diabatized gradients at displacements?", bool, False):
+        elif "grad" in features and question("Gammas from hessian of diabatized gradients at displacements?", bool, False):
             INFOS["gammas"] = "hessian from diabatized gradients"
         elif question("Gammas from hessian from second-order central of energies?", bool, False):
             INFOS["gammas"] = "second order central"
         else:
             print("\nNot including gamma values\n")
     if INFOS["gammas"]:
+        INFOS["gamma_selected_states"] = {}
         if question("Do you want to calculate gamma terms ony for certain states?", bool, default=False):
-            INFOS["gamma_selected_states"] = {}
             for imult, n in enumerate(INFOS["states"]):
                 if n == 0:
                     continue
@@ -569,7 +568,13 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
                 if len(selected) == 0:
                     selected = INFOS["states"]
                 INFOS["gamma_selected_states"][str(imult)] = selected
-            print("\nGamma terms will be calculated for the following states:", INFOS["gamma_selected_states"])
+        else:
+            for imult, n in enumerate(INFOS["states"]):
+                if n == 0:
+                    continue
+                selected = [i for i in range(n)]
+                INFOS["gamma_selected_states"][str(imult)] = selected
+        print("\nGamma terms will be calculated for the following states:", INFOS["gamma_selected_states"])
     print("")
 
     ## -------------------- whether to do gradients or numerical -------------------- ##
@@ -585,13 +590,14 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     if "multipolar_fit" in features:
         print("{:-^60}".format("Multipolar RESP fit for LVC/MM") + "\n")
         INFOS["multipolar_fit"] = question("Do you want to fit an atomwise multipolar density representation for each state?", bool, False)
-        INFOS["needed_requests"].add("multipolar_fit")
+        if INFOS["multipolar_fit"]:
+            INFOS["needed_requests"].add("multipolar_fit")
     else:
         INFOS["multipolar_fit"] = False
     print("Doing multipolar RESP fit: %r\n" % INFOS["multipolar_fit"])
 
     ## -------------------- Whether to do overlaps -------------------- ##
-    if (not INFOS["ana_grad"]) or (not INFOS["ana_nac"]):
+    if (not INFOS["ana_grad"]) or (not INFOS["ana_nac"]) or (INFOS["gammas"]):
         do_overlaps = True
     else:
         do_overlaps = False
@@ -675,6 +681,8 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
 
         # saving input
         INFOS["displacement_magnitudes"] = displacement_magnitudes
+        if INFOS["gammas"]:
+            INFOS["displacement_magnitudes_gamma"] = displacement_magnitudes
 
         # output to user
         print(
@@ -683,7 +691,7 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
         )
 
         ## -------------------- ignore problematic states -------------------- ##
-        if not (INFOS["ana_grad"] and INFOS["ana_nac"]):
+        if not (INFOS["ana_grad"] and INFOS["ana_nac"]) or INFOS["gammas"]:
             print("{:-^60}".format("Intruder states"))
 
             print(
@@ -706,21 +714,24 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
         # getting user input
         one_sided_derivations = {}
 
-        derivations = question(
-            "Choose for which normal modes you want to use one-sided derivation %s:"
-            % (reduce_big_list_to_short_str(INFOS["normal_modes"])),
-            int,
-            [None],
-            ranges=True,
-        )
+        if not INFOS["gammas"]:
+            derivations = question(
+                "Choose for which normal modes you want to use one-sided derivation %s:"
+                % (reduce_big_list_to_short_str(INFOS["normal_modes"])),
+                int,
+                [None],
+                ranges=True,
+            )
 
-        # check if normal mode of input exists and add it to one_sided_derivation dict
-        if derivations != [None]:
-            for k in derivations:
-                if k in INFOS["normal_modes"].keys():
-                    one_sided_derivations[k] = True
-                else:
-                    print("Normal mode %i doesn't exist. Therefore can't set one-sided derivation. Going on with the rest." % (k))
+            # check if normal mode of input exists and add it to one_sided_derivation dict
+            if derivations != [None]:
+                for k in derivations:
+                    if k in INFOS["normal_modes"].keys():
+                        one_sided_derivations[k] = True
+                    else:
+                        print("Normal mode %i doesn't exist. Therefore can't set one-sided derivation. Going on with the rest." % (k))
+        else:
+            print("Gammas selected, automatically unselecting one-sided derivatives.")
 
         # saving input
         INFOS["one-sided_derivations"] = OrderedDict(sorted(one_sided_derivations.items(), key=lambda t: t[0]))
@@ -734,9 +745,13 @@ def get_setup_info(INFOS, interface: SHARC_INTERFACE):
     ## -------------------- Create path information -------------------- ##
     INFOS["result_path"] = "DSPL_RESULTS"
     INFOS["paths"] = {}
+    if INFOS["gammas"]:
+        INFOS["paths_gamma"] = {}
     INFOS["paths"]["000_eq"] = "DSPL_%03i_eq" % (0)
     if INFOS["do_overlaps"]:
         INFOS["paths"].update({k: "DSPL_%s_%s" % tuple(k.split("_")) for k in INFOS["displacements"].keys()})
+        if INFOS["gammas"] == "five-point stencil":
+            INFOS["paths_gamma"].update({k: "DSPL_%s_%s" % tuple(k.split("_")) for k in INFOS["displacements"].keys()})
     # sort dict
     INFOS["paths"] = OrderedDict(sorted(INFOS["paths"].items(), key=lambda t: t[0]))
 
