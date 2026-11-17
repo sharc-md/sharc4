@@ -1559,6 +1559,9 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                 time.sleep(0.5)
                 break
 
+        if len(results) < 3:
+            print("Not enough bootstrap samples to do final analysis!")
+            sys.exit(1)
 
         # final analysis
         print('\n>>>>>>>>>>>>> Finished the bootstrapping cycles ...')
@@ -1582,43 +1585,6 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
             stdev_g = stdev_geom(data, mean_g)
             final_errors[key] = stdev_a
 
-            # get different confidence intervals from percentiles
-            confidence_levels = [
-                0.500,
-                0.683, # 1 sigma
-                0.800,
-                0.900,
-                0.950, # 2 sigma
-                0.990,
-                0.997, # 3 sigma
-            ]
-            intervals = []
-            sorted_data = sorted(data)
-            minimum_tail = 5  # there should be 5 observations each in the lower and upper tail
-
-            for p in confidence_levels:
-                lower_fraction = (1.0 - p) / 2.0
-                upper_fraction = (1.0 + p) / 2.0
-                n_tail = len(data) * (1.0 - p) / 2.0
-                if n_tail < minimum_tail:
-                    continue
-                # Convert fractional percentile positions to indices.
-                # Linear interpolation between neighboring observations.
-                def percentile(fraction):
-                    position = fraction * (len(sorted_data) - 1)
-                    lower_index = int(position)
-                    upper_index = min(lower_index + 1, len(sorted_data) - 1)
-                    weight = position - lower_index
-                    return (
-                        sorted_data[lower_index] * (1.0 - weight)
-                        + sorted_data[upper_index] * weight
-                    )
-
-                lower = percentile(lower_fraction)
-                upper = percentile(upper_fraction)
-                intervals.append((p, lower, upper))
-
-
             string += '''
     Arithmetic analysis:          %12.4f +/- %12.4f
                                             ( +/-   %8.2f %%)
@@ -1640,15 +1606,53 @@ data to this script (bootstrapping data can be prepared with populations.py).'''
                      )
             print(string)
 
-            # print confidence intervals
+
+            # compute and print confidence intervals
+            # get different confidence intervals from percentiles
+            confidence_levels = [
+                0.500,
+                0.683, # 1 sigma
+                0.800,
+                0.900,
+                0.950, # 2 sigma
+                0.990,
+                0.997, # 3 sigma
+            ]
+            sorted_data = sorted(data)
+            minimum_tail = 5  # there should be 5 observations each in the lower and upper tail
             print("    Confidence intervals:")
-            for p, lower, upper in intervals:
+
+            for p in confidence_levels:
+                lower_fraction = (1.0 - p) / 2.0
+                upper_fraction = (1.0 + p) / 2.0
+                n_tail = len(data) * (1.0 - p) / 2.0
+                if n_tail < minimum_tail:
+                    minimum_samples = int(math.ceil(2.0*minimum_tail/(1.0-p)))
+                    print(
+                        '        %5.1f %% CI: insufficient bootstrap samples (requires at least %4i)'
+                        % (p * 100.0, minimum_samples)
+                    )
+                    continue
+                # Convert fractional percentile positions to indices.
+                # Linear interpolation between neighboring observations.
+                def percentile(fraction):
+                    position = fraction * (len(sorted_data) - 1)
+                    lower_index = int(position)
+                    upper_index = min(lower_index + 1, len(sorted_data) - 1)
+                    weight = position - lower_index
+                    return (
+                        sorted_data[lower_index] * (1.0 - weight)
+                        + sorted_data[upper_index] * weight
+                    )
+
+                lower = percentile(lower_fraction)
+                upper = percentile(upper_fraction)
                 print(
                     '        %5.1f %% CI: %12.4f   -   %12.4f'
                     % (p * 100.0, lower, upper)
                 )
-
             string_all += string + '\n'
+
 
             # make histogram
             nhisto = 11
